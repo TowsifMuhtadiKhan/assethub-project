@@ -15,15 +15,6 @@ import type {
   VehicleService,
 } from "../types";
 
-const serviceTypes: ServiceType[] = [
-  "Engine oil / Mobil change",
-  "Brake pads",
-  "Battery",
-  "Tire replacement",
-  "AC servicing",
-  "General servicing",
-  "Other/custom service",
-];
 const expenseCategories = [
   "Fuel",
   "Maintenance",
@@ -34,6 +25,16 @@ const expenseCategories = [
   "Parking",
   "Toll",
   "Car Wash",
+  "Other",
+];
+const maintenanceOptions = [
+  "Mobil change",
+  "Air filter",
+  "Oil filter",
+  "AC filter",
+  "AC servicing",
+  "Brake pads",
+  "General servicing",
   "Other",
 ];
 
@@ -82,6 +83,7 @@ export function VehicleDetailsPage() {
         mileage: Number(form.get("mileage")),
         description: String(form.get("description")),
         paymentMethod: String(form.get("paymentMethod")),
+        fuelLiters: Number(form.get("fuelLiters")) || undefined,
       });
       setExpenses((current) => [created, ...current]);
       event.currentTarget.reset();
@@ -104,7 +106,10 @@ export function VehicleDetailsPage() {
       const form = new FormData(event.currentTarget);
       const created = await createVehicleService({
         vehicleId,
-        serviceType: String(form.get("serviceType")) as ServiceType,
+        serviceType:
+          String(form.get("serviceType")) === "Other"
+            ? (String(form.get("customServiceType")) as ServiceType)
+            : (String(form.get("serviceType")) as ServiceType),
         serviceDate: String(form.get("serviceDate")),
         mileageAtService: Number(form.get("mileageAtService")),
         workshopName: String(form.get("workshopName")),
@@ -193,6 +198,14 @@ export function VehicleDetailsPage() {
             className="field"
           />
           <input
+            name="fuelLiters"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="Fuel liters (for Fuel)"
+            className="field"
+          />
+          <input
             name="paymentMethod"
             required
             placeholder="Payment method"
@@ -212,10 +225,15 @@ export function VehicleDetailsPage() {
           saving={saving}
         >
           <select name="serviceType" className="field sm:col-span-2">
-            {serviceTypes.map((item) => (
+            {maintenanceOptions.map((item) => (
               <option key={item}>{item}</option>
             ))}
           </select>
+          <input
+            name="customServiceType"
+            placeholder="If Other: write maintenance type"
+            className="field sm:col-span-2"
+          />
           <input name="serviceDate" type="date" required className="field" />
           <input
             name="mileageAtService"
@@ -249,6 +267,17 @@ export function VehicleDetailsPage() {
         </RecordForm>
       </div>
       <div className="grid gap-6 xl:grid-cols-2">
+        <RecordList
+          title="Fuel log"
+          empty="No fuel entries for this vehicle."
+          items={expenses
+            .filter((item) => item.category === "Fuel")
+            .map((item) => ({
+              title: `${item.fuelLiters ?? 0} L fuel`,
+              date: item.date,
+              detail: `${item.amount.toLocaleString()} · ${item.description} · ${item.paymentMethod}`,
+            }))}
+        />
         <RecordList
           title="Expenses"
           empty="No expenses for this vehicle."

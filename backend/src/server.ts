@@ -74,6 +74,7 @@ const expenseInput = z.object({
   description: z.string().min(1),
   paymentMethod: z.string().min(1),
   receiptUrl: z.string().optional(),
+  fuelLiters: z.coerce.number().positive().optional(),
 });
 const maintenanceInput = z.object({
   serviceType: z.string().min(1),
@@ -91,6 +92,16 @@ const propertyInput = z.object({
   type: z.string().min(1),
   unitsCount: z.coerce.number().int().nonnegative().optional(),
   occupancyRate: z.coerce.number().int().min(0).max(100).optional(),
+});
+const unitInput = z.object({
+  unitNumber: z.string().min(1),
+  unitType: z.string().min(1),
+  tenantName: z.string().optional(),
+  monthlyRent: z.coerce.number().nonnegative(),
+});
+const rentInput = z.object({
+  month: z.string().min(1),
+  amountPaid: z.coerce.number().nonnegative(),
 });
 const tokenFor = (id: string) =>
   jwt.sign({ sub: id }, jwtSecret, { expiresIn: "30d" });
@@ -242,6 +253,101 @@ app.post("/api/properties", auth, async (req: AuthRequest, res) => {
   }
 });
 
+app.get("/api/properties/:id/units", auth, async (req: AuthRequest, res) => {
+  res.json(
+    await prisma.propertyUnit.findMany({
+      where: { propertyId: String(req.params.id), ownerId: req.userId },
+      include: { rentPayments: true },
+      orderBy: { unitNumber: "asc" },
+    }),
+  );
+});
+app.post("/api/properties/:id/units", auth, async (req: AuthRequest, res) => {
+  try {
+    const input = unitInput.parse(req.body);
+    const property = await prisma.property.findFirst({
+      where: { id: String(req.params.id), ownerId: req.userId },
+    });
+    if (!property)
+      return res.status(404).json({ message: "Property not found" });
+    const unit = await prisma.propertyUnit.create({
+      data: {
+        ...input,
+        ownerId: req.userId!,
+        propertyId: property.id,
+        tenantName: input.tenantName ?? "",
+      },
+    });
+    res.status(201).json(unit);
+  } catch (error) {
+    res
+      .status(400)
+      .json({
+        message:
+          error instanceof Error ? error.message : "Could not create unit",
+      });
+  }
+});
+app.patch(
+  "/api/properties/:propertyId/units/:unitId",
+  auth,
+  async (req: AuthRequest, res) => {
+    try {
+      const input = unitInput.partial().parse(req.body);
+      const result = await prisma.propertyUnit.updateMany({
+        where: {
+          id: String(req.params.unitId),
+          propertyId: String(req.params.propertyId),
+          ownerId: req.userId,
+        },
+        data: input,
+      });
+      if (!result.count)
+        return res.status(404).json({ message: "Unit not found" });
+      res.json(
+        await prisma.propertyUnit.findUnique({
+          where: { id: String(req.params.unitId) },
+        }),
+      );
+    } catch (error) {
+      res
+        .status(400)
+        .json({
+          message:
+            error instanceof Error ? error.message : "Could not update unit",
+        });
+    }
+  },
+);
+app.post(
+  "/api/properties/:propertyId/units/:unitId/rent",
+  auth,
+  async (req: AuthRequest, res) => {
+    try {
+      const input = rentInput.parse(req.body);
+      const unit = await prisma.propertyUnit.findFirst({
+        where: {
+          id: String(req.params.unitId),
+          propertyId: String(req.params.propertyId),
+          ownerId: req.userId,
+        },
+      });
+      if (!unit) return res.status(404).json({ message: "Unit not found" });
+      const payment = await prisma.rentPayment.create({
+        data: { ...input, ownerId: req.userId!, unitId: unit.id },
+      });
+      res.status(201).json(payment);
+    } catch (error) {
+      res
+        .status(400)
+        .json({
+          message:
+            error instanceof Error ? error.message : "Could not save rent",
+        });
+    }
+  },
+);
+
 app.get("/api/vehicles/:id/expenses", auth, async (req: AuthRequest, res) =>
   res.json(
     await prisma.vehicleExpense.findMany({
@@ -263,6 +369,7 @@ app.post("/api/vehicles/:id/expenses", auth, async (req: AuthRequest, res) => {
         ownerId: req.userId!,
         vehicleId: vehicle.id,
         mileage: input.mileage ?? 0,
+        fuelLiters: input.fuelLiters,
       },
     });
     res.status(201).json(row);

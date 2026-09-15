@@ -13,9 +13,7 @@ export function PropertiesPage() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [unitGroups, setUnitGroups] = useState([
-    { type: "Room", count: 1 },
-  ]);
+  const [unitGroups, setUnitGroups] = useState([{ type: "Room", count: 1 }]);
 
   useEffect(() => {
     apiRequest<Property[]>("/properties")
@@ -142,7 +140,8 @@ export function PropertiesPage() {
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Properties</h1>
             <p className="mt-2 text-slate-600">
-              Add a flat, rooms, shops, or floors. Each unit keeps its own tenant, fixed rent, and monthly payment history.
+              Add a flat, rooms, shops, or floors. Each unit keeps its own
+              tenant, fixed rent, and monthly payment history.
             </p>
           </div>
           <button
@@ -324,20 +323,38 @@ export function PropertiesPage() {
             </select>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-semibold text-slate-700">Unit groups</label>
+                <label className="text-sm font-semibold text-slate-700">
+                  Unit groups
+                </label>
                 <button
                   type="button"
-                  onClick={() => setUnitGroups((groups) => [...groups, { type: "Room", count: 1 }])}
+                  onClick={() =>
+                    setUnitGroups((groups) => [
+                      ...groups,
+                      { type: "Room", count: 1 },
+                    ])
+                  }
                   className="text-sm font-semibold text-cyan-700"
                 >
                   + Add another type
                 </button>
               </div>
               {unitGroups.map((group, index) => (
-                <div key={`${index}-${group.type}`} className="grid grid-cols-[1fr_100px_auto] gap-2">
+                <div
+                  key={`${index}-${group.type}`}
+                  className="grid grid-cols-[1fr_100px_auto] gap-2"
+                >
                   <select
                     value={group.type}
-                    onChange={(event) => setUnitGroups((groups) => groups.map((item, itemIndex) => itemIndex === index ? { ...item, type: event.target.value } : item))}
+                    onChange={(event) =>
+                      setUnitGroups((groups) =>
+                        groups.map((item, itemIndex) =>
+                          itemIndex === index
+                            ? { ...item, type: event.target.value }
+                            : item,
+                        ),
+                      )
+                    }
                     className={field}
                   >
                     <option>Room</option>
@@ -352,14 +369,29 @@ export function PropertiesPage() {
                     type="number"
                     min="1"
                     value={group.count}
-                    onChange={(event) => setUnitGroups((groups) => groups.map((item, itemIndex) => itemIndex === index ? { ...item, count: Number(event.target.value) || 1 } : item))}
+                    onChange={(event) =>
+                      setUnitGroups((groups) =>
+                        groups.map((item, itemIndex) =>
+                          itemIndex === index
+                            ? {
+                                ...item,
+                                count: Number(event.target.value) || 1,
+                              }
+                            : item,
+                        ),
+                      )
+                    }
                     className={field}
                     aria-label={`${group.type} quantity`}
                   />
                   <button
                     type="button"
                     disabled={unitGroups.length === 1}
-                    onClick={() => setUnitGroups((groups) => groups.filter((_, itemIndex) => itemIndex !== index))}
+                    onClick={() =>
+                      setUnitGroups((groups) =>
+                        groups.filter((_, itemIndex) => itemIndex !== index),
+                      )
+                    }
                     className="px-2 text-slate-400 disabled:opacity-30"
                     aria-label="Remove unit group"
                   >
@@ -367,7 +399,9 @@ export function PropertiesPage() {
                   </button>
                 </div>
               ))}
-              <p className="text-xs text-slate-500">Example: Room 40, Shop 5, Floor 1.</p>
+              <p className="text-xs text-slate-500">
+                Example: Room 40, Shop 5, Floor 1.
+              </p>
             </div>
             <button className="rounded-xl bg-cyan-600 px-4 py-2.5 font-semibold text-white">
               Create property and units

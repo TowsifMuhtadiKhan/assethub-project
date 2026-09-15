@@ -16,6 +16,8 @@ model User {
   expenses    VehicleExpense[]
   maintenance Maintenance[]
   properties  Property[]
+  units       PropertyUnit[]
+  rentPayments RentPayment[]
 }
 
 model Vehicle {
@@ -52,6 +54,7 @@ model VehicleExpense {
   description   String
   paymentMethod String
   receiptUrl    String?
+  fuelLiters    Decimal? @db.Decimal(10, 2)
   createdAt     DateTime @default(now())
   owner         User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   vehicle       Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
@@ -89,6 +92,35 @@ model Property {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   owner          User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  units          PropertyUnit[]
 
   @@index([ownerId, createdAt])
+}
+
+model PropertyUnit {
+  id           String        @id @default(cuid())
+  ownerId      String
+  propertyId   String
+  unitNumber   String
+  unitType     String
+  tenantName   String        @default("")
+  monthlyRent  Decimal       @db.Decimal(14, 2)
+  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  property     Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  rentPayments RentPayment[]
+
+  @@index([ownerId, propertyId])
+}
+
+model RentPayment {
+  id          String       @id @default(cuid())
+  ownerId     String
+  unitId      String
+  month       String
+  amountPaid  Decimal      @db.Decimal(14, 2)
+  paymentDate DateTime     @default(now())
+  owner       User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  unit        PropertyUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, unitId, month])
 }

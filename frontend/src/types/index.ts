@@ -158,6 +158,7 @@ export type VehicleExpense = {
   description: string;
   receiptUrl?: string;
   paymentMethod: string;
+  fuelLiters?: number;
 };
 
 export type Property = {
@@ -181,6 +182,8 @@ export type PropertyUnit = {
   securityDeposit: number;
   currentTenant: string;
   status: UnitStatus;
+  tenantName?: string;
+  rentPayments?: RentPayment[];
 };
 
 export type Tenant = {

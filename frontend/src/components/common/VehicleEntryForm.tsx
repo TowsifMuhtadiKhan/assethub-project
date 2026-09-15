@@ -28,7 +28,9 @@ export function VehicleEntryForm({
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (!form.name || !form.brand || !form.model || !form.registrationNumber) {
-      setValidationError("Vehicle name, brand, model, and registration number are required.");
+      setValidationError(
+        "Vehicle name, brand, model, and registration number are required.",
+      );
       return;
     }
 
@@ -66,23 +68,88 @@ export function VehicleEntryForm({
     });
   };
 
-  const inputClass = "rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:border-cyan-500";
+  const inputClass =
+    "rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:border-cyan-500";
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 text-lg font-semibold text-slate-900">Add {type}</div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <input required value={form.name} onChange={(event) => updateField("name", event.target.value)} placeholder="Vehicle name" className={inputClass} />
-        <input required value={form.brand} onChange={(event) => updateField("brand", event.target.value)} placeholder="Brand (for example Toyota)" className={inputClass} />
-        <input required value={form.model} onChange={(event) => updateField("model", event.target.value)} placeholder="Model (for example Premio)" className={inputClass} />
-        <input required type="number" value={form.year} onChange={(event) => updateField("year", Number(event.target.value))} placeholder="Year" className={inputClass} />
-        <input required value={form.registrationNumber} onChange={(event) => updateField("registrationNumber", event.target.value)} placeholder="Dhaka Metro LA 33-3617" className={inputClass} />
-        <input type="number" min="0" value={form.mileage} onChange={(event) => updateField("mileage", Number(event.target.value))} placeholder="Current mileage" className={inputClass} />
-        <input value={form.color} onChange={(event) => updateField("color", event.target.value)} placeholder="Color" className={`${inputClass} md:col-span-2`} />
-        <textarea value={form.notes} onChange={(event) => updateField("notes", event.target.value)} placeholder="Notes" className={`${inputClass} min-h-[110px] md:col-span-2`} />
+    <form
+      onSubmit={handleSubmit}
+      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+    >
+      <div className="mb-4 text-lg font-semibold text-slate-900">
+        Add {type}
       </div>
-      {validationError && <p className="mt-3 text-sm text-rose-600">{validationError}</p>}
-      <button type="submit" className="mt-4 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500">Save {type}</button>
+      <div className="grid gap-4 md:grid-cols-2">
+        <input
+          required
+          value={form.name}
+          onChange={(event) => updateField("name", event.target.value)}
+          placeholder="Vehicle name"
+          className={inputClass}
+        />
+        <input
+          required
+          value={form.brand}
+          onChange={(event) => updateField("brand", event.target.value)}
+          placeholder="Brand (for example Toyota)"
+          className={inputClass}
+        />
+        <input
+          required
+          value={form.model}
+          onChange={(event) => updateField("model", event.target.value)}
+          placeholder="Model (for example Premio)"
+          className={inputClass}
+        />
+        <input
+          required
+          type="number"
+          value={form.year}
+          onChange={(event) => updateField("year", Number(event.target.value))}
+          placeholder="Year"
+          className={inputClass}
+        />
+        <input
+          required
+          value={form.registrationNumber}
+          onChange={(event) =>
+            updateField("registrationNumber", event.target.value)
+          }
+          placeholder="Dhaka Metro LA 33-3617"
+          className={inputClass}
+        />
+        <input
+          type="number"
+          min="0"
+          value={form.mileage}
+          onChange={(event) =>
+            updateField("mileage", Number(event.target.value))
+          }
+          placeholder="Current mileage"
+          className={inputClass}
+        />
+        <input
+          value={form.color}
+          onChange={(event) => updateField("color", event.target.value)}
+          placeholder="Color"
+          className={`${inputClass} md:col-span-2`}
+        />
+        <textarea
+          value={form.notes}
+          onChange={(event) => updateField("notes", event.target.value)}
+          placeholder="Notes"
+          className={`${inputClass} min-h-[110px] md:col-span-2`}
+        />
+      </div>
+      {validationError && (
+        <p className="mt-3 text-sm text-rose-600">{validationError}</p>
+      )}
+      <button
+        type="submit"
+        className="mt-4 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500"
+      >
+        Save {type}
+      </button>
     </form>
   );
 }
