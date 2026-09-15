@@ -51,8 +51,9 @@ export function AppLayout() {
                 <button
                   type="button"
                   aria-label="Open profile menu"
+                  title="Open profile menu"
                   onClick={() => setProfileOpen((open) => !open)}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 text-slate-700 hover:bg-slate-100"
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-slate-700 shadow-sm hover:bg-slate-50"
                 >
                   <CircleUserRound className="h-6 w-6 text-cyan-600" />
                   <span className="hidden max-w-36 truncate text-sm font-medium sm:block">
