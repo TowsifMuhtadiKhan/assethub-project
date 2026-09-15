@@ -1,11 +1,13 @@
-import { Bell, Menu, Plus, Search } from "lucide-react";
+import { Bell, CircleUserRound, Menu, Plus, Search } from "lucide-react";
 import { useNavigate, Outlet } from "react-router-dom";
 import { useState } from "react";
 import { Sidebar } from "../common/Sidebar";
+import { clearToken, getUserEmail } from "../../services/api";
 
 export function AppLayout() {
   const navigate = useNavigate();
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900">
@@ -45,6 +47,40 @@ export function AppLayout() {
                   3
                 </span>
               </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-label="Open profile menu"
+                  onClick={() => setProfileOpen((open) => !open)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 text-slate-700 hover:bg-slate-100"
+                >
+                  <CircleUserRound className="h-6 w-6 text-cyan-600" />
+                  <span className="hidden max-w-36 truncate text-sm font-medium sm:block">
+                    {getUserEmail() || "Account"}
+                  </span>
+                </button>
+                {profileOpen && (
+                  <div className="absolute right-0 top-12 z-40 w-56 rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                      <CircleUserRound className="h-7 w-7 text-cyan-600" />
+                      <span className="truncate text-sm font-medium text-slate-700">
+                        {getUserEmail() || "Account"}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearToken();
+                        localStorage.removeItem("assethub-api-user-email");
+                        window.location.reload();
+                      }}
+                      className="mt-3 w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </header>
 

@@ -4,19 +4,23 @@ import type { Vehicle } from "../../types";
 export function VehicleEntryForm({
   type,
   onSubmit,
+  initialVehicle,
+  submitLabel,
 }: {
   type: "Car" | "Bike";
   onSubmit: (payload: Partial<Vehicle> & { type: "Car" | "Bike" }) => void;
+  initialVehicle?: Vehicle;
+  submitLabel?: string;
 }) {
   const [form, setForm] = useState({
-    name: "",
-    brand: "",
-    model: "",
-    year: new Date().getFullYear(),
-    registrationNumber: "",
-    mileage: 0,
-    color: "",
-    notes: "",
+    name: initialVehicle?.name ?? "",
+    brand: initialVehicle?.brand ?? "",
+    model: initialVehicle?.model ?? "",
+    year: initialVehicle?.year ?? new Date().getFullYear(),
+    registrationNumber: initialVehicle?.registrationNumber ?? "",
+    mileage: initialVehicle?.mileage ?? 0,
+    color: initialVehicle?.color ?? "",
+    notes: initialVehicle?.notes ?? "",
   });
   const [validationError, setValidationError] = useState("");
 
@@ -148,7 +152,7 @@ export function VehicleEntryForm({
         type="submit"
         className="mt-4 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500"
       >
-        Save {type}
+        {submitLabel ?? `Save ${type}`}
       </button>
     </form>
   );

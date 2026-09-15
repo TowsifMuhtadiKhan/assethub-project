@@ -80,9 +80,10 @@ export function VehicleDetailsPage() {
     try {
       const form = new FormData(formElement);
       const file = form.get("file");
-      const receiptUrl = file instanceof File && file.size > 0
-        ? await fileToDataUrl(file)
-        : undefined;
+      const receiptUrl =
+        file instanceof File && file.size > 0
+          ? await fileToDataUrl(file)
+          : undefined;
       const created = await createVehicleExpense({
         vehicleId,
         date: String(form.get("date")),
@@ -115,9 +116,10 @@ export function VehicleDetailsPage() {
     try {
       const form = new FormData(formElement);
       const file = form.get("file");
-      const receiptUrl = file instanceof File && file.size > 0
-        ? await fileToDataUrl(file)
-        : undefined;
+      const receiptUrl =
+        file instanceof File && file.size > 0
+          ? await fileToDataUrl(file)
+          : undefined;
       const created = await createVehicleService({
         vehicleId,
         serviceType:

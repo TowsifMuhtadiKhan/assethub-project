@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Pencil, Plus, Trash2, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { VehicleEntryForm } from "../components/common/VehicleEntryForm";
-import { createVehicle, listVehicles } from "../services/vehicleService";
+import {
+  createVehicle,
+  deleteVehicle,
+  listVehicles,
+  updateVehicle,
+} from "../services/vehicleService";
 import type { Vehicle } from "../types";
 
 export function VehicleEntryPage({ type }: { type: "Car" | "Bike" }) {
@@ -11,6 +16,7 @@ export function VehicleEntryPage({ type }: { type: "Car" | "Bike" }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [formOpen, setFormOpen] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState<Vehicle>();
 
   useEffect(() => {
     const load = async () => {
@@ -37,17 +43,50 @@ export function VehicleEntryPage({ type }: { type: "Car" | "Bike" }) {
   ) => {
     setError("");
     try {
-      const created = await createVehicle(payload);
-      setVehicles((current) => [
-        created,
-        ...current.filter((vehicle) => vehicle.type === type),
-      ]);
+      const saved = editingVehicle
+        ? await updateVehicle(editingVehicle.id, payload)
+        : await createVehicle(payload);
+      setVehicles((current) =>
+        editingVehicle
+          ? current.map((vehicle) =>
+              vehicle.id === saved.id ? saved : vehicle,
+            )
+          : [saved, ...current],
+      );
       setFormOpen(false);
+      setEditingVehicle(undefined);
     } catch (saveError) {
       setError(
         saveError instanceof Error
           ? saveError.message
           : "Could not save vehicle.",
+      );
+    }
+  };
+
+  const openEdit = (vehicle: Vehicle) => {
+    setEditingVehicle(vehicle);
+    setFormOpen(true);
+  };
+
+  const removeVehicle = async (vehicle: Vehicle) => {
+    if (
+      !window.confirm(
+        `Delete ${vehicle.name}? This will also delete its records.`,
+      )
+    )
+      return;
+    setError("");
+    try {
+      await deleteVehicle(vehicle.id);
+      setVehicles((current) =>
+        current.filter((item) => item.id !== vehicle.id),
+      );
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Could not delete vehicle.",
       );
     }
   };
@@ -74,7 +113,10 @@ export function VehicleEntryPage({ type }: { type: "Car" | "Bike" }) {
           </div>
           <button
             type="button"
-            onClick={() => setFormOpen(true)}
+            onClick={() => {
+              setEditingVehicle(undefined);
+              setFormOpen(true);
+            }}
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500"
           >
             <Plus className="h-4 w-4" />
@@ -106,6 +148,7 @@ export function VehicleEntryPage({ type }: { type: "Car" | "Bike" }) {
                   <th className="px-5 py-4 font-semibold">Registration</th>
                   <th className="px-5 py-4 font-semibold">Mileage</th>
                   <th className="px-5 py-4 font-semibold">Status</th>
+                  <th className="px-5 py-4 font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -141,6 +184,29 @@ export function VehicleEntryPage({ type }: { type: "Car" | "Bike" }) {
                         {vehicle.status}
                       </span>
                     </td>
+                    <td className="px-5 py-4">
+                      <div
+                        className="flex items-center gap-2"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => openEdit(vehicle)}
+                          className="rounded-lg p-2 text-cyan-700 hover:bg-cyan-50"
+                          aria-label={`Edit ${vehicle.name}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void removeVehicle(vehicle)}
+                          className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"
+                          aria-label={`Delete ${vehicle.name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -162,13 +228,21 @@ export function VehicleEntryPage({ type }: { type: "Car" | "Bike" }) {
               <button
                 type="button"
                 aria-label="Close form"
-                onClick={() => setFormOpen(false)}
+                onClick={() => {
+                  setFormOpen(false);
+                  setEditingVehicle(undefined);
+                }}
                 className="rounded-full bg-white p-2 text-slate-500 shadow hover:text-slate-900"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <VehicleEntryForm type={type} onSubmit={handleSubmit} />
+            <VehicleEntryForm
+              type={type}
+              onSubmit={handleSubmit}
+              initialVehicle={editingVehicle}
+              submitLabel={editingVehicle ? "Update vehicle" : undefined}
+            />
           </div>
         </div>
       )}
