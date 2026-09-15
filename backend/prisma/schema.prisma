@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String           @id @default(cuid())
+  email       String           @unique
+  passwordHash String
+  createdAt   DateTime         @default(now())
+  vehicles    Vehicle[]
+  expenses    VehicleExpense[]
+  maintenance Maintenance[]
+  properties  Property[]
+}
+
+model Vehicle {
+  id                 String           @id @default(cuid())
+  ownerId            String
+  name               String
+  type               String
+  brand              String
+  model              String
+  year               Int
+  registrationNumber String           @default("")
+  mileage            Int              @default(0)
+  color              String           @default("")
+  notes              String           @default("")
+  image              String           @default("")
+  status             String           @default("GOOD")
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  owner              User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  expenses           VehicleExpense[]
+  maintenance        Maintenance[]
+
+  @@index([ownerId, createdAt])
+}
+
+model VehicleExpense {
+  id            String   @id @default(cuid())
+  ownerId       String
+  vehicleId     String
+  date          DateTime
+  category      String
+  amount        Decimal  @db.Decimal(14, 2)
+  mileage       Int      @default(0)
+  description   String
+  paymentMethod String
+  receiptUrl    String?
+  createdAt     DateTime @default(now())
+  owner         User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  vehicle       Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, vehicleId, date])
+}
+
+model Maintenance {
+  id               String   @id @default(cuid())
+  ownerId          String
+  vehicleId        String
+  serviceType      String
+  serviceDate      DateTime
+  mileageAtService Int      @default(0)
+  workshopName     String
+  cost             Decimal  @db.Decimal(14, 2)
+  description      String
+  nextServiceDate  DateTime?
+  receiptUrl       String?
+  createdAt        DateTime @default(now())
+  owner            User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  vehicle          Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, vehicleId, serviceDate])
+}
+
+model Property {
+  id             String   @id @default(cuid())
+  ownerId        String
+  name           String
+  location       String
+  type           String
+  unitsCount     Int      @default(0)
+  occupancyRate  Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  owner          User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, createdAt])
+}
