@@ -46,7 +46,9 @@ export function VehicleDetailsPage() {
   const [services, setServices] = useState<VehicleService[]>([]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<"fuel" | "maintenance" | "expense">("fuel");
+  const [activeTab, setActiveTab] = useState<
+    "fuel" | "maintenance" | "expense"
+  >("fuel");
 
   useEffect(() => {
     Promise.all([
@@ -77,6 +79,10 @@ export function VehicleDetailsPage() {
     setError("");
     try {
       const form = new FormData(formElement);
+      const file = form.get("file");
+      const receiptUrl = file instanceof File && file.size > 0
+        ? await fileToDataUrl(file)
+        : undefined;
       const created = await createVehicleExpense({
         vehicleId,
         date: String(form.get("date")),
@@ -86,6 +92,7 @@ export function VehicleDetailsPage() {
         description: String(form.get("description")),
         paymentMethod: String(form.get("paymentMethod")),
         fuelLiters: Number(form.get("fuelLiters")) || undefined,
+        receiptUrl,
       });
       setExpenses((current) => [created, ...current]);
       formElement.reset();
@@ -107,6 +114,10 @@ export function VehicleDetailsPage() {
     setError("");
     try {
       const form = new FormData(formElement);
+      const file = form.get("file");
+      const receiptUrl = file instanceof File && file.size > 0
+        ? await fileToDataUrl(file)
+        : undefined;
       const created = await createVehicleService({
         vehicleId,
         serviceType:
@@ -126,6 +137,7 @@ export function VehicleDetailsPage() {
         nextServiceDate: String(form.get("nextServiceDate")),
         nextServiceMileage: 0,
         reminderEnabled: true,
+        receiptUrl,
       });
       setServices((current) => [created, ...current]);
       formElement.reset();
@@ -158,12 +170,27 @@ export function VehicleDetailsPage() {
   };
   const fuelExpenses = expenses.filter((item) => item.category === "Fuel");
   const otherExpenses = expenses.filter((item) => item.category !== "Fuel");
-  const totalFuel = fuelExpenses.reduce((sum, item) => sum + Number(item.amount), 0);
-  const totalMaintenance = services.reduce((sum, item) => sum + Number(item.cost), 0);
-  const totalOtherExpenses = otherExpenses.reduce((sum, item) => sum + Number(item.amount), 0);
-  const lastMonthFuel = fuelExpenses.filter((item) => isLastMonth(item.date)).reduce((sum, item) => sum + Number(item.amount), 0);
-  const lastMonthMaintenance = services.filter((item) => isLastMonth(item.serviceDate)).reduce((sum, item) => sum + Number(item.cost), 0);
-  const lastMonthOtherExpenses = otherExpenses.filter((item) => isLastMonth(item.date)).reduce((sum, item) => sum + Number(item.amount), 0);
+  const totalFuel = fuelExpenses.reduce(
+    (sum, item) => sum + Number(item.amount),
+    0,
+  );
+  const totalMaintenance = services.reduce(
+    (sum, item) => sum + Number(item.cost),
+    0,
+  );
+  const totalOtherExpenses = otherExpenses.reduce(
+    (sum, item) => sum + Number(item.amount),
+    0,
+  );
+  const lastMonthFuel = fuelExpenses
+    .filter((item) => isLastMonth(item.date))
+    .reduce((sum, item) => sum + Number(item.amount), 0);
+  const lastMonthMaintenance = services
+    .filter((item) => isLastMonth(item.serviceDate))
+    .reduce((sum, item) => sum + Number(item.cost), 0);
+  const lastMonthOtherExpenses = otherExpenses
+    .filter((item) => isLastMonth(item.date))
+    .reduce((sum, item) => sum + Number(item.amount), 0);
   const formatMoney = (amount: number) => `৳${amount.toLocaleString("en-BD")}`;
 
   return (
@@ -235,110 +262,149 @@ export function VehicleDetailsPage() {
           ))}
         </div>
         {activeTab === "fuel" && (
-          <RecordForm title="Add fuel entry" onSubmit={saveExpense} saving={saving}>
+          <RecordForm
+            title="Add fuel entry"
+            onSubmit={saveExpense}
+            saving={saving}
+          >
             <input name="date" type="date" required className="field" />
-            <input name="amount" type="number" min="0" required placeholder="Fuel amount" className="field" />
-            <input name="fuelLiters" type="number" min="0" step="0.01" required placeholder="Liters" className="field" />
-            <input name="mileage" type="number" min="0" placeholder="Mileage" className="field" />
+            <input
+              name="amount"
+              type="number"
+              min="0"
+              required
+              placeholder="Fuel amount"
+              className="field"
+            />
+            <input
+              name="fuelLiters"
+              type="number"
+              min="0"
+              step="0.01"
+              required
+              placeholder="Liters"
+              className="field"
+            />
+            <input
+              name="mileage"
+              type="number"
+              min="0"
+              placeholder="Mileage"
+              className="field"
+            />
             <input type="hidden" name="category" value="Fuel" />
-            <input name="paymentMethod" required placeholder="Payment method" className="field" />
-            <input name="description" required placeholder="Fuel station or note" className="field sm:col-span-2" />
+            <input
+              name="paymentMethod"
+              required
+              placeholder="Payment method"
+              className="field"
+            />
+            <input
+              name="description"
+              required
+              placeholder="Fuel station or note"
+              className="field sm:col-span-2"
+            />
             <FilePicker />
           </RecordForm>
         )}
         {activeTab === "expense" && (
-        <RecordForm title="Add expense" onSubmit={saveExpense} saving={saving}>
-          <input name="date" type="date" required className="field" />
-          <select name="category" className="field" defaultValue="Fuel">
-            {expenseCategories.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-          <input
-            name="amount"
-            type="number"
-            min="0"
-            required
-            placeholder="Amount"
-            className="field"
-          />
-          <input
-            name="mileage"
-            type="number"
-            min="0"
-            placeholder="Mileage"
-            className="field"
-          />
-          <input
-            name="fuelLiters"
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="Fuel liters (for Fuel)"
-            className="field"
-          />
-          <input
-            name="paymentMethod"
-            required
-            placeholder="Payment method"
-            className="field sm:col-span-2"
-          />
-          <input
-            name="description"
-            required
-            placeholder="What was this expense for?"
-            className="field sm:col-span-2"
-          />
-          <FilePicker />
-        </RecordForm>
+          <RecordForm
+            title="Add expense"
+            onSubmit={saveExpense}
+            saving={saving}
+          >
+            <input name="date" type="date" required className="field" />
+            <select name="category" className="field" defaultValue="Fuel">
+              {expenseCategories.map((item) => (
+                <option key={item}>{item}</option>
+              ))}
+            </select>
+            <input
+              name="amount"
+              type="number"
+              min="0"
+              required
+              placeholder="Amount"
+              className="field"
+            />
+            <input
+              name="mileage"
+              type="number"
+              min="0"
+              placeholder="Mileage"
+              className="field"
+            />
+            <input
+              name="fuelLiters"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Fuel liters (for Fuel)"
+              className="field"
+            />
+            <input
+              name="paymentMethod"
+              required
+              placeholder="Payment method"
+              className="field sm:col-span-2"
+            />
+            <input
+              name="description"
+              required
+              placeholder="What was this expense for?"
+              className="field sm:col-span-2"
+            />
+            <FilePicker />
+          </RecordForm>
         )}
         {activeTab === "maintenance" && (
-        <RecordForm
-          title="Add maintenance"
-          onSubmit={saveService}
-          saving={saving}
-        >
-          <select name="serviceType" className="field sm:col-span-2">
-            {maintenanceOptions.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-          <input
-            name="customServiceType"
-            placeholder="If Other: write maintenance type"
-            className="field sm:col-span-2"
-          />
-          <input name="serviceDate" type="date" required className="field" />
-          <input
-            name="mileageAtService"
-            type="number"
-            required
-            placeholder="Mileage at service"
-            className="field"
-          />
-          <input
-            name="workshopName"
-            required
-            placeholder="Workshop name"
-            className="field"
-          />
-          <input
-            name="cost"
-            type="number"
-            min="0"
-            required
-            placeholder="Total cost"
-            className="field"
-          />
-          <input name="nextServiceDate" type="date" className="field" />
-          <input
-            name="description"
-            required
-            placeholder="Work completed"
-            className="field"
-          />
-          <FilePicker />
-        </RecordForm>
+          <RecordForm
+            title="Add maintenance"
+            onSubmit={saveService}
+            saving={saving}
+          >
+            <select name="serviceType" className="field sm:col-span-2">
+              {maintenanceOptions.map((item) => (
+                <option key={item}>{item}</option>
+              ))}
+            </select>
+            <input
+              name="customServiceType"
+              placeholder="If Other: write maintenance type"
+              className="field sm:col-span-2"
+            />
+            <input name="serviceDate" type="date" required className="field" />
+            <input
+              name="mileageAtService"
+              type="number"
+              required
+              placeholder="Mileage at service"
+              className="field"
+            />
+            <input
+              name="workshopName"
+              required
+              placeholder="Workshop name"
+              className="field"
+            />
+            <input
+              name="cost"
+              type="number"
+              min="0"
+              required
+              placeholder="Total cost"
+              className="field"
+            />
+            <input name="nextServiceDate" type="date" className="field" />
+            <input
+              name="description"
+              required
+              placeholder="Work completed"
+              className="field"
+            />
+            <FilePicker />
+          </RecordForm>
         )}
       </div>
       <div className="grid gap-6 xl:grid-cols-2">
@@ -376,6 +442,19 @@ export function VehicleDetailsPage() {
       </div>
     </div>
   );
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  if (file.size > 5 * 1024 * 1024) {
+    return Promise.reject(new Error("Attachment must be 5 MB or smaller."));
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Could not read attachment."));
+    reader.readAsDataURL(file);
+  });
 }
 
 function CostCard({
