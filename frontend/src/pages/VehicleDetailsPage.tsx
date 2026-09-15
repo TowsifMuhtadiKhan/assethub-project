@@ -46,6 +46,7 @@ export function VehicleDetailsPage() {
   const [services, setServices] = useState<VehicleService[]>([]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<"fuel" | "maintenance" | "expense">("fuel");
 
   useEffect(() => {
     Promise.all([
@@ -71,10 +72,11 @@ export function VehicleDetailsPage() {
 
   const saveExpense = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const formElement = event.currentTarget;
     setSaving(true);
     setError("");
     try {
-      const form = new FormData(event.currentTarget);
+      const form = new FormData(formElement);
       const created = await createVehicleExpense({
         vehicleId,
         date: String(form.get("date")),
@@ -86,7 +88,7 @@ export function VehicleDetailsPage() {
         fuelLiters: Number(form.get("fuelLiters")) || undefined,
       });
       setExpenses((current) => [created, ...current]);
-      event.currentTarget.reset();
+      formElement.reset();
     } catch (saveError) {
       setError(
         saveError instanceof Error
@@ -100,10 +102,11 @@ export function VehicleDetailsPage() {
 
   const saveService = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const formElement = event.currentTarget;
     setSaving(true);
     setError("");
     try {
-      const form = new FormData(event.currentTarget);
+      const form = new FormData(formElement);
       const created = await createVehicleService({
         vehicleId,
         serviceType:
@@ -125,7 +128,7 @@ export function VehicleDetailsPage() {
         reminderEnabled: true,
       });
       setServices((current) => [created, ...current]);
-      event.currentTarget.reset();
+      formElement.reset();
     } catch (saveError) {
       setError(
         saveError instanceof Error
@@ -143,6 +146,26 @@ export function VehicleDetailsPage() {
         {error || "Loading vehicle..."}
       </div>
     );
+
+  const now = new Date();
+  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const isLastMonth = (value: string) => {
+    const date = new Date(value);
+    return (
+      date.getFullYear() === lastMonth.getFullYear() &&
+      date.getMonth() === lastMonth.getMonth()
+    );
+  };
+  const fuelExpenses = expenses.filter((item) => item.category === "Fuel");
+  const otherExpenses = expenses.filter((item) => item.category !== "Fuel");
+  const totalFuel = fuelExpenses.reduce((sum, item) => sum + Number(item.amount), 0);
+  const totalMaintenance = services.reduce((sum, item) => sum + Number(item.cost), 0);
+  const totalOtherExpenses = otherExpenses.reduce((sum, item) => sum + Number(item.amount), 0);
+  const lastMonthFuel = fuelExpenses.filter((item) => isLastMonth(item.date)).reduce((sum, item) => sum + Number(item.amount), 0);
+  const lastMonthMaintenance = services.filter((item) => isLastMonth(item.serviceDate)).reduce((sum, item) => sum + Number(item.cost), 0);
+  const lastMonthOtherExpenses = otherExpenses.filter((item) => isLastMonth(item.date)).reduce((sum, item) => sum + Number(item.amount), 0);
+  const formatMoney = (amount: number) => `৳${amount.toLocaleString("en-BD")}`;
+
   return (
     <div className="space-y-6">
       <button
@@ -174,7 +197,56 @@ export function VehicleDetailsPage() {
           {error}
         </div>
       )}
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
+        <CostCard
+          title="Fuel cost"
+          total={formatMoney(totalFuel)}
+          lastMonth={formatMoney(lastMonthFuel)}
+          detail={`${fuelExpenses.reduce((sum, item) => sum + Number(item.fuelLiters ?? 0), 0).toLocaleString()} L recorded`}
+        />
+        <CostCard
+          title="Maintenance cost"
+          total={formatMoney(totalMaintenance)}
+          lastMonth={formatMoney(lastMonthMaintenance)}
+          detail={`${services.length} maintenance record${services.length === 1 ? "" : "s"}`}
+        />
+        <CostCard
+          title="Other expenses"
+          total={formatMoney(totalOtherExpenses)}
+          lastMonth={formatMoney(lastMonthOtherExpenses)}
+          detail={`${otherExpenses.length} expense record${otherExpenses.length === 1 ? "" : "s"}`}
+        />
+      </div>
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-5 flex flex-wrap gap-2 border-b border-slate-200 pb-4">
+          {[
+            ["fuel", "Fuel Log"],
+            ["maintenance", "Maintenance"],
+            ["expense", "Expense"],
+          ].map(([tab, label]) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab as typeof activeTab)}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold ${activeTab === tab ? "bg-cyan-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {activeTab === "fuel" && (
+          <RecordForm title="Add fuel entry" onSubmit={saveExpense} saving={saving}>
+            <input name="date" type="date" required className="field" />
+            <input name="amount" type="number" min="0" required placeholder="Fuel amount" className="field" />
+            <input name="fuelLiters" type="number" min="0" step="0.01" required placeholder="Liters" className="field" />
+            <input name="mileage" type="number" min="0" placeholder="Mileage" className="field" />
+            <input type="hidden" name="category" value="Fuel" />
+            <input name="paymentMethod" required placeholder="Payment method" className="field" />
+            <input name="description" required placeholder="Fuel station or note" className="field sm:col-span-2" />
+            <FilePicker />
+          </RecordForm>
+        )}
+        {activeTab === "expense" && (
         <RecordForm title="Add expense" onSubmit={saveExpense} saving={saving}>
           <input name="date" type="date" required className="field" />
           <select name="category" className="field" defaultValue="Fuel">
@@ -219,6 +291,8 @@ export function VehicleDetailsPage() {
           />
           <FilePicker />
         </RecordForm>
+        )}
+        {activeTab === "maintenance" && (
         <RecordForm
           title="Add maintenance"
           onSubmit={saveService}
@@ -265,6 +339,7 @@ export function VehicleDetailsPage() {
           />
           <FilePicker />
         </RecordForm>
+        )}
       </div>
       <div className="grid gap-6 xl:grid-cols-2">
         <RecordList
@@ -299,6 +374,30 @@ export function VehicleDetailsPage() {
           }))}
         />
       </div>
+    </div>
+  );
+}
+
+function CostCard({
+  title,
+  total,
+  lastMonth,
+  detail,
+}: {
+  title: string;
+  total: string;
+  lastMonth: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="text-sm font-semibold text-slate-500">{title}</div>
+      <div className="mt-2 text-2xl font-bold text-slate-900">{total}</div>
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3 text-sm">
+        <span className="text-slate-500">Last month</span>
+        <span className="font-semibold text-cyan-700">{lastMonth}</span>
+      </div>
+      <div className="mt-2 text-xs text-slate-400">{detail}</div>
     </div>
   );
 }
