@@ -106,6 +106,9 @@ const rentInput = z.object({
 const tokenFor = (id: string) =>
   jwt.sign({ sub: id }, jwtSecret, { expiresIn: "30d" });
 
+app.get("/", (_req, res) =>
+  res.json({ ok: true, service: "LifeNest API", status: "online" }),
+);
 app.get("/api/health", (_req, res) =>
   res.json({ ok: true, service: "assethub-api" }),
 );
