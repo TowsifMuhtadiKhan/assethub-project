@@ -1,4 +1,5 @@
 import { useState } from "react";
+import TextField from "@mui/material/TextField";
 import type { Vehicle } from "../../types";
 
 export function VehicleEntryForm({
@@ -72,88 +73,195 @@ export function VehicleEntryForm({
     });
   };
 
-  const inputClass =
-    "rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:border-cyan-500";
-
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+      className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-xl"
     >
-      <div className="mb-4 text-lg font-semibold text-slate-900">
-        Add {type}
+      <div className="mb-5 pb-3 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-bold text-slate-900">
+            {initialVehicle ? `Edit ${initialVehicle.name}` : `Add New ${type}`}
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Fill in vehicle specs, license plate number, and odometer reading.
+          </p>
+        </div>
+        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
+          {type}
+        </span>
       </div>
+
       <div className="grid gap-4 md:grid-cols-2">
-        <input
+        <TextField
+          label="Vehicle Name *"
+          size="small"
           required
           value={form.name}
           onChange={(event) => updateField("name", event.target.value)}
-          placeholder="Vehicle name"
-          className={inputClass}
+          placeholder="e.g. My Civic / Daily Commuter"
+          slotProps={{
+            input: {
+              sx: {
+                fontSize: "0.8125rem",
+                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                borderRadius: "0.5rem",
+                backgroundColor: "#f8fafc",
+              },
+            },
+          }}
         />
-        <input
+
+        <TextField
+          label="Brand *"
+          size="small"
           required
           value={form.brand}
           onChange={(event) => updateField("brand", event.target.value)}
-          placeholder="Brand (for example Toyota)"
-          className={inputClass}
+          placeholder="e.g. Toyota, Honda, Yamaha"
+          slotProps={{
+            input: {
+              sx: {
+                fontSize: "0.8125rem",
+                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                borderRadius: "0.5rem",
+                backgroundColor: "#f8fafc",
+              },
+            },
+          }}
         />
-        <input
+
+        <TextField
+          label="Model *"
+          size="small"
           required
           value={form.model}
           onChange={(event) => updateField("model", event.target.value)}
-          placeholder="Model (for example Premio)"
-          className={inputClass}
+          placeholder="e.g. Premio, Corolla Cross, R15"
+          slotProps={{
+            input: {
+              sx: {
+                fontSize: "0.8125rem",
+                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                borderRadius: "0.5rem",
+                backgroundColor: "#f8fafc",
+              },
+            },
+          }}
         />
-        <input
+
+        <TextField
+          label="Manufacturing Year *"
+          size="small"
           required
           type="number"
           value={form.year}
           onChange={(event) => updateField("year", Number(event.target.value))}
-          placeholder="Year"
-          className={inputClass}
+          slotProps={{
+            input: {
+              sx: {
+                fontSize: "0.8125rem",
+                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                borderRadius: "0.5rem",
+                backgroundColor: "#f8fafc",
+              },
+            },
+          }}
         />
-        <input
+
+        <TextField
+          label="Registration / Plate Number *"
+          size="small"
           required
           value={form.registrationNumber}
-          onChange={(event) =>
-            updateField("registrationNumber", event.target.value)
-          }
-          placeholder="Dhaka Metro LA 33-3617"
-          className={inputClass}
+          onChange={(event) => updateField("registrationNumber", event.target.value)}
+          placeholder="e.g. Dhaka Metro GA 11-2233"
+          helperText="Format: Dhaka Metro [Series] [Number]"
+          slotProps={{
+            input: {
+              sx: {
+                fontSize: "0.8125rem",
+                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                borderRadius: "0.5rem",
+                backgroundColor: "#f8fafc",
+              },
+            },
+          }}
         />
-        <input
+
+        <TextField
+          label="Current Mileage (km)"
+          size="small"
           type="number"
-          min="0"
           value={form.mileage}
-          onChange={(event) =>
-            updateField("mileage", Number(event.target.value))
-          }
-          placeholder="Current mileage"
-          className={inputClass}
+          onChange={(event) => updateField("mileage", Number(event.target.value))}
+          slotProps={{
+            input: {
+              sx: {
+                fontSize: "0.8125rem",
+                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                borderRadius: "0.5rem",
+                backgroundColor: "#f8fafc",
+              },
+            },
+          }}
         />
-        <input
+
+        <TextField
+          label="Color"
+          size="small"
           value={form.color}
           onChange={(event) => updateField("color", event.target.value)}
-          placeholder="Color"
-          className={`${inputClass} md:col-span-2`}
+          placeholder="e.g. Pearl White, Metallic Black"
+          className="md:col-span-2"
+          slotProps={{
+            input: {
+              sx: {
+                fontSize: "0.8125rem",
+                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                borderRadius: "0.5rem",
+                backgroundColor: "#f8fafc",
+              },
+            },
+          }}
         />
-        <textarea
+
+        <TextField
+          label="Additional Notes / Specs"
+          size="small"
+          multiline
+          rows={3}
           value={form.notes}
           onChange={(event) => updateField("notes", event.target.value)}
-          placeholder="Notes"
-          className={`${inputClass} min-h-[110px] md:col-span-2`}
+          placeholder="e.g. Engine capacity 1500cc, smart card issued, tracking device installed."
+          className="md:col-span-2"
+          slotProps={{
+            input: {
+              sx: {
+                fontSize: "0.8125rem",
+                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                borderRadius: "0.5rem",
+                backgroundColor: "#f8fafc",
+              },
+            },
+          }}
         />
       </div>
+
       {validationError && (
-        <p className="mt-3 text-sm text-rose-600">{validationError}</p>
+        <p className="mt-3 text-xs font-semibold text-rose-600 bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+          {validationError}
+        </p>
       )}
-      <button
-        type="submit"
-        className="mt-4 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500"
-      >
-        {submitLabel ?? `Save ${type}`}
-      </button>
+
+      <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+        <button
+          type="submit"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition-colors"
+        >
+          {submitLabel ?? `Save ${type}`}
+        </button>
+      </div>
     </form>
   );
 }

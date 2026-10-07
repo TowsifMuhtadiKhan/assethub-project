@@ -1,7 +1,21 @@
 import { useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
-import { apiRequest } from "../services/api";
-import type { Property, PropertyUnit, RentPayment } from "../types";
+import {
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+} from "@mui/material";
+import { SqlSetupBanner } from "../components/common/SqlSetupBanner";
+import {
+  listProperties,
+  createProperty,
+  listPropertyUnits,
+  createPropertyUnit,
+  updatePropertyUnit,
+  addRentPayment,
+} from "../services/propertyService";
+import type { Property, PropertyUnit } from "../types";
 
 const field =
   "rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:border-cyan-500";
@@ -16,19 +30,19 @@ export function PropertiesPage() {
   const [unitGroups, setUnitGroups] = useState([{ type: "Room", count: 1 }]);
 
   useEffect(() => {
-    apiRequest<Property[]>("/properties")
+    listProperties()
       .then(setProperties)
       .catch(showError)
       .finally(() => setLoading(false));
   }, []);
+
   const showError = (value: unknown) =>
     setError(value instanceof Error ? value.message : "Something went wrong.");
+
   const loadUnits = async (property: Property) => {
     setSelected(property);
     try {
-      setUnits(
-        await apiRequest<PropertyUnit[]>(`/properties/${property.id}/units`),
-      );
+      setUnits(await listPropertyUnits(property.id));
     } catch (value) {
       showError(value);
     }
@@ -40,32 +54,29 @@ export function PropertiesPage() {
     const form = new FormData(event.currentTarget);
     const count = unitGroups.reduce((total, group) => total + group.count, 0);
     try {
-      const property = await apiRequest<Property>("/properties", {
-        method: "POST",
-        body: JSON.stringify({
-          name: String(form.get("name")),
-          location: String(form.get("location")),
-          type: String(form.get("type")),
-          unitsCount: count,
-          occupancyRate: 0,
-        }),
+      const property = await createProperty({
+        name: String(form.get("name")),
+        location: String(form.get("location")),
+        type: String(form.get("type")),
+        unitsCount: count,
+        occupancyRate: 0,
       });
+
       const createdUnits: PropertyUnit[] = [];
       for (const group of unitGroups) {
         for (let index = 1; index <= group.count; index += 1) {
           createdUnits.push(
-            await apiRequest<PropertyUnit>(`/properties/${property.id}/units`, {
-              method: "POST",
-              body: JSON.stringify({
-                unitNumber: `${group.type} ${index}`,
-                unitType: group.type,
-                monthlyRent: 0,
-                tenantName: "",
-              }),
+            await createPropertyUnit({
+              propertyId: property.id,
+              unitNumber: `${group.type} ${index}`,
+              unitType: group.type,
+              monthlyRent: 0,
+              tenantName: "",
             }),
           );
         }
       }
+
       setProperties((current) => [property, ...current]);
       setOpen(false);
       event.currentTarget.reset();
@@ -84,15 +95,9 @@ export function PropertiesPage() {
   ) => {
     if (!selected) return;
     try {
-      const updated = await apiRequest<PropertyUnit>(
-        `/properties/${selected.id}/units/${unit.id}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            [fieldName]: fieldName === "monthlyRent" ? Number(value) : value,
-          }),
-        },
-      );
+      const updated = await updatePropertyUnit(unit.id, {
+        [fieldName]: fieldName === "monthlyRent" ? Number(value) : value,
+      });
       setUnits((current) =>
         current.map((item) =>
           item.id === unit.id ? { ...item, ...updated } : item,
@@ -102,6 +107,7 @@ export function PropertiesPage() {
       showError(value);
     }
   };
+
   const addRent = async (
     unit: PropertyUnit,
     event: React.FormEvent<HTMLFormElement>,
@@ -110,16 +116,11 @@ export function PropertiesPage() {
     if (!selected) return;
     const form = new FormData(event.currentTarget);
     try {
-      const payment = await apiRequest<RentPayment>(
-        `/properties/${selected.id}/units/${unit.id}/rent`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            month: String(form.get("month")),
-            amountPaid: Number(form.get("amountPaid")),
-          }),
-        },
-      );
+      const payment = await addRentPayment({
+        unitId: unit.id,
+        month: String(form.get("month")),
+        amountPaid: Number(form.get("amountPaid")),
+      });
       setUnits((current) =>
         current.map((item) =>
           item.id === unit.id
@@ -134,64 +135,79 @@ export function PropertiesPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Properties</h1>
-            <p className="mt-2 text-slate-600">
-              Add a flat, rooms, shops, or floors. Each unit keeps its own
-              tenant, fixed rent, and monthly payment history.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white"
-          >
-            <Plus className="h-4 w-4" /> Add Property
-          </button>
+    <div className="space-y-4">
+      {/* Compact Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
+        <div>
+          <h1 className="text-lg font-bold tracking-tight text-slate-900">
+            Real Estate & Rental Properties
+          </h1>
+          <p className="text-xs text-slate-500">
+            Manage flats, plots, commercial floors, tenants, and monthly rent collections.
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-slate-800"
+        >
+          <Plus className="h-3.5 w-3.5" /> Add Property
+        </button>
       </div>
-      {error && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+
+      {/* Database Setup Banner */}
+      <SqlSetupBanner error={error} />
+
+      {error && !error.toLowerCase().includes("could not find the table") && !error.includes("PGRST205") && (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
           {error}
         </div>
       )}
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+      <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-2xs">
         {loading ? (
-          <div className="p-6">Loading properties...</div>
+          <div className="p-8 text-center text-xs text-slate-500">Loading properties...</div>
+        ) : properties.length === 0 ? (
+          <div className="p-8 text-center text-xs text-slate-500">
+            No properties added yet. Click "Add Property" to begin.
+          </div>
         ) : (
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-              <tr>
-                <th className="px-5 py-4">Property</th>
-                <th className="px-5 py-4">Location</th>
-                <th className="px-5 py-4">Type</th>
-                <th className="px-5 py-4">Units</th>
-                <th className="px-5 py-4">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {properties.map((property) => (
-                <tr key={property.id}>
-                  <td className="px-5 py-4 font-semibold">{property.name}</td>
-                  <td className="px-5 py-4">{property.location}</td>
-                  <td className="px-5 py-4">{property.type}</td>
-                  <td className="px-5 py-4">{property.unitsCount}</td>
-                  <td className="px-5 py-4">
-                    <button
-                      type="button"
-                      onClick={() => void loadUnits(property)}
-                      className="font-semibold text-cyan-700"
-                    >
-                      Manage units
-                    </button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-xs">
+              <thead className="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-semibold text-slate-600">
+                <tr>
+                  <th className="px-3.5 py-2.5">Property</th>
+                  <th className="px-3.5 py-2.5">Location</th>
+                  <th className="px-3.5 py-2.5">Type</th>
+                  <th className="px-3.5 py-2.5">Units</th>
+                  <th className="px-3.5 py-2.5 text-right">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {properties.map((property) => (
+                  <tr key={property.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-3.5 py-2.5 font-medium text-slate-900">{property.name}</td>
+                    <td className="px-3.5 py-2.5 text-slate-600">{property.location}</td>
+                    <td className="px-3.5 py-2.5">
+                      <span className="rounded bg-slate-100 px-1.5 py-0.2 text-[10px] font-semibold text-slate-600">
+                        {property.type}
+                      </span>
+                    </td>
+                    <td className="px-3.5 py-2.5 font-mono text-[11px] text-slate-600">{property.unitsCount} units</td>
+                    <td className="px-3.5 py-2.5 text-right">
+                      <button
+                        type="button"
+                        onClick={() => void loadUnits(property)}
+                        className="rounded px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                      >
+                        Manage units →
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
       {selected && (
@@ -316,14 +332,31 @@ export function PropertiesPage() {
               placeholder="Location"
               className={`${field} w-full`}
             />
-            <select name="type" className={`${field} w-full`}>
-              <option>Residential</option>
-              <option>Commercial</option>
-              <option>Mixed use</option>
-            </select>
+            <FormControl size="small" fullWidth>
+              <InputLabel id="prop-type-label" sx={{ fontSize: "0.8125rem" }}>
+                Property Type *
+              </InputLabel>
+              <Select
+                labelId="prop-type-label"
+                name="type"
+                defaultValue="Residential"
+                label="Property Type *"
+                sx={{
+                  fontSize: "0.8125rem",
+                  fontFamily: '"Plus Jakarta Sans", sans-serif',
+                  borderRadius: "0.75rem",
+                  backgroundColor: "#f8fafc",
+                }}
+              >
+                <MenuItem value="Residential" sx={{ fontSize: "0.8125rem" }}>Residential</MenuItem>
+                <MenuItem value="Commercial" sx={{ fontSize: "0.8125rem" }}>Commercial</MenuItem>
+                <MenuItem value="Mixed use" sx={{ fontSize: "0.8125rem" }}>Mixed use</MenuItem>
+              </Select>
+            </FormControl>
+
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-semibold text-slate-700">
+                <label className="text-xs font-semibold text-slate-700">
                   Unit groups
                 </label>
                 <button
@@ -334,7 +367,7 @@ export function PropertiesPage() {
                       { type: "Room", count: 1 },
                     ])
                   }
-                  className="text-sm font-semibold text-cyan-700"
+                  className="text-xs font-semibold text-cyan-700 hover:text-cyan-800"
                 >
                   + Add another type
                 </button>
@@ -342,29 +375,36 @@ export function PropertiesPage() {
               {unitGroups.map((group, index) => (
                 <div
                   key={`${index}-${group.type}`}
-                  className="grid grid-cols-[1fr_100px_auto] gap-2"
+                  className="grid grid-cols-[1fr_100px_auto] gap-2 items-center"
                 >
-                  <select
-                    value={group.type}
-                    onChange={(event) =>
-                      setUnitGroups((groups) =>
-                        groups.map((item, itemIndex) =>
-                          itemIndex === index
-                            ? { ...item, type: event.target.value }
-                            : item,
-                        ),
-                      )
-                    }
-                    className={field}
-                  >
-                    <option>Room</option>
-                    <option>Shop</option>
-                    <option>Floor</option>
-                    <option>Flat</option>
-                    <option>Office</option>
-                    <option>Warehouse</option>
-                    <option>Other</option>
-                  </select>
+                  <FormControl size="small" fullWidth>
+                    <Select
+                      value={group.type}
+                      onChange={(event) =>
+                        setUnitGroups((groups) =>
+                          groups.map((item, itemIndex) =>
+                            itemIndex === index
+                              ? { ...item, type: event.target.value }
+                              : item,
+                          ),
+                        )
+                      }
+                      sx={{
+                        fontSize: "0.8125rem",
+                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        borderRadius: "0.75rem",
+                        backgroundColor: "#f8fafc",
+                      }}
+                    >
+                      <MenuItem value="Room" sx={{ fontSize: "0.8125rem" }}>Room</MenuItem>
+                      <MenuItem value="Shop" sx={{ fontSize: "0.8125rem" }}>Shop</MenuItem>
+                      <MenuItem value="Floor" sx={{ fontSize: "0.8125rem" }}>Floor</MenuItem>
+                      <MenuItem value="Flat" sx={{ fontSize: "0.8125rem" }}>Flat</MenuItem>
+                      <MenuItem value="Office" sx={{ fontSize: "0.8125rem" }}>Office</MenuItem>
+                      <MenuItem value="Warehouse" sx={{ fontSize: "0.8125rem" }}>Warehouse</MenuItem>
+                      <MenuItem value="Other" sx={{ fontSize: "0.8125rem" }}>Other</MenuItem>
+                    </Select>
+                  </FormControl>
                   <input
                     type="number"
                     min="1"

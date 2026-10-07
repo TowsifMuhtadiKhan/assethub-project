@@ -1,9 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  font-family: Inter, "Segoe UI", sans-serif;
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   line-height: 1.5;
-  font-weight: 400;
   color: #0f172a;
   background: #f8fafc;
   font-synthesis: none;
@@ -16,33 +15,71 @@
   box-sizing: border-box;
 }
 
-html {
-  scroll-behavior: smooth;
-}
-
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+h1, h2, h3, h4 {
+  font-family: "Outfit", "Plus Jakarta Sans", sans-serif;
+  letter-spacing: -0.02em;
 }
 
 #root {
   min-height: 100vh;
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
+@layer base {
+  button,
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 0.75rem;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    font-size: 0.75rem;
+  }
 }
 
-img {
-  display: block;
-  max-width: 100%;
+/* Ensure MUI inputs, selects, labels and menus inherit Plus Jakarta Sans cleanly */
+.MuiInputBase-root,
+.MuiInputBase-input,
+.MuiInputLabel-root,
+.MuiMenuItem-root,
+.MuiSelect-select,
+.MuiButtonBase-root {
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+/* Compact scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 ::selection {
-  background: rgba(14, 165, 233, 0.2);
+  background: #0284c7;
+  color: #ffffff;
 }

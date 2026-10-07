@@ -1,24 +1,158 @@
-import { apiRequest } from "./api";
+import { supabase } from "../lib/supabase";
 import type { VehicleExpense, VehicleService } from "../types";
 
-export function listVehicleExpenses(vehicleId: string) {
-  return apiRequest<VehicleExpense[]>(`/vehicles/${vehicleId}/expenses`);
+const EXPENSES_TABLE = "lifenest_vehicle_expenses";
+const SERVICES_TABLE = "lifenest_vehicle_services";
+
+export async function listVehicleExpenses(
+  vehicleId: string,
+): Promise<VehicleExpense[]> {
+  const { data, error } = await supabase
+    .from(EXPENSES_TABLE)
+    .select("*")
+    .eq("vehicle_id", vehicleId)
+    .order("date", { ascending: false });
+
+  if (error) throw error;
+  return (data || []).map((row) => ({
+    id: row.id,
+    vehicleId: row.vehicle_id,
+    date: row.date,
+    category: row.category,
+    amount: Number(row.amount),
+    mileage: row.mileage ?? 0,
+    description: row.description ?? "",
+    receiptUrl: row.receipt_url ?? undefined,
+    paymentMethod: row.payment_method ?? "",
+    fuelLiters: row.fuel_liters ? Number(row.fuel_liters) : undefined,
+  }));
 }
 
-export function createVehicleExpense(input: Omit<VehicleExpense, "id">) {
-  return apiRequest<VehicleExpense>(`/vehicles/${input.vehicleId}/expenses`, {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+export async function createVehicleExpense(
+  input: Omit<VehicleExpense, "id">,
+): Promise<VehicleExpense> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const rowData = {
+    owner_id: user.id,
+    vehicle_id: input.vehicleId,
+    date: input.date,
+    category: input.category,
+    amount: input.amount,
+    mileage: input.mileage ?? 0,
+    description: input.description ?? "",
+    receipt_url: input.receiptUrl ?? null,
+    payment_method: input.paymentMethod ?? "",
+    fuel_liters: input.fuelLiters ?? null,
+  };
+
+  const { data, error } = await supabase
+    .from(EXPENSES_TABLE)
+    .insert(rowData)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return {
+    id: data.id,
+    vehicleId: data.vehicle_id,
+    date: data.date,
+    category: data.category,
+    amount: Number(data.amount),
+    mileage: data.mileage ?? 0,
+    description: data.description ?? "",
+    receiptUrl: data.receipt_url ?? undefined,
+    paymentMethod: data.payment_method ?? "",
+    fuelLiters: data.fuel_liters ? Number(data.fuel_liters) : undefined,
+  };
 }
 
-export function listVehicleServices(vehicleId: string) {
-  return apiRequest<VehicleService[]>(`/vehicles/${vehicleId}/maintenance`);
+export async function listVehicleServices(
+  vehicleId: string,
+): Promise<VehicleService[]> {
+  const { data, error } = await supabase
+    .from(SERVICES_TABLE)
+    .select("*")
+    .eq("vehicle_id", vehicleId)
+    .order("service_date", { ascending: false });
+
+  if (error) throw error;
+  return (data || []).map((row) => ({
+    id: row.id,
+    vehicleId: row.vehicle_id,
+    serviceType: row.service_type,
+    serviceDate: row.service_date,
+    mileageAtService: row.mileage_at_service ?? 0,
+    workshopName: row.workshop_name ?? "",
+    workshopLocation: row.workshop_location ?? "",
+    mechanicName: row.mechanic_name ?? "",
+    cost: Number(row.cost),
+    partsCost: Number(row.parts_cost ?? 0),
+    laborCost: Number(row.labor_cost ?? 0),
+    description: row.description ?? "",
+    notes: row.notes ?? "",
+    nextServiceDate: row.next_service_date ?? "",
+    nextServiceMileage: row.next_service_mileage ?? 0,
+    reminderEnabled: row.reminder_enabled ?? true,
+    receiptUrl: row.receipt_url ?? undefined,
+  }));
 }
 
-export function createVehicleService(input: Omit<VehicleService, "id">) {
-  return apiRequest<VehicleService>(
-    `/vehicles/${input.vehicleId}/maintenance`,
-    { method: "POST", body: JSON.stringify(input) },
-  );
+export async function createVehicleService(
+  input: Omit<VehicleService, "id">,
+): Promise<VehicleService> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const rowData = {
+    owner_id: user.id,
+    vehicle_id: input.vehicleId,
+    service_type: input.serviceType,
+    service_date: input.serviceDate,
+    mileage_at_service: input.mileageAtService ?? 0,
+    workshop_name: input.workshopName ?? "",
+    workshopLocation: input.workshopLocation ?? "",
+    mechanicName: input.mechanicName ?? "",
+    cost: input.cost,
+    parts_cost: input.partsCost ?? 0,
+    labor_cost: input.laborCost ?? 0,
+    description: input.description ?? "",
+    notes: input.notes ?? "",
+    next_service_date: input.nextServiceDate || null,
+    next_service_mileage: input.nextServiceMileage ?? 0,
+    reminder_enabled: input.reminderEnabled ?? true,
+    receipt_url: input.receiptUrl ?? null,
+  };
+
+  const { data, error } = await supabase
+    .from(SERVICES_TABLE)
+    .insert(rowData)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return {
+    id: data.id,
+    vehicleId: data.vehicle_id,
+    serviceType: data.service_type,
+    serviceDate: data.service_date,
+    mileageAtService: data.mileage_at_service ?? 0,
+    workshopName: data.workshop_name ?? "",
+    workshopLocation: data.workshop_location ?? "",
+    mechanicName: data.mechanic_name ?? "",
+    cost: Number(data.cost),
+    partsCost: Number(data.parts_cost ?? 0),
+    laborCost: Number(data.labor_cost ?? 0),
+    description: data.description ?? "",
+    notes: data.notes ?? "",
+    nextServiceDate: data.next_service_date ?? "",
+    nextServiceMileage: data.next_service_mileage ?? 0,
+    reminderEnabled: data.reminder_enabled ?? true,
+    receiptUrl: data.receipt_url ?? undefined,
+  };
 }

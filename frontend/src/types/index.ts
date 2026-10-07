@@ -5,25 +5,6 @@ export type NavItem = {
   group?: string;
 };
 
-export type VehicleStatus = "GOOD" | "DUE SOON" | "OVERDUE";
-
-export type VehicleType = "Car" | "Bike";
-
-export type UnitStatus =
-  | "Occupied"
-  | "Vacant"
-  | "Reserved"
-  | "Under Maintenance";
-export type UnitType =
-  | "Room"
-  | "Shop"
-  | "Commercial Space"
-  | "Office"
-  | "Floor"
-  | "Warehouse"
-  | "Other";
-export type RentStatus = "PAID" | "PARTIALLY PAID" | "UNPAID" | "OVERDUE";
-
 export type DashboardStat = {
   label: string;
   value: string;
@@ -51,22 +32,164 @@ export type CollectionRow = {
   status: RentStatus;
 };
 
-export type PropertyExpenseCategory =
-  | "Electricity"
-  | "Water"
-  | "Gas"
-  | "Maintenance"
-  | "Cleaning"
-  | "Security"
-  | "Employee Salary"
-  | "Repair"
-  | "Plumbing"
-  | "Electrical"
-  | "Painting"
-  | "Tax"
-  | "Legal"
-  | "Construction"
+export type PropertyExpense = {
+  id: string;
+  propertyId: string;
+  date: string;
+  category: string;
+  amount: number;
+  vendor: string;
+  description: string;
+  paymentMethod: string;
+  receiptUrl?: string;
+};
+
+export type Tenant = {
+  id: string;
+  name: string;
+  phone: string;
+  altPhone?: string;
+  email?: string;
+  nidNumber?: string;
+  address?: string;
+  emergencyContact?: string;
+  occupation?: string;
+  notes?: string;
+  businessName?: string;
+  tradeLicense?: string;
+  businessType?: string;
+};
+
+// 1. User & Family Profiles
+export type RelationshipType =
+  | "Self"
+  | "Spouse"
+  | "Child"
+  | "Parent"
+  | "Sibling"
   | "Other";
+
+export type FamilyMember = {
+  id: string;
+  fullName: string;
+  relationship: RelationshipType;
+  dateOfBirth?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  nationality?: string;
+  identificationInfo?: string;
+  notes?: string;
+  photoUrl?: string;
+};
+
+export type UserSettings = {
+  id?: string;
+  fullName: string;
+  whatsappNumber: string;
+  countryCode: string;
+  whatsappEnabled: boolean;
+  reminderDaysBefore: number;
+  googleDriveFolderId?: string;
+  callmebotApiKey?: string;
+  twilioAccountSid?: string;
+  twilioAuthToken?: string;
+  twilioFromNumber?: string;
+};
+
+// 2. Document Vault
+export type DocumentCategory =
+  | "Identity"
+  | "Academic"
+  | "Employment"
+  | "Tax/Financial"
+  | "Health"
+  | "Legal"
+  | "Travel"
+  | "Vehicle"
+  | "Property"
+  | "Other";
+
+export type DocumentItem = {
+  id: string;
+  name: string;
+  category: DocumentCategory;
+  documentNumber: string;
+  issueDate?: string;
+  expiryDate?: string;
+  issuingAuthority: string;
+  familyMemberId?: string;
+  familyMemberName?: string;
+  assetType?: string;
+  assetId?: string;
+  folderName: string;
+  fileUrl?: string;
+  fileType: string;
+  storageProvider: "supabase" | "google_drive" | "local";
+  driveFileId?: string;
+  isFavorite: boolean;
+  requiresRenewal: boolean;
+  reminderDate?: string;
+  tags: string[];
+  notes?: string;
+  createdAt?: string;
+};
+
+export type DocumentFolder = {
+  id: string;
+  name: string;
+  familyMemberId?: string;
+  familyMemberName?: string;
+  color?: string;
+  createdAt?: string;
+};
+
+// 3. Licenses & Registrations
+export type LicenseItem = {
+  id: string;
+  licenseName: string;
+  licenseNumber: string;
+  holderName: string;
+  familyMemberId?: string;
+  issuingAuthority: string;
+  issueDate?: string;
+  expiryDate?: string;
+  renewalPeriod: string;
+  renewalCost: number;
+  reminderDate?: string;
+  documentUrl?: string;
+  notes?: string;
+};
+
+// 4. Vehicles & Records
+export type VehicleStatus = "GOOD" | "DUE SOON" | "OVERDUE";
+export type VehicleType = "Car" | "Bike" | "Scooter" | "Commercial" | "Other";
+
+export type Vehicle = {
+  id: string;
+  name: string;
+  type: VehicleType;
+  brand: string;
+  model: string;
+  year: number;
+  registrationNumber: string;
+  chassisNumber: string;
+  engineNumber: string;
+  mileage: number;
+  purchaseDate: string;
+  purchasePrice: number;
+  color: string;
+  ownershipInfo?: string;
+  insuranceInfo: string;
+  taxTokenInfo: string;
+  fitnessExpiry?: string;
+  taxTokenExpiry?: string;
+  insuranceExpiry?: string;
+  routePermitExpiry?: string;
+  notes: string;
+  image: string;
+  status: VehicleStatus;
+};
 
 export type VehicleExpenseCategory =
   | "Fuel"
@@ -82,6 +205,22 @@ export type VehicleExpenseCategory =
   | "Accessories"
   | "Fine"
   | "Other";
+
+export type VehicleExpense = {
+  id: string;
+  vehicleId: string;
+  date: string;
+  category: VehicleExpenseCategory;
+  fuelType?: string;
+  fuelLiters?: number;
+  pricePerUnit?: number;
+  amount: number;
+  mileage: number;
+  fuelStation?: string;
+  description: string;
+  receiptUrl?: string;
+  paymentMethod: string;
+};
 
 export type ServiceType =
   | "Engine oil / Mobil change"
@@ -106,37 +245,16 @@ export type ServiceType =
   | "General servicing"
   | "Other/custom service";
 
-export type Vehicle = {
-  id: string;
-  name: string;
-  type: VehicleType;
-  brand: string;
-  model: string;
-  year: number;
-  registrationNumber: string;
-  chassisNumber: string;
-  engineNumber: string;
-  mileage: number;
-  purchaseDate: string;
-  purchasePrice: number;
-  color: string;
-  insuranceInfo: string;
-  taxTokenInfo: string;
-  fitnessExpiry: string;
-  notes: string;
-  image: string;
-  status: VehicleStatus;
-};
-
 export type VehicleService = {
   id: string;
   vehicleId: string;
-  serviceType: ServiceType;
+  serviceType: string;
   serviceDate: string;
   mileageAtService: number;
   workshopName: string;
   workshopLocation: string;
   mechanicName: string;
+  partsUsed?: string;
   cost: number;
   partsCost: number;
   laborCost: number;
@@ -148,26 +266,65 @@ export type VehicleService = {
   receiptUrl?: string;
 };
 
-export type VehicleExpense = {
+// 5. Purchases & Warranties
+export type WarrantyStatus = "ACTIVE" | "EXPIRING SOON" | "EXPIRED" | "CLAIMED";
+
+export type WarrantyItem = {
   id: string;
-  vehicleId: string;
-  date: string;
-  category: VehicleExpenseCategory;
-  amount: number;
-  mileage: number;
-  description: string;
+  productName: string;
+  category: string;
+  purchaseDate: string;
+  warrantyStartDate?: string;
+  warrantyDurationMonths: number;
+  expiryDate?: string;
+  seller: string;
+  purchasePrice: number;
+  serialNumber: string;
+  invoiceNumber: string;
   receiptUrl?: string;
-  paymentMethod: string;
-  fuelLiters?: number;
+  warrantyDocumentUrl?: string;
+  relatedAssetType?: string;
+  relatedAssetId?: string;
+  status: WarrantyStatus;
+  notes?: string;
 };
+
+// 6. Real Estate & Properties
+export type UnitStatus =
+  | "Occupied"
+  | "Vacant"
+  | "Reserved"
+  | "Under Maintenance";
+
+export type UnitType =
+  | "Room"
+  | "Shop"
+  | "Commercial Space"
+  | "Office"
+  | "Floor"
+  | "Flat"
+  | "Warehouse"
+  | "Other";
+
+export type RentStatus = "PAID" | "PARTIALLY PAID" | "UNPAID" | "OVERDUE";
 
 export type Property = {
   id: string;
   name: string;
-  location: string;
   type: string;
+  address?: string;
+  location: string;
+  landArea?: string;
+  floorArea?: string;
+  sizeSqft?: number;
+  ownershipPercentage?: number;
+  purchaseDate?: string;
+  purchaseValue?: number;
+  estimatedCurrentValue?: number;
   unitsCount: number;
   occupancyRate: number;
+  description?: string;
+  notes?: string;
 };
 
 export type PropertyUnit = {
@@ -181,33 +338,24 @@ export type PropertyUnit = {
   monthlyRent: number;
   securityDeposit: number;
   currentTenant: string;
-  status: UnitStatus;
   tenantName?: string;
-  rentPayments?: RentPayment[];
-};
-
-export type Tenant = {
-  id: string;
-  name: string;
-  phone: string;
-  altPhone?: string;
-  email?: string;
-  nidNumber?: string;
-  address?: string;
+  tenantPhone?: string;
+  tenantEmail?: string;
+  tenantNid?: string;
   emergencyContact?: string;
-  occupation?: string;
-  notes?: string;
-  businessName?: string;
-  tradeLicense?: string;
-  businessType?: string;
+  agreementStartDate?: string;
+  agreementEndDate?: string;
+  agreementDocUrl?: string;
+  status: UnitStatus;
+  rentPayments?: RentPayment[];
 };
 
 export type RentPayment = {
   id: string;
   unitId: string;
-  tenantId: string;
+  tenantId?: string;
   month: string;
-  amountPayable: number;
+  amountPayable?: number;
   amountPaid: number;
   paymentDate: string;
   paymentMethod: string;
@@ -217,22 +365,73 @@ export type RentPayment = {
   status: RentStatus;
 };
 
-export type PropertyExpense = {
+// 7. Tasks & To-Do Management
+export type TaskPriority = "Low" | "Medium" | "High" | "Urgent";
+export type TaskRecurrence =
+  | "None"
+  | "Daily"
+  | "Weekly"
+  | "Monthly"
+  | "Quarterly"
+  | "Yearly";
+export type TaskStatus =
+  | "Pending"
+  | "In Progress"
+  | "Completed"
+  | "Cancelled"
+  | "Overdue";
+
+export type TaskItem = {
   id: string;
-  propertyId: string;
-  date: string;
-  category: PropertyExpenseCategory;
-  amount: number;
-  vendor: string;
+  title: string;
   description: string;
-  paymentMethod: string;
-  receiptUrl?: string;
+  priority: TaskPriority;
+  dueDate?: string;
+  dueTime?: string;
+  category: string;
+  recurrence: TaskRecurrence;
+  familyMemberId?: string;
+  familyMemberName?: string;
+  vehicleId?: string;
+  vehicleName?: string;
+  propertyId?: string;
+  propertyName?: string;
+  documentId?: string;
+  status: TaskStatus;
+  reminderWhatsapp: boolean;
+  reminderDate?: string;
+  notes?: string;
+  completedAt?: string;
+  createdAt?: string;
 };
+
+// 8. Notifications
+export type NotificationType =
+  | "document"
+  | "vehicle"
+  | "property"
+  | "rent"
+  | "warranty"
+  | "task"
+  | "system";
 
 export type NotificationItem = {
   id: string;
   title: string;
   message: string;
-  type: "vehicle" | "property" | "system";
+  type: NotificationType;
+  link?: string;
+  status?: "new" | "read" | "dismissed";
   date: string;
+};
+
+// 9. Calendar Events
+export type CalendarEvent = {
+  id: string;
+  title: string;
+  date: string;
+  time?: string;
+  type: "task" | "document_expiry" | "rent_due" | "service_due" | "warranty_expiry";
+  details?: string;
+  link?: string;
 };
