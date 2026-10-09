@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase";
-import type { Vehicle } from "../types";
+import type { Vehicle, VehicleType } from "../types";
 
 const TABLE = "lifenest_vehicles";
 
@@ -39,7 +39,7 @@ export async function listVehicles(): Promise<Vehicle[]> {
 }
 
 export async function createVehicle(
-  input: Partial<Vehicle> & { type: "Car" | "Bike" },
+  input: Partial<Vehicle> & { type: VehicleType },
 ): Promise<Vehicle> {
   const {
     data: { user },

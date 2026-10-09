@@ -9,6 +9,14 @@ import express, {
 import jwt from "jsonwebtoken";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
+import {
+  getDriveStatus,
+  exchangeAuthCode,
+  uploadUserDocumentToMasterDrive,
+  deleteDriveFile,
+  deleteDriveFilesByName,
+  getFreshAccessToken,
+} from "./googleDriveService.js";
 
 const prisma = new PrismaClient();
 const app = express();
@@ -35,7 +43,7 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "50mb" }));
 
 type AuthRequest = Request & { userId?: string };
 function auth(req: AuthRequest, res: Response, next: NextFunction) {
@@ -55,7 +63,7 @@ const credentials = z.object({
 });
 const vehicleInput = z.object({
   name: z.string().min(1),
-  type: z.enum(["Car", "Bike"]),
+  type: z.string().min(1),
   brand: z.string().min(1),
   model: z.string().min(1),
   year: z.coerce.number().int(),
@@ -421,6 +429,131 @@ app.post(
     }
   },
 );
+
+// ============================================================================
+// Master Google Drive Automation Endpoints
+// ============================================================================
+
+app.get("/api/google/status", (_req: Request, res: Response) => {
+  res.json(getDriveStatus());
+});
+
+app.post("/api/google/exchange-code", async (req: Request, res: Response) => {
+  try {
+    const { code } = req.body as { code?: string };
+    if (!code) {
+      return res.status(400).json({ message: "Authorization code is required" });
+    }
+    const result = await exchangeAuthCode(code);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      message: error instanceof Error ? error.message : "Token exchange failed",
+    });
+  }
+});
+
+app.post("/api/documents/upload-drive", async (req: Request, res: Response) => {
+  try {
+    const {
+      fileBase64,
+      fileName,
+      mimeType,
+      userDisplayName,
+      subfolderName,
+      customName,
+    } = req.body as {
+      fileBase64?: string;
+      fileName?: string;
+      mimeType?: string;
+      userDisplayName?: string;
+      subfolderName?: string;
+      customName?: string;
+    };
+
+    if (!fileBase64 || !fileName) {
+      return res.status(400).json({ message: "File data and fileName are required" });
+    }
+
+    const base64Clean = fileBase64.replace(/^data:[^;]+;base64,/, "");
+    const buffer = Buffer.from(base64Clean, "base64");
+
+    const result = await uploadUserDocumentToMasterDrive({
+      fileBuffer: buffer,
+      fileName,
+      mimeType: mimeType || "application/octet-stream",
+      userDisplayName,
+      subfolderName,
+      customName,
+    });
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      message: error instanceof Error ? error.message : "Google Drive upload failed",
+    });
+  }
+});
+
+app.delete("/api/documents/drive-file/:id", async (req: Request, res: Response) => {
+  try {
+    const fileId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    if (!fileId) {
+      return res.status(400).json({ message: "File ID is required" });
+    }
+    const success = await deleteDriveFile(fileId);
+    res.json({ success, id: fileId });
+  } catch (error) {
+    res.status(500).json({
+      message: error instanceof Error ? error.message : "Failed to delete file from Google Drive",
+    });
+  }
+});
+
+app.get("/api/documents/download-drive/:id", async (req: Request, res: Response) => {
+  try {
+    const fileId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const filename = (req.query.filename as string) || "document.pdf";
+    const accessToken = await getFreshAccessToken();
+
+    const driveRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    if (!driveRes.ok) {
+      const err = await driveRes.text();
+      return res.status(driveRes.status).send(`Failed to download from Google Drive: ${err}`);
+    }
+
+    const contentType = driveRes.headers.get("content-type") || "application/octet-stream";
+    res.setHeader("Content-Type", contentType);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${encodeURIComponent(filename)}"`,
+    );
+
+    const arrayBuffer = await driveRes.arrayBuffer();
+    res.send(Buffer.from(arrayBuffer));
+  } catch (error) {
+    res.status(500).send(error instanceof Error ? error.message : "Download failed");
+  }
+});
+
+app.post("/api/documents/cleanup-dewan", async (_req: Request, res: Response) => {
+  try {
+    const deletedCount = await deleteDriveFilesByName("Dewan");
+    res.json({ success: true, deletedCount });
+  } catch (error) {
+    res.status(500).json({
+      message: error instanceof Error ? error.message : "Cleanup failed",
+    });
+  }
+});
 
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) =>
   res.status(500).json({ message: error.message }),

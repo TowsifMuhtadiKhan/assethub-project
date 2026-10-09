@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import {
   FormControl,
-  InputLabel,
   Select,
   MenuItem,
 } from "@mui/material";
@@ -18,7 +17,7 @@ import {
 import type { Property, PropertyUnit } from "../types";
 
 const field =
-  "rounded-xl border border-slate-200 bg-slate-50 p-3 outline-none focus:border-cyan-500";
+  "w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900";
 
 export function PropertiesPage() {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -49,9 +48,10 @@ export function PropertiesPage() {
   };
 
   const saveProperty = async (event: React.FormEvent<HTMLFormElement>) => {
+    const formElement = event.currentTarget;
     event.preventDefault();
     setError("");
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
     const count = unitGroups.reduce((total, group) => total + group.count, 0);
     try {
       const property = await createProperty({
@@ -78,8 +78,8 @@ export function PropertiesPage() {
       }
 
       setProperties((current) => [property, ...current]);
+      formElement?.reset?.();
       setOpen(false);
-      event.currentTarget.reset();
       setUnitGroups([{ type: "Room", count: 1 }]);
       setSelected(property);
       setUnits(createdUnits);
@@ -112,9 +112,10 @@ export function PropertiesPage() {
     unit: PropertyUnit,
     event: React.FormEvent<HTMLFormElement>,
   ) => {
+    const formElement = event.currentTarget;
     event.preventDefault();
     if (!selected) return;
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
     try {
       const payment = await addRentPayment({
         unitId: unit.id,
@@ -128,7 +129,7 @@ export function PropertiesPage() {
             : item,
         ),
       );
-      event.currentTarget.reset();
+      formElement?.reset?.();
     } catch (value) {
       showError(value);
     }
@@ -306,146 +307,198 @@ export function PropertiesPage() {
       )}
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-xs"
           onMouseDown={() => setOpen(false)}
         >
           <form
             onSubmit={saveProperty}
             onMouseDown={(event) => event.stopPropagation()}
-            className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6 shadow-xl"
+            className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200/90 overflow-hidden"
           >
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold">Add Property</h2>
-              <button type="button" onClick={() => setOpen(false)}>
-                <X className="h-5 w-5" />
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                    Add Property
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">LN-PROP</span>
+                </div>
+                <h2 className="text-base font-bold tracking-tight text-slate-900 mt-0.5">
+                  New Property & Units
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                aria-label="Close modal"
+              >
+                ✕
               </button>
             </div>
-            <input
-              name="name"
-              required
-              placeholder="Property name"
-              className={`${field} w-full`}
-            />
-            <input
-              name="location"
-              required
-              placeholder="Location"
-              className={`${field} w-full`}
-            />
-            <FormControl size="small" fullWidth>
-              <InputLabel id="prop-type-label" sx={{ fontSize: "0.8125rem" }}>
-                Property Type *
-              </InputLabel>
-              <Select
-                labelId="prop-type-label"
-                name="type"
-                defaultValue="Residential"
-                label="Property Type *"
-                sx={{
-                  fontSize: "0.8125rem",
-                  fontFamily: '"Plus Jakarta Sans", sans-serif',
-                  borderRadius: "0.75rem",
-                  backgroundColor: "#f8fafc",
-                }}
-              >
-                <MenuItem value="Residential" sx={{ fontSize: "0.8125rem" }}>Residential</MenuItem>
-                <MenuItem value="Commercial" sx={{ fontSize: "0.8125rem" }}>Commercial</MenuItem>
-                <MenuItem value="Mixed use" sx={{ fontSize: "0.8125rem" }}>Mixed use</MenuItem>
-              </Select>
-            </FormControl>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-700">
-                  Unit groups
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Property Name <span className="text-rose-500">*</span>
                 </label>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setUnitGroups((groups) => [
-                      ...groups,
-                      { type: "Room", count: 1 },
-                    ])
-                  }
-                  className="text-xs font-semibold text-cyan-700 hover:text-cyan-800"
-                >
-                  + Add another type
-                </button>
+                <input
+                  name="name"
+                  required
+                  placeholder="e.g. Green Tower, Dhanmondi Residence"
+                  className={field}
+                />
               </div>
-              {unitGroups.map((group, index) => (
-                <div
-                  key={`${index}-${group.type}`}
-                  className="grid grid-cols-[1fr_100px_auto] gap-2 items-center"
-                >
-                  <FormControl size="small" fullWidth>
-                    <Select
-                      value={group.type}
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Location / Address <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  name="location"
+                  required
+                  placeholder="e.g. Road 12, Banani, Dhaka"
+                  className={field}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Property Type <span className="text-rose-500">*</span>
+                </label>
+                <FormControl size="small" fullWidth>
+                  <Select
+                    name="type"
+                    defaultValue="Residential"
+                    sx={{
+                      fontSize: "0.75rem",
+                      fontFamily: '"Plus Jakarta Sans", sans-serif',
+                      borderRadius: "0.75rem",
+                      backgroundColor: "#f8fafc",
+                      "& .MuiSelect-select": {
+                        fontSize: "0.75rem",
+                        py: "8px",
+                      },
+                    }}
+                  >
+                    <MenuItem value="Residential" sx={{ fontSize: "0.75rem" }}>Residential</MenuItem>
+                    <MenuItem value="Commercial" sx={{ fontSize: "0.75rem" }}>Commercial</MenuItem>
+                    <MenuItem value="Mixed use" sx={{ fontSize: "0.75rem" }}>Mixed use</MenuItem>
+                  </Select>
+                </FormControl>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-700">
+                    Unit Groups
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setUnitGroups((groups) => [
+                        ...groups,
+                        { type: "Room", count: 1 },
+                      ])
+                    }
+                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                  >
+                    + Add Another Type
+                  </button>
+                </div>
+                {unitGroups.map((group, index) => (
+                  <div
+                    key={`${index}-${group.type}`}
+                    className="grid grid-cols-[1fr_100px_auto] gap-2 items-center"
+                  >
+                    <FormControl size="small" fullWidth>
+                      <Select
+                        value={group.type}
+                        onChange={(event) =>
+                          setUnitGroups((groups) =>
+                            groups.map((item, itemIndex) =>
+                              itemIndex === index
+                                ? { ...item, type: event.target.value }
+                                : item,
+                            ),
+                          )
+                        }
+                        sx={{
+                          fontSize: "0.75rem",
+                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          borderRadius: "0.75rem",
+                          backgroundColor: "#f8fafc",
+                          "& .MuiSelect-select": {
+                            fontSize: "0.75rem",
+                            py: "8px",
+                          },
+                        }}
+                      >
+                        <MenuItem value="Room" sx={{ fontSize: "0.75rem" }}>Room</MenuItem>
+                        <MenuItem value="Shop" sx={{ fontSize: "0.75rem" }}>Shop</MenuItem>
+                        <MenuItem value="Floor" sx={{ fontSize: "0.75rem" }}>Floor</MenuItem>
+                        <MenuItem value="Flat" sx={{ fontSize: "0.75rem" }}>Flat</MenuItem>
+                        <MenuItem value="Office" sx={{ fontSize: "0.75rem" }}>Office</MenuItem>
+                        <MenuItem value="Warehouse" sx={{ fontSize: "0.75rem" }}>Warehouse</MenuItem>
+                        <MenuItem value="Other" sx={{ fontSize: "0.75rem" }}>Other</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <input
+                      type="number"
+                      min="1"
+                      value={group.count}
                       onChange={(event) =>
                         setUnitGroups((groups) =>
                           groups.map((item, itemIndex) =>
                             itemIndex === index
-                              ? { ...item, type: event.target.value }
+                              ? {
+                                  ...item,
+                                  count: Number(event.target.value) || 1,
+                                }
                               : item,
                           ),
                         )
                       }
-                      sx={{
-                        fontSize: "0.8125rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
-                        borderRadius: "0.75rem",
-                        backgroundColor: "#f8fafc",
-                      }}
+                      className={field}
+                      aria-label={`${group.type} quantity`}
+                    />
+                    <button
+                      type="button"
+                      disabled={unitGroups.length === 1}
+                      onClick={() =>
+                        setUnitGroups((groups) =>
+                          groups.filter((_, itemIndex) => itemIndex !== index),
+                        )
+                      }
+                      className="px-2 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer text-lg leading-none"
+                      aria-label="Remove unit group"
                     >
-                      <MenuItem value="Room" sx={{ fontSize: "0.8125rem" }}>Room</MenuItem>
-                      <MenuItem value="Shop" sx={{ fontSize: "0.8125rem" }}>Shop</MenuItem>
-                      <MenuItem value="Floor" sx={{ fontSize: "0.8125rem" }}>Floor</MenuItem>
-                      <MenuItem value="Flat" sx={{ fontSize: "0.8125rem" }}>Flat</MenuItem>
-                      <MenuItem value="Office" sx={{ fontSize: "0.8125rem" }}>Office</MenuItem>
-                      <MenuItem value="Warehouse" sx={{ fontSize: "0.8125rem" }}>Warehouse</MenuItem>
-                      <MenuItem value="Other" sx={{ fontSize: "0.8125rem" }}>Other</MenuItem>
-                    </Select>
-                  </FormControl>
-                  <input
-                    type="number"
-                    min="1"
-                    value={group.count}
-                    onChange={(event) =>
-                      setUnitGroups((groups) =>
-                        groups.map((item, itemIndex) =>
-                          itemIndex === index
-                            ? {
-                                ...item,
-                                count: Number(event.target.value) || 1,
-                              }
-                            : item,
-                        ),
-                      )
-                    }
-                    className={field}
-                    aria-label={`${group.type} quantity`}
-                  />
-                  <button
-                    type="button"
-                    disabled={unitGroups.length === 1}
-                    onClick={() =>
-                      setUnitGroups((groups) =>
-                        groups.filter((_, itemIndex) => itemIndex !== index),
-                      )
-                    }
-                    className="px-2 text-slate-400 disabled:opacity-30"
-                    aria-label="Remove unit group"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-              <p className="text-xs text-slate-500">
-                Example: Room 40, Shop 5, Floor 1.
-              </p>
+                      ×
+                    </button>
+                  </div>
+                ))}
+                <p className="text-xs text-slate-400">
+                  Example: Room 40, Shop 5, Floor 1.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition shadow-xs cursor-pointer"
+                >
+                  Create Property & Units
+                </button>
+              </div>
             </div>
-            <button className="rounded-xl bg-cyan-600 px-4 py-2.5 font-semibold text-white">
-              Create property and units
-            </button>
           </form>
         </div>
       )}

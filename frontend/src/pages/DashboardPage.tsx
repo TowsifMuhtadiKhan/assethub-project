@@ -77,7 +77,7 @@ export function DashboardPage() {
   });
 
   return (
-    <div className="space-y-4 max-w-7xl">
+    <div className="space-y-4 w-full">
       {/* Top Bar Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
         <div>
@@ -135,7 +135,7 @@ export function DashboardPage() {
         </div>
 
         <div
-          onClick={() => navigate("/assets/vehicles/cars")}
+          onClick={() => navigate("/assets/vehicles")}
           className="group cursor-pointer rounded-xl border border-slate-200/90 bg-white p-3 hover:border-blue-300 hover:shadow-xs transition-all"
         >
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-blue-600 transition-colors">

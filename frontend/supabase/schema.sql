@@ -76,7 +76,7 @@ create table if not exists public.lifenest_documents (
   file_url text,
   file_type text not null default 'pdf',
   storage_provider text not null default 'supabase', -- 'google_drive', 'supabase', 'local'
-  drive_file_id text not null default '',
+  drive_file_id text default '',
   is_favorite boolean not null default false,
   requires_renewal boolean not null default false,
   reminder_date date,
@@ -102,6 +102,7 @@ create table if not exists public.lifenest_document_folders (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references auth.users(id) on delete cascade,
   name text not null,
+  parent_id uuid references public.lifenest_document_folders(id) on delete cascade,
   family_member_id uuid references public.lifenest_family_members(id) on delete set null,
   color text not null default 'indigo',
   created_at timestamptz not null default now(),

@@ -31,6 +31,21 @@ export async function listWarranties(): Promise<WarrantyItem[]> {
   }));
 }
 
+export async function listWarrantiesForVehicle(vehicleId: string): Promise<WarrantyItem[]> {
+  let list: WarrantyItem[] = [];
+  try {
+    const all = await listWarranties();
+    list = all.filter((w) => w.relatedAssetId === vehicleId);
+  } catch {}
+
+  const raw = localStorage.getItem(`lifenest_veh_warranties_${vehicleId}`);
+  const localList: WarrantyItem[] = raw ? JSON.parse(raw) : [];
+  const mergedMap = new Map<string, WarrantyItem>();
+  localList.forEach((w) => mergedMap.set(w.id, w));
+  list.forEach((w) => mergedMap.set(w.id, w));
+  return Array.from(mergedMap.values());
+}
+
 export async function createWarranty(
   input: Omit<WarrantyItem, "id">,
 ): Promise<WarrantyItem> {
@@ -74,7 +89,7 @@ export async function createWarranty(
     .single();
 
   if (error) throw error;
-  return {
+  const item: WarrantyItem = {
     id: data.id,
     productName: data.product_name,
     category: data.category,
@@ -85,17 +100,39 @@ export async function createWarranty(
     seller: data.seller ?? "",
     purchasePrice: Number(data.purchase_price ?? 0),
     serialNumber: data.serial_number ?? "",
-    invoiceNumber: data.invoice_number ?? "",
-    receiptUrl: data.receipt_url ?? undefined,
-    warrantyDocumentUrl: data.warranty_document_url ?? undefined,
-    relatedAssetType: data.related_asset_type ?? "",
-    relatedAssetId: data.related_asset_id ?? "",
-    status: data.status,
-    notes: data.notes ?? "",
+    invoiceNumber: data?.invoice_number ?? input.invoiceNumber ?? "",
+    receiptUrl: data?.receipt_url ?? input.receiptUrl,
+    warrantyDocumentUrl: data?.warranty_document_url ?? input.warrantyDocumentUrl,
+    relatedAssetType: data?.related_asset_type ?? input.relatedAssetType,
+    relatedAssetId: data?.related_asset_id ?? input.relatedAssetId,
+    status: data?.status ?? input.status,
+    notes: data?.notes ?? input.notes,
   };
+
+  if (item.relatedAssetId) {
+    try {
+      const key = `lifenest_veh_warranties_${item.relatedAssetId}`;
+      const raw = localStorage.getItem(key);
+      const cur: WarrantyItem[] = raw ? JSON.parse(raw) : [];
+      localStorage.setItem(key, JSON.stringify([item, ...cur]));
+    } catch {}
+  }
+
+  return item;
 }
 
-export async function deleteWarranty(id: string): Promise<void> {
-  const { error } = await supabase.from(TABLE).delete().eq("id", id);
-  if (error) throw error;
+export async function deleteWarranty(id: string, vehicleId?: string): Promise<void> {
+  if (vehicleId) {
+    try {
+      const key = `lifenest_veh_warranties_${vehicleId}`;
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const cur: WarrantyItem[] = JSON.parse(raw);
+        localStorage.setItem(key, JSON.stringify(cur.filter((w) => w.id !== id)));
+      }
+    } catch {}
+  }
+  try {
+    await supabase.from(TABLE).delete().eq("id", id);
+  } catch {}
 }

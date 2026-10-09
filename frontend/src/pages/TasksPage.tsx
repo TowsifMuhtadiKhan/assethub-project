@@ -159,10 +159,11 @@ export function TasksPage() {
   };
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
+    const formElement = e.currentTarget;
     e.preventDefault();
     setSaving(true);
     setError("");
-    const form = new FormData(e.currentTarget);
+    const form = new FormData(formElement);
     try {
       const newTask = await createTask({
         title: String(form.get("title")),
@@ -181,8 +182,8 @@ export function TasksPage() {
       });
 
       setTasks((prev) => [newTask, ...prev]);
+      formElement?.reset?.();
       setIsAddOpen(false);
-      e.currentTarget.reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create task");
     } finally {
@@ -258,7 +259,7 @@ export function TasksPage() {
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   return (
-    <div className="space-y-4 max-w-7xl">
+    <div className="space-y-4 w-full">
       {/* Jira Board Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3.5">
         <div>
@@ -269,10 +270,10 @@ export function TasksPage() {
             <span className="text-xs text-slate-400 font-mono">LN-BOARD</span>
           </div>
           <h1 className="text-xl font-extrabold tracking-tight text-slate-900 mt-1 font-display">
-            Tasks & Sprints
+            Tasks & Actions
           </h1>
           <p className="text-xs text-slate-500">
-            Agile task management, renewals, bill schedules, and family responsibilities.
+            Track and resolve tasks, vehicle maintenance items, renewals, and responsibilities.
           </p>
         </div>
 
@@ -312,7 +313,7 @@ export function TasksPage() {
             className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
-            <span>Create Issue</span>
+            <span>Create Task</span>
           </button>
         </div>
       </div>
@@ -440,7 +441,7 @@ export function TasksPage() {
 
       {/* VIEW MODE 1: JIRA KANBAN BOARD VIEW */}
       {loading ? (
-        <div className="py-20 text-center text-xs text-slate-400">Loading issues & tasks...</div>
+        <div className="py-20 text-center text-xs text-slate-400">Loading tasks...</div>
       ) : viewMode === "board" ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
           {/* COLUMN 1: TO DO */}
@@ -493,7 +494,7 @@ export function TasksPage() {
               className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300/80 bg-white/60 py-2 text-xs font-semibold text-slate-600 hover:bg-white hover:text-slate-900 transition cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
-              <span>Create Issue</span>
+              <span>Create Task</span>
             </button>
           </div>
 
@@ -547,7 +548,7 @@ export function TasksPage() {
               className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-indigo-200 bg-white/70 py-2 text-xs font-semibold text-indigo-700 hover:bg-white hover:text-indigo-900 transition cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
-              <span>Create Issue</span>
+              <span>Create Task</span>
             </button>
           </div>
 
@@ -601,7 +602,7 @@ export function TasksPage() {
               className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-emerald-200 bg-white/70 py-2 text-xs font-semibold text-emerald-700 hover:bg-white hover:text-emerald-900 transition cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
-              <span>Create Issue</span>
+              <span>Create Task</span>
             </button>
           </div>
         </div>
@@ -728,7 +729,7 @@ export function TasksPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                    Create Issue
+                    Create Task
                   </span>
                   <span className="text-xs text-slate-400 font-mono">LN-TASK</span>
                 </div>
@@ -1031,7 +1032,7 @@ export function TasksPage() {
                   type="submit"
                   className="rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition shadow-xs cursor-pointer"
                 >
-                  {saving ? "Saving..." : "Create Issue"}
+                  {saving ? "Saving..." : "Create Task"}
                 </button>
               </div>
             </form>
@@ -1183,7 +1184,7 @@ function TaskCard({ task, index, onStatusChange, onDelete }: TaskCardProps) {
               type="button"
               onClick={() => onStatusChange(task, "Pending")}
               className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-medium text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-              title="Reopen Issue"
+              title="Reopen Task"
             >
               <RotateCcw className="h-2.5 w-2.5" />
               <span>Reopen</span>

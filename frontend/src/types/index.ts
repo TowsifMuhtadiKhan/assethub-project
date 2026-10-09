@@ -69,6 +69,19 @@ export type RelationshipType =
   | "Sibling"
   | "Other";
 
+export type FamilyMemberAccess = {
+  canLogin: boolean;
+  loginRole: "Admin" | "Vehicle_Manager" | "Viewer" | "Custom";
+  canAccessVehicles: boolean;
+  assignedVehicleIds: string[]; // empty means all, or specific vehicle IDs
+  canWriteFuel: boolean;
+  canWriteMaintenance: boolean;
+  canWriteDocuments: boolean;
+  canAccessVault: boolean;
+  canAccessProperties: boolean;
+  canAccessWarranties: boolean;
+};
+
 export type FamilyMember = {
   id: string;
   fullName: string;
@@ -81,6 +94,7 @@ export type FamilyMember = {
   identificationInfo?: string;
   notes?: string;
   photoUrl?: string;
+  access?: FamilyMemberAccess;
 };
 
 export type UserSettings = {
@@ -138,6 +152,7 @@ export type DocumentItem = {
 export type DocumentFolder = {
   id: string;
   name: string;
+  parentId?: string;
   familyMemberId?: string;
   familyMemberName?: string;
   color?: string;
@@ -163,7 +178,19 @@ export type LicenseItem = {
 
 // 4. Vehicles & Records
 export type VehicleStatus = "GOOD" | "DUE SOON" | "OVERDUE";
-export type VehicleType = "Car" | "Bike" | "Scooter" | "Commercial" | "Other";
+export type VehicleType =
+  | "Car"
+  | "Bike"
+  | "Motorcycle"
+  | "Scooter"
+  | "Truck"
+  | "Commercial"
+  | "Van"
+  | "Bicycle"
+  | "EV"
+  | "CNG"
+  | "Other"
+  | (string & {});
 
 export type Vehicle = {
   id: string;
@@ -264,6 +291,33 @@ export type VehicleService = {
   nextServiceMileage: number;
   reminderEnabled: boolean;
   receiptUrl?: string;
+};
+
+export type BangladeshDocType =
+  | "Tax Token"
+  | "Registration Certificate"
+  | "Smart Registration Card"
+  | "Driving License"
+  | "Fitness Certificate"
+  | "Insurance Certificate"
+  | "Route Permit"
+  | "Custom Document";
+
+export type VehicleDocument = {
+  id: string;
+  vehicleId: string;
+  name: string;
+  category: BangladeshDocType | string;
+  documentNumber?: string;
+  issueDate?: string;
+  expiryDate?: string;
+  issuingAuthority?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+  notes?: string;
+  createdAt: string;
 };
 
 // 5. Purchases & Warranties

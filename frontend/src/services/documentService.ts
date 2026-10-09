@@ -59,7 +59,7 @@ export async function createDocument(
     file_url: input.fileUrl || null,
     file_type: input.fileType || "pdf",
     storage_provider: input.storageProvider || "supabase",
-    drive_file_id: input.driveFileId || null,
+    drive_file_id: input.driveFileId || "",
     is_favorite: input.isFavorite ?? false,
     requires_renewal: input.requiresRenewal ?? false,
     reminder_date: input.reminderDate || null,
@@ -116,6 +116,9 @@ export async function updateDocument(
   if (input.assetId !== undefined) patch.asset_id = input.assetId;
   if (input.folderName !== undefined) patch.folder_name = input.folderName;
   if (input.fileUrl !== undefined) patch.file_url = input.fileUrl;
+  if (input.fileType !== undefined) patch.file_type = input.fileType;
+  if (input.storageProvider !== undefined) patch.storage_provider = input.storageProvider;
+  if (input.driveFileId !== undefined) patch.drive_file_id = input.driveFileId || "";
   if (input.isFavorite !== undefined) patch.is_favorite = input.isFavorite;
   if (input.requiresRenewal !== undefined) patch.requires_renewal = input.requiresRenewal;
   if (input.reminderDate !== undefined) patch.reminder_date = input.reminderDate || null;
@@ -133,6 +136,28 @@ export async function deleteDocument(id: string): Promise<void> {
 
 const FOLDERS_TABLE = "lifenest_document_folders";
 const LOCAL_FOLDERS_KEY = "lifenest_local_folders";
+const HIERARCHY_MAP_KEY = "lifenest_folder_parents";
+
+function getFolderParentsMap(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(HIERARCHY_MAP_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveFolderParent(childIdOrName: string, parentId?: string) {
+  try {
+    const map = getFolderParentsMap();
+    if (parentId) {
+      map[childIdOrName] = parentId;
+    } else {
+      delete map[childIdOrName];
+    }
+    localStorage.setItem(HIERARCHY_MAP_KEY, JSON.stringify(map));
+  } catch {}
+}
 
 function getLocalFolders(): DocumentFolder[] {
   try {
@@ -150,6 +175,7 @@ function saveLocalFolders(folders: DocumentFolder[]) {
 }
 
 export async function listDocumentFolders(): Promise<DocumentFolder[]> {
+  const parentMap = getFolderParentsMap();
   try {
     const { data, error } = await supabase
       .from(FOLDERS_TABLE)
@@ -160,18 +186,24 @@ export async function listDocumentFolders(): Promise<DocumentFolder[]> {
     return (data || []).map((row: any) => ({
       id: row.id,
       name: row.name,
+      parentId: row.parent_id ?? parentMap[row.id] ?? parentMap[row.name.toLowerCase()] ?? undefined,
       familyMemberId: row.family_member_id ?? undefined,
       familyMemberName: row.lifenest_family_members?.full_name ?? undefined,
       color: row.color ?? "indigo",
       createdAt: row.created_at,
     }));
   } catch {
-    return getLocalFolders();
+    const local = getLocalFolders();
+    return local.map((f) => ({
+      ...f,
+      parentId: f.parentId ?? parentMap[f.id] ?? parentMap[f.name.toLowerCase()] ?? undefined,
+    }));
   }
 }
 
 export async function createDocumentFolder(input: {
   name: string;
+  parentId?: string;
   familyMemberId?: string;
   color?: string;
 }): Promise<DocumentFolder> {
@@ -179,10 +211,16 @@ export async function createDocumentFolder(input: {
   const newFolder: DocumentFolder = {
     id: localId,
     name: input.name,
+    parentId: input.parentId || undefined,
     familyMemberId: input.familyMemberId || undefined,
     color: input.color || "indigo",
     createdAt: new Date().toISOString(),
   };
+
+  if (input.parentId) {
+    saveFolderParent(localId, input.parentId);
+    saveFolderParent(input.name.toLowerCase(), input.parentId);
+  }
 
   try {
     const {
@@ -190,21 +228,53 @@ export async function createDocumentFolder(input: {
     } = await supabase.auth.getUser();
 
     if (user) {
-      const { data, error } = await supabase
-        .from(FOLDERS_TABLE)
-        .insert({
-          owner_id: user.id,
-          name: input.name,
-          family_member_id: input.familyMemberId || null,
-          color: input.color || "indigo",
-        })
-        .select("*, lifenest_family_members(full_name)")
-        .single();
+      let data: any = null;
+      let error: any = null;
+
+      // Try inserting with parent_id first
+      try {
+        const res = await supabase
+          .from(FOLDERS_TABLE)
+          .insert({
+            owner_id: user.id,
+            name: input.name,
+            parent_id: input.parentId || null,
+            family_member_id: input.familyMemberId || null,
+            color: input.color || "indigo",
+          })
+          .select("*, lifenest_family_members(full_name)")
+          .single();
+        data = res.data;
+        error = res.error;
+      } catch (e) {
+        error = e;
+      }
+
+      // If parent_id column does not exist yet in live Supabase table, fallback to standard columns
+      if (error) {
+        const res = await supabase
+          .from(FOLDERS_TABLE)
+          .insert({
+            owner_id: user.id,
+            name: input.name,
+            family_member_id: input.familyMemberId || null,
+            color: input.color || "indigo",
+          })
+          .select("*, lifenest_family_members(full_name)")
+          .single();
+        data = res.data;
+        error = res.error;
+      }
 
       if (!error && data) {
+        if (input.parentId) {
+          saveFolderParent(data.id, input.parentId);
+          saveFolderParent(data.name.toLowerCase(), input.parentId);
+        }
         return {
           id: data.id,
           name: data.name,
+          parentId: input.parentId || data.parent_id || undefined,
           familyMemberId: data.family_member_id ?? undefined,
           familyMemberName: data.lifenest_family_members?.full_name ?? undefined,
           color: data.color ?? "indigo",
@@ -220,11 +290,32 @@ export async function createDocumentFolder(input: {
   return newFolder;
 }
 
-export async function deleteDocumentFolder(id: string): Promise<void> {
+export async function deleteDocumentFolder(idOrName: string): Promise<void> {
+  const parentMap = getFolderParentsMap();
+  delete parentMap[idOrName];
+  delete parentMap[idOrName.toLowerCase()];
   try {
-    await supabase.from(FOLDERS_TABLE).delete().eq("id", id);
+    localStorage.setItem(HIERARCHY_MAP_KEY, JSON.stringify(parentMap));
+  } catch {}
+
+  try {
+    await supabase
+      .from(FOLDERS_TABLE)
+      .delete()
+      .or(`id.eq.${idOrName},name.eq.${idOrName}`);
+  } catch {}
+
+  try {
+    await supabase
+      .from(TABLE)
+      .update({ folder_name: "" })
+      .or(`folder_name.eq.${idOrName}`);
   } catch {}
 
   const current = getLocalFolders();
-  saveLocalFolders(current.filter((f) => f.id !== id));
+  saveLocalFolders(
+    current.filter(
+      (f) => f.id !== idOrName && f.name.toLowerCase() !== idOrName.toLowerCase(),
+    ),
+  );
 }

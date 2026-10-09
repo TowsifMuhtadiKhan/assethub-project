@@ -6,13 +6,13 @@ export function SqlSetupBanner({ error }: { error?: string }) {
   const [expanded, setExpanded] = useState(false);
 
   // Detect if error is the classic missing Supabase table error PGRST205
-  const isMissingTable =
+  const isMissingTable = Boolean(
     error?.includes("PGRST205") ||
     error?.toLowerCase().includes("could not find the table") ||
-    error?.toLowerCase().includes("schema cache") ||
-    error?.toLowerCase().includes("failed to load");
+    error?.toLowerCase().includes("schema cache")
+  );
 
-  if (!isMissingTable && !error) return null;
+  if (!isMissingTable) return null;
 
   const copyPath = () => {
     navigator.clipboard.writeText("frontend/supabase/schema.sql");

@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Award, Plus, Search, Clock, Trash2, User } from "lucide-react";
 import {
   FormControl,
-  InputLabel,
   Select,
   MenuItem,
   TextField,
@@ -46,10 +45,11 @@ export function LicensesPage() {
   };
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
+    const formElement = e.currentTarget;
     e.preventDefault();
     setSaving(true);
     setError("");
-    const form = new FormData(e.currentTarget);
+    const form = new FormData(formElement);
     try {
       const newLicense = await createLicense({
         licenseName: String(form.get("licenseName")),
@@ -65,8 +65,8 @@ export function LicensesPage() {
       });
 
       setLicenses((prev) => [newLicense, ...prev]);
+      formElement?.reset?.();
       setIsAddOpen(false);
-      e.currentTarget.reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create license");
     } finally {
@@ -242,153 +242,186 @@ export function LicensesPage() {
 
       {/* Add Modal */}
       {isAddOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-5 shadow-xl border border-slate-200">
-            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-              Add License / Registration
-            </h2>
-            <form onSubmit={handleCreate} className="mt-3 space-y-3">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-xs"
+          onMouseDown={() => setIsAddOpen(false)}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl border border-slate-200/90 overflow-hidden"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
               <div>
-                <label className="text-[11px] font-semibold text-slate-700">License Title *</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                    Add License
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">LN-LICENSE</span>
+                </div>
+                <h2 className="text-base font-bold tracking-tight text-slate-900 mt-0.5">
+                  New License & Permit
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                aria-label="Close modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreate} className="p-6 space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  License Title <span className="text-rose-500">*</span>
+                </label>
                 <input
                   name="licenseName"
                   required
                   placeholder="e.g. BRTA Professional Driving License, Trade License"
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50/50 p-2 text-xs outline-none focus:border-slate-400"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-700">License Number</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">License Number</label>
                   <input
                     name="licenseNumber"
                     placeholder="e.g. DL-18939210"
-                    className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50/50 p-2 text-xs outline-none focus:border-slate-400"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-mono text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-700">Holder Name</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Holder Name</label>
                   <input
                     name="holderName"
                     placeholder="e.g. Self or family member name"
-                    className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50/50 p-2 text-xs outline-none focus:border-slate-400"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-700">Issuing Authority</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Issuing Authority</label>
                   <input
                     name="issuingAuthority"
                     placeholder="e.g. BRTA, City Corporation"
-                    className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50/50 p-2 text-xs outline-none focus:border-slate-400"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                   />
                 </div>
-                <FormControl size="small" fullWidth>
-                  <InputLabel id="license-member-label" sx={{ fontSize: "0.8125rem" }}>
-                    Family Member
-                  </InputLabel>
-                  <Select
-                    labelId="license-member-label"
-                    name="familyMemberId"
-                    defaultValue=""
-                    label="Family Member"
-                    sx={{
-                      fontSize: "0.8125rem",
-                      fontFamily: '"Plus Jakarta Sans", sans-serif',
-                      borderRadius: "0.5rem",
-                      backgroundColor: "#f8fafc",
-                    }}
-                  >
-                    <MenuItem value="" sx={{ fontSize: "0.8125rem" }}>
-                      Personal / Self
-                    </MenuItem>
-                    {familyMembers.map((m) => (
-                      <MenuItem key={m.id} value={m.id} sx={{ fontSize: "0.8125rem" }}>
-                        {m.fullName}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Family Member</label>
+                  <FormControl size="small" fullWidth>
+                    <Select
+                      name="familyMemberId"
+                      defaultValue=""
+                      displayEmpty
+                      sx={{
+                        fontSize: "0.75rem",
+                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        borderRadius: "0.75rem",
+                        backgroundColor: "#f8fafc",
+                        "& .MuiSelect-select": {
+                          fontSize: "0.75rem",
+                          py: "8px",
+                        },
+                      }}
+                    >
+                      <MenuItem value="" sx={{ fontSize: "0.75rem" }}>
+                        Personal / Self
                       </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                      {familyMembers.map((m) => (
+                        <MenuItem key={m.id} value={m.id} sx={{ fontSize: "0.75rem" }}>
+                          👤 {m.fullName}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-700">Issue Date</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Issue Date</label>
                   <input
                     name="issueDate"
                     type="date"
-                    className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50/50 p-2 text-xs outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-700">Expiry Date</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Expiry Date</label>
                   <input
                     name="expiryDate"
                     type="date"
-                    className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50/50 p-2 text-xs outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 items-center">
-                <FormControl size="small" fullWidth>
-                  <InputLabel id="renewal-period-label" sx={{ fontSize: "0.8125rem" }}>
-                    Renewal Cycle
-                  </InputLabel>
-                  <Select
-                    labelId="renewal-period-label"
-                    name="renewalPeriod"
-                    defaultValue="Annual"
-                    label="Renewal Cycle"
-                    sx={{
-                      fontSize: "0.8125rem",
-                      fontFamily: '"Plus Jakarta Sans", sans-serif',
-                      borderRadius: "0.5rem",
-                      backgroundColor: "#f8fafc",
-                    }}
-                  >
-                    <MenuItem value="Annual" sx={{ fontSize: "0.8125rem" }}>Annual (Every Year)</MenuItem>
-                    <MenuItem value="5 Years" sx={{ fontSize: "0.8125rem" }}>5 Years</MenuItem>
-                    <MenuItem value="10 Years" sx={{ fontSize: "0.8125rem" }}>10 Years</MenuItem>
-                    <MenuItem value="Lifetime" sx={{ fontSize: "0.8125rem" }}>Lifetime / No Expiry</MenuItem>
-                  </Select>
-                </FormControl>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-700">Est. Renewal Fee (৳)</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Renewal Cycle</label>
+                  <FormControl size="small" fullWidth>
+                    <Select
+                      name="renewalPeriod"
+                      defaultValue="Annual"
+                      sx={{
+                        fontSize: "0.75rem",
+                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        borderRadius: "0.75rem",
+                        backgroundColor: "#f8fafc",
+                        "& .MuiSelect-select": {
+                          fontSize: "0.75rem",
+                          py: "8px",
+                        },
+                      }}
+                    >
+                      <MenuItem value="Annual" sx={{ fontSize: "0.75rem" }}>Annual (Every Year)</MenuItem>
+                      <MenuItem value="5 Years" sx={{ fontSize: "0.75rem" }}>5 Years</MenuItem>
+                      <MenuItem value="10 Years" sx={{ fontSize: "0.75rem" }}>10 Years</MenuItem>
+                      <MenuItem value="Lifetime" sx={{ fontSize: "0.75rem" }}>Lifetime / No Expiry</MenuItem>
+                    </Select>
+                  </FormControl>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Est. Renewal Fee (৳)</label>
                   <input
                     name="renewalCost"
                     type="number"
                     placeholder="0"
-                    className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50/50 p-2 text-xs outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-slate-700">Notes</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Notes</label>
                 <textarea
                   name="notes"
                   rows={2}
                   placeholder="Renewal requirements, police verification, etc."
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50/50 p-2 text-xs outline-none focus:border-slate-400"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsAddOpen(false)}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   disabled={saving}
                   type="submit"
-                  className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                  className="rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition shadow-xs cursor-pointer"
                 >
                   {saving ? "Saving..." : "Save License"}
                 </button>

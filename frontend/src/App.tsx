@@ -12,18 +12,21 @@ import { TasksPage } from "./pages/TasksPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { WarrantiesPage } from "./pages/WarrantiesPage";
 import { LicensesPage } from "./pages/LicensesPage";
-import { NotificationsPage } from "./pages/NotificationsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ErrorPage } from "./pages/ErrorPage";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 
+function AllVehiclesPage() {
+  return <VehicleEntryPage filterType="All" />;
+}
+
 function CarsPage() {
-  return <VehicleEntryPage type="Car" />;
+  return <VehicleEntryPage filterType="Car" />;
 }
 
 function BikesPage() {
-  return <VehicleEntryPage type="Bike" />;
+  return <VehicleEntryPage filterType="Bike" />;
 }
 
 function App() {
@@ -45,6 +48,7 @@ function App() {
               <Route path="/documents/licenses" element={<LicensesPage />} />
 
               {/* 4. Assets & Vehicles */}
+              <Route path="/assets/vehicles" element={<AllVehiclesPage />} />
               <Route path="/assets/vehicles/cars" element={<CarsPage />} />
               <Route path="/assets/vehicles/bikes" element={<BikesPage />} />
               <Route path="/vehicles/:vehicleId" element={<VehicleDetailsPage />} />
@@ -57,13 +61,14 @@ function App() {
               <Route path="/family/profiles" element={<FamilyPage />} />
 
               {/* 7. Notifications & Settings */}
-              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/notifications" element={<Navigate to="/settings?tab=notifications" replace />} />
               <Route path="/settings" element={<SettingsPage />} />
 
               {/* 8. Error & Diagnostic Page */}
               <Route path="/error" element={<ErrorPage />} />
 
               {/* Backwards-compatible legacy redirects */}
+              <Route path="/vehicles" element={<Navigate to="/assets/vehicles" replace />} />
               <Route path="/vehicles/cars" element={<Navigate to="/assets/vehicles/cars" replace />} />
               <Route path="/vehicles/bikes" element={<Navigate to="/assets/vehicles/bikes" replace />} />
               <Route path="/properties" element={<Navigate to="/rentals/properties" replace />} />
