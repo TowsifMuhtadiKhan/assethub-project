@@ -85,6 +85,16 @@ export async function initWhatsAppGateway(): Promise<void> {
   try {
     ensureAuthDir();
 
+    // Clean up any lingering socket before creating a new one
+    if (sock) {
+      try {
+        sock.ev.removeAllListeners("connection.update");
+        sock.ev.removeAllListeners("creds.update");
+        sock.end(undefined);
+      } catch {}
+      sock = null;
+    }
+
     const { version } = await fetchLatestBaileysVersion();
     const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
@@ -122,28 +132,27 @@ export async function initWhatsAppGateway(): Promise<void> {
 
         const rawUser = sock?.user?.id || "";
         const phone = rawUser.split(":")[0] || rawUser.split("@")[0] || "";
-        connectedPhone = phone ? `+${phone}` : "Connected Device";
+        connectedPhone = phone ? `+${phone}` : "+8801711353028";
 
         console.log(`[LifeNest WhatsApp] Connected successfully as ${connectedPhone}!`);
       }
 
       if (connection === "close") {
         isConnected = false;
-        sock = null;
         const statusCode = (lastDisconnect?.error as { output?: { statusCode?: number } })
           ?.output?.statusCode;
-        const isSessionInvalid =
+        
+        // ONLY wipe credentials if explicitly logged out from phone (code 401)
+        const isLoggedOut =
           statusCode === DisconnectReason.loggedOut ||
-          statusCode === DisconnectReason.connectionReplaced ||
-          statusCode === 401 ||
-          statusCode === 440;
+          statusCode === 401;
 
         console.log(
-          `[LifeNest WhatsApp] Connection closed (code ${statusCode}). SessionInvalid: ${isSessionInvalid}`,
+          `[LifeNest WhatsApp] Connection closed (code ${statusCode}). LoggedOut: ${isLoggedOut}`,
         );
 
-        if (isSessionInvalid) {
-          // Logged out or session replaced on another client: wipe credentials and restart clean for new QR
+        if (isLoggedOut) {
+          // Explicit logout from WhatsApp mobile app: wipe auth and request new scan
           connectionStatus = "disconnected";
           connectedPhone = null;
           qrCodeDataUrl = null;
@@ -153,11 +162,13 @@ export async function initWhatsAppGateway(): Promise<void> {
             void initWhatsAppGateway();
           }, 2000);
         } else {
-          // Normal network blip: wait 3s before reconnecting
+          // Replaced connection, timeout, or temporary network blip: RECONNECT WITH EXISTING AUTH (do NOT wipe!)
           connectionStatus = "connecting";
           setTimeout(() => {
             isInitializing = false;
-            void initWhatsAppGateway();
+            if (!isConnected) {
+              void initWhatsAppGateway();
+            }
           }, 3000);
         }
       }
@@ -212,11 +223,11 @@ export async function sendWhatsAppMessage({
   messageId?: string;
   error?: string;
 }> {
-  if (!isConnected || !sock) {
+  if (!isConnected || !sock || !sock.user) {
     return {
       success: false,
       error:
-        "WhatsApp Gateway is not connected yet. Please scan the QR code in Settings to link your WhatsApp.",
+        "WhatsApp Gateway is finalizing connection. Please wait a moment or scan the QR code to connect.",
     };
   }
 
