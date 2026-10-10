@@ -24,6 +24,7 @@ import {
   getWhatsAppSystemStatus,
   sendSystemWhatsAppAlert,
   disconnectWhatsAppGateway,
+  formatRecipientNumber,
   type WhatsAppSystemStatus,
 } from "../services/whatsappService";
 import type { UserSettings } from "../types";
@@ -108,19 +109,17 @@ export function SettingsPage() {
     });
   }, []);
 
-  // Poll WhatsApp Gateway status every 3s until connected
+  // Poll WhatsApp Gateway status every 2.5s until connected
+  const refreshWhatsAppStatus = async () => {
+    try {
+      const s = await getWhatsAppSystemStatus();
+      setSystemWhatsApp(s);
+    } catch {}
+  };
+
   useEffect(() => {
-    let timer: ReturnType<typeof setInterval>;
-    const fetchStatus = async () => {
-      try {
-        const s = await getWhatsAppSystemStatus();
-        setSystemWhatsApp(s);
-      } catch {}
-    };
-
-    fetchStatus();
-    timer = setInterval(fetchStatus, 3500);
-
+    refreshWhatsAppStatus();
+    const timer = setInterval(refreshWhatsAppStatus, 2500);
     return () => clearInterval(timer);
   }, []);
 
@@ -131,8 +130,7 @@ export function SettingsPage() {
     setDisconnecting(true);
     try {
       await disconnectWhatsAppGateway();
-      const updated = await getWhatsAppSystemStatus();
-      setSystemWhatsApp(updated);
+      await refreshWhatsAppStatus();
     } finally {
       setDisconnecting(false);
     }
@@ -168,12 +166,7 @@ export function SettingsPage() {
   };
 
   const handleSendTestAlert = async () => {
-    const country = (settings.countryCode || "+880").replace(/[^0-9]/g, "");
-    let rawNumber = (settings.whatsappNumber || "").replace(/[^0-9]/g, "");
-    if (rawNumber.startsWith("0")) {
-      rawNumber = rawNumber.substring(1);
-    }
-    const fullNumber = `${country}${rawNumber}`;
+    const fullNumber = formatRecipientNumber(settings.countryCode || "+880", settings.whatsappNumber || "");
     if (!fullNumber || fullNumber.length < 8) {
       alert("Please enter a valid recipient WhatsApp number first.");
       return;
@@ -182,7 +175,7 @@ export function SettingsPage() {
     if (!systemWhatsApp.configured && systemWhatsApp.status !== "connected") {
       setTestResponse({
         success: false,
-        error: "WhatsApp Web Gateway is not linked yet. Please scan the QR code below using WhatsApp on your phone first.",
+        error: "WhatsApp Web Gateway is not linked yet. Scan the QR code below using WhatsApp on your phone first (or click 'Open in WhatsApp' to test dispatch right away).",
       });
       return;
     }
@@ -219,12 +212,7 @@ export function SettingsPage() {
   };
 
   const handleLaunchWhatsApp = () => {
-    const country = (settings.countryCode || "+880").replace(/[^0-9]/g, "");
-    let rawNumber = (settings.whatsappNumber || "").replace(/[^0-9]/g, "");
-    if (rawNumber.startsWith("0")) {
-      rawNumber = rawNumber.substring(1);
-    }
-    const fullNumber = `${country}${rawNumber}`;
+    const fullNumber = formatRecipientNumber(settings.countryCode || "+880", settings.whatsappNumber || "");
     if (!fullNumber || fullNumber.length < 8) {
       alert("Please enter a valid recipient WhatsApp number first.");
       return;
@@ -357,7 +345,7 @@ export function SettingsPage() {
                       </span>
                     </div>
                     <span className="text-[11px] text-emerald-700 block mt-0.5">
-                      Sender Device: <code className="bg-emerald-100 px-1.5 py-0.5 rounded font-mono font-semibold text-emerald-900">+{systemWhatsApp.connectedPhone || "Connected"}</code>. All alerts dispatch silently in background to any unlisted recipient number.
+                      Sender Device: <code className="bg-emerald-100 px-1.5 py-0.5 rounded font-mono font-semibold text-emerald-900">+{systemWhatsApp.connectedPhone || "Connected"}</code>. All alerts dispatch silently in the background to: <strong className="text-emerald-950 font-mono">+{formatRecipientNumber(settings.countryCode || "+880", settings.whatsappNumber || "01711353028")}</strong>
                     </span>
                   </div>
                 </div>
@@ -380,7 +368,7 @@ export function SettingsPage() {
                     <img
                       src={systemWhatsApp.qrDataUrl}
                       alt="WhatsApp Web QR Code"
-                      className="w-48 h-48 rounded-lg shadow-xs object-contain"
+                      className="w-52 h-52 rounded-lg shadow-xs object-contain bg-white p-1"
                     />
                     <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
                       <RefreshCw className="h-3 w-3 animate-spin text-emerald-600" />
@@ -390,12 +378,22 @@ export function SettingsPage() {
 
                   {/* Instructions */}
                   <div className="space-y-3 text-xs text-slate-700 flex-1">
-                    <div className="flex items-center gap-2">
-                      <QrCode className="h-5 w-5 text-emerald-600" />
-                      <h3 className="text-sm font-bold text-slate-900">
-                        Link LifeNest with WhatsApp
-                      </h3>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <QrCode className="h-5 w-5 text-emerald-600" />
+                        <h3 className="text-sm font-bold text-slate-900">
+                          Step 2: Link WhatsApp to LifeNest
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={refreshWhatsAppStatus}
+                        className="inline-flex items-center gap-1 text-[11px] text-slate-600 hover:text-emerald-700 border border-slate-200 px-2 py-0.5 rounded-md hover:border-emerald-300 transition"
+                      >
+                        <RefreshCw className="h-3 w-3" /> Refresh QR
+                      </button>
                     </div>
+
                     <p className="text-[11px] text-slate-600 leading-relaxed">
                       Scan this QR code with WhatsApp on your phone to link LifeNest. Once linked, LifeNest will automatically send reminders and alerts directly to <strong>any phone number</strong> entered on this platform without requiring recipient verification or Meta approval!
                     </p>
@@ -415,7 +413,7 @@ export function SettingsPage() {
                 </div>
               </div>
             ) : (
-              <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900">
                 <div className="flex items-center gap-2.5">
                   <RefreshCw className="h-4 w-4 text-amber-600 animate-spin shrink-0" />
                   <div>
@@ -425,6 +423,13 @@ export function SettingsPage() {
                     </span>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={refreshWhatsAppStatus}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition cursor-pointer shrink-0"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" /> Check Status Now
+                </button>
               </div>
             )}
 
