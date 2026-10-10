@@ -22,8 +22,16 @@ import {
   getWhatsAppStatus,
   sendWhatsAppMessage,
   disconnectWhatsApp,
+  restartWhatsAppGateway,
   initWhatsAppGateway,
 } from "./whatsappService.js";
+
+process.on("unhandledRejection", (reason) => {
+  console.warn("[Server] Unhandled rejection intercepted:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[Server] Uncaught exception intercepted:", err);
+});
 
 const prisma = new PrismaClient();
 const app = express();
@@ -468,6 +476,11 @@ app.get("/api/whatsapp/status", async (_req: Request, res: Response) => {
 
 app.post("/api/whatsapp/disconnect", async (_req: Request, res: Response) => {
   const result = await disconnectWhatsApp();
+  res.json(result);
+});
+
+app.post("/api/whatsapp/restart", async (_req: Request, res: Response) => {
+  const result = await restartWhatsAppGateway();
   res.json(result);
 });
 

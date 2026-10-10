@@ -7,6 +7,8 @@
 import makeWASocket, {
   DisconnectReason,
   useMultiFileAuthState,
+  fetchLatestBaileysVersion,
+  Browsers,
   type WASocket,
 } from "@whiskeysockets/baileys";
 import QRCode from "qrcode";
@@ -22,6 +24,28 @@ let connectionStatus: "disconnected" | "connecting" | "qr_ready" | "connected" =
 let isInitializing = false;
 
 const AUTH_DIR = path.resolve(process.cwd(), "whatsapp_auth");
+
+function ensureAuthDir(): void {
+  try {
+    if (!fs.existsSync(AUTH_DIR)) {
+      fs.mkdirSync(AUTH_DIR, { recursive: true });
+    }
+  } catch {}
+}
+
+function cleanAuthDir(): void {
+  try {
+    if (fs.existsSync(AUTH_DIR)) {
+      const files = fs.readdirSync(AUTH_DIR);
+      for (const file of files) {
+        try {
+          fs.rmSync(path.join(AUTH_DIR, file), { recursive: true, force: true });
+        } catch {}
+      }
+    }
+  } catch {}
+  ensureAuthDir();
+}
 
 /**
  * Normalizes phone numbers into WhatsApp JID format:
@@ -59,17 +83,19 @@ export async function initWhatsAppGateway(): Promise<void> {
   connectionStatus = "connecting";
 
   try {
-    if (!fs.existsSync(AUTH_DIR)) {
-      fs.mkdirSync(AUTH_DIR, { recursive: true });
-    }
+    ensureAuthDir();
 
+    const { version } = await fetchLatestBaileysVersion();
     const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
     sock = makeWASocket({
+      version,
       auth: state,
+      browser: Browsers.ubuntu("Chrome"),
       logger: pino({ level: "silent" }),
-      printQRInTerminal: false,
-      browser: ["LifeNest OS", "Chrome", "1.0.0"],
+      connectTimeoutMs: 60_000,
+      defaultQueryTimeoutMs: 60_000,
+      syncFullHistory: false,
     });
 
     sock.ev.on("connection.update", async (update) => {
@@ -121,9 +147,7 @@ export async function initWhatsAppGateway(): Promise<void> {
           connectionStatus = "disconnected";
           connectedPhone = null;
           qrCodeDataUrl = null;
-          try {
-            fs.rmSync(AUTH_DIR, { recursive: true, force: true });
-          } catch {}
+          cleanAuthDir();
           setTimeout(() => {
             isInitializing = false;
             void initWhatsAppGateway();
@@ -139,7 +163,14 @@ export async function initWhatsAppGateway(): Promise<void> {
       }
     });
 
-    sock.ev.on("creds.update", saveCreds);
+    sock.ev.on("creds.update", async () => {
+      try {
+        ensureAuthDir();
+        await saveCreds();
+      } catch (err) {
+        console.warn("[LifeNest WhatsApp] creds.update non-fatal save error:", err);
+      }
+    });
   } catch (err) {
     console.error("[LifeNest WhatsApp] Initialization error:", err);
     connectionStatus = "disconnected";
@@ -230,14 +261,35 @@ export async function disconnectWhatsApp(): Promise<{ success: boolean }> {
   qrCodeDataUrl = null;
   connectionStatus = "disconnected";
 
-  try {
-    fs.rmSync(AUTH_DIR, { recursive: true, force: true });
-  } catch {}
+  cleanAuthDir();
 
   setTimeout(() => {
     isInitializing = false;
     void initWhatsAppGateway();
   }, 1000);
 
+  return { success: true };
+}
+
+/**
+ * Cleanly forces a fresh QR generation by resetting auth files and socket
+ */
+export async function restartWhatsAppGateway(): Promise<{ success: boolean }> {
+  try {
+    if (sock) {
+      sock.end(undefined);
+      sock = null;
+    }
+  } catch {}
+
+  isConnected = false;
+  connectedPhone = null;
+  qrCodeDataUrl = null;
+  connectionStatus = "connecting";
+  isInitializing = false;
+
+  cleanAuthDir();
+
+  void initWhatsAppGateway();
   return { success: true };
 }

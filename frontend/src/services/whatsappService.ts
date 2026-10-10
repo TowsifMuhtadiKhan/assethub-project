@@ -127,6 +127,20 @@ export async function disconnectWhatsAppGateway(): Promise<boolean> {
 }
 
 /**
+ * Cleanly forces generation of a fresh QR code
+ */
+export async function restartWhatsAppGateway(): Promise<boolean> {
+  try {
+    const res = await fetchWithFallback("/api/whatsapp/restart", {
+      method: "POST",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 1-Click direct wa.me URL fallback
  */
 export function getDirectWhatsAppUrl(phone: string, text: string, countryCode = "+880"): string {

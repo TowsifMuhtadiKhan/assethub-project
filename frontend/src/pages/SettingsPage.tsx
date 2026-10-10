@@ -24,6 +24,7 @@ import {
   getWhatsAppSystemStatus,
   sendSystemWhatsAppAlert,
   disconnectWhatsAppGateway,
+  restartWhatsAppGateway,
   formatRecipientNumber,
   type WhatsAppSystemStatus,
 } from "../services/whatsappService";
@@ -122,6 +123,18 @@ export function SettingsPage() {
     const timer = setInterval(refreshWhatsAppStatus, 2500);
     return () => clearInterval(timer);
   }, []);
+
+  const [refreshingQr, setRefreshingQr] = useState(false);
+  const handleForceRestartQR = async () => {
+    setRefreshingQr(true);
+    try {
+      await restartWhatsAppGateway();
+      await new Promise((r) => setTimeout(r, 600));
+      await refreshWhatsAppStatus();
+    } finally {
+      setRefreshingQr(false);
+    }
+  };
 
   const handleDisconnectWhatsApp = async () => {
     if (!window.confirm("Are you sure you want to unlink WhatsApp? You will need to scan a new QR code to reconnect.")) {
@@ -387,10 +400,12 @@ export function SettingsPage() {
                       </div>
                       <button
                         type="button"
-                        onClick={refreshWhatsAppStatus}
-                        className="inline-flex items-center gap-1 text-[11px] text-slate-600 hover:text-emerald-700 border border-slate-200 px-2 py-0.5 rounded-md hover:border-emerald-300 transition"
+                        disabled={refreshingQr}
+                        onClick={handleForceRestartQR}
+                        className="inline-flex items-center gap-1 text-[11px] text-slate-600 hover:text-emerald-700 border border-slate-200 px-2 py-0.5 rounded-md hover:border-emerald-300 disabled:opacity-50 transition cursor-pointer"
                       >
-                        <RefreshCw className="h-3 w-3" /> Refresh QR
+                        <RefreshCw className={`h-3 w-3 ${refreshingQr ? "animate-spin" : ""}`} />
+                        {refreshingQr ? "Generating..." : "Generate Fresh QR"}
                       </button>
                     </div>
 
@@ -425,10 +440,12 @@ export function SettingsPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={refreshWhatsAppStatus}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition cursor-pointer shrink-0"
+                  disabled={refreshingQr}
+                  onClick={handleForceRestartQR}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50 transition cursor-pointer shrink-0"
                 >
-                  <RefreshCw className="h-3.5 w-3.5" /> Check Status Now
+                  <RefreshCw className={`h-3.5 w-3.5 ${refreshingQr ? "animate-spin" : ""}`} />
+                  {refreshingQr ? "Generating..." : "Generate Fresh QR"}
                 </button>
               </div>
             )}
