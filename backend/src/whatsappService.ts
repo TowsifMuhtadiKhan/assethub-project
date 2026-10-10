@@ -103,6 +103,7 @@ export async function initWhatsAppGateway(): Promise<void> {
 
       if (connection === "close") {
         isConnected = false;
+        sock = null;
         const statusCode = (lastDisconnect?.error as { output?: { statusCode?: number } })
           ?.output?.statusCode;
         const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
@@ -122,13 +123,14 @@ export async function initWhatsAppGateway(): Promise<void> {
           setTimeout(() => {
             isInitializing = false;
             void initWhatsAppGateway();
-          }, 2000);
+          }, 3000);
         } else {
+          // Normal timeout or temporary disconnect: wait 3s before requesting fresh QR
           connectionStatus = "connecting";
           setTimeout(() => {
             isInitializing = false;
             void initWhatsAppGateway();
-          }, 4000);
+          }, 3000);
         }
       }
     });
@@ -137,6 +139,7 @@ export async function initWhatsAppGateway(): Promise<void> {
   } catch (err) {
     console.error("[LifeNest WhatsApp] Initialization error:", err);
     connectionStatus = "disconnected";
+    sock = null;
   } finally {
     isInitializing = false;
   }
