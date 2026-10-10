@@ -141,6 +141,30 @@ export async function restartWhatsAppGateway(): Promise<boolean> {
 }
 
 /**
+ * Requests an 8-character pairing code to link WhatsApp using phone number instead of camera
+ */
+export async function getWhatsAppPairingCode(phone: string): Promise<{
+  success: boolean;
+  code?: string;
+  error?: string;
+}> {
+  try {
+    const res = await fetchWithFallback("/api/whatsapp/pairing-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone }),
+    });
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to connect to backend",
+    };
+  }
+}
+
+/**
  * 1-Click direct wa.me URL fallback
  */
 export function getDirectWhatsAppUrl(phone: string, text: string, countryCode = "+880"): string {

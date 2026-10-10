@@ -23,6 +23,7 @@ import {
   sendWhatsAppMessage,
   disconnectWhatsApp,
   restartWhatsAppGateway,
+  requestWhatsAppPairingCode,
   initWhatsAppGateway,
 } from "./whatsappService.js";
 
@@ -482,6 +483,22 @@ app.post("/api/whatsapp/disconnect", async (_req: Request, res: Response) => {
 app.post("/api/whatsapp/restart", async (_req: Request, res: Response) => {
   const result = await restartWhatsAppGateway();
   res.json(result);
+});
+
+app.post("/api/whatsapp/pairing-code", async (req: Request, res: Response) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) {
+      return res.status(400).json({ success: false, error: "Phone number is required" });
+    }
+    const result = await requestWhatsAppPairingCode(phone);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to generate pairing code",
+    });
+  }
 });
 
 app.post("/api/whatsapp/send", async (req: Request, res: Response) => {

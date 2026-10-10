@@ -101,7 +101,7 @@ export async function initWhatsAppGateway(): Promise<void> {
     sock = makeWASocket({
       version,
       auth: state,
-      browser: Browsers.ubuntu("Chrome"),
+      browser: ["Chrome (Linux)", "", ""],
       logger: pino({ level: "silent" }),
       connectTimeoutMs: 60_000,
       defaultQueryTimeoutMs: 60_000,
@@ -303,4 +303,39 @@ export async function restartWhatsAppGateway(): Promise<{ success: boolean }> {
 
   void initWhatsAppGateway();
   return { success: true };
+}
+
+/**
+ * Requests an 8-character pairing code for linking without camera scanning
+ */
+export async function requestWhatsAppPairingCode(phone: string): Promise<{
+  success: boolean;
+  code?: string;
+  error?: string;
+}> {
+  try {
+    const cleanNumber = normalizePhoneNumber(phone);
+    if (!cleanNumber || cleanNumber.length < 8) {
+      return { success: false, error: "Please enter a valid phone number" };
+    }
+
+    if (!sock) {
+      await initWhatsAppGateway();
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+    }
+
+    if (sock && !sock.authState.creds.registered) {
+      const code = await sock.requestPairingCode(cleanNumber);
+      return { success: true, code };
+    } else if (sock?.authState?.creds?.registered) {
+      return { success: false, error: "Gateway is already linked!" };
+    }
+
+    return { success: false, error: "WhatsApp Gateway is initializing, please try again in a few seconds." };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to generate pairing code",
+    };
+  }
 }

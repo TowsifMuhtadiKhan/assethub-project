@@ -25,6 +25,7 @@ import {
   sendSystemWhatsAppAlert,
   disconnectWhatsAppGateway,
   restartWhatsAppGateway,
+  getWhatsAppPairingCode,
   formatRecipientNumber,
   type WhatsAppSystemStatus,
 } from "../services/whatsappService";
@@ -123,6 +124,33 @@ export function SettingsPage() {
     const timer = setInterval(refreshWhatsAppStatus, 2500);
     return () => clearInterval(timer);
   }, []);
+
+  const [linkMethod, setLinkMethod] = useState<"pairing_code" | "qr">("pairing_code");
+  const [pairingCode, setPairingCode] = useState<string | null>(null);
+  const [requestingCode, setRequestingCode] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
+
+  const handleRequestPairingCode = async () => {
+    const fullNumber = formatRecipientNumber(settings.countryCode || "+880", settings.whatsappNumber || "01711353028");
+    if (!fullNumber || fullNumber.length < 8) {
+      alert("Please enter a valid phone number first.");
+      return;
+    }
+    setRequestingCode(true);
+    setCodeError(null);
+    try {
+      const res = await getWhatsAppPairingCode(fullNumber);
+      if (res.success && res.code) {
+        setPairingCode(res.code);
+      } else {
+        setCodeError(res.error || "Failed to generate pairing code. Please try again.");
+      }
+    } catch (e) {
+      setCodeError(e instanceof Error ? e.message : "Failed to generate pairing code");
+    } finally {
+      setRequestingCode(false);
+    }
+  };
 
   const [refreshingQr, setRefreshingQr] = useState(false);
   const handleForceRestartQR = async () => {
@@ -373,80 +401,155 @@ export function SettingsPage() {
                   {disconnecting ? "Unlinking..." : "Disconnect / Re-link"}
                 </button>
               </div>
-            ) : systemWhatsApp.qrDataUrl ? (
-              <div className="rounded-xl border-2 border-emerald-300 bg-white p-4 shadow-sm space-y-3">
-                <div className="flex flex-col md:flex-row items-center gap-6">
-                  {/* QR Image */}
-                  <div className="flex flex-col items-center justify-center bg-slate-50 p-3 rounded-2xl border border-slate-200 shadow-inner shrink-0">
-                    <img
-                      src={systemWhatsApp.qrDataUrl}
-                      alt="WhatsApp Web QR Code"
-                      className="w-52 h-52 rounded-lg shadow-xs object-contain bg-white p-1"
-                    />
-                    <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
-                      <RefreshCw className="h-3 w-3 animate-spin text-emerald-600" />
-                      Auto-refreshes every 20s
-                    </div>
+            ) : (
+              <div className="rounded-xl border-2 border-emerald-300 bg-white p-4 shadow-sm space-y-4">
+                {/* Method Switcher Tabs */}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-1.5 p-1 rounded-lg bg-slate-100 text-xs font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setLinkMethod("pairing_code")}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md transition cursor-pointer ${
+                        linkMethod === "pairing_code"
+                          ? "bg-white text-emerald-800 shadow-xs font-bold"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <Smartphone className="h-3.5 w-3.5 text-emerald-600" />
+                      8-Digit Code (No Camera Needed)
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setLinkMethod("qr")}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md transition cursor-pointer ${
+                        linkMethod === "qr"
+                          ? "bg-white text-emerald-800 shadow-xs font-bold"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      <QrCode className="h-3.5 w-3.5 text-emerald-600" />
+                      Scan QR Code
+                    </button>
                   </div>
 
-                  {/* Instructions */}
-                  <div className="space-y-3 text-xs text-slate-700 flex-1">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <QrCode className="h-5 w-5 text-emerald-600" />
-                        <h3 className="text-sm font-bold text-slate-900">
-                          LifeNest System WhatsApp Sender (One-Time Setup)
-                        </h3>
+                  <button
+                    type="button"
+                    disabled={refreshingQr}
+                    onClick={handleForceRestartQR}
+                    className="inline-flex items-center gap-1 text-[11px] text-slate-600 hover:text-emerald-700 border border-slate-200 px-2 py-1 rounded-md hover:border-emerald-300 disabled:opacity-50 transition cursor-pointer"
+                  >
+                    <RefreshCw className={`h-3 w-3 ${refreshingQr ? "animate-spin" : ""}`} />
+                    {refreshingQr ? "Resetting..." : "Reset / Refresh"}
+                  </button>
+                </div>
+
+                {/* TAB 1: 8-DIGIT PAIRING CODE (NO CAMERA NEEDED) */}
+                {linkMethod === "pairing_code" ? (
+                  <div className="space-y-4 text-xs text-slate-700">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-200/80">
+                      <div>
+                        <h4 className="font-bold text-sm text-emerald-950 flex items-center gap-1.5">
+                          Link with 8-Character Pairing Code
+                          <span className="bg-emerald-200/70 text-emerald-900 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                            100% Reliable
+                          </span>
+                        </h4>
+                        <p className="text-[11px] text-emerald-800 mt-0.5">
+                          No camera scanning required! Enter your phone number to receive an instant pairing code:
+                        </p>
                       </div>
+
                       <button
                         type="button"
-                        disabled={refreshingQr}
-                        onClick={handleForceRestartQR}
-                        className="inline-flex items-center gap-1 text-[11px] text-slate-600 hover:text-emerald-700 border border-slate-200 px-2 py-0.5 rounded-md hover:border-emerald-300 disabled:opacity-50 transition cursor-pointer"
+                        disabled={requestingCode}
+                        onClick={handleRequestPairingCode}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-60 transition cursor-pointer shrink-0"
                       >
-                        <RefreshCw className={`h-3 w-3 ${refreshingQr ? "animate-spin" : ""}`} />
-                        {refreshingQr ? "Generating..." : "Generate Fresh QR"}
+                        <Smartphone className="h-3.5 w-3.5" />
+                        {requestingCode
+                          ? "Generating Code..."
+                          : `Get Pairing Code for +${formatRecipientNumber(settings.countryCode || "+880", settings.whatsappNumber || "01711353028")}`}
                       </button>
                     </div>
 
-                    <p className="text-[11px] text-slate-600 leading-relaxed">
-                      To make <strong>LifeNest the WhatsApp sender</strong> that delivers messages to your stored recipient number (<strong className="font-mono text-emerald-900">+{formatRecipientNumber(settings.countryCode || "+880", settings.whatsappNumber || "01711353028")}</strong>), link the LifeNest sender account by scanning this QR code once:
-                    </p>
+                    {codeError && (
+                      <div className="rounded-lg bg-rose-50 border border-rose-200 p-2.5 text-xs text-rose-800 flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+                        <span>{codeError}</span>
+                      </div>
+                    )}
 
-                    <ol className="list-decimal list-inside space-y-1.5 text-[11px] font-medium text-slate-800 bg-slate-50/80 p-3 rounded-xl border border-slate-200/80">
-                      <li>Open <strong>WhatsApp</strong> on the mobile phone you want LifeNest to send messages from</li>
-                      <li>Tap <strong>Settings</strong> (iOS) or <strong>Three dots ⋮</strong> (Android)</li>
-                      <li>Select <strong>Linked Devices</strong> &rarr; tap <strong>Link a Device</strong></li>
-                      <li>Point your camera at this QR code to connect</li>
+                    {pairingCode && (
+                      <div className="flex flex-col items-center justify-center p-6 bg-slate-900 rounded-2xl text-white space-y-3 shadow-md">
+                        <span className="text-[11px] tracking-widest uppercase text-emerald-400 font-semibold">
+                          Your One-Time WhatsApp Pairing Code
+                        </span>
+                        <div className="text-3xl sm:text-4xl font-mono font-extrabold tracking-widest text-emerald-300 bg-slate-800/80 px-6 py-2.5 rounded-xl border border-emerald-500/40 select-all">
+                          {pairingCode.length === 8
+                            ? `${pairingCode.slice(0, 4)}-${pairingCode.slice(4)}`
+                            : pairingCode}
+                        </div>
+                        <p className="text-[11px] text-slate-300 text-center max-w-md">
+                          Open WhatsApp on your phone &rarr; <strong>Linked Devices</strong> &rarr; <strong>Link a Device</strong> &rarr; tap <strong>"Link with phone number instead"</strong> &rarr; type this code.
+                        </p>
+                        <div className="flex items-center gap-2 text-[11px] text-emerald-400 pt-1">
+                          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+                          Listening for code entry... LifeNest will connect automatically!
+                        </div>
+                      </div>
+                    )}
+
+                    <ol className="list-decimal list-inside space-y-1.5 text-[11px] font-medium text-slate-800 bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+                      <li>Open <strong>WhatsApp</strong> on your mobile phone</li>
+                      <li>Tap <strong>Settings</strong> (iOS) or <strong>Three dots ⋮</strong> (Android) &rarr; tap <strong>Linked Devices</strong></li>
+                      <li>Tap <strong>Link a Device</strong></li>
+                      <li>At the bottom of the camera screen, tap <strong>"Link with phone number instead"</strong></li>
+                      <li>Enter the 8-character code shown above — LifeNest will pair instantly!</li>
                     </ol>
+                  </div>
+                ) : (
+                  /* TAB 2: QR CODE SCAN */
+                  <div className="flex flex-col md:flex-row items-center gap-6">
+                    <div className="flex flex-col items-center justify-center bg-slate-50 p-3 rounded-2xl border border-slate-200 shadow-inner shrink-0">
+                      {systemWhatsApp.qrDataUrl ? (
+                        <img
+                          src={systemWhatsApp.qrDataUrl}
+                          alt="WhatsApp Web QR Code"
+                          className="w-52 h-52 rounded-lg shadow-xs object-contain bg-white p-1"
+                        />
+                      ) : (
+                        <div className="w-52 h-52 flex flex-col items-center justify-center text-slate-400 text-xs gap-2">
+                          <RefreshCw className="h-6 w-6 animate-spin text-emerald-600" />
+                          <span>Generating QR...</span>
+                        </div>
+                      )}
+                      <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                        <RefreshCw className="h-3 w-3 animate-spin text-emerald-600" />
+                        Auto-refreshes every 20s
+                      </div>
+                    </div>
 
-                    <div className="flex items-center gap-2 text-[11px] text-emerald-700 font-medium pt-1">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
-                      Waiting for scan... Once linked, LifeNest will automatically dispatch all alerts to your recipient number!
+                    <div className="space-y-3 text-xs text-slate-700 flex-1">
+                      <h4 className="text-sm font-bold text-slate-900">
+                        Scan QR Code with Camera
+                      </h4>
+                      <p className="text-[11px] text-slate-600 leading-relaxed">
+                        Point your camera at this QR code to connect LifeNest as the background sender:
+                      </p>
+                      <ol className="list-decimal list-inside space-y-1.5 text-[11px] font-medium text-slate-800 bg-slate-50/80 p-3 rounded-xl border border-slate-200/80">
+                        <li>Open <strong>WhatsApp</strong> on your mobile phone</li>
+                        <li>Tap <strong>Settings</strong> (iOS) or <strong>Three dots ⋮</strong> (Android)</li>
+                        <li>Select <strong>Linked Devices</strong> &rarr; tap <strong>Link a Device</strong></li>
+                        <li>Point your camera at this QR code to connect</li>
+                      </ol>
+                      <div className="flex items-center gap-2 text-[11px] text-emerald-700 font-medium pt-1">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                        Waiting for scan... (If camera scanning fails, switch to the 8-Digit Code tab above!)
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900">
-                <div className="flex items-center gap-2.5">
-                  <RefreshCw className="h-4 w-4 text-amber-600 animate-spin shrink-0" />
-                  <div>
-                    <span className="font-bold">Generating WhatsApp Gateway QR Code...</span>
-                    <span className="text-[11px] text-amber-700 block mt-0.5">
-                      Starting local Baileys engine. The QR code will appear right here in a few moments.
-                    </span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  disabled={refreshingQr}
-                  onClick={handleForceRestartQR}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50 transition cursor-pointer shrink-0"
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 ${refreshingQr ? "animate-spin" : ""}`} />
-                  {refreshingQr ? "Generating..." : "Generate Fresh QR"}
-                </button>
+                )}
               </div>
             )}
 
