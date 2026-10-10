@@ -18,6 +18,7 @@ import {
   deleteDriveFilesByName,
   getFreshAccessToken,
 } from "./googleDriveService.js";
+import { getWhatsAppStatus, sendWhatsAppMessage } from "./whatsappService.js";
 
 const prisma = new PrismaClient();
 const app = express();
@@ -450,6 +451,40 @@ app.post("/api/google/exchange-code", async (req: Request, res: Response) => {
   } catch (error) {
     res.status(500).json({
       message: error instanceof Error ? error.message : "Token exchange failed",
+    });
+  }
+});
+
+app.get("/api/whatsapp/status", (_req: Request, res: Response) => {
+  res.json(getWhatsAppStatus());
+});
+
+app.post("/api/whatsapp/send", async (req: Request, res: Response) => {
+  try {
+    const { to, message, templateName, templateLanguage } = req.body;
+    if (!to || (!message && !templateName)) {
+      return res.status(400).json({
+        success: false,
+        message: "'to' and either 'message' or 'templateName' are required",
+      });
+    }
+
+    const result = await sendWhatsAppMessage({
+      to,
+      message,
+      templateName,
+      templateLanguage,
+    });
+
+    if (result.success) {
+      return res.json(result);
+    } else {
+      return res.status(400).json(result);
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : "WhatsApp dispatch failed",
     });
   }
 });

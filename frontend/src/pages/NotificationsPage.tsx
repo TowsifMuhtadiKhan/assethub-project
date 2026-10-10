@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ExternalLink, Save, Send, CheckCircle2, AlertCircle, Info } from "lucide-react";
 import { FormControl, InputLabel, Select, MenuItem } from "@mui/material";
 import { getUserSettings, saveUserSettings } from "../services/settingsService";
+import { sendSystemWhatsAppAlert } from "../services/whatsappService";
 import type { UserSettings } from "../types";
 
 export function NotificationsPage() {
@@ -67,18 +68,11 @@ Your WhatsApp alert integration is active and verified!`;
     });
   };
 
-  // Mode 2: Direct background dispatch via CallMeBot free API
+  // Mode 2: Direct background dispatch via System Meta WhatsApp Cloud API
   const handleDirectApiDispatch = async () => {
     const fullNumber = getCleanFullNumber();
     if (!fullNumber) {
       setApiNotice({ type: "error", msg: "Please enter your WhatsApp phone number first." });
-      return;
-    }
-    if (!settings.callmebotApiKey) {
-      setApiNotice({
-        type: "info",
-        msg: "To receive silent messages in WhatsApp without opening the app, get your free 1-click CallMeBot API key below.",
-      });
       return;
     }
 
@@ -86,15 +80,22 @@ Your WhatsApp alert integration is active and verified!`;
     setApiNotice(null);
 
     try {
-      const encodedText = encodeURIComponent(sampleAlertText);
-      const apiUrl = `https://api.callmebot.com/whatsapp.php?phone=${fullNumber}&text=${encodedText}&apikey=${settings.callmebotApiKey.trim()}`;
-      
-      // CallMeBot supports HTTP GET
-      await fetch(apiUrl, { mode: "no-cors" });
-      setApiNotice({
-        type: "success",
-        msg: `Test alert dispatched directly to +${fullNumber}! Check your WhatsApp inbox.`,
+      const result = await sendSystemWhatsAppAlert({
+        to: fullNumber,
+        message: sampleAlertText,
       });
+
+      if (result.success) {
+        setApiNotice({
+          type: "success",
+          msg: `Test alert dispatched directly to +${fullNumber} via Meta WhatsApp Cloud API! (Message ID: ${result.messageId || "delivered"})`,
+        });
+      } else {
+        setApiNotice({
+          type: "error",
+          msg: result.error || "Failed to dispatch WhatsApp message via System Gateway.",
+        });
+      }
     } catch {
       setApiNotice({
         type: "error",

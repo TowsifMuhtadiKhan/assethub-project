@@ -16,6 +16,11 @@ import {
   checkMasterDriveStatus,
   requestMasterAuthorization,
 } from "../utils/googleDrive";
+import {
+  getWhatsAppSystemStatus,
+  sendSystemWhatsAppAlert,
+  type WhatsAppSystemStatus,
+} from "../services/whatsappService";
 import type { UserSettings } from "../types";
 
 export function SettingsPage() {
@@ -48,7 +53,6 @@ export function SettingsPage() {
   });
 
   const [saved, setSaved] = useState(false);
-  const [testSent, setTestSent] = useState(false);
 
   // Sync with URL query parameter ?tab=notifications / ?tab=whatsapp
   useEffect(() => {
@@ -74,8 +78,20 @@ export function SettingsPage() {
   const [gatewayProvider, setGatewayProvider] = useState("meta_cloud");
   const [apiKey, setApiKey] = useState("wh_sec_live_9421873910");
 
+  const [systemWhatsApp, setSystemWhatsApp] = useState<WhatsAppSystemStatus>({
+    configured: false,
+    provider: "meta",
+  });
+  const [sendingTest, setSendingTest] = useState(false);
+  const [testResponse, setTestResponse] = useState<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  } | null>(null);
+
   useEffect(() => {
     checkMasterDriveStatus().then(setDriveStatus);
+    getWhatsAppSystemStatus().then(setSystemWhatsApp);
     getUserSettings().then((s) => {
       setSettings(s);
       try {
@@ -114,9 +130,47 @@ export function SettingsPage() {
     setTimeout(() => setSaved(false), 3000);
   };
 
-  const handleSendTestAlert = () => {
-    setTestSent(true);
-    setTimeout(() => setTestSent(false), 5000);
+  const handleSendTestAlert = async () => {
+    const country = (settings.countryCode || "+880").replace(/[^0-9]/g, "");
+    let rawNumber = (settings.whatsappNumber || "").replace(/[^0-9]/g, "");
+    if (rawNumber.startsWith("0")) {
+      rawNumber = rawNumber.substring(1);
+    }
+    const fullNumber = `${country}${rawNumber}`;
+    if (!fullNumber || fullNumber.length < 8) {
+      alert("Please enter a valid recipient WhatsApp number first.");
+      return;
+    }
+
+    setSendingTest(true);
+    setTestResponse(null);
+    try {
+      const sampleAlertText = `🔔 *LifeNest Automated Alert Test*\n\nHello ${settings.fullName || "User"},\nThis is a test notification from your LifeNest Personal Life OS.\n\n• Document: BRTA Tax Token / Driving License checks active\n• Tasks: High-priority deadlines tracked\n• Rent: Monthly unit collection reminders active\n\nYour WhatsApp alert integration is active and verified!`;
+
+      const result = await sendSystemWhatsAppAlert({
+        to: fullNumber,
+        message: sampleAlertText,
+      });
+
+      if (result.success) {
+        setTestResponse({
+          success: true,
+          message: `Test alert dispatched directly to +${fullNumber} via Meta WhatsApp Cloud API! (Message ID: ${result.messageId || "delivered"})`,
+        });
+      } else {
+        setTestResponse({
+          success: false,
+          error: result.error || "Failed to dispatch WhatsApp message.",
+        });
+      }
+    } catch (err) {
+      setTestResponse({
+        success: false,
+        error: err instanceof Error ? err.message : "Failed to connect to backend WhatsApp service",
+      });
+    } finally {
+      setSendingTest(false);
+    }
   };
 
   const handleLaunchWhatsApp = () => {
@@ -232,24 +286,61 @@ export function SettingsPage() {
                 </button>
                 <button
                   type="button"
+                  disabled={sendingTest}
                   onClick={handleSendTestAlert}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 disabled:opacity-50 transition cursor-pointer"
                 >
-                  <Send className="h-3.5 w-3.5 text-slate-600" /> Send Test Alert
+                  <Send className="h-3.5 w-3.5 text-slate-600" />
+                  {sendingTest ? "Dispatching..." : "Send Test Alert"}
                 </button>
               </div>
             </div>
 
-            {testSent && (
-              <div className="rounded-xl border border-emerald-300 bg-white p-3 shadow-xs text-xs space-y-1 animate-in fade-in">
-                <div className="font-bold text-emerald-900 flex items-center gap-1.5">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  Test Alert Sent to {settings.countryCode} {settings.whatsappNumber || "017XXXXXXXX"}!
+            {/* System Gateway Status Banner */}
+            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-50/90 border border-emerald-200 text-xs text-emerald-950">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+              <div className="flex-1">
+                <span className="font-bold text-emerald-900">System Gateway: Meta WhatsApp Cloud API Ready</span>
+                <span className="text-[11px] text-emerald-700 block mt-0.5">
+                  Phone ID: <code className="bg-emerald-100/80 px-1 py-0.2 rounded font-mono">{systemWhatsApp.phoneNumberId || "Connected"}</code>. Regular users only provide their mobile number; all alerts dispatch automatically from the server.
+                </span>
+              </div>
+            </div>
+
+            {testResponse && (
+              <div
+                className={`rounded-xl border p-3.5 text-xs space-y-1.5 animate-in fade-in ${
+                  testResponse.success
+                    ? "border-emerald-300 bg-white text-emerald-900 shadow-xs"
+                    : "border-rose-200 bg-rose-50/70 text-rose-900"
+                }`}
+              >
+                <div className="font-bold flex items-center gap-1.5">
+                  {testResponse.success ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <span className="h-4 w-4 rounded-full bg-rose-200 text-rose-700 flex items-center justify-center text-[10px] font-bold">!</span>
+                  )}
+                  <span>
+                    {testResponse.success
+                      ? testResponse.message
+                      : `Dispatch Notice: ${testResponse.error}`}
+                  </span>
                 </div>
-                <div className="rounded-lg bg-emerald-50 p-2 text-[11px] font-mono text-emerald-950 border border-emerald-200/80">
-                  <div className="font-bold">🔔 [LifeNest Alert Digest]</div>
-                  <div>Salam {settings.fullName || "Towsif"}, your Toyota Premio BRTA Tax Token (TT-984210) expires in 15 days. Please renew to avoid BRTA fines.</div>
-                </div>
+                {!testResponse.success && (
+                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-rose-100 text-[11px]">
+                    <span className="text-rose-700">
+                      In Meta sandbox mode, verify your recipient number in Meta dashboard or send via 1-click link:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleLaunchWhatsApp}
+                      className="px-2.5 py-1 rounded-md bg-white border border-rose-200 font-semibold text-rose-800 hover:bg-rose-100 transition shrink-0 cursor-pointer"
+                    >
+                      Open in WhatsApp Web / App
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
