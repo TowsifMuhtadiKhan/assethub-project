@@ -103,8 +103,9 @@ export async function initWhatsAppGateway(): Promise<void> {
       auth: state,
       browser: ["Chrome (Linux)", "", ""],
       logger: pino({ level: "silent" }),
-      connectTimeoutMs: 60_000,
-      defaultQueryTimeoutMs: 60_000,
+      keepAliveIntervalMs: 10_000,
+      connectTimeoutMs: 180_000,
+      defaultQueryTimeoutMs: 180_000,
       syncFullHistory: false,
     });
 
@@ -319,13 +320,27 @@ export async function requestWhatsAppPairingCode(phone: string): Promise<{
       return { success: false, error: "Please enter a valid phone number" };
     }
 
-    if (!sock) {
-      await initWhatsAppGateway();
-      await new Promise((resolve) => setTimeout(resolve, 2500));
+    // Always restart with a fresh socket so the code has the maximum validity window
+    if (sock) {
+      try {
+        sock.ev.removeAllListeners("connection.update");
+        sock.ev.removeAllListeners("creds.update");
+        sock.end(undefined);
+      } catch {}
+      sock = null;
     }
+
+    isConnected = false;
+    isInitializing = false;
+    connectionStatus = "connecting";
+
+    await initWhatsAppGateway();
+    // Wait for connection to WhatsApp WS
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     if (sock && !sock.authState.creds.registered) {
       const code = await sock.requestPairingCode(cleanNumber);
+      console.log(`[LifeNest WhatsApp] Fresh pairing code ready: ${code} for +${cleanNumber}`);
       return { success: true, code };
     } else if (sock?.authState?.creds?.registered) {
       return { success: false, error: "Gateway is already linked!" };
