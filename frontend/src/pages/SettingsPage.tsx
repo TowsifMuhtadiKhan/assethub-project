@@ -382,7 +382,7 @@ export function SettingsPage() {
                       <div className="flex items-center gap-2">
                         <QrCode className="h-5 w-5 text-emerald-600" />
                         <h3 className="text-sm font-bold text-slate-900">
-                          Step 2: Link WhatsApp to LifeNest
+                          LifeNest System WhatsApp Sender (One-Time Setup)
                         </h3>
                       </div>
                       <button
@@ -395,19 +395,19 @@ export function SettingsPage() {
                     </div>
 
                     <p className="text-[11px] text-slate-600 leading-relaxed">
-                      Scan this QR code with WhatsApp on your phone to link LifeNest. Once linked, LifeNest will automatically send reminders and alerts directly to <strong>any phone number</strong> entered on this platform without requiring recipient verification or Meta approval!
+                      To make <strong>LifeNest the WhatsApp sender</strong> that delivers messages to your stored recipient number (<strong className="font-mono text-emerald-900">+{formatRecipientNumber(settings.countryCode || "+880", settings.whatsappNumber || "01711353028")}</strong>), link the LifeNest sender account by scanning this QR code once:
                     </p>
 
                     <ol className="list-decimal list-inside space-y-1.5 text-[11px] font-medium text-slate-800 bg-slate-50/80 p-3 rounded-xl border border-slate-200/80">
-                      <li>Open <strong>WhatsApp</strong> on your mobile phone</li>
+                      <li>Open <strong>WhatsApp</strong> on the mobile phone you want LifeNest to send messages from</li>
                       <li>Tap <strong>Settings</strong> (iOS) or <strong>Three dots ⋮</strong> (Android)</li>
                       <li>Select <strong>Linked Devices</strong> &rarr; tap <strong>Link a Device</strong></li>
                       <li>Point your camera at this QR code to connect</li>
                     </ol>
 
-                    <div className="flex items-center gap-2 text-[11px] text-slate-500 pt-1">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-                      Listening for scan... The page will automatically update once connected.
+                    <div className="flex items-center gap-2 text-[11px] text-emerald-700 font-medium pt-1">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                      Waiting for scan... Once linked, LifeNest will automatically dispatch all alerts to your recipient number!
                     </div>
                   </div>
                 </div>
