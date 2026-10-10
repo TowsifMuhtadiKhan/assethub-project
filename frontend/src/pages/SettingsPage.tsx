@@ -342,7 +342,7 @@ export function SettingsPage() {
             </div>
 
             {/* WhatsApp Gateway Status & QR Code Box */}
-            {systemWhatsApp.configured && systemWhatsApp.status === "connected" ? (
+            {systemWhatsApp.status === "connected" ? (
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-300 text-xs text-emerald-950">
                 <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs shrink-0">
@@ -372,7 +372,7 @@ export function SettingsPage() {
                   {disconnecting ? "Unlinking..." : "Disconnect / Re-link"}
                 </button>
               </div>
-            ) : systemWhatsApp.status === "qr_ready" && systemWhatsApp.qrDataUrl ? (
+            ) : systemWhatsApp.qrDataUrl ? (
               <div className="rounded-xl border-2 border-emerald-300 bg-white p-4 shadow-sm space-y-3">
                 <div className="flex flex-col md:flex-row items-center gap-6">
                   {/* QR Image */}
