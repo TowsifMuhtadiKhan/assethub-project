@@ -18,7 +18,12 @@ import {
   deleteDriveFilesByName,
   getFreshAccessToken,
 } from "./googleDriveService.js";
-import { getWhatsAppStatus, sendWhatsAppMessage } from "./whatsappService.js";
+import {
+  getWhatsAppStatus,
+  sendWhatsAppMessage,
+  disconnectWhatsApp,
+  initWhatsAppGateway,
+} from "./whatsappService.js";
 
 const prisma = new PrismaClient();
 const app = express();
@@ -455,25 +460,29 @@ app.post("/api/google/exchange-code", async (req: Request, res: Response) => {
   }
 });
 
-app.get("/api/whatsapp/status", (_req: Request, res: Response) => {
-  res.json(getWhatsAppStatus());
+app.get("/api/whatsapp/status", async (_req: Request, res: Response) => {
+  const status = await getWhatsAppStatus();
+  res.json(status);
+});
+
+app.post("/api/whatsapp/disconnect", async (_req: Request, res: Response) => {
+  const result = await disconnectWhatsApp();
+  res.json(result);
 });
 
 app.post("/api/whatsapp/send", async (req: Request, res: Response) => {
   try {
-    const { to, message, templateName, templateLanguage } = req.body;
-    if (!to || (!message && !templateName)) {
+    const { to, message } = req.body;
+    if (!to || !message) {
       return res.status(400).json({
         success: false,
-        message: "'to' and either 'message' or 'templateName' are required",
+        message: "'to' and 'message' are required",
       });
     }
 
     const result = await sendWhatsAppMessage({
       to,
       message,
-      templateName,
-      templateLanguage,
     });
 
     if (result.success) {
@@ -615,8 +624,9 @@ app.use((error: Error, _req: Request, res: Response, _next: NextFunction) =>
 );
 export default app;
 if (process.env.VERCEL !== "1")
-  app.listen(Number(process.env.PORT ?? 4000), () =>
+  app.listen(Number(process.env.PORT ?? 4000), () => {
     console.log(
       `AssetHub API running on http://localhost:${process.env.PORT ?? 4000}`,
-    ),
-  );
+    );
+    void initWhatsAppGateway();
+  });

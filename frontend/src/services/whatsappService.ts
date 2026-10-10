@@ -1,6 +1,7 @@
 /**
  * LifeNest WhatsApp Integration Service (Frontend)
- * Dispatches automated alerts and reminders using the system-level Meta WhatsApp Cloud API
+ * Communicates with the backend Baileys WhatsApp Web QR Gateway.
+ * Supports auto-sending to ANY recipient phone number.
  */
 
 import { getBackendApiUrl } from "../utils/googleDrive";
@@ -8,18 +9,19 @@ import { getBackendApiUrl } from "../utils/googleDrive";
 export interface WhatsAppSystemStatus {
   configured: boolean;
   provider: string;
-  phoneNumberId?: string;
+  status: "disconnected" | "connecting" | "qr_ready" | "connected";
+  qrDataUrl?: string | null;
+  connectedPhone?: string | null;
 }
 
 export interface SendWhatsAppResponse {
   success: boolean;
   messageId?: string;
   error?: string;
-  details?: unknown;
 }
 
 /**
- * Checks if the system-level WhatsApp Gateway is configured and active
+ * Checks the live status of the WhatsApp Web Gateway and gets QR code if waiting for scan
  */
 export async function getWhatsAppSystemStatus(): Promise<WhatsAppSystemStatus> {
   try {
@@ -31,29 +33,29 @@ export async function getWhatsAppSystemStatus(): Promise<WhatsAppSystemStatus> {
   } catch (err) {
     console.warn("Failed to check WhatsApp status from backend:", err);
   }
-  return { configured: false, provider: "none" };
+  return {
+    configured: false,
+    provider: "baileys_qr",
+    status: "disconnected",
+  };
 }
 
 /**
- * Sends a WhatsApp alert directly to the recipient number via system backend
+ * Sends a WhatsApp notification to ANY phone number via the connected WhatsApp Gateway
  */
 export async function sendSystemWhatsAppAlert({
   to,
   message,
-  templateName,
-  templateLanguage,
 }: {
   to: string;
   message: string;
-  templateName?: string;
-  templateLanguage?: string;
 }): Promise<SendWhatsAppResponse> {
   const apiUrl = getBackendApiUrl();
   try {
     const res = await fetch(`${apiUrl}/api/whatsapp/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to, message, templateName, templateLanguage }),
+      body: JSON.stringify({ to, message }),
     });
 
     const data = (await res.json()) as SendWhatsAppResponse;
@@ -67,7 +69,22 @@ export async function sendSystemWhatsAppAlert({
 }
 
 /**
- * Formats a clean wa.me direct WhatsApp link as an instant zero-config fallback
+ * Disconnects the current linked WhatsApp device so you can re-scan a new one
+ */
+export async function disconnectWhatsAppGateway(): Promise<boolean> {
+  const apiUrl = getBackendApiUrl();
+  try {
+    const res = await fetch(`${apiUrl}/api/whatsapp/disconnect`, {
+      method: "POST",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 1-Click direct wa.me URL fallback
  */
 export function getDirectWhatsAppUrl(phone: string, text: string): string {
   let cleanNumber = phone.replace(/[^0-9]/g, "");

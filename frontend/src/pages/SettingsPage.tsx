@@ -9,6 +9,10 @@ import {
   Sliders,
   Bell,
   ExternalLink,
+  QrCode,
+  RefreshCw,
+  LogOut,
+  AlertCircle,
 } from "lucide-react";
 import { getUserSettings, saveUserSettings } from "../services/settingsService";
 import { getUserEmail } from "../services/api";
@@ -19,6 +23,7 @@ import {
 import {
   getWhatsAppSystemStatus,
   sendSystemWhatsAppAlert,
+  disconnectWhatsAppGateway,
   type WhatsAppSystemStatus,
 } from "../services/whatsappService";
 import type { UserSettings } from "../types";
@@ -80,7 +85,8 @@ export function SettingsPage() {
 
   const [systemWhatsApp, setSystemWhatsApp] = useState<WhatsAppSystemStatus>({
     configured: false,
-    provider: "meta",
+    provider: "baileys_qr",
+    status: "connecting",
   });
   const [sendingTest, setSendingTest] = useState(false);
   const [testResponse, setTestResponse] = useState<{
@@ -89,9 +95,10 @@ export function SettingsPage() {
     error?: string;
   } | null>(null);
 
+  const [disconnecting, setDisconnecting] = useState(false);
+
   useEffect(() => {
     checkMasterDriveStatus().then(setDriveStatus);
-    getWhatsAppSystemStatus().then(setSystemWhatsApp);
     getUserSettings().then((s) => {
       setSettings(s);
       try {
@@ -100,6 +107,36 @@ export function SettingsPage() {
       } catch {}
     });
   }, []);
+
+  // Poll WhatsApp Gateway status every 3s until connected
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval>;
+    const fetchStatus = async () => {
+      try {
+        const s = await getWhatsAppSystemStatus();
+        setSystemWhatsApp(s);
+      } catch {}
+    };
+
+    fetchStatus();
+    timer = setInterval(fetchStatus, 3500);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleDisconnectWhatsApp = async () => {
+    if (!window.confirm("Are you sure you want to unlink WhatsApp? You will need to scan a new QR code to reconnect.")) {
+      return;
+    }
+    setDisconnecting(true);
+    try {
+      await disconnectWhatsAppGateway();
+      const updated = await getWhatsAppSystemStatus();
+      setSystemWhatsApp(updated);
+    } finally {
+      setDisconnecting(false);
+    }
+  };
 
   const handleAuthorizeMaster = async () => {
     setAuthorizing(true);
@@ -142,6 +179,14 @@ export function SettingsPage() {
       return;
     }
 
+    if (!systemWhatsApp.configured && systemWhatsApp.status !== "connected") {
+      setTestResponse({
+        success: false,
+        error: "WhatsApp Web Gateway is not linked yet. Please scan the QR code below using WhatsApp on your phone first.",
+      });
+      return;
+    }
+
     setSendingTest(true);
     setTestResponse(null);
     try {
@@ -155,7 +200,7 @@ export function SettingsPage() {
       if (result.success) {
         setTestResponse({
           success: true,
-          message: `Test alert dispatched directly to +${fullNumber} via Meta WhatsApp Cloud API! (Message ID: ${result.messageId || "delivered"})`,
+          message: `Test alert dispatched directly to +${fullNumber}! Delivered via linked WhatsApp Web Gateway. (ID: ${result.messageId || "sent"})`,
         });
       } else {
         setTestResponse({
@@ -296,16 +341,92 @@ export function SettingsPage() {
               </div>
             </div>
 
-            {/* System Gateway Status Banner */}
-            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-50/90 border border-emerald-200 text-xs text-emerald-950">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-              <div className="flex-1">
-                <span className="font-bold text-emerald-900">System Gateway: Meta WhatsApp Cloud API Ready</span>
-                <span className="text-[11px] text-emerald-700 block mt-0.5">
-                  Phone ID: <code className="bg-emerald-100/80 px-1 py-0.2 rounded font-mono">{systemWhatsApp.phoneNumberId || "Connected"}</code>. Regular users only provide their mobile number; all alerts dispatch automatically from the server.
-                </span>
+            {/* WhatsApp Gateway Status & QR Code Box */}
+            {systemWhatsApp.configured && systemWhatsApp.status === "connected" ? (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-300 text-xs text-emerald-950">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs shrink-0">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-emerald-900 flex items-center gap-2">
+                      WhatsApp Web Gateway Linked & Active
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-200/80 px-2 py-0.5 text-[10px] font-bold text-emerald-900">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                        Online
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-emerald-700 block mt-0.5">
+                      Sender Device: <code className="bg-emerald-100 px-1.5 py-0.5 rounded font-mono font-semibold text-emerald-900">+{systemWhatsApp.connectedPhone || "Connected"}</code>. All alerts dispatch silently in background to any unlisted recipient number.
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={disconnecting}
+                  onClick={handleDisconnectWhatsApp}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 transition cursor-pointer shrink-0 self-start sm:self-auto"
+                >
+                  <LogOut className="h-3.5 w-3.5 text-rose-600" />
+                  {disconnecting ? "Unlinking..." : "Disconnect / Re-link"}
+                </button>
               </div>
-            </div>
+            ) : systemWhatsApp.status === "qr_ready" && systemWhatsApp.qrDataUrl ? (
+              <div className="rounded-xl border-2 border-emerald-300 bg-white p-4 shadow-sm space-y-3">
+                <div className="flex flex-col md:flex-row items-center gap-6">
+                  {/* QR Image */}
+                  <div className="flex flex-col items-center justify-center bg-slate-50 p-3 rounded-2xl border border-slate-200 shadow-inner shrink-0">
+                    <img
+                      src={systemWhatsApp.qrDataUrl}
+                      alt="WhatsApp Web QR Code"
+                      className="w-48 h-48 rounded-lg shadow-xs object-contain"
+                    />
+                    <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                      <RefreshCw className="h-3 w-3 animate-spin text-emerald-600" />
+                      Auto-refreshes every 20s
+                    </div>
+                  </div>
+
+                  {/* Instructions */}
+                  <div className="space-y-3 text-xs text-slate-700 flex-1">
+                    <div className="flex items-center gap-2">
+                      <QrCode className="h-5 w-5 text-emerald-600" />
+                      <h3 className="text-sm font-bold text-slate-900">
+                        Link LifeNest with WhatsApp
+                      </h3>
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Scan this QR code with WhatsApp on your phone to link LifeNest. Once linked, LifeNest will automatically send reminders and alerts directly to <strong>any phone number</strong> entered on this platform without requiring recipient verification or Meta approval!
+                    </p>
+
+                    <ol className="list-decimal list-inside space-y-1.5 text-[11px] font-medium text-slate-800 bg-slate-50/80 p-3 rounded-xl border border-slate-200/80">
+                      <li>Open <strong>WhatsApp</strong> on your mobile phone</li>
+                      <li>Tap <strong>Settings</strong> (iOS) or <strong>Three dots ⋮</strong> (Android)</li>
+                      <li>Select <strong>Linked Devices</strong> &rarr; tap <strong>Link a Device</strong></li>
+                      <li>Point your camera at this QR code to connect</li>
+                    </ol>
+
+                    <div className="flex items-center gap-2 text-[11px] text-slate-500 pt-1">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+                      Listening for scan... The page will automatically update once connected.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900">
+                <div className="flex items-center gap-2.5">
+                  <RefreshCw className="h-4 w-4 text-amber-600 animate-spin shrink-0" />
+                  <div>
+                    <span className="font-bold">Generating WhatsApp Gateway QR Code...</span>
+                    <span className="text-[11px] text-amber-700 block mt-0.5">
+                      Starting local Baileys engine. The QR code will appear right here in a few moments.
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {testResponse && (
               <div
@@ -319,7 +440,7 @@ export function SettingsPage() {
                   {testResponse.success ? (
                     <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                   ) : (
-                    <span className="h-4 w-4 rounded-full bg-rose-200 text-rose-700 flex items-center justify-center text-[10px] font-bold">!</span>
+                    <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
                   )}
                   <span>
                     {testResponse.success
@@ -330,7 +451,7 @@ export function SettingsPage() {
                 {!testResponse.success && (
                   <div className="flex items-center justify-between gap-2 pt-1 border-t border-rose-100 text-[11px]">
                     <span className="text-rose-700">
-                      In Meta sandbox mode, verify your recipient number in Meta dashboard or send via 1-click link:
+                      You can also send this test alert immediately via direct WhatsApp Web / App link:
                     </span>
                     <button
                       type="button"
