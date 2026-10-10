@@ -106,14 +106,18 @@ export async function initWhatsAppGateway(): Promise<void> {
         sock = null;
         const statusCode = (lastDisconnect?.error as { output?: { statusCode?: number } })
           ?.output?.statusCode;
-        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        const isSessionInvalid =
+          statusCode === DisconnectReason.loggedOut ||
+          statusCode === DisconnectReason.connectionReplaced ||
+          statusCode === 401 ||
+          statusCode === 440;
 
         console.log(
-          `[LifeNest WhatsApp] Connection closed (code ${statusCode}). Reconnect: ${shouldReconnect}`,
+          `[LifeNest WhatsApp] Connection closed (code ${statusCode}). SessionInvalid: ${isSessionInvalid}`,
         );
 
-        if (!shouldReconnect) {
-          // Logged out: wipe credentials and restart clean
+        if (isSessionInvalid) {
+          // Logged out or session replaced on another client: wipe credentials and restart clean for new QR
           connectionStatus = "disconnected";
           connectedPhone = null;
           qrCodeDataUrl = null;
@@ -123,9 +127,9 @@ export async function initWhatsAppGateway(): Promise<void> {
           setTimeout(() => {
             isInitializing = false;
             void initWhatsAppGateway();
-          }, 3000);
+          }, 2000);
         } else {
-          // Normal timeout or temporary disconnect: wait 3s before requesting fresh QR
+          // Normal network blip: wait 3s before reconnecting
           connectionStatus = "connecting";
           setTimeout(() => {
             isInitializing = false;
