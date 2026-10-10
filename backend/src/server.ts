@@ -14,6 +14,7 @@ import {
   exchangeAuthCode,
   uploadUserDocumentToMasterDrive,
   deleteDriveFile,
+  deleteDriveFolder,
   deleteDriveFilesByName,
   getFreshAccessToken,
 } from "./googleDriveService.js";
@@ -506,6 +507,25 @@ app.delete("/api/documents/drive-file/:id", async (req: Request, res: Response) 
   } catch (error) {
     res.status(500).json({
       message: error instanceof Error ? error.message : "Failed to delete file from Google Drive",
+    });
+  }
+});
+
+app.post("/api/documents/delete-drive-folder", async (req: Request, res: Response) => {
+  try {
+    const { folderName, folderId, userDisplayName } = req.body;
+    if (!folderName && !folderId) {
+      return res.status(400).json({ message: "folderName or folderId is required" });
+    }
+    const result = await deleteDriveFolder({
+      folderName,
+      folderId,
+      userDisplayName,
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      message: error instanceof Error ? error.message : "Failed to delete folder from Google Drive",
     });
   }
 });

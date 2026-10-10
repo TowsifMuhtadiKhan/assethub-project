@@ -321,15 +321,29 @@ export async function uploadUserDocumentToMasterDrive({
   };
 }
 
+function cleanDriveFileId(input: string): string {
+  if (!input) return "";
+  const trimmed = input.trim();
+  const fileMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]{15,})/);
+  if (fileMatch) return fileMatch[1];
+  const folderMatch = trimmed.match(/\/folders\/([a-zA-Z0-9_-]{15,})/);
+  if (folderMatch) return folderMatch[1];
+  const queryMatch = trimmed.match(/[?&]id=([a-zA-Z0-9_-]{15,})/);
+  if (queryMatch) return queryMatch[1];
+  return trimmed;
+}
+
 /**
  * Permanently deletes a file or folder from Google Drive
  */
 export async function deleteDriveFile(fileId: string): Promise<boolean> {
-  if (!fileId) return false;
+  const cleanId = cleanDriveFileId(fileId);
+  if (!cleanId) return false;
+
   try {
     const accessToken = await getFreshAccessToken();
     const res = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`,
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(cleanId)}?supportsAllDrives=true`,
       {
         method: "DELETE",
         headers: {
@@ -337,6 +351,14 @@ export async function deleteDriveFile(fileId: string): Promise<boolean> {
         },
       },
     );
+
+    // Invalidate folderCache if this was a cached folder
+    for (const [key, val] of folderCache.entries()) {
+      if (val === cleanId) {
+        folderCache.delete(key);
+      }
+    }
+
     if (res.status === 204 || res.status === 200 || res.status === 404) {
       return true;
     }
@@ -347,6 +369,64 @@ export async function deleteDriveFile(fileId: string): Promise<boolean> {
     console.warn("Failed to delete file from Google Drive:", err);
     return false;
   }
+}
+
+/**
+ * Finds and permanently deletes a folder (and its contents) in Google Drive by name or ID.
+ * Also purges matching entries from the in-memory folder cache.
+ */
+export async function deleteDriveFolder({
+  folderName,
+  folderId,
+  userDisplayName,
+}: {
+  folderName?: string;
+  folderId?: string;
+  userDisplayName?: string;
+}): Promise<{ success: boolean; deletedCount: number }> {
+  let deletedCount = 0;
+
+  // 1. If direct folder ID is provided, delete it
+  if (folderId) {
+    const ok = await deleteDriveFile(folderId);
+    if (ok) deletedCount++;
+  }
+
+  // 2. If folderName is provided, search Google Drive for matching folders
+  if (folderName && folderName.trim()) {
+    const cleanName = folderName.trim().replace(/'/g, "\\'");
+    try {
+      const accessToken = await getFreshAccessToken();
+      const query = `name = '${cleanName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+      const searchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&supportsAllDrives=true`;
+
+      const searchRes = await fetch(searchUrl, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (searchRes.ok) {
+        const data = (await searchRes.json()) as { files?: Array<{ id: string; name: string }> };
+        if (data.files && data.files.length > 0) {
+          for (const f of data.files) {
+            const ok = await deleteDriveFile(f.id);
+            if (ok) deletedCount++;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`Error searching and deleting Drive folder "${folderName}":`, err);
+    }
+
+    // 3. Purge cache entries matching this folderName
+    const lowerName = folderName.trim().toLowerCase();
+    for (const [key] of folderCache.entries()) {
+      if (key.toLowerCase().endsWith(`:::${lowerName}`) || key.toLowerCase().includes(lowerName)) {
+        folderCache.delete(key);
+      }
+    }
+  }
+
+  return { success: true, deletedCount };
 }
 
 /**

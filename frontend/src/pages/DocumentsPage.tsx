@@ -28,6 +28,7 @@ import {
   List,
   Eye,
   MoreVertical,
+  Cloud,
 } from "lucide-react";
 import {
   listDocuments,
@@ -45,6 +46,7 @@ import {
   openDocumentFile,
   downloadDocumentFile,
   deleteDocumentFromMasterGoogleDrive,
+  deleteFolderFromMasterGoogleDrive,
   uploadUserDocumentToGoogleDrive,
 } from "../utils/googleDrive";
 import { SqlSetupBanner } from "../components/common/SqlSetupBanner";
@@ -123,6 +125,8 @@ export function DocumentsPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<{ id?: string; name: string } | null>(null);
+  const [deleteFolderDocs, setDeleteFolderDocs] = useState<boolean>(true);
+  const [isDeletingFolder, setIsDeletingFolder] = useState<boolean>(false);
   const [deletedFolderNames, setDeletedFolderNames] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem("lifenest_deleted_folders") || "[]");
@@ -478,11 +482,13 @@ export function DocumentsPage() {
 
   const promptDeleteFolder = (folderName: string, folderId?: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    setDeleteFolderDocs(true);
     setFolderToDelete({ id: folderId, name: folderName });
   };
 
   const confirmDeleteFolder = async () => {
     if (!folderToDelete) return;
+    setIsDeletingFolder(true);
     const { id, name } = folderToDelete;
     const lowerName = name.toLowerCase();
     try {
@@ -506,7 +512,7 @@ export function DocumentsPage() {
       };
       if (id) collectChildren(id, name);
 
-      // Delete each from database/service
+      // 1. Delete folders from database/service
       for (const targetId of idsToDelete) {
         await deleteDocumentFolder(targetId);
       }
@@ -514,7 +520,46 @@ export function DocumentsPage() {
         await deleteDocumentFolder(targetName);
       }
 
-      // Remove from folders state
+      // 2. Permanently sync folder deletion with Google Drive
+      for (const targetName of namesToDelete) {
+        await deleteFolderFromMasterGoogleDrive({
+          folderName: targetName,
+          folderId: id,
+        });
+      }
+
+      // 3. Handle documents inside the deleted folders
+      const docsInFolder = documents.filter((d) =>
+        namesToDelete.has((d.folderName || "").toLowerCase()),
+      );
+
+      if (deleteFolderDocs) {
+        // Delete each document from database and purge file from Google Drive
+        for (const doc of docsInFolder) {
+          try {
+            await deleteDocument(doc.id);
+            const driveId = doc.driveFileId || (doc.fileUrl ? extractGoogleDriveFileId(doc.fileUrl) : null);
+            if (driveId) {
+              await deleteDocumentFromMasterGoogleDrive(driveId);
+            }
+          } catch (docErr) {
+            console.warn(`Failed to delete document ${doc.id}:`, docErr);
+          }
+        }
+
+        setDocuments((prev) =>
+          prev.filter((d) => !namesToDelete.has((d.folderName || "").toLowerCase())),
+        );
+      } else {
+        // Unfile documents so they remain safely in "All Documents"
+        setDocuments((prev) =>
+          prev.map((d) =>
+            namesToDelete.has((d.folderName || "").toLowerCase()) ? { ...d, folderName: "" } : d,
+          ),
+        );
+      }
+
+      // 4. Remove from folders state
       setFolders((prev) =>
         prev.filter((f) => !idsToDelete.has(f.id) && !namesToDelete.has(f.name.toLowerCase())),
       );
@@ -523,13 +568,6 @@ export function DocumentsPage() {
       const updatedDeleted = Array.from(new Set([...deletedFolderNames, ...namesToDelete]));
       setDeletedFolderNames(updatedDeleted);
       localStorage.setItem("lifenest_deleted_folders", JSON.stringify(updatedDeleted));
-
-      // Clear folderName on documents in memory
-      setDocuments((prev) =>
-        prev.map((d) =>
-          namesToDelete.has((d.folderName || "").toLowerCase()) ? { ...d, folderName: "" } : d,
-        ),
-      );
 
       // Reset view to All Documents if active folder or any of its ancestors was deleted
       if (
@@ -542,6 +580,7 @@ export function DocumentsPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete folder");
     } finally {
+      setIsDeletingFolder(false);
       setFolderToDelete(null);
     }
   };
@@ -2405,24 +2444,60 @@ export function DocumentsPage() {
 
             <div className="p-6 space-y-4">
               <p className="text-xs text-slate-600 leading-relaxed">
-                Are you sure you want to delete the folder <strong>"{folderToDelete.name}"</strong>? Any documents previously placed in this folder will remain safely accessible in <strong>All Documents</strong>.
+                Are you sure you want to delete the folder <strong>"{folderToDelete.name}"</strong>?
               </p>
+
+              {/* Cloud Sync Status Banner */}
+              <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200">
+                <Cloud className="h-4 w-4 shrink-0 text-emerald-600" />
+                <span>Google Drive sync: Folder will be permanently removed from cloud storage.</span>
+              </div>
+
+              {/* Toggle for documents inside this folder */}
+              {(() => {
+                const docsInTarget = documents.filter(
+                  (d) => (d.folderName || "").toLowerCase() === folderToDelete.name.toLowerCase(),
+                );
+                if (docsInTarget.length === 0) return null;
+                return (
+                  <label className="flex items-start gap-2.5 p-3 rounded-xl border border-rose-100 bg-rose-50/70 cursor-pointer transition hover:bg-rose-50 select-none">
+                    <input
+                      type="checkbox"
+                      checked={deleteFolderDocs}
+                      onChange={(e) => setDeleteFolderDocs(e.target.checked)}
+                      className="mt-0.5 rounded border-rose-300 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                    />
+                    <div className="text-xs">
+                      <span className="font-semibold text-rose-900 block">
+                        Also permanently delete {docsInTarget.length} document{docsInTarget.length > 1 ? "s" : ""} in this folder
+                      </span>
+                      <span className="text-rose-600 text-[11px] block mt-0.5">
+                        {deleteFolderDocs
+                          ? "Files will be removed from your Vault and permanently deleted from Google Drive."
+                          : "Files will be kept safely in 'All Documents' as unfiled vault documents."}
+                      </span>
+                    </div>
+                  </label>
+                );
+              })()}
 
               <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
+                  disabled={isDeletingFolder}
                   onClick={() => setFolderToDelete(null)}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
+                  disabled={isDeletingFolder}
                   onClick={confirmDeleteFolder}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-5 py-2 text-xs font-semibold text-white hover:bg-rose-700 transition shadow-xs cursor-pointer"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-5 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50 transition shadow-xs cursor-pointer"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  Delete Folder
+                  {isDeletingFolder ? "Deleting..." : "Delete Folder"}
                 </button>
               </div>
             </div>

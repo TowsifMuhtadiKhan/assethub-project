@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import type { VehicleDocument, BangladeshDocType } from "../types";
+import { deleteDocumentFromMasterGoogleDrive, extractGoogleDriveFileId } from "../utils/googleDrive";
 
 const LOCAL_KEY_PREFIX = "lifenest_veh_docs_";
 
@@ -109,10 +110,19 @@ export async function deleteVehicleDocument(
   id: string,
 ): Promise<void> {
   const current = getLocalDocs(vehicleId);
+  const targetDoc = current.find((d) => d.id === id);
   saveLocalDocs(
     vehicleId,
     current.filter((d) => d.id !== id),
   );
+
+  // If stored in Google Drive, permanently delete it
+  if (targetDoc?.fileUrl) {
+    const driveId = extractGoogleDriveFileId(targetDoc.fileUrl);
+    if (driveId) {
+      deleteDocumentFromMasterGoogleDrive(driveId).catch(console.warn);
+    }
+  }
 
   try {
     await supabase.from("lifenest_documents").delete().eq("id", id);

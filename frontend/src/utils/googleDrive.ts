@@ -217,22 +217,108 @@ export async function downloadDocumentFile(doc: {
 }
 
 /**
- * Permanently deletes a file from Google Drive via backend
+ * Permanently deletes a file from Google Drive via backend proxy (with client token fallback)
  */
 export async function deleteDocumentFromMasterGoogleDrive(driveFileId: string): Promise<boolean> {
   if (!driveFileId) return false;
+  const cleanId = extractGoogleDriveFileId(driveFileId) || driveFileId.trim();
+  if (!cleanId) return false;
+
   try {
-    const res = await fetch(`http://localhost:4000/api/documents/drive-file/${encodeURIComponent(driveFileId)}`, {
+    const apiUrl = getBackendApiUrl();
+    const res = await fetch(`${apiUrl}/api/documents/drive-file/${encodeURIComponent(cleanId)}`, {
       method: "DELETE",
     });
     if (res.ok) {
       return true;
     }
-    return false;
   } catch (err) {
-    console.warn("Error calling delete-drive-file API:", err);
-    return false;
+    console.warn("Backend delete-drive-file API failed, trying client fallback:", err);
   }
+
+  // Client OAuth token fallback
+  try {
+    const oauth = getGoogleOAuthState();
+    if (oauth.isConnected && oauth.accessToken) {
+      const directRes = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(cleanId)}?supportsAllDrives=true`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${oauth.accessToken}` },
+        },
+      );
+      return directRes.ok || directRes.status === 404;
+    }
+  } catch (cErr) {
+    console.warn("Client fallback file delete failed:", cErr);
+  }
+
+  return false;
+}
+
+/**
+ * Permanently deletes a folder (and its child files) from Google Drive
+ */
+export async function deleteFolderFromMasterGoogleDrive({
+  folderName,
+  folderId,
+  userDisplayName,
+}: {
+  folderName?: string;
+  folderId?: string;
+  userDisplayName?: string;
+}): Promise<boolean> {
+  if (!folderName && !folderId) return false;
+  try {
+    const apiUrl = getBackendApiUrl();
+    const res = await fetch(`${apiUrl}/api/documents/delete-drive-folder`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folderName, folderId, userDisplayName }),
+    });
+    if (res.ok) {
+      return true;
+    }
+  } catch (err) {
+    console.warn("Backend delete-drive-folder failed, trying client fallback:", err);
+  }
+
+  // Client OAuth token fallback
+  try {
+    const oauth = getGoogleOAuthState();
+    if (oauth.isConnected && oauth.accessToken) {
+      if (folderId) {
+        await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}?supportsAllDrives=true`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${oauth.accessToken}` },
+        });
+      }
+      if (folderName && folderName.trim()) {
+        const cleanName = folderName.trim().replace(/'/g, "\\'");
+        const q = `name = '${cleanName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+        const searchRes = await fetch(
+          `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&supportsAllDrives=true`,
+          { headers: { Authorization: `Bearer ${oauth.accessToken}` } },
+        );
+        if (searchRes.ok) {
+          const data = (await searchRes.json()) as { files?: Array<{ id: string }> };
+          if (data.files && data.files.length > 0) {
+            for (const f of data.files) {
+              await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}?supportsAllDrives=true`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${oauth.accessToken}` },
+              });
+            }
+          }
+        }
+      }
+      return true;
+    }
+  } catch (cErr) {
+    console.warn("Client fallback folder delete failed:", cErr);
+  }
+
+  return false;
 }
 
 // ============================================================================
