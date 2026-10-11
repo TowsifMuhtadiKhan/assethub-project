@@ -42,9 +42,7 @@ const MENU_GROUPS: MenuGroup[] = [
     title: "Consumer",
     icon: LayoutGrid,
     iconColor: "text-orange-500",
-    items: [
-      { to: "/", label: "Dashboard", icon: LayoutDashboard },
-    ],
+    items: [{ to: "/", label: "Dashboard", icon: LayoutDashboard }],
   },
   {
     id: "my-life",
@@ -73,8 +71,16 @@ const MENU_GROUPS: MenuGroup[] = [
     iconColor: "text-emerald-500",
     items: [
       { to: "/assets/vehicles", label: "Vehicles & Fuel", icon: Car },
-      { to: "/assets/warranties", label: "Warranties & Claims", icon: ShieldCheck },
-      { to: "/rentals/properties", label: "Properties & Rent", icon: Building2 },
+      {
+        to: "/assets/warranties",
+        label: "Warranties & Claims",
+        icon: ShieldCheck,
+      },
+      {
+        to: "/rentals/properties",
+        label: "Properties & Rent",
+        icon: Building2,
+      },
     ],
   },
   {
@@ -84,7 +90,11 @@ const MENU_GROUPS: MenuGroup[] = [
     iconColor: "text-indigo-400",
     items: [
       { to: "/family/profiles", label: "Family Profiles", icon: Users },
-      { to: "/workspace/access-control", label: "Access Control", icon: KeyRound },
+      {
+        to: "/workspace/access-control",
+        label: "Access Control",
+        icon: KeyRound,
+      },
       { to: "/settings", label: "Settings", icon: Settings },
     ],
   },
@@ -112,7 +122,8 @@ export function Sidebar({
         if (
           item.to === location.pathname ||
           (item.to === "/assets/vehicles" &&
-            (location.pathname.startsWith("/assets/vehicles") ||
+            ((location.pathname.startsWith("/assets/vehicles") &&
+              location.pathname !== "/assets/vehicles/dashboard") ||
               location.pathname.startsWith("/vehicles"))) ||
           (item.to !== "/" && location.pathname.startsWith(item.to))
         ) {
@@ -124,13 +135,15 @@ export function Sidebar({
   }, [location.pathname]);
 
   // Track expanded groups state in full mode
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    consumer: true,
-    "my-life": true,
-    vault: true,
-    assets: true,
-    admin: true,
-  });
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
+    {
+      consumer: true,
+      "my-life": true,
+      vault: true,
+      assets: true,
+      admin: true,
+    },
+  );
 
   // Ensure active group stays open when navigating
   useEffect(() => {
@@ -185,7 +198,9 @@ export function Sidebar({
             >
               <div className="flex items-center gap-2.5">
                 <GroupIcon className={`h-4 w-4 shrink-0 ${group.iconColor}`} />
-                <span className="text-[13px] font-bold tracking-tight">{group.title}</span>
+                <span className="text-[13px] font-bold tracking-tight">
+                  {group.title}
+                </span>
               </div>
 
               <div className="flex items-center gap-1.5 text-slate-500 group-hover:text-slate-300">
@@ -254,7 +269,10 @@ export function Sidebar({
     <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-4">
       {MENU_GROUPS.map((group) => {
         return (
-          <div key={group.id} className="space-y-1.5 border-b border-slate-850/60 pb-3 last:border-b-0">
+          <div
+            key={group.id}
+            className="space-y-1.5 border-b border-slate-850/60 pb-3 last:border-b-0"
+          >
             {group.items.map((item) => {
               const active = isItemActive(item.to);
               const SubIcon = item.icon;
@@ -338,7 +356,9 @@ export function Sidebar({
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-slate-300 font-medium">LifeNest API</span>
             </div>
-            <span className="font-mono text-slate-500 text-[10px]">v2.4 Online</span>
+            <span className="font-mono text-slate-500 text-[10px]">
+              v2.4 Online
+            </span>
           </div>
         </div>
       </aside>
@@ -420,7 +440,9 @@ export function Sidebar({
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="text-slate-300 font-medium">LifeNest API</span>
               </div>
-              <span className="font-mono text-slate-500 text-[10px]">v2.4 Online</span>
+              <span className="font-mono text-slate-500 text-[10px]">
+                v2.4 Online
+              </span>
             </div>
           )}
         </div>

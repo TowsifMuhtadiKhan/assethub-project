@@ -1,3 +1,4 @@
+import { VehicleBrandLogo } from "../components/common/VehicleBrandLogo";
 import { useEffect, useMemo, useState } from "react";
 import {
   Car,
@@ -11,8 +12,9 @@ import {
   Trash2,
   Search,
   Layers,
+  BarChart3,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { VehicleEntryForm } from "../components/common/VehicleEntryForm";
 import { SqlSetupBanner } from "../components/common/SqlSetupBanner";
 import {
@@ -275,6 +277,13 @@ export function VehicleEntryPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            to="/assets/vehicles/dashboard"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs"
+          >
+            <BarChart3 className="h-3.5 w-3.5 text-amber-600" />
+            <span>Vehicle Dashboard & Fuel</span>
+          </Link>
           <button
             type="button"
             onClick={() => {
@@ -435,7 +444,7 @@ export function VehicleEntryPage({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredVehicles.map((vehicle) => {
-                  const VehicleIcon = getVehicleIcon(vehicle.type);
+
                   return (
                     <tr
                       key={vehicle.id}
@@ -451,7 +460,7 @@ export function VehicleEntryPage({
                       <td className="whitespace-nowrap px-3.5 py-2.5 font-medium text-slate-900">
                         <div className="flex items-center gap-2.5">
                           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-700">
-                            <VehicleIcon className="h-3.5 w-3.5" />
+                            <VehicleBrandLogo brand={vehicle.brand} type={vehicle.type} />
                           </div>
                           <div>
                             <div className="font-semibold text-slate-900 leading-tight">

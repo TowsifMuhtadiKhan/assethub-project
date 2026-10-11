@@ -28,6 +28,31 @@ export async function listVehicleExpenses(
   }));
 }
 
+export async function listAllVehicleExpenses(): Promise<VehicleExpense[]> {
+  try {
+    const { data, error } = await supabase
+      .from(EXPENSES_TABLE)
+      .select("*")
+      .order("date", { ascending: false });
+
+    if (error || !data) return [];
+    return data.map((row) => ({
+      id: row.id,
+      vehicleId: row.vehicle_id,
+      date: row.date,
+      category: row.category,
+      amount: Number(row.amount),
+      mileage: row.mileage ?? 0,
+      description: row.description ?? "",
+      receiptUrl: row.receipt_url ?? undefined,
+      paymentMethod: row.payment_method ?? "",
+      fuelLiters: row.fuel_liters ? Number(row.fuel_liters) : undefined,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function createVehicleExpense(
   input: Omit<VehicleExpense, "id">,
 ): Promise<VehicleExpense> {
@@ -140,6 +165,38 @@ export async function listVehicleServices(
     reminderEnabled: row.reminder_enabled ?? true,
     receiptUrl: row.receipt_url ?? undefined,
   }));
+}
+
+export async function listAllVehicleServices(): Promise<VehicleService[]> {
+  try {
+    const { data, error } = await supabase
+      .from(SERVICES_TABLE)
+      .select("*")
+      .order("service_date", { ascending: false });
+
+    if (error || !data) return [];
+    return data.map((row) => ({
+      id: row.id,
+      vehicleId: row.vehicle_id,
+      serviceType: row.service_type,
+      serviceDate: row.service_date,
+      mileageAtService: row.mileage_at_service ?? 0,
+      workshopName: row.workshop_name ?? "",
+      workshopLocation: row.workshop_location ?? "",
+      mechanicName: row.mechanic_name ?? "",
+      cost: Number(row.cost),
+      partsCost: Number(row.parts_cost ?? 0),
+      laborCost: Number(row.labor_cost ?? 0),
+      description: row.description ?? "",
+      notes: row.notes ?? "",
+      nextServiceDate: row.next_service_date ?? "",
+      nextServiceMileage: row.next_service_mileage ?? 0,
+      reminderEnabled: row.reminder_enabled ?? true,
+      receiptUrl: row.receipt_url ?? undefined,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export async function createVehicleService(

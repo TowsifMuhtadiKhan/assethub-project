@@ -407,6 +407,8 @@ export type Property = {
 
 export type PropertyUnit = {
   id: string;
+  parentUnitId?: string | null;
+  rentalMode?: "whole" | "rooms";
   propertyId: string;
   unitNumber: string;
   unitName: string;
@@ -525,6 +527,7 @@ export type DailyExpenseCategory =
   | "Education"
   | "Entertainment"
   | "Family & Home"
+  | "Loan & EMI Repayment"
   | "Others";
 
 export type DailyExpensePaymentMethod =
@@ -546,6 +549,44 @@ export type DailyExpense = {
   description: string;
   merchant?: string;
   receiptUrl?: string;
+  notes?: string;
+  createdAt?: string;
+};
+
+// 11. Loans, Borrowings & Segment Repayments (Car Loan, EMI, Personal Debt)
+export type LoanRepaymentSegment = {
+  id: string;
+  loanId: string;
+  amount: number;
+  paymentDate: string;
+  paymentMethod: DailyExpensePaymentMethod;
+  notes?: string;
+  receiptUrl?: string;
+  createdAt?: string;
+};
+
+export type MemberLoan = {
+  id: string;
+  familyMemberId: string;
+  familyMemberName?: string;
+  loanTitle: string; // e.g. "Car Loan - Toyota Allion", "City Bank Personal Loan"
+  loanType:
+    | "Car Loan"
+    | "Home Loan"
+    | "Personal Loan"
+    | "Education Loan"
+    | "Business Loan"
+    | "Friend/Family"
+    | "Other";
+  lenderName: string; // e.g. "BRAC Bank", "Shahjalal Islami Bank", "Uncle"
+  principalAmount: number;
+  totalRepayableAmount: number; // Principal + Interest
+  interestRate?: number;
+  startDate: string;
+  targetEndDate?: string;
+  monthlyEmiAmount?: number;
+  repayments: LoanRepaymentSegment[];
+  status: "ACTIVE" | "PAID_OFF" | "DEFAULTED";
   notes?: string;
   createdAt?: string;
 };

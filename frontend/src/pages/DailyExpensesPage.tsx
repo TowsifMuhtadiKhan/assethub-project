@@ -14,6 +14,11 @@ import {
   LayoutGrid,
   List,
   Clock,
+  CreditCard,
+  ChevronDown,
+  ChevronUp,
+  Banknote,
+  Percent,
 } from "lucide-react";
 import { listFamilyMembersWithSelf } from "../services/familyService";
 import {
@@ -24,12 +29,18 @@ import {
   hasMemberPin,
   setMemberPin,
   verifyMemberPin,
+  listMemberLoans,
+  createMemberLoan,
+  addLoanRepaymentSegment,
+  deleteMemberLoan,
 } from "../services/dailyExpenseService";
 import type {
   DailyExpense,
   DailyExpenseCategory,
   DailyExpensePaymentMethod,
   FamilyMember,
+  MemberLoan,
+  LoanRepaymentSegment,
 } from "../types";
 
 const CATEGORIES: { label: DailyExpenseCategory; color: string; bg: string }[] = [
@@ -42,6 +53,7 @@ const CATEGORIES: { label: DailyExpenseCategory; color: string; bg: string }[] =
   { label: "Education", color: "text-blue-700", bg: "bg-blue-50 border-blue-200" },
   { label: "Entertainment", color: "text-pink-700", bg: "bg-pink-50 border-pink-200" },
   { label: "Family & Home", color: "text-indigo-700", bg: "bg-indigo-50 border-indigo-200" },
+  { label: "Loan & EMI Repayment", color: "text-teal-700", bg: "bg-teal-50 border-teal-200" },
   { label: "Others", color: "text-slate-700", bg: "bg-slate-100 border-slate-200" },
 ];
 
@@ -94,6 +106,40 @@ export function DailyExpensesPage() {
 
   // Delete modal state
   const [expenseToDelete, setExpenseToDelete] = useState<DailyExpense | null>(null);
+
+  // Active Tab: Expenses Ledger vs Loans & Repayments
+  const [activeTab, setActiveTab] = useState<"expenses" | "loans">("expenses");
+
+  // Loans & Segment Repayments State
+  const [loans, setLoans] = useState<MemberLoan[]>([]);
+  const [loadingLoans, setLoadingLoans] = useState(false);
+  const [expandedLoanIds, setExpandedLoanIds] = useState<Set<string>>(new Set());
+
+  // Add Loan Modal State
+  const [isAddLoanModalOpen, setIsAddLoanModalOpen] = useState(false);
+  const [loanTitle, setLoanTitle] = useState("");
+  const [lenderName, setLenderName] = useState("");
+  const [loanType, setLoanType] = useState<MemberLoan["loanType"]>("Car Loan");
+  const [totalPrincipal, setTotalPrincipal] = useState<number | "">("");
+  const [monthlyEmiAmount, setMonthlyEmiAmount] = useState<number | "">("");
+  const [interestRatePercent, setInterestRatePercent] = useState<number | "">("");
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [targetEndDate, setTargetEndDate] = useState("");
+  const [loanNotes, setLoanNotes] = useState("");
+  const [savingLoan, setSavingLoan] = useState(false);
+
+  // Pay Segment Modal State
+  const [isPaySegmentModalOpen, setIsPaySegmentModalOpen] = useState(false);
+  const [selectedLoanForSegment, setSelectedLoanForSegment] = useState<MemberLoan | null>(null);
+  const [segmentAmount, setSegmentAmount] = useState<number | "">("");
+  const [segmentDate, setSegmentDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [segmentMethod, setSegmentMethod] = useState<DailyExpensePaymentMethod>("Bank Card");
+  const [segmentNotes, setSegmentNotes] = useState("");
+  const [segmentSyncDailyExpense, setSegmentSyncDailyExpense] = useState(true);
+  const [savingSegment, setSavingSegment] = useState(false);
+
+  // Delete Loan Modal State
+  const [loanToDelete, setLoanToDelete] = useState<MemberLoan | null>(null);
 
   useEffect(() => {
     loadInitialData();
@@ -178,6 +224,149 @@ export function DailyExpensesPage() {
       } catch {}
       setPinTargetMember(null);
       showToast(`Welcome back, ${pinTargetMember.fullName}!`);
+    }
+  };
+
+  const loadLoans = async (memberId: string) => {
+    setLoadingLoans(true);
+    try {
+      const data = await listMemberLoans(memberId);
+      setLoans(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingLoans(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeMemberId) {
+      loadLoans(activeMemberId);
+    } else {
+      setLoans([]);
+    }
+  }, [activeMemberId]);
+
+  const loanStats = useMemo(() => {
+    const totalBorrowed = loans.reduce(
+      (acc, l) => acc + (l.totalRepayableAmount || l.principalAmount || 0),
+      0
+    );
+    const totalRepaid = loans.reduce(
+      (acc, l) => acc + (l.repayments || []).reduce((s, r) => s + r.amount, 0),
+      0
+    );
+    const totalRemaining = Math.max(0, totalBorrowed - totalRepaid);
+    const activeCount = loans.filter((l) => l.status === "ACTIVE").length;
+    const settledCount = loans.filter((l) => l.status === "PAID_OFF").length;
+    const totalSegments = loans.reduce((acc, l) => acc + (l.repayments?.length || 0), 0);
+    const overallRepaidPct =
+      totalBorrowed > 0 ? Math.min(100, Math.round((totalRepaid / totalBorrowed) * 100)) : 0;
+
+    return { totalBorrowed, totalRepaid, totalRemaining, activeCount, settledCount, totalSegments, overallRepaidPct };
+  }, [loans]);
+
+  const toggleLoanExpanded = (loanId: string) => {
+    setExpandedLoanIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(loanId)) next.delete(loanId);
+      else next.add(loanId);
+      return next;
+    });
+  };
+
+  const openAddLoanModal = () => {
+    setLoanTitle("");
+    setLenderName("");
+    setLoanType("Car Loan");
+    setTotalPrincipal("");
+    setMonthlyEmiAmount("");
+    setInterestRatePercent("");
+    setStartDate(new Date().toISOString().split("T")[0]);
+    setTargetEndDate("");
+    setLoanNotes("");
+    setIsAddLoanModalOpen(true);
+  };
+
+  const handleSaveLoan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeMemberId || !loanTitle.trim() || !lenderName.trim() || totalPrincipal === "" || Number(totalPrincipal) <= 0) return;
+    setSavingLoan(true);
+    try {
+      await createMemberLoan({
+        familyMemberId: activeMemberId,
+        loanTitle: loanTitle.trim(),
+        lenderName: lenderName.trim(),
+        loanType,
+        principalAmount: Number(totalPrincipal),
+        totalRepayableAmount: Number(totalPrincipal),
+        monthlyEmiAmount: monthlyEmiAmount !== "" ? Number(monthlyEmiAmount) : undefined,
+        interestRate: interestRatePercent !== "" ? Number(interestRatePercent) : undefined,
+        startDate,
+        targetEndDate: targetEndDate || undefined,
+        status: "ACTIVE",
+        notes: loanNotes.trim() || undefined,
+      });
+      await loadLoans(activeMemberId);
+      setIsAddLoanModalOpen(false);
+      showToast("Loan / Borrowing entry created successfully!");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingLoan(false);
+    }
+  };
+
+  const openPaySegmentModal = (loan: MemberLoan) => {
+    setSelectedLoanForSegment(loan);
+    setSegmentAmount(loan.monthlyEmiAmount || "");
+    setSegmentDate(new Date().toISOString().split("T")[0]);
+    setSegmentMethod("Bank Card");
+    setSegmentNotes("");
+    setSegmentSyncDailyExpense(true);
+    setIsPaySegmentModalOpen(true);
+  };
+
+  const handleSaveSegment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedLoanForSegment || segmentAmount === "" || Number(segmentAmount) <= 0) return;
+    setSavingSegment(true);
+    try {
+      await addLoanRepaymentSegment(
+        selectedLoanForSegment.id,
+        {
+          loanId: selectedLoanForSegment.id,
+          amount: Number(segmentAmount),
+          paymentDate: segmentDate,
+          paymentMethod: segmentMethod,
+          notes: segmentNotes.trim() || undefined,
+        },
+        segmentSyncDailyExpense
+      );
+      if (activeMemberId) {
+        await loadLoans(activeMemberId);
+        const allExpenses = await listDailyExpenses();
+        setExpenses(allExpenses);
+      }
+      setIsPaySegmentModalOpen(false);
+      setSelectedLoanForSegment(null);
+      showToast("Repayment segment recorded successfully!");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingSegment(false);
+    }
+  };
+
+  const handleConfirmDeleteLoan = async () => {
+    if (!loanToDelete) return;
+    try {
+      await deleteMemberLoan(loanToDelete.id);
+      if (activeMemberId) await loadLoans(activeMemberId);
+      setLoanToDelete(null);
+      showToast("Loan record removed successfully!");
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -514,7 +703,62 @@ export function DailyExpensesPage() {
         /* 3. ACTIVE MEMBER'S EXPENSE DASHBOARD                                      */
         /* ========================================================================= */
         <div className="space-y-6">
-          {/* Top Metric Cards */}
+          {/* Sub Navigation: Daily Expenses vs Loans & Segment Repayments */}
+          <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab("expenses")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                activeTab === "expenses"
+                  ? "bg-slate-900 text-white shadow-xs"
+                  : "bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
+              }`}
+            >
+              <Wallet className="h-4 w-4" />
+              <span>Daily Expenses Ledger</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-md ${
+                  activeTab === "expenses" ? "bg-slate-800 text-slate-200" : "bg-slate-200 text-slate-700"
+                }`}
+              >
+                {memberExpenses.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("loans")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                activeTab === "loans"
+                  ? "bg-amber-600 text-white shadow-xs"
+                  : "bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200/60"
+              }`}
+            >
+              <CreditCard className="h-4 w-4" />
+              <span>Loans & Segment Repayments</span>
+              {loanStats.activeCount > 0 ? (
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-md ${
+                    activeTab === "loans" ? "bg-amber-700 text-white" : "bg-amber-200 text-amber-900"
+                  }`}
+                >
+                  {loanStats.activeCount} Active
+                </span>
+              ) : (
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-md ${
+                    activeTab === "loans" ? "bg-amber-700 text-white" : "bg-amber-200 text-amber-900"
+                  }`}
+                >
+                  {loans.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {activeTab === "expenses" ? (
+            <div className="space-y-6">
+              {/* Top Metric Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -845,6 +1089,347 @@ export function DailyExpensesPage() {
             )}
           </div>
         </div>
+          ) : (
+            /* LOANS & SEGMENT REPAYMENTS VIEW */
+            <div className="space-y-6">
+              {/* Top Loan Metric Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Total Borrowed
+                  </div>
+                  <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-slate-900">
+                    ৳{loanStats.totalBorrowed.toLocaleString()}
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-400 flex items-center gap-1">
+                    <Banknote className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Principal amount ({loans.length} loans)</span>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Total Repaid So Far
+                  </div>
+                  <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-emerald-600">
+                    ৳{loanStats.totalRepaid.toLocaleString()}
+                  </div>
+                  <div className="mt-1 text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                    <Percent className="h-3 w-3" />
+                    <span>{loanStats.overallRepaidPct}% Cleared ({loanStats.totalSegments} segments)</span>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Remaining Debt
+                  </div>
+                  <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-amber-700">
+                    ৳{loanStats.totalRemaining.toLocaleString()}
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-400">
+                    Outstanding balance to clear
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Active Portfolios
+                  </div>
+                  <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-slate-900">
+                    {loanStats.activeCount}
+                    <span className="text-xs font-normal text-slate-400 ml-1.5">
+                      / {loans.length} total
+                    </span>
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-400">
+                    {loanStats.settledCount} fully paid & closed
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/90 p-4 rounded-2xl shadow-2xs">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-amber-600" />
+                    <span>Loans & Flexible Segment Repayments</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Manage car loans, bank borrowings, or private debts with partial segment repayments at different dates.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={openAddLoanModal}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer self-start sm:self-auto"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Add Loan / Borrowing</span>
+                </button>
+              </div>
+
+              {/* Loans List */}
+              {loadingLoans ? (
+                <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 text-xs text-slate-500">
+                  <div className="h-6 w-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  Loading loans and repayment segments...
+                </div>
+              ) : loans.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center space-y-3">
+                  <div className="h-12 w-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mx-auto">
+                    <CreditCard className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">No Loans or Borrowings Recorded</h3>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                      Keep track of car loans, personal EMIs, bank borrowings, or loans taken from relatives. Add your repayments in flexible segments whenever you pay.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={openAddLoanModal}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add First Loan (e.g. Car Loan)</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {loans.map((loan) => {
+                    const isExpanded = expandedLoanIds.has(loan.id);
+                    const totalPrincipal = loan.totalRepayableAmount || loan.principalAmount || 0;
+                    const repaidAmount = (loan.repayments || []).reduce(
+                      (acc, r) => acc + r.amount,
+                      0
+                    );
+                    const remainingAmount = Math.max(0, totalPrincipal - repaidAmount);
+                    const pct =
+                      totalPrincipal > 0
+                        ? Math.min(100, Math.round((repaidAmount / totalPrincipal) * 100))
+                        : 0;
+                    const isFullyPaid = loan.status === "PAID_OFF" || remainingAmount <= 0;
+
+                    return (
+                      <div
+                        key={loan.id}
+                        className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs space-y-4"
+                      >
+                        {/* Top row: Title, type, lender, status */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-bold text-slate-900">
+                                {loan.loanTitle}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                {loan.loanType}
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                  isFullyPaid
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : "bg-amber-50 text-amber-700 border border-amber-200"
+                                }`}
+                              >
+                                {isFullyPaid ? "Fully Repaid" : "Active Repayment"}
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-500 flex items-center gap-2">
+                              <span>
+                                Lender / Bank:{" "}
+                                <strong className="text-slate-800 font-semibold">{loan.lenderName}</strong>
+                              </span>
+                              <span>·</span>
+                              <span>Started: {loan.startDate}</span>
+                              {loan.targetEndDate && (
+                                <>
+                                  <span>·</span>
+                                  <span>Target: {loan.targetEndDate}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-start sm:self-center">
+                            {!isFullyPaid && (
+                              <button
+                                type="button"
+                                onClick={() => openPaySegmentModal(loan)}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 transition shadow-xs cursor-pointer"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                                <span>Pay Segment</span>
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => toggleLoanExpanded(loan.id)}
+                              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition cursor-pointer"
+                            >
+                              <span>Segments ({loan.repayments?.length || 0})</span>
+                              {isExpanded ? (
+                                <ChevronUp className="h-3.5 w-3.5" />
+                              ) : (
+                                <ChevronDown className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setLoanToDelete(loan)}
+                              className="rounded-xl border border-slate-200 p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                              title="Delete Loan"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Financial Figures Bar */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
+                          <div>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                              Total Principal
+                            </div>
+                            <div className="font-mono text-sm sm:text-base font-bold text-slate-900 mt-0.5">
+                              ৳{totalPrincipal.toLocaleString()}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                              Total Repaid
+                            </div>
+                            <div className="font-mono text-sm sm:text-base font-bold text-emerald-600 mt-0.5">
+                              ৳{repaidAmount.toLocaleString()}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                              Remaining Balance
+                            </div>
+                            <div className="font-mono text-sm sm:text-base font-bold text-amber-700 mt-0.5">
+                              ৳{remainingAmount.toLocaleString()}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                              Monthly EMI / Rate
+                            </div>
+                            <div className="text-xs font-semibold text-slate-800 mt-1">
+                              {loan.monthlyEmiAmount
+                                ? `৳${loan.monthlyEmiAmount.toLocaleString()}/mo`
+                                : "Flexible"}
+                              {loan.interestRate ? ` (${loan.interestRate}%)` : ""}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-slate-700">
+                              Repayment Progress
+                            </span>
+                            <span className="font-mono font-bold text-slate-900">
+                              {pct}% ({loan.repayments?.length || 0} segments paid)
+                            </span>
+                          </div>
+                          <div className="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden border border-slate-200/50">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                isFullyPaid
+                                  ? "bg-emerald-500"
+                                  : "bg-gradient-to-r from-amber-500 to-emerald-500"
+                              }`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {loan.notes && (
+                          <div className="text-xs text-slate-500 italic bg-amber-50/40 p-2.5 rounded-lg border border-amber-100/60">
+                            "{loan.notes}"
+                          </div>
+                        )}
+
+                        {/* Expanded Segments Table */}
+                        {isExpanded && (
+                          <div className="border-t border-slate-100 pt-3 space-y-2 animate-in fade-in duration-150">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                                Segment Repayment Records
+                              </h4>
+                              {!isFullyPaid && (
+                                <button
+                                  type="button"
+                                  onClick={() => openPaySegmentModal(loan)}
+                                  className="text-xs text-amber-700 font-bold hover:underline cursor-pointer"
+                                >
+                                  + Record Another Repayment
+                                </button>
+                              )}
+                            </div>
+
+                            {!loan.repayments || loan.repayments.length === 0 ? (
+                              <div className="text-xs text-slate-400 p-4 text-center bg-slate-50 rounded-xl">
+                                No repayment segments logged yet. Click "Pay Segment" to add installment payments.
+                              </div>
+                            ) : (
+                              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                                <table className="w-full text-left text-xs">
+                                  <thead className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-semibold text-slate-600">
+                                    <tr>
+                                      <th className="px-3.5 py-2">Payment Date</th>
+                                      <th className="px-3.5 py-2 font-mono">Amount Repaid</th>
+                                      <th className="px-3.5 py-2">Method</th>
+                                      <th className="px-3.5 py-2">Notes / Details</th>
+                                      <th className="px-3.5 py-2 text-right">Logged At</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100 bg-white">
+                                    {loan.repayments.map((segment: LoanRepaymentSegment, idx: number) => (
+                                      <tr key={segment.id || idx} className="hover:bg-slate-50/60">
+                                        <td className="px-3.5 py-2 font-medium text-slate-900">
+                                          {segment.paymentDate}
+                                        </td>
+                                        <td className="px-3.5 py-2 font-mono font-bold text-emerald-600">
+                                          ৳{segment.amount.toLocaleString()}
+                                        </td>
+                                        <td className="px-3.5 py-2">
+                                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">
+                                            {segment.paymentMethod}
+                                          </span>
+                                        </td>
+                                        <td className="px-3.5 py-2 text-slate-600">
+                                          {segment.notes || `Installment #${idx + 1}`}
+                                        </td>
+                                        <td className="px-3.5 py-2 text-right text-[11px] text-slate-400 font-mono">
+                                          {segment.createdAt
+                                            ? new Date(segment.createdAt).toLocaleDateString()
+                                            : "—"}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* ========================================================================= */}
@@ -1123,6 +1708,419 @@ export function DailyExpensesPage() {
                 className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700"
               >
                 Delete Expense
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 7. MODAL: ADD LOAN / BORROWING                                            */}
+      {/* ========================================================================= */}
+      {isAddLoanModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 font-bold">
+                  <CreditCard className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Add Loan / Borrowing Portfolio
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Recording for <span className="font-semibold">{activeMember?.fullName}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddLoanModalOpen(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveLoan} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Loan / Debt Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="e.g. Car Loan (Honda Civic 2020), BRAC Personal Loan"
+                  value={loanTitle}
+                  onChange={(e) => setLoanTitle(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Lender / Bank Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. City Bank, Uncle Rahim"
+                    value={lenderName}
+                    onChange={(e) => setLenderName(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Loan Type *
+                  </label>
+                  <select
+                    value={loanType}
+                    onChange={(e) => setLoanType(e.target.value as MemberLoan["loanType"])}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  >
+                    <option value="Car Loan">Car Loan</option>
+                    <option value="Home Loan">Home Loan</option>
+                    <option value="Personal Loan">Personal Loan</option>
+                    <option value="Business Loan">Business Loan</option>
+                    <option value="Borrowed from Family/Friend">Borrowed from Family/Friend</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Total Principal */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Total Principal Borrowed (৳ BDT) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-base text-slate-400 font-mono">
+                    ৳
+                  </span>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    placeholder="e.g. 500000"
+                    value={totalPrincipal}
+                    onChange={(e) => setTotalPrincipal(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-8 pr-4 py-2.5 text-base font-bold font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Monthly EMI & Interest Rate */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Monthly EMI / Installment (৳)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 25000 (Optional)"
+                    value={monthlyEmiAmount}
+                    onChange={(e) => setMonthlyEmiAmount(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Interest Rate % (Optional)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    placeholder="e.g. 9.5"
+                    value={interestRatePercent}
+                    onChange={(e) => setInterestRatePercent(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Start / Borrow Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Target Payoff Date
+                  </label>
+                  <input
+                    type="date"
+                    value={targetEndDate}
+                    onChange={(e) => setTargetEndDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Notes / Terms (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="e.g. 36-month loan duration, 10th of every month payment deadline"
+                  value={loanNotes}
+                  onChange={(e) => setLoanNotes(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white resize-none"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddLoanModalOpen(false)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingLoan}
+                  className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition shadow-xs cursor-pointer"
+                >
+                  {savingLoan ? "Saving..." : "Create Loan Record"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 8. MODAL: PAY REPAYMENT SEGMENT                                           */}
+      {/* ========================================================================= */}
+      {isPaySegmentModalOpen && selectedLoanForSegment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 font-bold">
+                  ৳
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Record Repayment Segment
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {selectedLoanForSegment.loanTitle}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPaySegmentModalOpen(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Current Loan Balance Summary */}
+            {(() => {
+              const totalP =
+                selectedLoanForSegment.totalRepayableAmount ||
+                selectedLoanForSegment.principalAmount ||
+                0;
+              const totalR = (selectedLoanForSegment.repayments || []).reduce(
+                (sum, r) => sum + r.amount,
+                0
+              );
+              const totalRem = Math.max(0, totalP - totalR);
+              return (
+                <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                  <div>
+                    <span className="text-slate-400 font-semibold uppercase text-[10px] block">
+                      Remaining Debt
+                    </span>
+                    <span className="font-mono font-bold text-amber-700 text-sm">
+                      ৳{totalRem.toLocaleString()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-semibold uppercase text-[10px] block">
+                      Total Repaid So Far
+                    </span>
+                    <span className="font-mono font-bold text-emerald-600 text-sm">
+                      ৳{totalR.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <form onSubmit={handleSaveSegment} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Repayment Segment Amount (৳ BDT) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-base text-slate-400 font-mono">
+                    ৳
+                  </span>
+                  <input
+                    type="number"
+                    required
+                    autoFocus
+                    min="1"
+                    placeholder="e.g. 25000"
+                    value={segmentAmount}
+                    onChange={(e) => setSegmentAmount(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-8 pr-4 py-2.5 text-base font-bold font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Repayment Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={segmentDate}
+                    onChange={(e) => setSegmentDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Payment Method
+                  </label>
+                  <select
+                    value={segmentMethod}
+                    onChange={(e) => setSegmentMethod(e.target.value as DailyExpensePaymentMethod)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  >
+                    {PAYMENT_METHODS.map((method) => (
+                      <option key={method} value={method}>
+                        {method}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Segment Note / Memo
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Installment #4, Partial settlement from Eid bonus"
+                  value={segmentNotes}
+                  onChange={(e) => setSegmentNotes(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                />
+              </div>
+
+              {/* Sync to Daily Expenses checkbox */}
+              <label className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-200/80 bg-amber-50/50 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={segmentSyncDailyExpense}
+                  onChange={(e) => setSegmentSyncDailyExpense(e.target.checked)}
+                  className="mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                />
+                <div className="text-xs">
+                  <span className="font-bold text-slate-900 block">
+                    Sync to Daily Expenses Ledger
+                  </span>
+                  <span className="text-slate-500 text-[11px]">
+                    Automatically logs this repayment into your monthly expense breakdown under "Loan & EMI Repayment".
+                  </span>
+                </div>
+              </label>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsPaySegmentModalOpen(false)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingSegment}
+                  className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50 transition shadow-xs cursor-pointer"
+                >
+                  {savingSegment ? "Recording..." : "Confirm Repayment"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 9. MODAL: DELETE LOAN CONFIRMATION                                        */}
+      {/* ========================================================================= */}
+      {loanToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Delete Loan Record?</h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Are you sure you want to delete{" "}
+                  <span className="font-semibold text-slate-800">
+                    {loanToDelete.loanTitle} (৳
+                    {(
+                      loanToDelete.totalRepayableAmount ||
+                      loanToDelete.principalAmount ||
+                      0
+                    ).toLocaleString()}
+                    )
+                  </span>{" "}
+                  along with all {loanToDelete.repayments?.length || 0} repayment segments?
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setLoanToDelete(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteLoan}
+                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700"
+              >
+                Delete Loan
               </button>
             </div>
           </div>

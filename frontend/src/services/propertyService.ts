@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase";
-import type { Property, PropertyUnit, RentPayment } from "../types";
+import type { Property, PropertyUnit, RentPayment, PropertyExpense } from "../types";
 
 const PROPERTIES_TABLE = "lifenest_properties";
 const UNITS_TABLE = "lifenest_property_units";
@@ -79,7 +79,8 @@ export async function listPropertyUnits(
       .in("unit_id", unitIds)
       .order("payment_date", { ascending: false });
 
-    if (!paymentsError && paymentsData) {
+    if (paymentsError) throw paymentsError;
+    if (paymentsData) {
       for (const p of paymentsData) {
         if (!paymentsByUnit[p.unit_id]) paymentsByUnit[p.unit_id] = [];
         paymentsByUnit[p.unit_id].push({
@@ -112,6 +113,63 @@ export async function listPropertyUnits(
     status: row.status ?? "Vacant",
     rentPayments: paymentsByUnit[row.id] || [],
   }));
+}
+
+export async function listAllPropertyUnits(): Promise<PropertyUnit[]> {
+  try {
+    const { data: unitsData, error: unitsError } = await supabase
+      .from(UNITS_TABLE)
+      .select("*")
+      .order("created_at", { ascending: true });
+
+    if (unitsError || !unitsData) return [];
+
+    const unitIds = unitsData.map((u) => u.id);
+    const paymentsByUnit: Record<string, RentPayment[]> = {};
+
+    if (unitIds.length > 0) {
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from(PAYMENTS_TABLE)
+        .select("*")
+        .in("unit_id", unitIds)
+        .order("payment_date", { ascending: false });
+
+      if (!paymentsError && paymentsData) {
+        for (const p of paymentsData) {
+          if (!paymentsByUnit[p.unit_id]) paymentsByUnit[p.unit_id] = [];
+          paymentsByUnit[p.unit_id].push({
+            id: p.id,
+            unitId: p.unit_id,
+            tenantId: "",
+            month: p.month,
+            amountPayable: 0,
+            amountPaid: Number(p.amount_paid),
+            paymentDate: p.payment_date,
+            paymentMethod: p.payment_method ?? "",
+            status: "PAID",
+          });
+        }
+      }
+    }
+
+    return unitsData.map((row) => ({
+      id: row.id,
+      propertyId: row.property_id,
+      unitNumber: row.unit_number ?? "",
+      unitName: row.unit_name ?? "",
+      unitType: row.unit_type ?? "Room",
+      floor: row.floor ?? "",
+      sizeSqft: row.size_sqft ?? 0,
+      monthlyRent: Number(row.monthly_rent ?? 0),
+      securityDeposit: Number(row.security_deposit ?? 0),
+      currentTenant: row.tenant_name ?? "",
+      tenantName: row.tenant_name ?? "",
+      status: row.status ?? "Vacant",
+      rentPayments: paymentsByUnit[row.id] || [],
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export async function createPropertyUnit(input: {
@@ -222,4 +280,141 @@ export async function addRentPayment(input: {
     paymentMethod: data.payment_method ?? "",
     status: "PAID",
   };
+}
+
+// ============================================================================
+// PROPERTY EXPENSES & PROFIT/LOSS CALCULATION
+// ============================================================================
+
+const EXPENSES_TABLE = "lifenest_property_expenses";
+const LOCAL_PROP_EXPENSES_KEY = "lifenest_property_expenses_list";
+
+function getLocalPropertyExpenses(): PropertyExpense[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_PROP_EXPENSES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalPropertyExpenses(list: PropertyExpense[]): void {
+  try {
+    localStorage.setItem(LOCAL_PROP_EXPENSES_KEY, JSON.stringify(list));
+  } catch {}
+}
+
+export async function listPropertyExpenses(propertyId?: string, strict = false): Promise<PropertyExpense[]> {
+  const localList = getLocalPropertyExpenses();
+
+  try {
+    let query = supabase.from(EXPENSES_TABLE).select("*").order("date", { ascending: false });
+    if (propertyId) {
+      query = query.eq("property_id", propertyId);
+    }
+    const { data, error } = await query;
+    if (error && strict) throw error;
+    if (!error && data && (strict || data.length > 0)) {
+      const remoteList: PropertyExpense[] = data.map((row: any) => ({
+        id: row.id,
+        propertyId: row.property_id,
+        date: row.date,
+        category: row.category ?? "Maintenance",
+        amount: Number(row.amount || 0),
+        vendor: row.vendor ?? "",
+        description: row.description ?? "",
+        paymentMethod: row.payment_method ?? "Cash",
+        receiptUrl: row.receipt_url ?? undefined,
+      }));
+
+      // Financial reports require the current authorized database records,
+      // rather than cached expenses that may have been deleted elsewhere.
+      if (strict) return remoteList;
+
+      const remoteIds = new Set(remoteList.map((r) => r.id));
+      const filteredLocal = localList.filter((l) => !remoteIds.has(l.id));
+      const merged = [...remoteList, ...filteredLocal];
+      saveLocalPropertyExpenses(merged);
+
+      return propertyId ? merged.filter((e) => e.propertyId === propertyId) : merged;
+    }
+  } catch (error) { if (strict) throw error; }
+
+  return propertyId ? localList.filter((e) => e.propertyId === propertyId) : localList;
+}
+
+export async function createPropertyExpense(
+  input: Omit<PropertyExpense, "id">
+): Promise<PropertyExpense> {
+  const localList = getLocalPropertyExpenses();
+  const newId = `propexp_${Date.now()}`;
+  const newExpense: PropertyExpense = {
+    id: newId,
+    ...input,
+  };
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data, error } = await supabase
+        .from(EXPENSES_TABLE)
+        .insert({
+          owner_id: user.id,
+          property_id: input.propertyId,
+          date: input.date,
+          category: input.category,
+          amount: input.amount,
+          vendor: input.vendor,
+          description: input.description,
+          payment_method: input.paymentMethod,
+          receipt_url: input.receiptUrl || null,
+        })
+        .select()
+        .single();
+
+      if (!error && data) {
+        newExpense.id = data.id;
+      }
+    }
+  } catch {}
+
+  const updated = [newExpense, ...localList.filter((e) => e.id !== newExpense.id)];
+  saveLocalPropertyExpenses(updated);
+  return newExpense;
+}
+
+export async function deletePropertyExpense(id: string): Promise<void> {
+  const localList = getLocalPropertyExpenses();
+  saveLocalPropertyExpenses(localList.filter((e) => e.id !== id));
+
+  try {
+    await supabase.from(EXPENSES_TABLE).delete().eq("id", id);
+  } catch {}
+}
+
+export async function listAllRentPayments(): Promise<RentPayment[]> {
+  try {
+    const { data, error } = await supabase
+      .from(PAYMENTS_TABLE)
+      .select("*")
+      .order("payment_date", { ascending: false });
+
+    if (!error && data) {
+      return data.map((p: any) => ({
+        id: p.id,
+        unitId: p.unit_id,
+        tenantId: "",
+        month: p.month,
+        amountPayable: 0,
+        amountPaid: Number(p.amount_paid),
+        paymentDate: p.payment_date,
+        paymentMethod: p.payment_method ?? "",
+        status: "PAID",
+      }));
+    }
+  } catch {}
+
+  return [];
 }
