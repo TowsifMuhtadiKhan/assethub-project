@@ -29,7 +29,9 @@ import {
   Eye,
   MoreVertical,
   Cloud,
+  FolderLock,
 } from "lucide-react";
+import { supabase } from "../lib/supabase";
 import {
   listDocuments,
   createDocument,
@@ -61,6 +63,7 @@ import type {
   DocumentItem,
   DocumentCategory,
   FamilyMember,
+  FamilyMemberAccess,
   DocumentFolder,
 } from "../types";
 import { ItemRecipientSelector } from "../components/common/ItemRecipientSelector";
@@ -151,6 +154,8 @@ export function DocumentsPage() {
   const [isDeletingDoc, setIsDeletingDoc] = useState(false);
   const [openFolderMenuId, setOpenFolderMenuId] = useState<string | null>(null);
   const [docReminderRecipients, setDocReminderRecipients] = useState<string[]>(["Personal"]);
+  const [currentUserAccess, setCurrentUserAccess] = useState<FamilyMemberAccess | null>(null);
+  const [isVaultLockedForUser, setIsVaultLockedForUser] = useState(false);
 
   useEffect(() => {
     const handleGlobalClick = () => setOpenFolderMenuId(null);
@@ -304,6 +309,28 @@ export function DocumentsPage() {
         initialExpanded[`member_${m.id}`] = true;
       });
       setExpandedNodes(initialExpanded);
+      // Check permissions for logged in family member
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          const foundMember = members.find(
+            (m) =>
+              (m.email && m.email.toLowerCase() === user.email?.toLowerCase()) ||
+              m.id === user.id
+          );
+          if (foundMember && foundMember.relationship !== "Self") {
+            const acc = foundMember.access;
+            if (acc) {
+              setCurrentUserAccess(acc);
+              if (acc.canAccessVault === false) {
+                setIsVaultLockedForUser(true);
+              }
+            }
+          }
+        }
+      } catch {}
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load documents");
     } finally {
@@ -657,8 +684,20 @@ export function DocumentsPage() {
     return diff <= 30;
   }).length;
 
-  // Filtered documents matching search + category dropdown + tree node
+  // Filtered documents matching search + category dropdown + tree node + permissions
   const filteredDocuments = documents.filter((doc) => {
+    // 0. Permission folder restrictions for invited family members
+    if (currentUserAccess?.assignedVaultFolderScope === "specific") {
+      const allowed = currentUserAccess.assignedVaultFolders || [];
+      if (allowed.length === 0) return false;
+      const allowedLower = allowed.map((f) => f.toLowerCase());
+      const docFolder = (doc.folderName || "General").toLowerCase();
+      const docCat = doc.category.toLowerCase();
+      if (!allowedLower.includes(docFolder) && !allowedLower.includes(docCat)) {
+        return false;
+      }
+    }
+
     // 1. Text Search
     if (search) {
       const q = search.toLowerCase();
@@ -703,6 +742,13 @@ export function DocumentsPage() {
     }
   });
 
+  const canCreate = currentUserAccess
+    ? Boolean(currentUserAccess.canCreateDocuments ?? currentUserAccess.canWriteDocuments)
+    : true;
+  const canDelete = currentUserAccess
+    ? Boolean(currentUserAccess.canDeleteDocuments ?? true)
+    : true;
+
   return (
     <div className="space-y-4 w-full">
       {/* Top Header */}
@@ -715,24 +761,26 @@ export function DocumentsPage() {
             Personal & family records, certificates, and ID documents structured in a folder hierarchy.
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => openCreateFolderModal(undefined)}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
-          >
-            <FolderPlus className="h-3.5 w-3.5 text-indigo-600" />
-            <span>New Folder</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsAddOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition cursor-pointer"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Upload Document</span>
-          </button>
-        </div>
+        {canCreate && !isVaultLockedForUser && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => openCreateFolderModal(undefined)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+            >
+              <FolderPlus className="h-3.5 w-3.5 text-indigo-600" />
+              <span>New Folder</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsAddOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Upload Document</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Helpful Supabase table setup banner if schema not executed yet */}
@@ -744,8 +792,20 @@ export function DocumentsPage() {
         </div>
       )}
 
-      {/* 2-Column Document Vault: Left Tree Navigator + Right Content Table */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      {/* Locked Vault Message for restricted family members */}
+      {isVaultLockedForUser ? (
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-12 text-center shadow-2xs space-y-3">
+          <div className="h-14 w-14 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto">
+            <FolderLock className="h-7 w-7" />
+          </div>
+          <h2 className="text-base font-bold text-slate-900">Document Vault Access Restricted</h2>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            Your family member profile does not have permission to view or manage confidential Document Vault files. Please contact your Family Admin to request access.
+          </p>
+        </div>
+      ) : (
+        /* 2-Column Document Vault: Left Tree Navigator + Right Content Table */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* LEFT PANEL: FOLDER HIERARCHY TREE */}
         <aside className="lg:col-span-4 xl:col-span-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
@@ -1815,14 +1875,16 @@ export function DocumentsPage() {
                               <Eye className="h-3.5 w-3.5" />
                             </button>
                           )}
-                          <button
-                            type="button"
-                            onClick={(e) => promptDeleteDocument(doc, e)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                            title="Delete Document"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={(e) => promptDeleteDocument(doc, e)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                              title="Delete Document"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1973,13 +2035,15 @@ export function DocumentsPage() {
                                 <span className="text-[10px] text-slate-300">No file</span>
                               </>
                             )}
-                            <button
-                              onClick={(e) => promptDeleteDocument(doc, e)}
-                              className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded-md transition cursor-pointer"
-                              title="Delete"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            {canDelete && (
+                              <button
+                                onClick={(e) => promptDeleteDocument(doc, e)}
+                                className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded-md transition cursor-pointer"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1991,6 +2055,7 @@ export function DocumentsPage() {
           )}
         </div>
       </div>
+      )}
 
       {/* 1. Create Folder Modal */}
       {isFolderOpen && (
@@ -2793,17 +2858,21 @@ export function DocumentsPage() {
 
             {/* Footer */}
             <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-100 bg-slate-50/60">
-              <button
-                type="button"
-                onClick={() => {
-                  const doc = previewDoc;
-                  promptDeleteDocument(doc);
-                }}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-800 transition cursor-pointer"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                <span>Delete Document</span>
-              </button>
+              {canDelete ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const doc = previewDoc;
+                    promptDeleteDocument(doc);
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-800 transition cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Delete Document</span>
+                </button>
+              ) : (
+                <div />
+              )}
 
               <div className="flex items-center gap-2">
                 {(previewDoc.fileUrl || previewDoc.driveFileId) && (

@@ -16,6 +16,12 @@ export function getDefaultMemberAccess(role: FamilyMemberAccess["loginRole"] = "
     canWriteMaintenance: true,
     canWriteDocuments: role === "Admin",
     canAccessVault: role === "Admin",
+    assignedVaultFolderScope: "all",
+    assignedVaultFolders: [],
+    canCreateDocuments: role === "Admin",
+    canReadDocuments: true,
+    canUpdateDocuments: role === "Admin",
+    canDeleteDocuments: role === "Admin",
     canAccessProperties: role === "Admin",
     assignedPropertyIds: [], // empty means all properties, or list of property IDs
     canWriteRent: role === "Admin",

@@ -76,8 +76,14 @@ export type FamilyMemberAccess = {
   assignedVehicleIds: string[]; // empty means all, or specific vehicle IDs
   canWriteFuel: boolean;
   canWriteMaintenance: boolean;
-  canWriteDocuments: boolean;
+  canWriteDocuments: boolean; // Legacy upload permission, kept in sync with canCreateDocuments
   canAccessVault: boolean;
+  assignedVaultFolderScope?: "all" | "specific"; // "all" = access to all folders, "specific" = restricted to assignedVaultFolders
+  assignedVaultFolders?: string[]; // Empty means all folders, or specific folder names/IDs
+  canCreateDocuments?: boolean; // C: Upload / create documents & folders
+  canReadDocuments?: boolean; // R: View and preview documents
+  canUpdateDocuments?: boolean; // U: Edit details, rename, move documents
+  canDeleteDocuments?: boolean; // D: Delete documents or folders
   canAccessProperties: boolean;
   assignedPropertyIds?: string[]; // empty means all, or specific property IDs
   canWriteRent?: boolean;

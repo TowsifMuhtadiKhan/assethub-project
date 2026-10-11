@@ -20,6 +20,12 @@ import {
   CheckSquare,
   ShieldCheck,
   Wallet,
+  Eye,
+  Edit2,
+  Trash2,
+  Folder,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import {
   listFamilyMembers,
@@ -29,12 +35,14 @@ import {
 } from "../services/familyService";
 import { listVehicles } from "../services/vehicleService";
 import { listProperties } from "../services/propertyService";
+import { listDocumentFolders } from "../services/documentService";
 import type {
   FamilyMember,
   FamilyMemberAccess,
   RelationshipType,
   Vehicle,
   Property,
+  DocumentFolder,
 } from "../types";
 
 const RELATIONSHIPS: RelationshipType[] = [
@@ -70,9 +78,29 @@ export function AccessControlPage() {
   const [addRole, setAddRole] = useState<FamilyMemberAccess["loginRole"]>("Vehicle_Manager");
   const [isAdding, setIsAdding] = useState(false);
 
+  // Document Vault folders and selection state
+  const [vaultFolders, setVaultFolders] = useState<DocumentFolder[]>([]);
+  const [openFolderPickerMemberId, setOpenFolderPickerMemberId] = useState<string | null>(null);
+
   // Invite modal states
   const [inviteMember, setInviteMember] = useState<FamilyMember | null>(null);
   const [copiedInvite, setCopiedInvite] = useState(false);
+
+  const DEFAULT_VAULT_CATEGORIES = useMemo(
+    () => [
+      "Identity",
+      "Academic",
+      "Employment",
+      "Tax/Financial",
+      "Health",
+      "Legal",
+      "Travel",
+      "Vehicle",
+      "Property",
+      "General",
+    ],
+    []
+  );
 
   useEffect(() => {
     loadAllData();
@@ -81,14 +109,16 @@ export function AccessControlPage() {
   const loadAllData = async () => {
     setLoading(true);
     try {
-      const [mems, vehs, props] = await Promise.all([
+      const [mems, vehs, props, flds] = await Promise.all([
         listFamilyMembers(),
         listVehicles().catch(() => []),
         listProperties().catch(() => []),
+        listDocumentFolders().catch(() => []),
       ]);
       setMembers(mems);
       setVehicles(vehs);
       setProperties(props);
+      setVaultFolders(flds);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load access control data.");
     } finally {
@@ -99,6 +129,203 @@ export function AccessControlPage() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 2500);
+  };
+
+  const allAvailableFolders = useMemo(() => {
+    const customNames = vaultFolders.map((f) => f.name.trim()).filter(Boolean);
+    const set = new Set([...DEFAULT_VAULT_CATEGORIES, ...customNames]);
+    return Array.from(set);
+  }, [vaultFolders, DEFAULT_VAULT_CATEGORIES]);
+
+  // Change vault folder scope ('all' vs 'specific')
+  const setFolderScope = async (member: FamilyMember, scope: "all" | "specific") => {
+    const currentAcc: FamilyMemberAccess = member.access
+      ? { ...member.access }
+      : getDefaultMemberAccess();
+
+    const updatedAccess: FamilyMemberAccess = {
+      ...currentAcc,
+      assignedVaultFolderScope: scope,
+      assignedVaultFolders:
+        scope === "all"
+          ? []
+          : currentAcc.assignedVaultFolders && currentAcc.assignedVaultFolders.length > 0
+          ? currentAcc.assignedVaultFolders
+          : [DEFAULT_VAULT_CATEGORIES[0]],
+    };
+
+    setMembers((prev) =>
+      prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
+    );
+    setSavingId(member.id);
+
+    try {
+      await updateFamilyMember(member.id, { access: updatedAccess });
+      showToast(`Updated folder scope for ${member.fullName}`);
+    } catch {
+      showToast("Failed to save folder scope");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  // Toggle single folder access for member
+  const toggleFolderAccess = async (member: FamilyMember, folderName: string) => {
+    const currentAcc: FamilyMemberAccess = member.access
+      ? { ...member.access }
+      : getDefaultMemberAccess();
+
+    let currentAssigned = currentAcc.assignedVaultFolders || [];
+    if (currentAcc.assignedVaultFolderScope !== "specific") {
+      currentAssigned = [...allAvailableFolders];
+    }
+
+    let newAssigned: string[];
+    if (currentAssigned.some((f) => f.toLowerCase() === folderName.toLowerCase())) {
+      newAssigned = currentAssigned.filter((f) => f.toLowerCase() !== folderName.toLowerCase());
+    } else {
+      newAssigned = [...currentAssigned, folderName];
+    }
+
+    const updatedAccess: FamilyMemberAccess = {
+      ...currentAcc,
+      assignedVaultFolderScope: "specific",
+      assignedVaultFolders: newAssigned,
+    };
+
+    setMembers((prev) =>
+      prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
+    );
+    setSavingId(member.id);
+
+    try {
+      await updateFamilyMember(member.id, { access: updatedAccess });
+    } catch {
+      showToast("Failed to update folder access");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  // Select all or clear all folders for member
+  const selectAllFoldersForMember = async (member: FamilyMember, selectAll: boolean) => {
+    const currentAcc: FamilyMemberAccess = member.access
+      ? { ...member.access }
+      : getDefaultMemberAccess();
+
+    const updatedAccess: FamilyMemberAccess = {
+      ...currentAcc,
+      assignedVaultFolderScope: "specific",
+      assignedVaultFolders: selectAll ? [...allAvailableFolders] : [],
+    };
+
+    setMembers((prev) =>
+      prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
+    );
+    setSavingId(member.id);
+
+    try {
+      await updateFamilyMember(member.id, { access: updatedAccess });
+      showToast(
+        selectAll
+          ? `All folders granted for ${member.fullName}`
+          : `All folders cleared for ${member.fullName}`
+      );
+    } catch {
+      showToast("Failed to update folders");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  // Toggle CRUD permission
+  const toggleMemberCrud = async (member: FamilyMember, action: "C" | "R" | "U" | "D") => {
+    const currentAcc: FamilyMemberAccess = member.access
+      ? { ...member.access }
+      : getDefaultMemberAccess();
+
+    const updatedAccess: FamilyMemberAccess = { ...currentAcc };
+
+    if (action === "C") {
+      const nextVal = !(currentAcc.canCreateDocuments ?? currentAcc.canWriteDocuments);
+      updatedAccess.canCreateDocuments = nextVal;
+      updatedAccess.canWriteDocuments = nextVal;
+    } else if (action === "R") {
+      const nextVal = !(currentAcc.canReadDocuments ?? true);
+      updatedAccess.canReadDocuments = nextVal;
+    } else if (action === "U") {
+      const nextVal = !(currentAcc.canUpdateDocuments ?? currentAcc.loginRole === "Admin");
+      updatedAccess.canUpdateDocuments = nextVal;
+    } else if (action === "D") {
+      const nextVal = !(currentAcc.canDeleteDocuments ?? currentAcc.loginRole === "Admin");
+      updatedAccess.canDeleteDocuments = nextVal;
+    }
+
+    setMembers((prev) =>
+      prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
+    );
+    setSavingId(member.id);
+
+    try {
+      await updateFamilyMember(member.id, { access: updatedAccess });
+      showToast(`Updated document permissions for ${member.fullName}`);
+    } catch {
+      showToast("Failed to update CRUD permission");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  // Set CRUD preset
+  const setMemberCrudPreset = async (
+    member: FamilyMember,
+    preset: "full" | "contributor" | "readonly" | "none"
+  ) => {
+    const currentAcc: FamilyMemberAccess = member.access
+      ? { ...member.access }
+      : getDefaultMemberAccess();
+
+    const updatedAccess: FamilyMemberAccess = { ...currentAcc };
+
+    if (preset === "full") {
+      updatedAccess.canCreateDocuments = true;
+      updatedAccess.canWriteDocuments = true;
+      updatedAccess.canReadDocuments = true;
+      updatedAccess.canUpdateDocuments = true;
+      updatedAccess.canDeleteDocuments = true;
+    } else if (preset === "contributor") {
+      updatedAccess.canCreateDocuments = true;
+      updatedAccess.canWriteDocuments = true;
+      updatedAccess.canReadDocuments = true;
+      updatedAccess.canUpdateDocuments = false;
+      updatedAccess.canDeleteDocuments = false;
+    } else if (preset === "readonly") {
+      updatedAccess.canCreateDocuments = false;
+      updatedAccess.canWriteDocuments = false;
+      updatedAccess.canReadDocuments = true;
+      updatedAccess.canUpdateDocuments = false;
+      updatedAccess.canDeleteDocuments = false;
+    } else if (preset === "none") {
+      updatedAccess.canCreateDocuments = false;
+      updatedAccess.canWriteDocuments = false;
+      updatedAccess.canReadDocuments = false;
+      updatedAccess.canUpdateDocuments = false;
+      updatedAccess.canDeleteDocuments = false;
+    }
+
+    setMembers((prev) =>
+      prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
+    );
+    setSavingId(member.id);
+
+    try {
+      await updateFamilyMember(member.id, { access: updatedAccess });
+      showToast(`Applied ${preset} preset for ${member.fullName}`);
+    } catch {
+      showToast("Failed to apply preset");
+    } finally {
+      setSavingId(null);
+    }
   };
 
   // Helper to test if a member has access to a specific vehicle
@@ -959,19 +1186,25 @@ export function AccessControlPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 3: DOCUMENT VAULT ACCESS                                             */}
+      {/* TAB 3: DOCUMENT VAULT ACCESS & CRUD PERMISSIONS                           */}
       {/* ========================================================================= */}
       {!loading && activeTab === "vault" && (
         <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs">
-          <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <FolderLock className="h-4 w-4 text-sky-600" />
-                <span>Document Vault Access & Confidentiality</span>
+                <span>Document Vault Access, CRUD & Folder Permissions</span>
               </h3>
-              <p className="text-xs text-slate-500">
-                Control who can view NID, Passports, property deeds, and confidential family vault folders
+              <p className="text-xs text-slate-500 mt-0.5">
+                Control Create (upload), Read (view), Update (edit), and Delete permissions per member, plus grant access to specific folders (Passports, NID, Deeds, etc.)
               </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs px-2.5 py-1 rounded-full bg-sky-50 border border-sky-200 text-sky-700 font-semibold flex items-center gap-1.5">
+                <Folder className="h-3.5 w-3.5" />
+                <span>{allAvailableFolders.length} Folders Available</span>
+              </span>
             </div>
           </div>
 
@@ -980,66 +1213,362 @@ export function AccessControlPage() {
               <thead className="bg-slate-50/80 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-100">
                 <tr>
                   <th className="py-2.5 px-4 sm:px-6">Member</th>
-                  <th className="py-2.5 px-4">Vault Access</th>
-                  <th className="py-2.5 px-4">Upload Permissions</th>
-                  <th className="py-2.5 px-4 text-right pr-6">Invite</th>
+                  <th className="py-2.5 px-4">Master Vault</th>
+                  <th className="py-2.5 px-4">Folder Scope & Permitted Folders</th>
+                  <th className="py-2.5 px-4">CRUD Permissions</th>
+                  <th className="py-2.5 px-4 text-right pr-6">Quick Presets</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredMembers.map((m) => {
                   const acc = m.access || getDefaultMemberAccess();
+                  const isVaultUnlocked = acc.canAccessVault;
+                  const isScopeSpecific = acc.assignedVaultFolderScope === "specific";
+                  const permittedFolders = isScopeSpecific
+                    ? acc.assignedVaultFolders || []
+                    : allAvailableFolders;
+
+                  const canC = Boolean(acc.canCreateDocuments ?? acc.canWriteDocuments);
+                  const canR = Boolean(acc.canReadDocuments ?? true);
+                  const canU = Boolean(acc.canUpdateDocuments ?? acc.loginRole === "Admin");
+                  const canD = Boolean(acc.canDeleteDocuments ?? acc.loginRole === "Admin");
+
                   return (
-                    <tr key={m.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3 px-4 sm:px-6 font-semibold text-slate-900">
-                        {m.fullName}
-                        <span className="block text-[11px] text-slate-400 font-normal">
+                    <tr
+                      key={m.id}
+                      className={`hover:bg-slate-50/60 transition-colors ${
+                        savingId === m.id ? "opacity-60 bg-amber-50/20" : ""
+                      }`}
+                    >
+                      {/* Column 1: Member info */}
+                      <td className="py-3.5 px-4 sm:px-6 font-semibold text-slate-900 align-top">
+                        <div className="flex items-center gap-2">
+                          <span>{m.fullName}</span>
+                          {!isVaultUnlocked && (
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-50 text-rose-600 border border-rose-200 font-bold">
+                              Restricted
+                            </span>
+                          )}
+                        </div>
+                        <span className="block text-[11px] text-slate-400 font-normal mt-0.5">
                           {m.relationship} • {m.email || m.phone || "No login"}
                         </span>
                       </td>
 
-                      <td className="py-3 px-4">
+                      {/* Column 2: Master Vault Access Toggle */}
+                      <td className="py-3.5 px-4 align-top">
                         <label className="inline-flex items-center cursor-pointer">
                           <input
                             type="checkbox"
-                            checked={acc.canAccessVault}
+                            checked={isVaultUnlocked}
                             onChange={() => toggleMemberFlag(m, "canAccessVault")}
                             className="sr-only peer"
                           />
                           <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-600"></div>
                           <span
                             className={`ms-2 text-xs font-semibold ${
-                              acc.canAccessVault ? "text-sky-700" : "text-slate-400"
+                              isVaultUnlocked ? "text-sky-700" : "text-slate-400"
                             }`}
                           >
-                            {acc.canAccessVault ? "Vault Unlocked" : "Restricted"}
+                            {isVaultUnlocked ? "Vault Unlocked" : "Locked"}
                           </span>
                         </label>
                       </td>
 
-                      <td className="py-3 px-4">
-                        <button
-                          type="button"
-                          onClick={() => toggleMemberFlag(m, "canWriteDocuments")}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
-                            acc.canWriteDocuments
-                              ? "bg-purple-50 border border-purple-200 text-purple-800"
-                              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                          }`}
-                        >
-                          <FileText className="h-3.5 w-3.5 text-purple-600" />
-                          <span>{acc.canWriteDocuments ? "Can Upload & Manage" : "View Only"}</span>
-                        </button>
+                      {/* Column 3: Folder Scope & Specific Folder Selection */}
+                      <td className="py-3.5 px-4 align-top">
+                        {!isVaultUnlocked ? (
+                          <span className="text-xs text-slate-400 italic">
+                            Vault access must be enabled first
+                          </span>
+                        ) : (
+                          <div className="space-y-2">
+                            {/* Scope Selector: All Folders vs Specific Folders */}
+                            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100/70 p-0.5 shadow-2xs">
+                              <button
+                                type="button"
+                                onClick={() => setFolderScope(m, "all")}
+                                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                                  !isScopeSpecific
+                                    ? "bg-white text-sky-800 shadow-2xs"
+                                    : "text-slate-600 hover:text-slate-900"
+                                }`}
+                              >
+                                All Folders ({allAvailableFolders.length})
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFolderScope(m, "specific");
+                                  setOpenFolderPickerMemberId((prev) =>
+                                    prev === m.id ? null : m.id
+                                  );
+                                }}
+                                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                                  isScopeSpecific
+                                    ? "bg-white text-amber-800 shadow-2xs"
+                                    : "text-slate-600 hover:text-slate-900"
+                                }`}
+                              >
+                                <span>Specific Folders</span>
+                                {isScopeSpecific && (
+                                  <span className="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-200">
+                                    {permittedFolders.length}
+                                  </span>
+                                )}
+                              </button>
+                            </div>
+
+                            {/* Specific Folders Tag Summary & Accordion Toggle */}
+                            {isScopeSpecific && (
+                              <div className="space-y-1.5">
+                                <div className="flex flex-wrap items-center gap-1 max-w-sm">
+                                  {permittedFolders.length === 0 ? (
+                                    <span className="text-[11px] text-rose-600 font-medium">
+                                      No folders selected (member sees nothing)
+                                    </span>
+                                  ) : (
+                                    permittedFolders.slice(0, 3).map((fName) => (
+                                      <span
+                                        key={fName}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-50 text-sky-800 text-[10px] font-semibold border border-sky-200"
+                                      >
+                                        <Folder className="h-2.5 w-2.5 text-sky-600" />
+                                        <span>{fName}</span>
+                                      </span>
+                                    ))
+                                  )}
+                                  {permittedFolders.length > 3 && (
+                                    <span className="text-[10px] text-slate-500 font-bold">
+                                      +{permittedFolders.length - 3} more
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setOpenFolderPickerMemberId((prev) =>
+                                        prev === m.id ? null : m.id
+                                      )
+                                    }
+                                    className="text-[11px] font-bold text-sky-600 hover:text-sky-800 ml-1 cursor-pointer flex items-center gap-0.5"
+                                  >
+                                    <span>
+                                      {openFolderPickerMemberId === m.id
+                                        ? "Done"
+                                        : "Edit Folders"}
+                                    </span>
+                                    {openFolderPickerMemberId === m.id ? (
+                                      <ChevronUp className="h-3 w-3" />
+                                    ) : (
+                                      <ChevronDown className="h-3 w-3" />
+                                    )}
+                                  </button>
+                                </div>
+
+                                {/* Expanded Folder Picker Panel */}
+                                {openFolderPickerMemberId === m.id && (
+                                  <div className="mt-2 p-3 bg-slate-50 rounded-xl border border-slate-200/90 shadow-2xs max-w-md space-y-2">
+                                    <div className="flex items-center justify-between text-xs border-b border-slate-200/80 pb-1.5">
+                                      <span className="font-bold text-slate-800">
+                                        Select Permitted Folders:
+                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => selectAllFoldersForMember(m, true)}
+                                          className="text-[11px] font-bold text-sky-600 hover:underline cursor-pointer"
+                                        >
+                                          Select All
+                                        </button>
+                                        <span className="text-slate-300">•</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => selectAllFoldersForMember(m, false)}
+                                          className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
+                                        >
+                                          Clear All
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                                      {allAvailableFolders.map((folderName) => {
+                                        const isChecked = permittedFolders.some(
+                                          (p) => p.toLowerCase() === folderName.toLowerCase()
+                                        );
+                                        return (
+                                          <label
+                                            key={folderName}
+                                            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer transition select-none ${
+                                              isChecked
+                                                ? "bg-white border-sky-300 text-sky-900 font-semibold shadow-2xs"
+                                                : "bg-slate-100/60 border-slate-200 text-slate-600 hover:bg-white"
+                                            }`}
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={isChecked}
+                                              onChange={() => toggleFolderAccess(m, folderName)}
+                                              className="rounded border-slate-300 text-sky-600 focus:ring-sky-500 h-3.5 w-3.5"
+                                            />
+                                            <Folder
+                                              className={`h-3.5 w-3.5 shrink-0 ${
+                                                isChecked ? "text-sky-600" : "text-slate-400"
+                                              }`}
+                                            />
+                                            <span className="truncate">{folderName}</span>
+                                          </label>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </td>
 
-                      <td className="py-3 px-4 text-right pr-6">
-                        <button
-                          type="button"
-                          onClick={() => setInviteMember(m)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-medium"
-                        >
-                          <Share2 className="h-3.5 w-3.5" />
-                          <span>Invite</span>
-                        </button>
+                      {/* Column 4: CRUD (Create, Read, Update, Delete) Controls */}
+                      <td className="py-3.5 px-4 align-top">
+                        {!isVaultUnlocked ? (
+                          <span className="text-xs text-slate-400 italic">No permissions</span>
+                        ) : (
+                          <div className="space-y-1.5">
+                            <div className="flex flex-wrap items-center gap-1">
+                              {/* C: Create / Upload */}
+                              <button
+                                type="button"
+                                onClick={() => toggleMemberCrud(m, "C")}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                  canC
+                                    ? "bg-sky-50 border-sky-300 text-sky-800 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                }`}
+                                title={
+                                  canC
+                                    ? "Can Upload Documents (Click to revoke)"
+                                    : "Cannot Upload Documents (Click to grant)"
+                                }
+                              >
+                                <Plus className="h-3 w-3" />
+                                <span>Create</span>
+                              </button>
+
+                              {/* R: Read / View */}
+                              <button
+                                type="button"
+                                onClick={() => toggleMemberCrud(m, "R")}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                  canR
+                                    ? "bg-emerald-50 border-emerald-300 text-emerald-800 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                }`}
+                                title={
+                                  canR
+                                    ? "Can View Documents (Click to revoke)"
+                                    : "Cannot View Documents (Click to grant)"
+                                }
+                              >
+                                <Eye className="h-3 w-3" />
+                                <span>Read</span>
+                              </button>
+
+                              {/* U: Update / Edit */}
+                              <button
+                                type="button"
+                                onClick={() => toggleMemberCrud(m, "U")}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                  canU
+                                    ? "bg-amber-50 border-amber-300 text-amber-800 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                }`}
+                                title={
+                                  canU
+                                    ? "Can Edit Details & Move Folders (Click to revoke)"
+                                    : "Cannot Edit Documents (Click to grant)"
+                                }
+                              >
+                                <Edit2 className="h-3 w-3" />
+                                <span>Update</span>
+                              </button>
+
+                              {/* D: Delete */}
+                              <button
+                                type="button"
+                                onClick={() => toggleMemberCrud(m, "D")}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                  canD
+                                    ? "bg-rose-50 border-rose-300 text-rose-800 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                }`}
+                                title={
+                                  canD
+                                    ? "Can Delete Documents & Folders (Click to revoke)"
+                                    : "Cannot Delete Documents (Click to grant)"
+                                }
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                <span>Delete</span>
+                              </button>
+                            </div>
+
+                            <div className="text-[10px] text-slate-400 font-mono">
+                              ACTIVE: {[canC && "Create", canR && "Read", canU && "Update", canD && "Delete"].filter(Boolean).join(" • ") || "None"}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Column 5: Presets & Invite */}
+                      <td className="py-3.5 px-4 text-right pr-6 align-top">
+                        {isVaultUnlocked ? (
+                          <div className="flex flex-col items-end gap-1.5">
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setMemberCrudPreset(m, "full")}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+                                title="Grant Full CRUD (Create, Read, Update, Delete)"
+                              >
+                                Full CRUD
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setMemberCrudPreset(m, "contributor")}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+                                title="Allow Upload & Read (No Edit or Delete)"
+                              >
+                                Upload + Read
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setMemberCrudPreset(m, "readonly")}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+                                title="View Only (No Upload, Edit or Delete)"
+                              >
+                                View Only
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setInviteMember(m)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-semibold"
+                            >
+                              <Share2 className="h-3 w-3 text-slate-400" />
+                              <span>Invite</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setInviteMember(m)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-semibold"
+                          >
+                            <Share2 className="h-3 w-3 text-slate-400" />
+                            <span>Invite</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -1411,15 +1940,29 @@ export function AccessControlPage() {
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                            acc.canAccessVault
-                              ? "bg-sky-50 text-sky-700 border border-sky-200"
-                              : "bg-slate-100 text-slate-400"
-                          }`}
-                        >
-                          {acc.canAccessVault ? "Vault OK" : "Locked"}
-                        </span>
+                        {!acc.canAccessVault ? (
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-400">
+                            Locked
+                          </span>
+                        ) : (
+                          <div className="space-y-0.5">
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                              {acc.assignedVaultFolderScope === "specific"
+                                ? `${(acc.assignedVaultFolders || []).length} Folders`
+                                : "All Folders"}
+                            </span>
+                            <div className="text-[9px] font-mono font-bold text-slate-500">
+                              {[
+                                (acc.canCreateDocuments ?? acc.canWriteDocuments) && "C",
+                                (acc.canReadDocuments ?? true) && "R",
+                                (acc.canUpdateDocuments ?? acc.loginRole === "Admin") && "U",
+                                (acc.canDeleteDocuments ?? acc.loginRole === "Admin") && "D",
+                              ]
+                                .filter(Boolean)
+                                .join("") || "No CRUD"}
+                            </div>
+                          </div>
+                        )}
                       </td>
 
                       <td className="py-3.5 px-4">
