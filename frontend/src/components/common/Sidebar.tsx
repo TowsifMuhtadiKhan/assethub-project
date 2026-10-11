@@ -16,7 +16,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Pin,
-  RefreshCw,
   X,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
@@ -300,9 +299,11 @@ export function Sidebar({
         {/* Mobile Header */}
         <div className="flex h-16 items-center justify-between border-b border-slate-800/80 px-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-500/30">
-              <RefreshCw className="h-4 w-4" />
-            </div>
+            <img
+              src="/logo.png"
+              alt="LifeNest"
+              className="h-9 w-9 rounded-xl object-contain shadow-md shadow-blue-500/20"
+            />
             <div>
               <div className="text-sm font-bold tracking-tight text-white leading-tight">
                 LifeNest OS
@@ -355,17 +356,23 @@ export function Sidebar({
                 type="button"
                 onClick={onToggleCollapse}
                 title="Expand sidebar"
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-500/30 hover:bg-blue-500 transition cursor-pointer"
+                className="flex h-9 w-9 items-center justify-center rounded-xl transition cursor-pointer hover:scale-105"
               >
-                <RefreshCw className="h-4 w-4" />
+                <img
+                  src="/logo.png"
+                  alt="LifeNest"
+                  className="h-9 w-9 rounded-xl object-contain shadow-md shadow-blue-500/20"
+                />
               </button>
             </div>
           ) : (
             <>
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-500/30">
-                  <RefreshCw className="h-4 w-4" />
-                </div>
+                <img
+                  src="/logo.png"
+                  alt="LifeNest"
+                  className="h-9 w-9 rounded-xl object-contain shadow-md shadow-blue-500/20"
+                />
                 <div>
                   <div className="text-sm font-bold tracking-tight text-white leading-tight">
                     LifeNest OS

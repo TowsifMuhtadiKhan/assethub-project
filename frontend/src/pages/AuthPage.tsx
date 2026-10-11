@@ -45,8 +45,15 @@ export function AuthPage() {
         className="w-full max-w-md space-y-5 rounded-2xl border border-slate-200 bg-white p-7 shadow-sm"
       >
         <div>
-          <div className="text-sm font-bold uppercase tracking-[0.2em] text-cyan-600">
-            LifeNest
+          <div className="flex items-center gap-3 mb-3">
+            <img
+              src="/logo.png"
+              alt="LifeNest"
+              className="h-10 w-10 rounded-xl object-contain shadow-md shadow-blue-500/20"
+            />
+            <div className="text-sm font-bold uppercase tracking-[0.2em] text-blue-600">
+              LifeNest
+            </div>
           </div>
           <h1 className="mt-2 text-2xl font-bold text-slate-900">
             {mode === "sign-in"

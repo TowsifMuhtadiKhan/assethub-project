@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
-  ShieldAlert,
   Lock,
   User,
   KeyRound,
@@ -377,8 +376,12 @@ export function AdminPage() {
       <div className="min-h-screen bg-slate-50/70 flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-white border border-slate-200/90 rounded-2xl shadow-xl p-6 sm:p-8 space-y-6">
           <div className="text-center space-y-2">
-            <div className="h-12 w-12 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto text-emerald-600 shadow-2xs">
-              <ShieldAlert className="h-6 w-6" />
+            <div className="flex items-center justify-center mx-auto mb-1">
+              <img
+                src="/logo.png"
+                alt="LifeNest"
+                className="h-14 w-14 rounded-2xl object-contain shadow-md shadow-blue-500/20"
+              />
             </div>
             <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 font-mono">
               LifeNest Core Command
@@ -456,9 +459,11 @@ export function AdminPage() {
       <header className="border-b border-slate-200/90 bg-white/95 backdrop-blur sticky top-0 z-30 shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shadow-2xs">
-              <ShieldAlert className="h-5 w-5" />
-            </div>
+            <img
+              src="/logo.png"
+              alt="LifeNest"
+              className="h-9 w-9 rounded-xl object-contain shadow-md shadow-blue-500/20"
+            />
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-sm tracking-tight text-slate-900 font-mono">
