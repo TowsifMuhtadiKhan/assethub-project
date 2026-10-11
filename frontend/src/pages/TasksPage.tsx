@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   CheckCircle2,
   Circle,
@@ -114,6 +114,18 @@ function getDueDateStyle(dueDateStr?: string) {
   };
 }
 
+export function formatTime12h(timeStr?: string) {
+  if (!timeStr) return "";
+  const parts = timeStr.split(":");
+  if (parts.length < 2) return timeStr;
+  let hh = parseInt(parts[0], 10);
+  const mm = parts[1];
+  const ampm = hh >= 12 ? "PM" : "AM";
+  hh = hh % 12;
+  if (hh === 0) hh = 12;
+  return `${hh}:${mm} ${ampm}`;
+}
+
 export function TasksPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -136,6 +148,63 @@ export function TasksPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [taskRecipients, setTaskRecipients] = useState<string[]>(["Personal"]);
+
+  // Modal Date, Time & Minute-wise Reminder Lead state
+  const [modalDueDate, setModalDueDate] = useState("");
+  const [modalDueTime, setModalDueTime] = useState("");
+  const [modalReminderLead, setModalReminderLead] = useState("15 minutes before");
+  const [modalCustomLeadMinutes, setModalCustomLeadMinutes] = useState(15);
+  const [modalCustomLeadUnit, setModalCustomLeadUnit] = useState<"minutes" | "hours" | "days">("minutes");
+
+  const reminderPreviewText = useMemo(() => {
+    if (!modalDueDate) return null;
+    const baseDate = new Date(modalDueDate);
+    if (modalDueTime) {
+      const [hh, mm] = modalDueTime.split(":").map(Number);
+      baseDate.setHours(hh, mm, 0, 0);
+    } else {
+      baseDate.setHours(9, 0, 0, 0);
+    }
+
+    if (isNaN(baseDate.getTime())) return null;
+
+    const triggerDate = new Date(baseDate);
+
+    if (modalReminderLead === "custom") {
+      const val = Number(modalCustomLeadMinutes) || 0;
+      if (modalCustomLeadUnit === "minutes") {
+        triggerDate.setMinutes(triggerDate.getMinutes() - val);
+      } else if (modalCustomLeadUnit === "hours") {
+        triggerDate.setHours(triggerDate.getHours() - val);
+      } else {
+        triggerDate.setDate(triggerDate.getDate() - val);
+      }
+    } else if (modalReminderLead === "At due time") {
+      // 0 min
+    } else if (modalReminderLead === "5 minutes before") {
+      triggerDate.setMinutes(triggerDate.getMinutes() - 5);
+    } else if (modalReminderLead === "10 minutes before") {
+      triggerDate.setMinutes(triggerDate.getMinutes() - 10);
+    } else if (modalReminderLead === "15 minutes before") {
+      triggerDate.setMinutes(triggerDate.getMinutes() - 15);
+    } else if (modalReminderLead === "30 minutes before") {
+      triggerDate.setMinutes(triggerDate.getMinutes() - 30);
+    } else if (modalReminderLead === "45 minutes before") {
+      triggerDate.setMinutes(triggerDate.getMinutes() - 45);
+    } else if (modalReminderLead === "1 hour before") {
+      triggerDate.setHours(triggerDate.getHours() - 1);
+    } else if (modalReminderLead === "2 hours before") {
+      triggerDate.setHours(triggerDate.getHours() - 2);
+    } else if (modalReminderLead === "1 day before") {
+      triggerDate.setDate(triggerDate.getDate() - 1);
+    } else if (modalReminderLead === "2 days before") {
+      triggerDate.setDate(triggerDate.getDate() - 2);
+    }
+
+    const timeStr = triggerDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    const dateStr = triggerDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return `Notification triggers at ${timeStr} on ${dateStr}`;
+  }, [modalDueDate, modalDueTime, modalReminderLead, modalCustomLeadMinutes, modalCustomLeadUnit]);
 
   useEffect(() => {
     loadAll();
@@ -168,14 +237,21 @@ export function TasksPage() {
     const form = new FormData(formElement);
     try {
       const isReminder = Boolean(form.get("reminderWhatsapp"));
-      const lead = String(form.get("taskReminderLead") || "1 day before");
+      const rawLead = modalReminderLead === "custom"
+        ? `${modalCustomLeadMinutes} ${modalCustomLeadUnit} before`
+        : modalReminderLead;
+      const dueDate = modalDueDate || String(form.get("dueDate") || "");
+      const dueTime = modalDueTime || String(form.get("dueTime") || "");
+      const timeNote = dueTime ? `, Due Time: ${formatTime12h(dueTime)}` : "";
       const rec = taskRecipients.length > 0 ? `, Recipients: ${taskRecipients.join(", ")}` : "";
+      const reminderNote = isReminder ? ` [Reminder: ${rawLead}${timeNote}${rec}]` : "";
+
       const newTask = await createTask({
         title: String(form.get("title")),
         description: String(form.get("description") || ""),
         priority: String(form.get("priority")) as TaskPriority,
-        dueDate: String(form.get("dueDate") || "") || undefined,
-        dueTime: String(form.get("dueTime") || ""),
+        dueDate: dueDate || undefined,
+        dueTime: dueTime || undefined,
         category: String(form.get("category") || "General"),
         recurrence: String(form.get("recurrence")) as TaskRecurrence,
         familyMemberId: String(form.get("familyMemberId") || "") || undefined,
@@ -183,13 +259,16 @@ export function TasksPage() {
         propertyId: String(form.get("propertyId") || "") || undefined,
         status: (String(form.get("status")) as TaskStatus) || defaultAddStatus || "Pending",
         reminderWhatsapp: isReminder,
-        notes: isReminder
-          ? `${String(form.get("notes") || "")} [Reminder: ${lead}${rec}]`.trim()
-          : String(form.get("notes") || ""),
+        notes: `${String(form.get("notes") || "")}${reminderNote}`.trim(),
       });
 
       setTasks((prev) => [newTask, ...prev]);
       formElement?.reset?.();
+      setModalDueDate("");
+      setModalDueTime("");
+      setModalReminderLead("15 minutes before");
+      setModalCustomLeadMinutes(15);
+      setModalCustomLeadUnit("minutes");
       setIsAddOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create task");
@@ -695,10 +774,18 @@ export function TasksPage() {
                       </td>
                       <td className="py-2.5 px-3">
                         {dueMeta ? (
-                          <span className={`inline-flex items-center gap-1 text-[11px] ${dueMeta.className}`}>
-                            <Calendar className="h-3 w-3 shrink-0" />
-                            <span>{dueMeta.label}</span>
-                          </span>
+                          <div className="flex flex-col gap-0.5">
+                            <span className={`inline-flex items-center gap-1 text-[11px] ${dueMeta.className}`}>
+                              <Calendar className="h-3 w-3 shrink-0" />
+                              <span>{dueMeta.label}</span>
+                            </span>
+                            {task.dueTime && (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 font-mono">
+                                <Clock className="h-2.5 w-2.5 text-emerald-600" />
+                                <span>{formatTime12h(task.dueTime)}</span>
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-slate-400 text-[11px]">—</span>
                         )}
@@ -861,21 +948,39 @@ export function TasksPage() {
                 </div>
               </div>
 
-              {/* Due Date & Recurrence */}
-              <div className="grid grid-cols-2 gap-3.5">
+              {/* Due Date, Due Time & Recurrence */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-slate-400" />
                     Due Date
                   </label>
                   <input
                     name="dueDate"
                     type="date"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                    value={modalDueDate}
+                    onChange={(e) => setModalDueDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-emerald-600" />
+                    Due Time (Hour & Min)
+                  </label>
+                  <input
+                    name="dueTime"
+                    type="time"
+                    value={modalDueTime}
+                    onChange={(e) => setModalDueTime(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                    <Repeat className="h-3.5 w-3.5 text-slate-400" />
                     Recurrence
                   </label>
                   <FormControl size="small" fullWidth>
@@ -1012,34 +1117,84 @@ export function TasksPage() {
               </div>
 
               {/* WhatsApp Alert Checkbox & Lead Time */}
-              <div className="rounded-xl bg-emerald-50/70 border border-emerald-100 p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="reminderWhatsapp"
-                    name="reminderWhatsapp"
-                    defaultChecked
-                    className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                  />
-                  <label htmlFor="reminderWhatsapp" className="text-xs font-bold text-emerald-950 cursor-pointer">
-                    Send WhatsApp reminder for this task
-                  </label>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-slate-600 pl-6">
-                  <span className="text-[11px] font-medium text-slate-700">Remind Lead:</span>
-                  <select
-                    name="taskReminderLead"
-                    defaultValue="1 day before"
-                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600"
-                  >
-                    <option value="On due date">On due date (Morning)</option>
-                    <option value="1 day before">1 day before due date</option>
-                    <option value="3 days before">3 days before due date</option>
-                    <option value="7 days before">7 days before due date</option>
-                  </select>
+              <div className="rounded-xl bg-emerald-50/70 border border-emerald-100 p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="reminderWhatsapp"
+                      name="reminderWhatsapp"
+                      defaultChecked
+                      className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <label htmlFor="reminderWhatsapp" className="text-xs font-bold text-emerald-950 cursor-pointer">
+                      Send WhatsApp reminder for this task
+                    </label>
+                  </div>
+                  {modalDueTime && (
+                    <span className="text-[11px] font-mono font-semibold text-emerald-700 bg-white/80 border border-emerald-200/80 px-2 py-0.5 rounded-full">
+                      ⏰ Due: {formatTime12h(modalDueTime)}
+                    </span>
+                  )}
                 </div>
 
-                <div className="pl-6">
+                <div className="space-y-2.5 pl-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <span className="text-[11px] font-semibold text-slate-700 shrink-0">
+                      Remind Lead:
+                    </span>
+                    <select
+                      name="taskReminderLead"
+                      value={modalReminderLead}
+                      onChange={(e) => setModalReminderLead(e.target.value)}
+                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium"
+                    >
+                      <option value="At due time">At exact due time (0 min)</option>
+                      <option value="5 minutes before">5 minutes before</option>
+                      <option value="10 minutes before">10 minutes before</option>
+                      <option value="15 minutes before">15 minutes before (Recommended)</option>
+                      <option value="30 minutes before">30 minutes before</option>
+                      <option value="45 minutes before">45 minutes before</option>
+                      <option value="1 hour before">1 hour before</option>
+                      <option value="2 hours before">2 hours before</option>
+                      <option value="1 day before">1 day before (Morning)</option>
+                      <option value="2 days before">2 days before</option>
+                      <option value="custom">Custom Minutes / Hours...</option>
+                    </select>
+
+                    {modalReminderLead === "custom" && (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          min="1"
+                          max="999"
+                          name="customReminderMinutes"
+                          value={modalCustomLeadMinutes}
+                          onChange={(e) => setModalCustomLeadMinutes(Number(e.target.value))}
+                          className="w-16 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 font-mono text-center outline-none focus:border-emerald-600"
+                        />
+                        <select
+                          name="customReminderUnit"
+                          value={modalCustomLeadUnit}
+                          onChange={(e) => setModalCustomLeadUnit(e.target.value as any)}
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium"
+                        >
+                          <option value="minutes">Minutes before</option>
+                          <option value="hours">Hours before</option>
+                          <option value="days">Days before</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Trigger preview indicator */}
+                  {reminderPreviewText && (
+                    <div className="text-[11px] text-emerald-800 bg-emerald-100/70 border border-emerald-200/90 rounded-lg px-2.5 py-1 font-medium flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                      <span>{reminderPreviewText}</span>
+                    </div>
+                  )}
+
                   <ItemRecipientSelector
                     selectedRecipients={taskRecipients}
                     onChange={setTaskRecipients}
@@ -1165,11 +1320,19 @@ function TaskCard({ task, index, onStatusChange, onDelete }: TaskCardProps) {
       {/* Footer: Due date + Assignee + Transition Button */}
       <div className="flex items-center justify-between pt-2 border-t border-slate-100">
         <div className="flex items-center gap-2">
-          {/* Due date */}
+          {/* Due date & time */}
           {dueMeta ? (
-            <span className={`inline-flex items-center gap-1 text-[11px] ${dueMeta.className}`}>
-              <Calendar className="h-3 w-3 shrink-0" />
-              <span>{dueMeta.label}</span>
+            <span className={`inline-flex items-center gap-1.5 text-[11px] ${dueMeta.className}`}>
+              <span className="inline-flex items-center gap-1">
+                <Calendar className="h-3 w-3 shrink-0" />
+                <span>{dueMeta.label}</span>
+              </span>
+              {task.dueTime && (
+                <span className="inline-flex items-center gap-0.5 opacity-90 font-medium">
+                  <Clock className="h-2.5 w-2.5 shrink-0" />
+                  <span>{formatTime12h(task.dueTime)}</span>
+                </span>
+              )}
             </span>
           ) : (
             <span className="text-[10px] text-slate-400 font-mono">No date</span>
