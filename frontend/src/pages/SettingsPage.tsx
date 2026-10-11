@@ -63,8 +63,6 @@ export function SettingsPage() {
   });
 
   const [deliveryTime, setDeliveryTime] = useState("09:00");
-  const [gatewayProvider, setGatewayProvider] = useState("meta_cloud");
-  const [apiKey, setApiKey] = useState("wh_sec_live_9421873910");
 
   const [systemWhatsApp, setSystemWhatsApp] = useState<WhatsAppSystemStatus>({
     configured: false,
@@ -96,7 +94,6 @@ export function SettingsPage() {
     try {
       localStorage.setItem("lifenest_alert_triggers", JSON.stringify(alertTriggers));
       localStorage.setItem("lifenest_alert_delivery_time", deliveryTime);
-      localStorage.setItem("lifenest_alert_gateway", gatewayProvider);
     } catch {}
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
@@ -509,63 +506,6 @@ export function SettingsPage() {
             </div>
           </div>
 
-          {/* Gateway Provider Details */}
-          <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-              Gateway & Webhook Integration
-            </h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Provider Engine
-                </label>
-                <select
-                  value={gatewayProvider}
-                  onChange={(e) => setGatewayProvider(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800"
-                >
-                  <option value="meta_cloud">Meta WhatsApp Cloud API (Official)</option>
-                  <option value="green_api">Green API / Baileys Gateway</option>
-                  <option value="twilio">Twilio Programmable WhatsApp</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  API Key / Secret Token
-                </label>
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-slate-800"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Setup Guide Options */}
-          <div className="grid gap-3 sm:grid-cols-2 text-xs">
-            <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/40 p-3.5 space-y-1.5">
-              <div className="font-bold text-emerald-950 flex items-center gap-1.5">
-                <ExternalLink className="h-3.5 w-3.5 text-emerald-700" />
-                Option A: Instant Launch (Zero setup)
-              </div>
-              <p className="text-[11px] text-slate-600">
-                Enter your WhatsApp mobile number above, then click <strong>"Open in WhatsApp"</strong>. LifeNest instantly prepares the alert and launches WhatsApp Web or app with the message pre-filled.
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-sky-200/80 bg-sky-50/40 p-3.5 space-y-1.5">
-              <div className="font-bold text-sky-950 flex items-center gap-1.5">
-                <Send className="h-3.5 w-3.5 text-sky-700" />
-                Option B: Silent Background Delivery
-              </div>
-              <p className="text-[11px] text-slate-600">
-                To receive alerts directly to your phone <em>silently in the background</em> without opening browser tabs, obtain your free 1-click CallMeBot API key and paste it in the field above.
-              </p>
-            </div>
-          </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <button

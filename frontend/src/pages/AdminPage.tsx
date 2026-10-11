@@ -18,6 +18,7 @@ import {
   Trash2,
   Layers,
   ArrowRight,
+  Save,
 } from "lucide-react";
 import {
   adminLogin,
@@ -84,6 +85,13 @@ export function AdminPage() {
   const [pairingError, setPairingError] = useState<string | null>(null);
   const [refreshingGateway, setRefreshingGateway] = useState(false);
   const [linkMethod, setLinkMethod] = useState<"pairing_code" | "qr">("pairing_code");
+  const [gatewayProvider, setGatewayProvider] = useState(() => {
+    return localStorage.getItem("lifenest_alert_gateway") || "meta_cloud";
+  });
+  const [apiKey, setApiKey] = useState(() => {
+    return localStorage.getItem("lifenest_gateway_api_key") || "wh_sec_live_9421873910";
+  });
+  const [savedGatewayNotice, setSavedGatewayNotice] = useState(false);
 
   // Google Drive State
   const [driveStatus, setDriveStatus] = useState<DriveStatusState>({
@@ -272,6 +280,14 @@ export function AdminPage() {
     await disconnectWhatsAppGateway();
     setPairingCode(null);
     refreshAll();
+  };
+
+  const handleSaveGatewaySettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    localStorage.setItem("lifenest_alert_gateway", gatewayProvider);
+    localStorage.setItem("lifenest_gateway_api_key", apiKey);
+    setSavedGatewayNotice(true);
+    setTimeout(() => setSavedGatewayNotice(false), 3000);
   };
 
   // Drive Admin Actions
@@ -1057,6 +1073,88 @@ export function AdminPage() {
                 )}
               </div>
             )}
+
+            {/* GATEWAY & WEBHOOK INTEGRATION (Transferred from Settings to Admin) */}
+            <form onSubmit={handleSaveGatewaySettings} className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-white">
+                    Gateway & Webhook Integration
+                  </h4>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Configure official Meta WhatsApp Cloud API credentials, Green API, or Twilio webhook dispatchers.
+                  </p>
+                </div>
+                {savedGatewayNotice && (
+                  <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Gateway preferences saved
+                  </span>
+                )}
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Provider Engine
+                  </label>
+                  <select
+                    value={gatewayProvider}
+                    onChange={(e) => setGatewayProvider(e.target.value)}
+                    className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white outline-none focus:border-emerald-500 font-medium"
+                  >
+                    <option value="meta_cloud">Meta WhatsApp Cloud API (Official)</option>
+                    <option value="green_api">Green API / Baileys Gateway</option>
+                    <option value="twilio">Twilio Programmable WhatsApp</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    API Key / Secret Token
+                  </label>
+                  <input
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Enter API token or secret key..."
+                    className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-mono text-white outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* Setup Guide Options (Option A & Option B) */}
+              <div className="grid gap-3 sm:grid-cols-2 text-xs pt-1">
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 space-y-1.5">
+                  <div className="font-bold text-emerald-300 flex items-center gap-1.5">
+                    <ExternalLink className="h-3.5 w-3.5 text-emerald-400" />
+                    Option A: Instant Launch (Zero setup)
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    Enter your WhatsApp mobile number above, then click <strong>"Open in WhatsApp"</strong>. LifeNest instantly prepares the alert and launches WhatsApp Web or app with the message pre-filled.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3.5 space-y-1.5">
+                  <div className="font-bold text-sky-300 flex items-center gap-1.5">
+                    <Send className="h-3.5 w-3.5 text-sky-400" />
+                    Option B: Silent Background Delivery
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    To receive alerts directly to your phone <em>silently in the background</em> without opening browser tabs, obtain your free 1-click CallMeBot API key and paste it in the field above.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-500 transition cursor-pointer"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  <span>Save Gateway Configuration</span>
+                </button>
+              </div>
+            </form>
           </div>
         )}
 
