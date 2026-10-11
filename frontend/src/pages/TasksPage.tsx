@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Car,
   Building,
+  Send,
 } from "lucide-react";
 import {
   FormControl,
@@ -44,6 +45,10 @@ import type {
   FamilyMember,
 } from "../types";
 import { ItemRecipientSelector } from "../components/common/ItemRecipientSelector";
+import {
+  dispatchTaskReminderNow,
+  checkAndDispatchDueReminders,
+} from "../services/reminderDaemon";
 
 const priorities: TaskPriority[] = ["Low", "Medium", "High", "Urgent"];
 const recurrences: TaskRecurrence[] = [
@@ -270,10 +275,33 @@ export function TasksPage() {
       setModalCustomLeadMinutes(15);
       setModalCustomLeadUnit("minutes");
       setIsAddOpen(false);
+
+      // Trigger reminder scanner immediately in case task is due now
+      checkAndDispatchDueReminders().catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create task");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const [sendingTaskId, setSendingTaskId] = useState<string | null>(null);
+  const [sendSuccessId, setSendSuccessId] = useState<string | null>(null);
+
+  const handleSendTaskWhatsApp = async (task: TaskItem) => {
+    setSendingTaskId(task.id);
+    try {
+      const res = await dispatchTaskReminderNow(task);
+      if (res.success) {
+        setSendSuccessId(task.id);
+        setTimeout(() => setSendSuccessId(null), 3000);
+      } else {
+        alert(res.error || "WhatsApp gateway could not deliver alert. Check connection.");
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to dispatch WhatsApp alert");
+    } finally {
+      setSendingTaskId(null);
     }
   };
 
@@ -568,6 +596,9 @@ export function TasksPage() {
                     index={idx}
                     onStatusChange={handleStatusChange}
                     onDelete={handleDelete}
+                    onSendWhatsApp={handleSendTaskWhatsApp}
+                    isSendingWA={sendingTaskId === task.id}
+                    wasSentWA={sendSuccessId === task.id}
                   />
                 ))
               )}
@@ -622,6 +653,9 @@ export function TasksPage() {
                     index={idx}
                     onStatusChange={handleStatusChange}
                     onDelete={handleDelete}
+                    onSendWhatsApp={handleSendTaskWhatsApp}
+                    isSendingWA={sendingTaskId === task.id}
+                    wasSentWA={sendSuccessId === task.id}
                   />
                 ))
               )}
@@ -676,6 +710,9 @@ export function TasksPage() {
                     index={idx}
                     onStatusChange={handleStatusChange}
                     onDelete={handleDelete}
+                    onSendWhatsApp={handleSendTaskWhatsApp}
+                    isSendingWA={sendingTaskId === task.id}
+                    wasSentWA={sendSuccessId === task.id}
                   />
                 ))
               )}
@@ -729,9 +766,23 @@ export function TasksPage() {
                             {task.title}
                           </span>
                           {task.reminderWhatsapp && (
-                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded border border-emerald-100">
-                              WA
-                            </span>
+                            <button
+                              type="button"
+                              disabled={sendingTaskId === task.id}
+                              onClick={() => handleSendTaskWhatsApp(task)}
+                              title="Click to Send WhatsApp Alert Now"
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded border inline-flex items-center gap-1 transition cursor-pointer ${
+                                sendSuccessId === task.id
+                                  ? "bg-emerald-600 text-white border-emerald-600"
+                                  : "text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200"
+                              }`}
+                            >
+                              <MessageSquare className="h-2.5 w-2.5" />
+                              <span>{sendingTaskId === task.id ? "..." : sendSuccessId === task.id ? "Sent!" : "WA"}</span>
+                              {sendingTaskId !== task.id && sendSuccessId !== task.id && (
+                                <Send className="h-2 w-2 opacity-70" />
+                              )}
+                            </button>
                           )}
                         </div>
                         {task.description && (
@@ -1235,9 +1286,20 @@ interface TaskCardProps {
   index: number;
   onStatusChange: (task: TaskItem, newStatus: TaskStatus) => void;
   onDelete: (id: string) => void;
+  onSendWhatsApp?: (task: TaskItem) => void;
+  isSendingWA?: boolean;
+  wasSentWA?: boolean;
 }
 
-function TaskCard({ task, index, onStatusChange, onDelete }: TaskCardProps) {
+function TaskCard({
+  task,
+  index,
+  onStatusChange,
+  onDelete,
+  onSendWhatsApp,
+  isSendingWA,
+  wasSentWA,
+}: TaskCardProps) {
   const dueMeta = getDueDateStyle(task.dueDate);
   const isDone = task.status === "Completed";
 
@@ -1310,9 +1372,24 @@ function TaskCard({ task, index, onStatusChange, onDelete }: TaskCardProps) {
             </span>
           )}
           {task.reminderWhatsapp && (
-            <span className="rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/70 px-1.5 py-0.5 font-semibold flex items-center gap-0.5">
-              <MessageSquare className="h-2.5 w-2.5" /> WA
-            </span>
+            <button
+              type="button"
+              disabled={isSendingWA}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSendWhatsApp?.(task);
+              }}
+              title="Click to Send WhatsApp Alert Now"
+              className={`rounded-md border px-1.5 py-0.5 text-[10px] font-semibold flex items-center gap-1 transition cursor-pointer shadow-2xs ${
+                wasSentWA
+                  ? "bg-emerald-600 text-white border-emerald-600"
+                  : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200/70"
+              }`}
+            >
+              <MessageSquare className="h-2.5 w-2.5 text-current" />
+              <span>{isSendingWA ? "Sending..." : wasSentWA ? "Sent!" : "WA Alert"}</span>
+              {!isSendingWA && !wasSentWA && <Send className="h-2 w-2 opacity-70" />}
+            </button>
           )}
         </div>
       )}

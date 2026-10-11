@@ -9,12 +9,30 @@ export function getLocalWhatsAppContacts(): WhatsAppContact[] {
     const raw = localStorage.getItem(CONTACTS_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((c: WhatsAppContact) => {
+          if (
+            c.alias?.toLowerCase() === "personal" &&
+            (c.phone === "01711353028" || c.phone === "01777785590" || c.phone === "01537290553")
+          ) {
+            return { ...c, phone: "01537295053" };
+          }
+          return c;
+        });
+      }
     }
   } catch {
     // fallback
   }
-  return [];
+  return [
+    {
+      id: "contact_personal_default",
+      alias: "Personal",
+      phone: "01537295053",
+      countryCode: "+880",
+      isDefault: true,
+    },
+  ];
 }
 
 export function saveLocalWhatsAppContacts(contacts: WhatsAppContact[]): void {

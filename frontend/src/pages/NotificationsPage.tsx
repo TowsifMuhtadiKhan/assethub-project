@@ -191,7 +191,7 @@ export function NotificationsPage() {
           );
           const ph = contactMatch
             ? `${contactMatch.countryCode || "+880"} ${contactMatch.phone}`
-            : settings.whatsappNumber || "01711353028";
+            : settings.whatsappNumber || "01537295053";
           const rName = contactMatch
             ? `${contactMatch.alias} (${settings.fullName || "Owner"})`
             : settings.fullName || "Vehicle Owner";
@@ -215,7 +215,7 @@ export function NotificationsPage() {
       alerts.push({
         id: "sample-veh-1",
         recipientName: settings.fullName || "Towsif",
-        recipientPhone: settings.whatsappNumber || "01711353028",
+        recipientPhone: settings.whatsappNumber || "01537295053",
         recipientRole: "Vehicle Owner",
         category: "Vehicle BRTA",
         itemTitle: "Toyota Premio Fitness Token",
