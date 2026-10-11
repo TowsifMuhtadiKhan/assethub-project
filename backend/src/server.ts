@@ -529,6 +529,77 @@ app.post("/api/whatsapp/send", async (req: Request, res: Response) => {
   }
 });
 
+app.post("/api/whatsapp/batch-send", async (req: Request, res: Response) => {
+  try {
+    const { alerts } = req.body as {
+      alerts: Array<{
+        to: string;
+        message: string;
+        recipientName?: string;
+        itemTitle?: string;
+      }>;
+    };
+
+    if (!alerts || !Array.isArray(alerts) || alerts.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Non-empty alerts array is required",
+      });
+    }
+
+    const results: Array<{
+      to: string;
+      recipientName?: string;
+      itemTitle?: string;
+      success: boolean;
+      messageId?: string;
+      error?: string;
+    }> = [];
+
+    for (const item of alerts) {
+      try {
+        const sendRes = await sendWhatsAppMessage({
+          to: item.to,
+          message: item.message,
+        });
+        results.push({
+          to: item.to,
+          recipientName: item.recipientName,
+          itemTitle: item.itemTitle,
+          success: sendRes.success,
+          messageId: sendRes.messageId,
+          error: sendRes.error,
+        });
+      } catch (err) {
+        results.push({
+          to: item.to,
+          recipientName: item.recipientName,
+          itemTitle: item.itemTitle,
+          success: false,
+          error: err instanceof Error ? err.message : "Dispatch failed",
+        });
+      }
+
+      if (alerts.length > 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+      }
+    }
+
+    const sentCount = results.filter((r) => r.success).length;
+    res.json({
+      success: sentCount > 0,
+      total: alerts.length,
+      sentCount,
+      results,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Batch dispatch failed",
+    });
+  }
+});
+
 app.post("/api/documents/upload-drive", async (req: Request, res: Response) => {
   try {
     const {

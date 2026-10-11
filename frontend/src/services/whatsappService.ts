@@ -172,3 +172,58 @@ export function getDirectWhatsAppUrl(phone: string, text: string, countryCode = 
   const formatted = formatRecipientNumber(countryCode, phone);
   return `https://wa.me/${formatted}?text=${encodeURIComponent(text)}`;
 }
+
+export interface BatchAlertItem {
+  to: string;
+  message: string;
+  recipientName?: string;
+  itemTitle?: string;
+}
+
+export interface BatchAlertResultItem {
+  to: string;
+  recipientName?: string;
+  itemTitle?: string;
+  success: boolean;
+  messageId?: string;
+  error?: string;
+}
+
+export interface BatchSendResponse {
+  success: boolean;
+  total: number;
+  sentCount: number;
+  results: BatchAlertResultItem[];
+  error?: string;
+}
+
+/**
+ * Dispatches automated alerts to multiple registered recipients in batch
+ */
+export async function sendBatchWhatsAppAlerts(
+  alerts: BatchAlertItem[],
+): Promise<BatchSendResponse> {
+  try {
+    const res = await fetchWithFallback("/api/whatsapp/batch-send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ alerts }),
+    });
+    return (await res.json()) as BatchSendResponse;
+  } catch (err) {
+    return {
+      success: false,
+      total: alerts.length,
+      sentCount: 0,
+      results: alerts.map((a) => ({
+        to: a.to,
+        recipientName: a.recipientName,
+        itemTitle: a.itemTitle,
+        success: false,
+        error: err instanceof Error ? err.message : "Failed to connect to backend",
+      })),
+      error: err instanceof Error ? err.message : "Failed to connect to backend",
+    };
+  }
+}
+

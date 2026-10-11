@@ -130,12 +130,17 @@ export function SettingsPage() {
   const [requestingCode, setRequestingCode] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
 
+  const [senderNumber, setSenderNumber] = useState<string>(
+    () => localStorage.getItem("lifenest_sender_number") || "",
+  );
+
   const handleRequestPairingCode = async () => {
-    const fullNumber = formatRecipientNumber(settings.countryCode || "+880", settings.whatsappNumber || "01711353028");
-    if (!fullNumber || fullNumber.length < 8) {
-      alert("Please enter a valid phone number first.");
+    const fullNumber = formatRecipientNumber("+880", senderNumber);
+    if (!fullNumber || fullNumber.length < 10) {
+      alert("Enter LifeNest's own WhatsApp number (the phone you will type the code into).");
       return;
     }
+    localStorage.setItem("lifenest_sender_number", senderNumber);
     setRequestingCode(true);
     setCodeError(null);
     try {
@@ -454,7 +459,7 @@ export function SettingsPage() {
                 {/* TAB 1: 8-DIGIT PAIRING CODE (NO CAMERA NEEDED) */}
                 {linkMethod === "pairing_code" ? (
                   <div className="space-y-4 text-xs text-slate-700">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-200/80">
+                    <div className="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-200/80 space-y-3">
                       <div>
                         <h4 className="font-bold text-sm text-emerald-950 flex items-center gap-1.5">
                           Link with 8-Character Pairing Code
@@ -463,21 +468,38 @@ export function SettingsPage() {
                           </span>
                         </h4>
                         <p className="text-[11px] text-emerald-800 mt-0.5">
-                          No camera scanning required! Enter your phone number to receive an instant pairing code:
+                          No camera scanning required! Enter LifeNest's dedicated WhatsApp phone number to generate a secure pairing code:
                         </p>
                       </div>
 
-                      <button
-                        type="button"
-                        disabled={requestingCode}
-                        onClick={handleRequestPairingCode}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-60 transition cursor-pointer shrink-0"
-                      >
-                        <Smartphone className="h-3.5 w-3.5" />
-                        {requestingCode
-                          ? "Generating Code..."
-                          : `Get Pairing Code for +${formatRecipientNumber(settings.countryCode || "+880", settings.whatsappNumber || "01711353028")}`}
-                      </button>
+                      <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                        <div className="flex-1 flex gap-2">
+                          <span className="inline-flex items-center rounded-lg border border-emerald-300 bg-white px-3 text-xs font-mono font-semibold text-slate-700">
+                            +880
+                          </span>
+                          <input
+                            type="tel"
+                            value={senderNumber}
+                            onChange={(e) => setSenderNumber(e.target.value)}
+                            placeholder="LifeNest Sender Number (e.g. 017xxxxxxxx)"
+                            className="flex-1 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono shadow-inner"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          disabled={requestingCode || !senderNumber.trim()}
+                          onClick={handleRequestPairingCode}
+                          className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 transition cursor-pointer shrink-0"
+                        >
+                          <Smartphone className="h-3.5 w-3.5" />
+                          {requestingCode
+                            ? "Generating Code..."
+                            : `Generate Pairing Code`}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-emerald-700 italic">
+                        💡 Tip: This should be the phone number of the mobile device or SIM you want LifeNest to send automated alerts from.
+                      </p>
                     </div>
 
                     {codeError && (
