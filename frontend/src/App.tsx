@@ -9,6 +9,7 @@ import { AuthGate } from "./components/auth/AuthGate";
 import { PropertiesPage } from "./pages/PropertiesPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
 import { FamilyPage } from "./pages/FamilyPage";
+import { AccessControlPage } from "./pages/AccessControlPage";
 import { TasksPage } from "./pages/TasksPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { WarrantiesPage } from "./pages/WarrantiesPage";
@@ -76,8 +77,10 @@ function App() {
               {/* 5. Real Estate & Rentals */}
               <Route path="/rentals/properties" element={<PropertiesPage />} />
 
-              {/* 6. Family Profiles */}
+              {/* 6. Family Profiles & Workspace Access Control */}
               <Route path="/family/profiles" element={<FamilyPage />} />
+              <Route path="/workspace/access-control" element={<AccessControlPage />} />
+              <Route path="/family/access-control" element={<Navigate to="/workspace/access-control" replace />} />
 
               {/* 7. Notifications & Settings */}
               <Route path="/notifications" element={<Navigate to="/settings?tab=notifications" replace />} />

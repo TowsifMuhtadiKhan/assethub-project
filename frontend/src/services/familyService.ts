@@ -15,6 +15,9 @@ export function getDefaultMemberAccess(role: FamilyMemberAccess["loginRole"] = "
     canWriteDocuments: role === "Admin",
     canAccessVault: role === "Admin",
     canAccessProperties: role === "Admin",
+    assignedPropertyIds: [], // empty means all properties, or list of property IDs
+    canWriteRent: role === "Admin",
+    canWritePropertyMaintenance: role === "Admin",
     canAccessWarranties: true,
   };
 }

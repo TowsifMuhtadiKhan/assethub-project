@@ -12,6 +12,7 @@ import {
   Users,
   Settings,
   Shield,
+  KeyRound,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -81,6 +82,7 @@ const MENU_GROUPS: MenuGroup[] = [
     iconColor: "text-indigo-400",
     items: [
       { to: "/family/profiles", label: "Family Profiles", icon: Users },
+      { to: "/workspace/access-control", label: "Access Control", icon: KeyRound },
       { to: "/settings", label: "Settings", icon: Settings },
     ],
   },

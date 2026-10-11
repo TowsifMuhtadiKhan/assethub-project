@@ -79,6 +79,9 @@ export type FamilyMemberAccess = {
   canWriteDocuments: boolean;
   canAccessVault: boolean;
   canAccessProperties: boolean;
+  assignedPropertyIds?: string[]; // empty means all, or specific property IDs
+  canWriteRent?: boolean;
+  canWritePropertyMaintenance?: boolean;
   canAccessWarranties: boolean;
 };
 

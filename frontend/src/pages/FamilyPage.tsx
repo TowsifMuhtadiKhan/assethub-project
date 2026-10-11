@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Users,
   Plus,
@@ -262,13 +263,22 @@ export function FamilyPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={openAddModal}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
-        >
-          <Plus className="h-3.5 w-3.5" /> Add Family Member
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/workspace/access-control"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition cursor-pointer"
+          >
+            <KeyRound className="h-3.5 w-3.5 text-orange-500" />
+            <span>Access Control Matrix</span>
+          </Link>
+          <button
+            type="button"
+            onClick={openAddModal}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add Family Member
+          </button>
+        </div>
       </div>
 
       {error && (
