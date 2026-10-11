@@ -3,8 +3,45 @@ import type { Vehicle, VehicleType } from "../types";
 
 const TABLE = "lifenest_vehicles";
 
+// Helper to parse extended specs (CC, Fuel, Seats) embedded in notes
+export function parseVehicleSpecsFromNotes(notes?: string): {
+  cubicCapacity?: string;
+  fuelType?: string;
+  seatingCapacity?: string;
+} {
+  if (!notes) return {};
+  const match = notes.match(/\[Specs:\s*([^\]]+)\]/i);
+  if (!match) return {};
+  const parts = match[1].split(",").map((s) => s.trim());
+  const res: { cubicCapacity?: string; fuelType?: string; seatingCapacity?: string } = {};
+  for (const part of parts) {
+    const [k, v] = part.split(":").map((s) => s.trim());
+    if (!k || !v) continue;
+    const lk = k.toLowerCase();
+    if (lk.includes("cc") || lk.includes("displacement") || lk.includes("cubic")) res.cubicCapacity = v;
+    else if (lk.includes("fuel")) res.fuelType = v;
+    else if (lk.includes("seat")) res.seatingCapacity = v;
+  }
+  return res;
+}
+
+export function embedVehicleSpecsIntoNotes(
+  currentNotes: string,
+  specs: { cubicCapacity?: string; fuelType?: string; seatingCapacity?: string }
+): string {
+  const clean = (currentNotes || "").replace(/\[Specs:[^\]]*\]/gi, "").trim();
+  const specsParts: string[] = [];
+  if (specs.cubicCapacity) specsParts.push(`CC: ${specs.cubicCapacity}`);
+  if (specs.fuelType) specsParts.push(`Fuel: ${specs.fuelType}`);
+  if (specs.seatingCapacity) specsParts.push(`Seats: ${specs.seatingCapacity}`);
+  if (specsParts.length === 0) return clean;
+  const tag = `[Specs: ${specsParts.join(", ")}]`;
+  return clean ? `${clean}\n${tag}` : tag;
+}
+
 // Helper to convert database row to Vehicle type
 function mapVehicleFromRow(row: Record<string, any>): Vehicle {
+  const specs = parseVehicleSpecsFromNotes(row.notes);
   return {
     id: row.id,
     name: row.name,
@@ -25,6 +62,9 @@ function mapVehicleFromRow(row: Record<string, any>): Vehicle {
     notes: row.notes ?? "",
     image: row.image ?? "",
     status: row.status ?? "GOOD",
+    cubicCapacity: specs.cubicCapacity,
+    fuelType: specs.fuelType,
+    seatingCapacity: specs.seatingCapacity,
   };
 }
 
@@ -107,6 +147,18 @@ export async function updateVehicle(
   if (input.fitnessExpiry !== undefined)
     patch.fitness_expiry = input.fitnessExpiry || null;
   if (input.notes !== undefined) patch.notes = input.notes;
+  if (
+    input.cubicCapacity !== undefined ||
+    input.fuelType !== undefined ||
+    input.seatingCapacity !== undefined
+  ) {
+    const existingNotes = (patch.notes as string) ?? input.notes ?? "";
+    patch.notes = embedVehicleSpecsIntoNotes(existingNotes, {
+      cubicCapacity: input.cubicCapacity,
+      fuelType: input.fuelType,
+      seatingCapacity: input.seatingCapacity,
+    });
+  }
   if (input.image !== undefined) patch.image = input.image;
   if (input.status !== undefined) patch.status = input.status;
 

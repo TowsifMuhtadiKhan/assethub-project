@@ -225,6 +225,9 @@ export type Vehicle = {
   notes: string;
   image: string;
   status: VehicleStatus;
+  cubicCapacity?: string;
+  fuelType?: string;
+  seatingCapacity?: string;
 };
 
 export type VehicleExpenseCategory =

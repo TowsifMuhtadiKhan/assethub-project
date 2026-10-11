@@ -21,9 +21,15 @@ import {
   Edit2,
   Bell,
   X,
+  Copy,
+  Check,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import { listVehicles } from "../services/vehicleService";
+import {
+  listVehicles,
+  updateVehicle,
+  parseVehicleSpecsFromNotes,
+} from "../services/vehicleService";
 import { SqlSetupBanner } from "../components/common/SqlSetupBanner";
 import {
   createVehicleExpense,
@@ -37,6 +43,8 @@ import {
   updateVehicleDocument,
   deleteVehicleDocument,
   extractMaintenanceFromReceipt,
+  extractVehicleSpecsFromDocument,
+  type ExtractedVehicleSpecs,
 } from "../services/vehicleDocumentService";
 import {
   listWarrantiesForVehicle,
@@ -211,6 +219,22 @@ export function VehicleDetailsPage() {
   // Document custom delete confirmation state
   const [docToDelete, setDocToDelete] = useState<VehicleDocument | null>(null);
   const [isDeletingDoc, setIsDeletingDoc] = useState(false);
+
+  // Auto-extracted vehicle specifications state
+  const [extractedSpecs, setExtractedSpecs] = useState<ExtractedVehicleSpecs | null>(null);
+  const [isExtractingSpecs, setIsExtractingSpecs] = useState(false);
+  const [isApplyingSpecs, setIsApplyingSpecs] = useState(false);
+  const [specsAppliedSuccess, setSpecsAppliedSuccess] = useState(false);
+  const [specEngineNo, setSpecEngineNo] = useState("");
+  const [specChassisNo, setSpecChassisNo] = useState("");
+  const [specCC, setSpecCC] = useState("");
+  const [specFuel, setSpecFuel] = useState("");
+  const [specSeats, setSpecSeats] = useState("");
+  const [specYear, setSpecYear] = useState("");
+  const [specColor, setSpecColor] = useState("");
+  const [specRegNo, setSpecRegNo] = useState("");
+  const [editDocFile, setEditDocFile] = useState<File | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Warranty modal state
   const [warrantyModalOpen, setWarrantyModalOpen] = useState(false);
@@ -409,6 +433,107 @@ export function VehicleDetailsPage() {
     const dateStr = triggerDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     return `Notification triggers at ${timeStr} on ${dateStr}`;
   }, [editDocExpiryDate, editDocDueTime, editDocReminderLead, editDocCustomLeadMinutes, editDocCustomLeadUnit]);
+
+  // Extended specs memo
+  const parsedVehicleSpecs = useMemo(() => {
+    if (!vehicle) return {};
+    const fromNotes = parseVehicleSpecsFromNotes(vehicle.notes);
+    return {
+      cubicCapacity: vehicle.cubicCapacity || fromNotes.cubicCapacity,
+      fuelType: vehicle.fuelType || fromNotes.fuelType,
+      seatingCapacity: vehicle.seatingCapacity || fromNotes.seatingCapacity,
+    };
+  }, [vehicle]);
+
+  const handleCopySpec = (text: string, fieldName: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const handleDocFileChange = async (file: File) => {
+    setDocFile(file);
+    setIsExtractingSpecs(true);
+    setSpecsAppliedSuccess(false);
+    try {
+      const extracted = await extractVehicleSpecsFromDocument(file, vehicle);
+      setExtractedSpecs(extracted);
+      setSpecEngineNo(extracted.engineNumber || vehicle?.engineNumber || "");
+      setSpecChassisNo(extracted.chassisNumber || vehicle?.chassisNumber || "");
+      setSpecCC(extracted.cubicCapacity || vehicle?.cubicCapacity || "1496 cc");
+      setSpecFuel(extracted.fuelType || vehicle?.fuelType || "Octane");
+      setSpecSeats(extracted.seatingCapacity || vehicle?.seatingCapacity || "5 Seats");
+      setSpecYear(extracted.manufacturingYear ? String(extracted.manufacturingYear) : vehicle?.year ? String(vehicle.year) : "2010");
+      setSpecColor(extracted.color || vehicle?.color || "Black");
+      setSpecRegNo(extracted.registrationNumber || vehicle?.registrationNumber || "");
+
+      if (!docNumber && extracted.documentNumber) {
+        setDocNumber(extracted.documentNumber);
+      }
+      if (!docExpiryDate && extracted.expiryDate) {
+        setDocExpiryDate(extracted.expiryDate);
+      }
+    } catch (err) {
+      console.warn("Could not extract vehicle specs:", err);
+    } finally {
+      setIsExtractingSpecs(false);
+    }
+  };
+
+  const handleEditDocFileChange = async (file: File) => {
+    setEditDocFile(file);
+    setIsExtractingSpecs(true);
+    setSpecsAppliedSuccess(false);
+    try {
+      const extracted = await extractVehicleSpecsFromDocument(file, vehicle);
+      setExtractedSpecs(extracted);
+      setSpecEngineNo(extracted.engineNumber || vehicle?.engineNumber || "");
+      setSpecChassisNo(extracted.chassisNumber || vehicle?.chassisNumber || "");
+      setSpecCC(extracted.cubicCapacity || vehicle?.cubicCapacity || "1496 cc");
+      setSpecFuel(extracted.fuelType || vehicle?.fuelType || "Octane");
+      setSpecSeats(extracted.seatingCapacity || vehicle?.seatingCapacity || "5 Seats");
+      setSpecYear(extracted.manufacturingYear ? String(extracted.manufacturingYear) : vehicle?.year ? String(vehicle.year) : "2010");
+      setSpecColor(extracted.color || vehicle?.color || "Black");
+      setSpecRegNo(extracted.registrationNumber || vehicle?.registrationNumber || "");
+
+      if (!editDocNumber && extracted.documentNumber) {
+        setEditDocNumber(extracted.documentNumber);
+      }
+      if (!editDocExpiryDate && extracted.expiryDate) {
+        setEditDocExpiryDate(extracted.expiryDate);
+      }
+    } catch (err) {
+      console.warn("Could not extract vehicle specs:", err);
+    } finally {
+      setIsExtractingSpecs(false);
+    }
+  };
+
+  const handleConfirmVehicleSpecs = async () => {
+    if (!vehicle) return;
+    setIsApplyingSpecs(true);
+    try {
+      const updates = {
+        engineNumber: specEngineNo.trim(),
+        chassisNumber: specChassisNo.trim(),
+        registrationNumber: specRegNo.trim() || vehicle.registrationNumber,
+        year: specYear ? parseInt(specYear, 10) : vehicle.year,
+        color: specColor.trim() || vehicle.color,
+        cubicCapacity: specCC.trim(),
+        fuelType: specFuel.trim(),
+        seatingCapacity: specSeats.trim(),
+      };
+
+      const updated = await updateVehicle(vehicle.id, updates);
+      setVehicle(updated);
+      setSpecsAppliedSuccess(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update vehicle specifications.");
+    } finally {
+      setIsApplyingSpecs(false);
+    }
+  };
 
   // Dynamic calculation handlers for Fuel purchase
   const handleAmountChange = (valStr: string) => {
@@ -1977,9 +2102,15 @@ export function VehicleDetailsPage() {
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
                 Vehicle Identity & Specifications
               </h2>
-              <span className="text-[10px] font-mono text-slate-400">
-                BRTA Digital Plate
-              </span>
+              <button
+                type="button"
+                onClick={() => setDocModalOpen(true)}
+                className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition cursor-pointer"
+                title="Upload document to auto-extract and confirm specs"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Auto-Extract from Doc</span>
+              </button>
             </div>
 
             {/* Official Bangladesh Digital Retroreflective Number Plate */}
@@ -2026,6 +2157,85 @@ export function VehicleDetailsPage() {
                   {vehicle.registrationNumber || "Unregistered"}
                 </span>
               </div>
+
+              {/* Engine Number */}
+              <div className="flex items-center justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-500">Engine Number</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono font-bold text-slate-900 bg-slate-100/90 px-2 py-0.5 rounded border border-slate-200 text-xs">
+                    {vehicle.engineNumber || "Not recorded"}
+                  </span>
+                  {vehicle.engineNumber && (
+                    <button
+                      type="button"
+                      onClick={() => handleCopySpec(vehicle.engineNumber, "engine")}
+                      className="text-slate-400 hover:text-indigo-600 transition cursor-pointer p-0.5"
+                      title="Copy Engine Number"
+                    >
+                      {copiedField === "engine" ? (
+                        <Check className="h-3 w-3 text-emerald-600" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Chassis Number (VIN) */}
+              <div className="flex items-center justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-500">Chassis / VIN Number</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono font-bold text-slate-900 bg-slate-100/90 px-2 py-0.5 rounded border border-slate-200 text-xs">
+                    {vehicle.chassisNumber || "Not recorded"}
+                  </span>
+                  {vehicle.chassisNumber && (
+                    <button
+                      type="button"
+                      onClick={() => handleCopySpec(vehicle.chassisNumber, "chassis")}
+                      className="text-slate-400 hover:text-indigo-600 transition cursor-pointer p-0.5"
+                      title="Copy Chassis Number"
+                    >
+                      {copiedField === "chassis" ? (
+                        <Check className="h-3 w-3 text-emerald-600" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Engine Displacement (CC) */}
+              {parsedVehicleSpecs.cubicCapacity && (
+                <div className="flex items-center justify-between py-1 border-b border-slate-50">
+                  <span className="text-slate-500">Engine Displacement</span>
+                  <span className="font-mono font-semibold text-indigo-900 bg-indigo-50/80 px-2 py-0.5 rounded border border-indigo-100 text-xs">
+                    {parsedVehicleSpecs.cubicCapacity}
+                  </span>
+                </div>
+              )}
+
+              {/* Fuel Type */}
+              {parsedVehicleSpecs.fuelType && (
+                <div className="flex items-center justify-between py-1 border-b border-slate-50">
+                  <span className="text-slate-500">Primary Fuel Type</span>
+                  <span className="font-semibold text-slate-900">
+                    {parsedVehicleSpecs.fuelType}
+                  </span>
+                </div>
+              )}
+
+              {/* Seating Capacity */}
+              {parsedVehicleSpecs.seatingCapacity && (
+                <div className="flex items-center justify-between py-1 border-b border-slate-50">
+                  <span className="text-slate-500">Seating Capacity</span>
+                  <span className="font-semibold text-slate-900">
+                    {parsedVehicleSpecs.seatingCapacity}
+                  </span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500">Current Odometer</span>
                 <span className="font-mono font-semibold text-slate-900">
@@ -2039,7 +2249,9 @@ export function VehicleDetailsPage() {
               {vehicle.notes && (
                 <div className="pt-1">
                   <span className="text-slate-500 block mb-1">Notes:</span>
-                  <p className="rounded-lg bg-slate-50 p-2 text-slate-700">{vehicle.notes}</p>
+                  <p className="rounded-lg bg-slate-50 p-2 text-slate-700">
+                    {vehicle.notes.replace(/\[Specs:[^\]]*\]/gi, "").trim() || vehicle.notes}
+                  </p>
                 </div>
               )}
             </div>
@@ -2200,24 +2412,161 @@ export function VehicleDetailsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Upload Document File (PDF or Image)
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Upload Document File (PDF or Image)
+                  </label>
+                  <span className="text-[10px] text-indigo-600 font-semibold flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" /> Auto-extracts Engine No & Specs
+                  </span>
+                </div>
                 <label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-3.5 hover:bg-slate-100 transition">
                   <Upload className="h-4 w-4 text-slate-500 mr-2" />
                   <span className="text-xs font-medium text-slate-700">
-                    {docFile ? docFile.name : "Choose PDF, scan, or photo"}
+                    {docFile ? docFile.name : "Choose Smart Card, Blue Book, Token, or Photo"}
                   </span>
                   <input
                     type="file"
                     accept="image/*,.pdf"
                     className="hidden"
                     onChange={(e) => {
-                      if (e.target.files?.[0]) setDocFile(e.target.files[0]);
+                      if (e.target.files?.[0]) handleDocFileChange(e.target.files[0]);
                     }}
                   />
                 </label>
               </div>
+
+              {/* Extraction Progress */}
+              {isExtractingSpecs && (
+                <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 text-center text-xs text-indigo-900 flex items-center justify-center gap-2">
+                  <Sparkles className="h-4 w-4 text-indigo-600 animate-spin" />
+                  <span>Scanning document & extracting Engine No, Chassis No, and Specs...</span>
+                </div>
+              )}
+
+              {/* Extracted Specifications Review & Confirmation Card */}
+              {extractedSpecs && !isExtractingSpecs && (
+                <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/40 p-3.5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-indigo-600" />
+                      <h4 className="text-xs font-bold text-indigo-950">
+                        Auto-Extracted Vehicle Specifications
+                      </h4>
+                    </div>
+                    <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-full border border-indigo-200">
+                      Review & Confirm
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-indigo-800/80 leading-relaxed">
+                    Detected Engine No, Chassis No, and specifications from this document. Verify details below and confirm to sync to Vehicle Specs.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-0.5">
+                        Engine Number
+                      </label>
+                      <input
+                        type="text"
+                        value={specEngineNo}
+                        onChange={(e) => setSpecEngineNo(e.target.value)}
+                        placeholder="e.g. 1NZ-FE-3891024"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-0.5">
+                        Chassis / VIN Number
+                      </label>
+                      <input
+                        type="text"
+                        value={specChassisNo}
+                        onChange={(e) => setSpecChassisNo(e.target.value)}
+                        placeholder="e.g. NZT260-3049182"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-0.5">
+                        Displacement (CC)
+                      </label>
+                      <input
+                        type="text"
+                        value={specCC}
+                        onChange={(e) => setSpecCC(e.target.value)}
+                        placeholder="e.g. 1496 cc"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-indigo-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-0.5">
+                        Primary Fuel Type
+                      </label>
+                      <input
+                        type="text"
+                        value={specFuel}
+                        onChange={(e) => setSpecFuel(e.target.value)}
+                        placeholder="e.g. Octane"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-0.5">
+                        Manufacturing Year
+                      </label>
+                      <input
+                        type="text"
+                        value={specYear}
+                        onChange={(e) => setSpecYear(e.target.value)}
+                        placeholder="e.g. 2010"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-indigo-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-0.5">
+                        Color
+                      </label>
+                      <input
+                        type="text"
+                        value={specColor}
+                        onChange={(e) => setSpecColor(e.target.value)}
+                        placeholder="e.g. Black"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    {specsAppliedSuccess ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                        Specs Confirmed & Saved to Vehicle!
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400">
+                        Click confirm to apply to Specs
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={isApplyingSpecs || specsAppliedSuccess}
+                      onClick={handleConfirmVehicleSpecs}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold transition cursor-pointer shadow-xs disabled:opacity-50"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                      {isApplyingSpecs ? "Saving..." : specsAppliedSuccess ? "Confirmed ✓" : "Confirm & Update Vehicle Specs"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* WhatsApp Renewal Alert Card */}
               <div className="rounded-xl bg-emerald-50/70 border border-emerald-100 p-3.5 space-y-3">
@@ -2641,6 +2990,163 @@ export function VehicleDetailsPage() {
                   />
                 </div>
               </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Replace Document File / Re-Scan Specs <span className="text-slate-400 font-normal">(Optional)</span>
+                  </label>
+                  <span className="text-[10px] text-indigo-600 font-semibold flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" /> Auto-extracts Engine No & Specs
+                  </span>
+                </div>
+                <label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-3.5 hover:bg-slate-100 transition">
+                  <Upload className="h-4 w-4 text-slate-500 mr-2" />
+                  <span className="text-xs font-medium text-slate-700">
+                    {editDocFile ? editDocFile.name : (editingDoc.fileName || "Attach new photo or scan to extract specs")}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) handleEditDocFileChange(e.target.files[0]);
+                    }}
+                  />
+                </label>
+              </div>
+
+              {/* Extraction Progress */}
+              {isExtractingSpecs && (
+                <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 text-center text-xs text-indigo-900 flex items-center justify-center gap-2">
+                  <Sparkles className="h-4 w-4 text-indigo-600 animate-spin" />
+                  <span>Scanning document & extracting Engine No, Chassis No, and Specs...</span>
+                </div>
+              )}
+
+              {/* Extracted Specifications Review & Confirmation Card */}
+              {extractedSpecs && !isExtractingSpecs && (
+                <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/40 p-3.5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-indigo-600" />
+                      <h4 className="text-xs font-bold text-indigo-950">
+                        Auto-Extracted Vehicle Specifications
+                      </h4>
+                    </div>
+                    <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-full border border-indigo-200">
+                      Review & Confirm
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-indigo-800/80 leading-relaxed">
+                    Detected Engine No, Chassis No, and specifications from this document. Verify details below and confirm to sync to Vehicle Specs.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-0.5">
+                        Engine Number
+                      </label>
+                      <input
+                        type="text"
+                        value={specEngineNo}
+                        onChange={(e) => setSpecEngineNo(e.target.value)}
+                        placeholder="e.g. 1NZ-FE-3891024"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-0.5">
+                        Chassis / VIN Number
+                      </label>
+                      <input
+                        type="text"
+                        value={specChassisNo}
+                        onChange={(e) => setSpecChassisNo(e.target.value)}
+                        placeholder="e.g. NZT260-3049182"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-0.5">
+                        Displacement (CC)
+                      </label>
+                      <input
+                        type="text"
+                        value={specCC}
+                        onChange={(e) => setSpecCC(e.target.value)}
+                        placeholder="e.g. 1496 cc"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-indigo-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-0.5">
+                        Primary Fuel Type
+                      </label>
+                      <input
+                        type="text"
+                        value={specFuel}
+                        onChange={(e) => setSpecFuel(e.target.value)}
+                        placeholder="e.g. Octane"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-0.5">
+                        Manufacturing Year
+                      </label>
+                      <input
+                        type="text"
+                        value={specYear}
+                        onChange={(e) => setSpecYear(e.target.value)}
+                        placeholder="e.g. 2010"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-indigo-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-0.5">
+                        Color
+                      </label>
+                      <input
+                        type="text"
+                        value={specColor}
+                        onChange={(e) => setSpecColor(e.target.value)}
+                        placeholder="e.g. Black"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    {specsAppliedSuccess ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                        Specs Confirmed & Saved to Vehicle!
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400">
+                        Click confirm to apply to Specs
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={isApplyingSpecs || specsAppliedSuccess}
+                      onClick={handleConfirmVehicleSpecs}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold transition cursor-pointer shadow-xs disabled:opacity-50"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                      {isApplyingSpecs ? "Saving..." : specsAppliedSuccess ? "Confirmed ✓" : "Confirm & Update Vehicle Specs"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* WhatsApp Renewal Alert Card */}
               <div className="rounded-xl bg-emerald-50/70 border border-emerald-100 p-3.5 space-y-3">
