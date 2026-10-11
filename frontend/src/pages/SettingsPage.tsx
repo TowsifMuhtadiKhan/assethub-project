@@ -6,26 +6,16 @@ import {
   CheckCircle2,
   Send,
   Smartphone,
-  Sliders,
   Bell,
   ExternalLink,
-  QrCode,
-  RefreshCw,
-  LogOut,
   AlertCircle,
+  Sliders,
 } from "lucide-react";
 import { getUserSettings, saveUserSettings } from "../services/settingsService";
 import { getUserEmail } from "../services/api";
 import {
-  checkMasterDriveStatus,
-  requestMasterAuthorization,
-} from "../utils/googleDrive";
-import {
   getWhatsAppSystemStatus,
   sendSystemWhatsAppAlert,
-  disconnectWhatsAppGateway,
-  restartWhatsAppGateway,
-  getWhatsAppPairingCode,
   formatRecipientNumber,
   type WhatsAppSystemStatus,
 } from "../services/whatsappService";
@@ -44,16 +34,6 @@ export function SettingsPage() {
     googleDriveFolderId: "",
     callmebotApiKey: "",
   });
-
-  const [driveStatus, setDriveStatus] = useState<{
-    configured: boolean;
-    authorized: boolean;
-    accountEmail?: string;
-    folderId: string;
-  }>({ configured: false, authorized: false, folderId: "" });
-  const [authorizing, setAuthorizing] = useState(false);
-  const [authError, setAuthError] = useState("");
-  const [authSuccess, setAuthSuccess] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"whatsapp" | "profile">(() => {
     if (tabParam === "profile") return "profile";
@@ -98,10 +78,7 @@ export function SettingsPage() {
     error?: string;
   } | null>(null);
 
-  const [disconnecting, setDisconnecting] = useState(false);
-
   useEffect(() => {
-    checkMasterDriveStatus().then(setDriveStatus);
     getUserSettings().then((s) => {
       setSettings(s);
       try {
@@ -109,94 +86,8 @@ export function SettingsPage() {
         if (raw) setAlertTriggers(JSON.parse(raw));
       } catch {}
     });
+    getWhatsAppSystemStatus().then((s) => setSystemWhatsApp(s)).catch(() => {});
   }, []);
-
-  // Poll WhatsApp Gateway status every 2.5s until connected
-  const refreshWhatsAppStatus = async () => {
-    try {
-      const s = await getWhatsAppSystemStatus();
-      setSystemWhatsApp(s);
-    } catch {}
-  };
-
-  useEffect(() => {
-    refreshWhatsAppStatus();
-    const timer = setInterval(refreshWhatsAppStatus, 2500);
-    return () => clearInterval(timer);
-  }, []);
-
-  const [linkMethod, setLinkMethod] = useState<"pairing_code" | "qr">("qr");
-  const [pairingCode, setPairingCode] = useState<string | null>(null);
-  const [requestingCode, setRequestingCode] = useState(false);
-  const [codeError, setCodeError] = useState<string | null>(null);
-
-  const [senderNumber, setSenderNumber] = useState<string>(
-    () => localStorage.getItem("lifenest_sender_number") || "",
-  );
-
-  const handleRequestPairingCode = async () => {
-    const fullNumber = formatRecipientNumber("+880", senderNumber);
-    if (!fullNumber || fullNumber.length < 10) {
-      alert("Enter LifeNest's own WhatsApp number (the phone you will type the code into).");
-      return;
-    }
-    localStorage.setItem("lifenest_sender_number", senderNumber);
-    setRequestingCode(true);
-    setCodeError(null);
-    try {
-      const res = await getWhatsAppPairingCode(fullNumber);
-      if (res.success && res.code) {
-        setPairingCode(res.code);
-      } else {
-        setCodeError(res.error || "Failed to generate pairing code. Please try again.");
-      }
-    } catch (e) {
-      setCodeError(e instanceof Error ? e.message : "Failed to generate pairing code");
-    } finally {
-      setRequestingCode(false);
-    }
-  };
-
-  const [refreshingQr, setRefreshingQr] = useState(false);
-  const handleForceRestartQR = async () => {
-    setRefreshingQr(true);
-    try {
-      await restartWhatsAppGateway();
-      await new Promise((r) => setTimeout(r, 600));
-      await refreshWhatsAppStatus();
-    } finally {
-      setRefreshingQr(false);
-    }
-  };
-
-  const handleDisconnectWhatsApp = async () => {
-    if (!window.confirm("Are you sure you want to unlink WhatsApp? You will need to scan a new QR code to reconnect.")) {
-      return;
-    }
-    setDisconnecting(true);
-    try {
-      await disconnectWhatsAppGateway();
-      await refreshWhatsAppStatus();
-    } finally {
-      setDisconnecting(false);
-    }
-  };
-
-  const handleAuthorizeMaster = async () => {
-    setAuthorizing(true);
-    setAuthError("");
-    setAuthSuccess(false);
-    try {
-      await requestMasterAuthorization();
-      setAuthSuccess(true);
-      const updated = await checkMasterDriveStatus();
-      setDriveStatus(updated);
-    } catch (err) {
-      setAuthError(err instanceof Error ? err.message : "Authorization failed");
-    } finally {
-      setAuthorizing(false);
-    }
-  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -374,232 +265,6 @@ export function SettingsPage() {
                 </button>
               </div>
             </div>
-
-            {/* WhatsApp Gateway Status & QR Code Box */}
-            {systemWhatsApp.status === "connected" ? (
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-300 text-xs text-emerald-950">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs shrink-0">
-                    <CheckCircle2 className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-emerald-900 flex items-center gap-2">
-                      WhatsApp Web Gateway Linked & Active
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-200/80 px-2 py-0.5 text-[10px] font-bold text-emerald-900">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                        Online
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-emerald-700 block mt-0.5">
-                      Sender Device: <code className="bg-emerald-100 px-1.5 py-0.5 rounded font-mono font-semibold text-emerald-900">+{systemWhatsApp.connectedPhone || "Connected"}</code>. All alerts dispatch silently in the background to: <strong className="text-emerald-950 font-mono">+{formatRecipientNumber(settings.countryCode || "+880", settings.whatsappNumber || "01711353028")}</strong>
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  disabled={disconnecting}
-                  onClick={handleDisconnectWhatsApp}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 transition cursor-pointer shrink-0 self-start sm:self-auto"
-                >
-                  <LogOut className="h-3.5 w-3.5 text-rose-600" />
-                  {disconnecting ? "Unlinking..." : "Disconnect / Re-link"}
-                </button>
-              </div>
-            ) : (
-              <div className="rounded-xl border-2 border-emerald-300 bg-white p-4 shadow-sm space-y-4">
-                {/* Method Switcher Tabs */}
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                  <div className="flex items-center gap-1.5 p-1 rounded-lg bg-slate-100 text-xs font-semibold">
-                    <button
-                      type="button"
-                      onClick={() => setLinkMethod("pairing_code")}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md transition cursor-pointer ${
-                        linkMethod === "pairing_code"
-                          ? "bg-white text-emerald-800 shadow-xs font-bold"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      <Smartphone className="h-3.5 w-3.5 text-emerald-600" />
-                      8-Digit Code (No Camera Needed)
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setLinkMethod("qr")}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md transition cursor-pointer ${
-                        linkMethod === "qr"
-                          ? "bg-white text-emerald-800 shadow-xs font-bold"
-                          : "text-slate-600 hover:text-slate-900"
-                      }`}
-                    >
-                      <QrCode className="h-3.5 w-3.5 text-emerald-600" />
-                      Scan QR Code
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={refreshingQr}
-                    onClick={handleForceRestartQR}
-                    className="inline-flex items-center gap-1 text-[11px] text-slate-600 hover:text-emerald-700 border border-slate-200 px-2 py-1 rounded-md hover:border-emerald-300 disabled:opacity-50 transition cursor-pointer"
-                  >
-                    <RefreshCw className={`h-3 w-3 ${refreshingQr ? "animate-spin" : ""}`} />
-                    {refreshingQr ? "Resetting..." : "Reset / Refresh"}
-                  </button>
-                </div>
-
-                {systemWhatsApp.error && (
-                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-2.5 text-xs text-amber-900 flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
-                    <span>{systemWhatsApp.error}</span>
-                  </div>
-                )}
-
-                {/* TAB 1: 8-DIGIT PAIRING CODE (NO CAMERA NEEDED) */}
-                {linkMethod === "pairing_code" ? (
-                  <div className="space-y-4 text-xs text-slate-700">
-                    <div className="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-200/80 space-y-3">
-                      <div>
-                        <h4 className="font-bold text-sm text-emerald-950 flex items-center gap-1.5">
-                          Link with 8-Character Pairing Code
-                          <span className="bg-emerald-200/70 text-emerald-900 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                            100% Reliable
-                          </span>
-                        </h4>
-                        <p className="text-[11px] text-emerald-800 mt-0.5">
-                          No camera scanning required! Enter LifeNest's dedicated WhatsApp phone number to generate a secure pairing code:
-                        </p>
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-                        <div className="flex-1 flex gap-2">
-                          <span className="inline-flex items-center rounded-lg border border-emerald-300 bg-white px-3 text-xs font-mono font-semibold text-slate-700">
-                            +880
-                          </span>
-                          <input
-                            type="tel"
-                            value={senderNumber}
-                            onChange={(e) => setSenderNumber(e.target.value)}
-                            placeholder="LifeNest Sender Number (e.g. 017xxxxxxxx)"
-                            className="flex-1 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono shadow-inner"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          disabled={requestingCode || !senderNumber.trim()}
-                          onClick={handleRequestPairingCode}
-                          className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 transition cursor-pointer shrink-0"
-                        >
-                          <Smartphone className="h-3.5 w-3.5" />
-                          {requestingCode
-                            ? "Generating Code..."
-                            : `Generate Pairing Code`}
-                        </button>
-                      </div>
-                      <p className="text-[10px] text-emerald-700 italic">
-                        💡 Tip: This should be the phone number of the mobile device or SIM you want LifeNest to send automated alerts from.
-                      </p>
-                    </div>
-
-                    {codeError && (
-                      <div className="rounded-lg bg-rose-50 border border-rose-200 p-2.5 text-xs text-rose-800 flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
-                        <span>{codeError}</span>
-                      </div>
-                    )}
-
-                    {pairingCode && (
-                      <div className="flex flex-col items-center justify-center p-6 bg-slate-900 rounded-2xl text-white space-y-3 shadow-md">
-                        <span className="text-[11px] tracking-widest uppercase text-emerald-400 font-semibold">
-                          Your One-Time WhatsApp Pairing Code
-                        </span>
-                        <div className="text-3xl sm:text-4xl font-mono font-extrabold tracking-widest text-emerald-300 bg-slate-800/80 px-6 py-2.5 rounded-xl border border-emerald-500/40 select-all">
-                          {pairingCode.length === 8
-                            ? `${pairingCode.slice(0, 4)}-${pairingCode.slice(4)}`
-                            : pairingCode}
-                        </div>
-                        <p className="text-[11px] text-slate-300 text-center max-w-md">
-                          Open WhatsApp on your phone &rarr; <strong>Linked Devices</strong> &rarr; <strong>Link a Device</strong> &rarr; tap <strong>"Link with phone number instead"</strong> &rarr; type this code.
-                        </p>
-                        <div className="flex items-center gap-2 text-[11px] text-emerald-400 pt-1">
-                          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-                          Listening for code entry... LifeNest will connect automatically!
-                        </div>
-                      </div>
-                    )}
-
-                    <ol className="list-decimal list-inside space-y-1.5 text-[11px] font-medium text-slate-800 bg-slate-50 p-3 rounded-xl border border-slate-200/80">
-                      <li>Open <strong>WhatsApp</strong> on your mobile phone</li>
-                      <li>Tap <strong>Settings</strong> (iOS) or <strong>Three dots ⋮</strong> (Android) &rarr; tap <strong>Linked Devices</strong></li>
-                      <li>Tap <strong>Link a Device</strong></li>
-                      <li>At the bottom of the camera screen, tap <strong>"Link with phone number instead"</strong></li>
-                      <li>Enter the 8-character code shown above — LifeNest will pair instantly!</li>
-                    </ol>
-                  </div>
-                ) : (
-                  /* TAB 2: QR CODE SCAN */
-                  <div className="flex flex-col md:flex-row items-center gap-6">
-                    <div className="flex flex-col items-center justify-center bg-slate-50 p-3 rounded-2xl border border-slate-200 shadow-inner shrink-0">
-                      {systemWhatsApp.status === "qr_ready" && systemWhatsApp.qrDataUrl ? (
-                        <img
-                          src={systemWhatsApp.qrDataUrl}
-                          alt="WhatsApp Web QR Code"
-                          className="w-56 h-56 rounded-lg shadow-xs object-contain bg-white p-1"
-                        />
-                      ) : systemWhatsApp.status === "connecting" || refreshingQr ? (
-                        <div className="w-56 h-56 flex flex-col items-center justify-center text-slate-500 text-xs gap-2">
-                          <RefreshCw className="h-6 w-6 animate-spin text-emerald-600" />
-                          <span>Connecting to WhatsApp...</span>
-                        </div>
-                      ) : (
-                        <div className="w-56 h-56 flex flex-col items-center justify-center text-center text-slate-600 text-xs gap-3 px-3">
-                          {systemWhatsApp.status === "qr_expired" && (
-                            <span className="text-rose-700 font-semibold">QR expired</span>
-                          )}
-                          <button
-                            type="button"
-                            disabled={refreshingQr}
-                            onClick={handleForceRestartQR}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-60 cursor-pointer"
-                          >
-                            <QrCode className="h-4 w-4" />
-                            {systemWhatsApp.status === "qr_expired" ? "Generate new QR" : "Show QR code"}
-                          </button>
-                          <span className="text-[10px] text-slate-500">
-                            Have your phone ready first — you'll have about 2 minutes.
-                          </span>
-                        </div>
-                      )}
-                      {systemWhatsApp.status === "qr_ready" && (
-                        <div className="mt-2 text-[11px] font-semibold text-emerald-700 text-center max-w-[14rem]">
-                          The pattern changes every ~20s (WhatsApp security). Just scan what you see.
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-3 text-xs text-slate-700 flex-1">
-                      <h4 className="text-sm font-bold text-slate-900">
-                        Scan QR Code with Camera
-                      </h4>
-                      <p className="text-[11px] text-slate-600 leading-relaxed">
-                        Point your camera at this QR code to connect LifeNest as the background sender:
-                      </p>
-                      <ol className="list-decimal list-inside space-y-1.5 text-[11px] font-medium text-slate-800 bg-slate-50/80 p-3 rounded-xl border border-slate-200/80">
-                        <li>Open <strong>WhatsApp</strong> on your mobile phone</li>
-                        <li>Tap <strong>Settings</strong> (iOS) or <strong>Three dots ⋮</strong> (Android)</li>
-                        <li>Select <strong>Linked Devices</strong> &rarr; tap <strong>Link a Device</strong></li>
-                        <li>Point your camera at this QR code to connect</li>
-                      </ol>
-                      <div className="flex items-center gap-2 text-[11px] text-emerald-700 font-medium pt-1">
-                        <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
-                        Waiting for scan... (If camera scanning fails, switch to the 8-Digit Code tab above!)
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
 
             {testResponse && (
               <div
@@ -952,62 +617,6 @@ export function SettingsPage() {
               </button>
             </div>
           </form>
-
-          {/* Master Cloud Storage Admin Setup */}
-          <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
-                <span>Master Google Drive (One-Time Setup)</span>
-              </h2>
-              {driveStatus.authorized ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                  <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Active & Automated for All Users
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
-                  One-Time Connection Required
-                </span>
-              )}
-            </div>
-
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Authorize once with your master Google account. Once connected, all users and family members automatically upload documents directly into your Google Drive folder (<code>16nFs8ycnwDKQDAiqpcMsapLPnvvHI6Lf</code>) user-wise with zero prompts.
-            </p>
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-              <div className="text-[11px] text-slate-500 font-mono">
-                Target Vault: {driveStatus.folderId || "16nFs8ycnwDKQDAiqpcMsapLPnvvHI6Lf"}
-              </div>
-
-              <button
-                type="button"
-                onClick={handleAuthorizeMaster}
-                disabled={authorizing}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-xs font-bold text-white shadow-xs transition cursor-pointer disabled:opacity-50"
-              >
-                <span>
-                  {authorizing
-                    ? "Connecting to Google..."
-                    : driveStatus.authorized
-                    ? "Re-Authorize Master Drive"
-                    : "Authorize Master Google Drive"}
-                </span>
-              </button>
-            </div>
-
-            {authSuccess && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-800 flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                Master Google Drive successfully authorized! All users will now upload directly into the drive.
-              </div>
-            )}
-
-            {authError && (
-              <div className="rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-700">
-                {authError}
-              </div>
-            )}
-          </div>
         </div>
       )}
     </div>

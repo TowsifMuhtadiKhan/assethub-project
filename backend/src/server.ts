@@ -550,7 +550,9 @@ const ADMIN_ID = process.env.ADMIN_ID || "Towsif";
 const ADMIN_PASS = process.env.ADMIN_PASS || "Admin";
 
 app.post("/api/admin/login", (req: Request, res: Response) => {
-  const { id, password } = req.body as { id?: string; password?: string };
+  const body = req.body as { id?: string; username?: string; password?: string };
+  const id = (body.id || body.username || "").trim();
+  const password = (body.password || "").trim();
   if (id === ADMIN_ID && password === ADMIN_PASS) {
     const adminToken = jwt.sign(
       { sub: "admin_towsif", role: "superadmin", name: "Towsif" },
