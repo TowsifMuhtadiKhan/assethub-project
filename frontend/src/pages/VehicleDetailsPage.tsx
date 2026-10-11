@@ -36,6 +36,8 @@ import {
   createVehicleService,
   listVehicleExpenses,
   listVehicleServices,
+  updateVehicleExpense,
+  deleteVehicleExpense,
 } from "../services/vehicleRecordService";
 import {
   listVehicleDocuments,
@@ -276,6 +278,21 @@ export function VehicleDetailsPage() {
   const [fuelLiters, setFuelLiters] = useState<number | "">("");
   const [fuelType, setFuelType] = useState("Octane");
   const [fuelNotes, setFuelNotes] = useState("");
+
+  // Fuel editing state
+  const [editingFuel, setEditingFuel] = useState<VehicleExpense | null>(null);
+  const [editFuelDate, setEditFuelDate] = useState("");
+  const [editFuelMileage, setEditFuelMileage] = useState<number | "">("");
+  const [editFuelAmount, setEditFuelAmount] = useState<number | "">("");
+  const [editFuelPricePerLiter, setEditFuelPricePerLiter] = useState<number | "">("");
+  const [editFuelLiters, setEditFuelLiters] = useState<number | "">("");
+  const [editFuelType, setEditFuelType] = useState("Octane");
+  const [editFuelNotes, setEditFuelNotes] = useState("");
+  const [isUpdatingFuel, setIsUpdatingFuel] = useState(false);
+
+  // Fuel delete confirmation state
+  const [fuelToDelete, setFuelToDelete] = useState<VehicleExpense | null>(null);
+  const [isDeletingFuel, setIsDeletingFuel] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -633,6 +650,147 @@ export function VehicleDetailsPage() {
       setError(saveErr instanceof Error ? saveErr.message : "Could not save fuel expense.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Open Edit Fuel modal & populate state
+  const openEditFuelModal = (fuel: VehicleExpense) => {
+    setEditingFuel(fuel);
+    setEditFuelDate(fuel.date);
+    setEditFuelMileage(fuel.mileage);
+    setEditFuelAmount(fuel.amount);
+    setEditFuelLiters(fuel.fuelLiters || "");
+
+    let detectedType = "Octane";
+    for (const ft of FUEL_TYPES) {
+      if ((fuel.description || "").toLowerCase().includes(ft.toLowerCase())) {
+        detectedType = ft;
+        break;
+      }
+    }
+    setEditFuelType(detectedType);
+
+    const rateMatch = (fuel.description || "").match(/@\s*৳?(\d+(?:\.\d+)?)/);
+    if (rateMatch) {
+      setEditFuelPricePerLiter(Number(rateMatch[1]));
+    } else if (fuel.amount > 0 && fuel.fuelLiters && fuel.fuelLiters > 0) {
+      setEditFuelPricePerLiter(Number((fuel.amount / fuel.fuelLiters).toFixed(2)));
+    } else {
+      setEditFuelPricePerLiter(BD_FUEL_RATES[detectedType] || "");
+    }
+
+    const cleanedNotes = (fuel.description || "")
+      .replace(new RegExp(`${detectedType}\\s*fill-up`, "i"), "")
+      .replace(/@\s*৳?\d+(?:\.\d+)?(?:\/L)?/i, "")
+      .replace(/^[·\s\-_]+|[·\s\-_]+$/g, "")
+      .trim();
+    setEditFuelNotes(cleanedNotes);
+  };
+
+  const handleEditFuelAmountChange = (valStr: string) => {
+    if (valStr === "") {
+      setEditFuelAmount("");
+      return;
+    }
+    const val = Number(valStr);
+    setEditFuelAmount(val);
+    if (editFuelPricePerLiter && Number(editFuelPricePerLiter) > 0) {
+      const calculatedLiters = Number((val / Number(editFuelPricePerLiter)).toFixed(2));
+      setEditFuelLiters(calculatedLiters);
+    }
+  };
+
+  const handleEditFuelPriceChange = (valStr: string) => {
+    if (valStr === "") {
+      setEditFuelPricePerLiter("");
+      return;
+    }
+    const price = Number(valStr);
+    setEditFuelPricePerLiter(price);
+    if (price > 0 && editFuelAmount && Number(editFuelAmount) > 0) {
+      const calculatedLiters = Number((Number(editFuelAmount) / price).toFixed(2));
+      setEditFuelLiters(calculatedLiters);
+    } else if (price > 0 && editFuelLiters && Number(editFuelLiters) > 0) {
+      const calculatedAmount = Math.round(Number(editFuelLiters) * price);
+      setEditFuelAmount(calculatedAmount);
+    }
+  };
+
+  const handleEditFuelLitersChange = (valStr: string) => {
+    if (valStr === "") {
+      setEditFuelLiters("");
+      return;
+    }
+    const liters = Number(valStr);
+    setEditFuelLiters(liters);
+    if (editFuelPricePerLiter && Number(editFuelPricePerLiter) > 0) {
+      const calculatedAmount = Math.round(liters * Number(editFuelPricePerLiter));
+      setEditFuelAmount(calculatedAmount);
+    } else if (editFuelAmount && Number(editFuelAmount) > 0 && liters > 0) {
+      const calculatedPrice = Number((Number(editFuelAmount) / liters).toFixed(2));
+      setEditFuelPricePerLiter(calculatedPrice);
+    }
+  };
+
+  const applyEditFuelPresetRate = (rate: number) => {
+    setEditFuelPricePerLiter(rate);
+    if (editFuelAmount && Number(editFuelAmount) > 0) {
+      const calculatedLiters = Number((Number(editFuelAmount) / rate).toFixed(2));
+      setEditFuelLiters(calculatedLiters);
+    } else if (editFuelLiters && Number(editFuelLiters) > 0) {
+      const calculatedAmount = Math.round(Number(editFuelLiters) * rate);
+      setEditFuelAmount(calculatedAmount);
+    }
+  };
+
+  const handleEditFuelTypeSelect = (ft: string) => {
+    const prevPreset = BD_FUEL_RATES[editFuelType];
+    setEditFuelType(ft);
+    const newRate = BD_FUEL_RATES[ft];
+    if (newRate && (!editFuelPricePerLiter || editFuelPricePerLiter === prevPreset)) {
+      applyEditFuelPresetRate(newRate);
+    }
+  };
+
+  const handleUpdateFuel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingFuel || !editFuelAmount || !editFuelMileage) {
+      setError("Please specify fuel amount and current mileage.");
+      return;
+    }
+    setIsUpdatingFuel(true);
+    setError("");
+    try {
+      const rateInfo = editFuelPricePerLiter ? ` @ ৳${editFuelPricePerLiter}/L` : "";
+      const description = `${editFuelType} fill-up${rateInfo}${editFuelNotes ? ` · ${editFuelNotes}` : ""}`;
+      const updated = await updateVehicleExpense(editingFuel.id, {
+        date: editFuelDate,
+        amount: Number(editFuelAmount),
+        mileage: Number(editFuelMileage),
+        description,
+        fuelLiters: editFuelLiters ? Number(editFuelLiters) : undefined,
+      });
+
+      setExpenses((cur) => cur.map((item) => (item.id === updated.id ? updated : item)));
+      setEditingFuel(null);
+    } catch (saveErr) {
+      setError(saveErr instanceof Error ? saveErr.message : "Could not update fuel expense.");
+    } finally {
+      setIsUpdatingFuel(false);
+    }
+  };
+
+  const handleConfirmDeleteFuel = async () => {
+    if (!fuelToDelete) return;
+    setIsDeletingFuel(true);
+    try {
+      await deleteVehicleExpense(fuelToDelete.id);
+      setExpenses((cur) => cur.filter((item) => item.id !== fuelToDelete.id));
+      setFuelToDelete(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete fuel record.");
+    } finally {
+      setIsDeletingFuel(false);
     }
   };
 
@@ -1398,6 +1556,7 @@ export function VehicleDetailsPage() {
                       <th className="px-3 py-2">Details / Pump</th>
                       <th className="px-3 py-2 font-mono">Liters</th>
                       <th className="px-3 py-2 font-mono text-right">Amount</th>
+                      <th className="px-3 py-2 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1428,6 +1587,26 @@ export function VehicleDetailsPage() {
                         </td>
                         <td className="whitespace-nowrap px-3 py-2 font-mono font-bold text-slate-900 text-right">
                           {formatMoney(fuel.amount)}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right">
+                          <div className="inline-flex items-center gap-1 justify-end">
+                            <button
+                              type="button"
+                              onClick={() => openEditFuelModal(fuel)}
+                              className="rounded p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition cursor-pointer"
+                              title="Edit fuel entry"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFuelToDelete(fuel)}
+                              className="rounded p-1 text-slate-300 hover:text-rose-600 hover:bg-slate-100 transition cursor-pointer"
+                              title="Delete fuel entry"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -3345,6 +3524,276 @@ export function VehicleDetailsPage() {
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 {isDeletingDoc ? "Deleting..." : "Yes, Delete Document"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT FUEL PURCHASE */}
+      {editingFuel && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overflow-y-auto"
+          onMouseDown={() => setEditingFuel(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden my-8"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+              <div>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    Fuel Entry
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">LN-FUEL</span>
+                </div>
+                <h2 className="text-base font-bold tracking-tight text-slate-900">
+                  Edit Fuel Purchase
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingFuel(null)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateFuel} className="p-6 space-y-3.5">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Purchase Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editFuelDate}
+                    onChange={(e) => setEditFuelDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Odometer Mileage (km) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="e.g. 99725"
+                    value={editFuelMileage}
+                    onChange={(e) => setEditFuelMileage(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Amount Paid (৳) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="e.g. 5000"
+                    value={editFuelAmount}
+                    onChange={(e) => handleEditFuelAmountChange(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-mono font-semibold text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Per Liter Price (৳)
+                    </label>
+                    {BD_FUEL_RATES[editFuelType] && (
+                      <button
+                        type="button"
+                        onClick={() => applyEditFuelPresetRate(BD_FUEL_RATES[editFuelType])}
+                        className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer underline decoration-dotted"
+                        title={`Apply standard BD ${editFuelType} rate (৳${BD_FUEL_RATES[editFuelType]}/L)`}
+                      >
+                        ৳{BD_FUEL_RATES[editFuelType]} BD
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder={`e.g. ${BD_FUEL_RATES[editFuelType] || 125}`}
+                    value={editFuelPricePerLiter}
+                    onChange={(e) => handleEditFuelPriceChange(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Liters (Auto-Calculated)
+                  </label>
+                  {editFuelAmount && editFuelPricePerLiter && (
+                    <span className="text-[10px] font-mono text-emerald-700 font-medium bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                      ৳{editFuelAmount} ÷ ৳{editFuelPricePerLiter} = {editFuelLiters || 0} L
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="e.g. 30.30"
+                    value={editFuelLiters}
+                    onChange={(e) => handleEditFuelLitersChange(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white pr-8"
+                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 pointer-events-none">
+                    L
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Fuel Type
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {FUEL_TYPES.map((ft) => (
+                    <button
+                      key={ft}
+                      type="button"
+                      onClick={() => handleEditFuelTypeSelect(ft)}
+                      className={`rounded-lg px-2.5 py-1 text-xs font-medium transition cursor-pointer ${
+                        editFuelType === ft
+                          ? "bg-slate-900 text-white font-semibold shadow-xs"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      {ft}
+                      {BD_FUEL_RATES[ft] && (
+                        <span className="ml-1 text-[10px] opacity-75 font-mono">
+                          ৳{BD_FUEL_RATES[ft]}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Fuel Station / Note
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Trust Filling Station, Padma Oil"
+                  value={editFuelNotes}
+                  onChange={(e) => setEditFuelNotes(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toDelete = editingFuel;
+                    setEditingFuel(null);
+                    setFuelToDelete(toDelete);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete Entry
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingFuel(null)}
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingFuel}
+                    className="rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition shadow-xs cursor-pointer"
+                  >
+                    {isUpdatingFuel ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: DELETE FUEL PURCHASE CONFIRMATION */}
+      {fuelToDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs"
+          onMouseDown={() => setFuelToDelete(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 p-6 my-8"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-50 border border-rose-100 text-rose-600">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Delete Fuel Purchase?
+                </h3>
+                <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                  Are you sure you want to delete this fuel record? This will update your total fuel expense calculations.
+                </p>
+                <div className="mt-3 rounded-xl bg-slate-50 p-3 border border-slate-100 text-xs">
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-500">Date:</span>
+                    <span className="font-mono font-semibold text-slate-800">{fuelToDelete.date}</span>
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-500">Amount:</span>
+                    <span className="font-mono font-bold text-slate-900">{formatMoney(fuelToDelete.amount)}</span>
+                  </div>
+                  {fuelToDelete.fuelLiters && (
+                    <div className="flex justify-between py-0.5">
+                      <span className="text-slate-500">Liters:</span>
+                      <span className="font-mono text-slate-800">{fuelToDelete.fuelLiters} L</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={isDeletingFuel}
+                onClick={() => setFuelToDelete(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingFuel}
+                onClick={handleConfirmDeleteFuel}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 active:bg-rose-800 transition shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {isDeletingFuel ? "Deleting..." : "Yes, Delete Fuel Record"}
               </button>
             </div>
           </div>

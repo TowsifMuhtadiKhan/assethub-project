@@ -70,6 +70,47 @@ export async function createVehicleExpense(
   };
 }
 
+export async function updateVehicleExpense(
+  id: string,
+  input: Partial<VehicleExpense>,
+): Promise<VehicleExpense> {
+  const patch: Record<string, any> = {};
+  if (input.date !== undefined) patch.date = input.date;
+  if (input.category !== undefined) patch.category = input.category;
+  if (input.amount !== undefined) patch.amount = input.amount;
+  if (input.mileage !== undefined) patch.mileage = input.mileage;
+  if (input.description !== undefined) patch.description = input.description;
+  if (input.paymentMethod !== undefined) patch.payment_method = input.paymentMethod;
+  if (input.fuelLiters !== undefined) patch.fuel_liters = input.fuelLiters;
+  if (input.receiptUrl !== undefined) patch.receipt_url = input.receiptUrl;
+
+  const { data, error } = await supabase
+    .from(EXPENSES_TABLE)
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return {
+    id: data.id,
+    vehicleId: data.vehicle_id,
+    date: data.date,
+    category: data.category,
+    amount: Number(data.amount),
+    mileage: data.mileage ?? 0,
+    description: data.description ?? "",
+    receiptUrl: data.receipt_url ?? undefined,
+    paymentMethod: data.payment_method ?? "",
+    fuelLiters: data.fuel_liters ? Number(data.fuel_liters) : undefined,
+  };
+}
+
+export async function deleteVehicleExpense(id: string): Promise<void> {
+  const { error } = await supabase.from(EXPENSES_TABLE).delete().eq("id", id);
+  if (error) throw error;
+}
+
 export async function listVehicleServices(
   vehicleId: string,
 ): Promise<VehicleService[]> {
