@@ -17,6 +17,8 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { ErrorPage } from "./pages/ErrorPage";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 
+import { AdminPage } from "./pages/AdminPage";
+
 function AllVehiclesPage() {
   return <VehicleEntryPage filterType="All" />;
 }
@@ -33,11 +35,21 @@ function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
-        <AuthGate>
-          <Routes>
-            <Route element={<AppLayout />}>
-              {/* 1. Daily Dashboard */}
-              <Route path="/" element={<DashboardPage />} />
+        <Routes>
+          {/* Fully Separate & Private SuperAdmin Panel (ID: Towsif, Pass: Admin) */}
+          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin/*" element={<AdminPage />} />
+
+          {/* Standard User App Layout */}
+          <Route
+            element={
+              <AuthGate>
+                <AppLayout />
+              </AuthGate>
+            }
+          >
+            {/* 1. Daily Dashboard */}
+            <Route path="/" element={<DashboardPage />} />
 
               {/* 2. My Life */}
               <Route path="/my-life/tasks" element={<TasksPage />} />
@@ -78,10 +90,9 @@ function App() {
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
-        </AuthGate>
-      </BrowserRouter>
-    </ErrorBoundary>
-  );
-}
+        </BrowserRouter>
+      </ErrorBoundary>
+    );
+  }
 
 export default App;

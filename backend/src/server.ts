@@ -7,6 +7,8 @@ import express, {
   type Response,
 } from "express";
 import jwt from "jsonwebtoken";
+import fs from "fs";
+import path from "path";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import {
@@ -501,9 +503,107 @@ app.post("/api/whatsapp/pairing-code", async (req: Request, res: Response) => {
   }
 });
 
+interface DispatchedMessageLog {
+  id: string;
+  timestamp: string;
+  to: string;
+  recipientName?: string;
+  itemTitle?: string;
+  message: string;
+  status: "DELIVERED" | "FAILED";
+  messageId?: string;
+  error?: string;
+}
+
+const MESSAGE_LOGS_FILE = path.resolve(process.cwd(), "whatsapp_message_logs.json");
+
+function loadMessageLogs(): DispatchedMessageLog[] {
+  try {
+    if (fs.existsSync(MESSAGE_LOGS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(MESSAGE_LOGS_FILE, "utf-8"));
+      if (Array.isArray(data)) return data;
+    }
+  } catch {}
+  return [];
+}
+
+function saveMessageLogs(logs: DispatchedMessageLog[]) {
+  try {
+    fs.writeFileSync(MESSAGE_LOGS_FILE, JSON.stringify(logs.slice(0, 500), null, 2), "utf-8");
+  } catch {}
+}
+
+function appendMessageLog(log: Omit<DispatchedMessageLog, "id" | "timestamp">) {
+  const logs = loadMessageLogs();
+  const entry: DispatchedMessageLog = {
+    id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    timestamp: new Date().toISOString(),
+    ...log,
+  };
+  logs.unshift(entry);
+  saveMessageLogs(logs);
+  return entry;
+}
+
+// Dedicated Admin Panel (ID: Towsif, Pass: Admin)
+const ADMIN_ID = process.env.ADMIN_ID || "Towsif";
+const ADMIN_PASS = process.env.ADMIN_PASS || "Admin";
+
+app.post("/api/admin/login", (req: Request, res: Response) => {
+  const { id, password } = req.body as { id?: string; password?: string };
+  if (id === ADMIN_ID && password === ADMIN_PASS) {
+    const adminToken = jwt.sign(
+      { sub: "admin_towsif", role: "superadmin", name: "Towsif" },
+      jwtSecret,
+      { expiresIn: "7d" }
+    );
+    return res.json({
+      success: true,
+      token: adminToken,
+      admin: {
+        id: "Towsif",
+        role: "SuperAdmin",
+        name: "Towsif",
+      },
+    });
+  }
+  return res.status(401).json({
+    success: false,
+    message: "Invalid Admin ID or Password",
+  });
+});
+
+app.get("/api/admin/messages", (_req: Request, res: Response) => {
+  const logs = loadMessageLogs();
+  res.json({ success: true, count: logs.length, messages: logs });
+});
+
+app.delete("/api/admin/messages", (_req: Request, res: Response) => {
+  saveMessageLogs([]);
+  res.json({ success: true, message: "Message history cleared" });
+});
+
+app.get("/api/admin/stats", async (_req: Request, res: Response) => {
+  const logs = loadMessageLogs();
+  const waStatus = await getWhatsAppStatus();
+  const driveStatus = getDriveStatus();
+  const totalSent = logs.filter((l) => l.status === "DELIVERED").length;
+  const totalFailed = logs.filter((l) => l.status === "FAILED").length;
+  res.json({
+    success: true,
+    stats: {
+      totalMessages: logs.length,
+      delivered: totalSent,
+      failed: totalFailed,
+      whatsapp: waStatus,
+      googleDrive: driveStatus,
+    },
+  });
+});
+
 app.post("/api/whatsapp/send", async (req: Request, res: Response) => {
   try {
-    const { to, message } = req.body;
+    const { to, message, recipientName, itemTitle } = req.body;
     if (!to || !message) {
       return res.status(400).json({
         success: false,
@@ -516,12 +616,31 @@ app.post("/api/whatsapp/send", async (req: Request, res: Response) => {
       message,
     });
 
+    appendMessageLog({
+      to,
+      recipientName,
+      itemTitle,
+      message,
+      status: result.success ? "DELIVERED" : "FAILED",
+      messageId: result.messageId,
+      error: result.error,
+    });
+
     if (result.success) {
       return res.json(result);
     } else {
       return res.status(400).json(result);
     }
   } catch (error) {
+    appendMessageLog({
+      to: req.body?.to || "unknown",
+      recipientName: req.body?.recipientName,
+      itemTitle: req.body?.itemTitle,
+      message: req.body?.message || "",
+      status: "FAILED",
+      error: error instanceof Error ? error.message : "WhatsApp dispatch failed",
+    });
+
     res.status(500).json({
       success: false,
       message: error instanceof Error ? error.message : "WhatsApp dispatch failed",
@@ -562,6 +681,17 @@ app.post("/api/whatsapp/batch-send", async (req: Request, res: Response) => {
           to: item.to,
           message: item.message,
         });
+
+        appendMessageLog({
+          to: item.to,
+          recipientName: item.recipientName,
+          itemTitle: item.itemTitle,
+          message: item.message,
+          status: sendRes.success ? "DELIVERED" : "FAILED",
+          messageId: sendRes.messageId,
+          error: sendRes.error,
+        });
+
         results.push({
           to: item.to,
           recipientName: item.recipientName,
@@ -571,6 +701,15 @@ app.post("/api/whatsapp/batch-send", async (req: Request, res: Response) => {
           error: sendRes.error,
         });
       } catch (err) {
+        appendMessageLog({
+          to: item.to,
+          recipientName: item.recipientName,
+          itemTitle: item.itemTitle,
+          message: item.message,
+          status: "FAILED",
+          error: err instanceof Error ? err.message : "Dispatch failed",
+        });
+
         results.push({
           to: item.to,
           recipientName: item.recipientName,
