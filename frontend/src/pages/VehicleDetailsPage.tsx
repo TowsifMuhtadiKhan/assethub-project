@@ -17,6 +17,10 @@ import {
   Sparkles,
   Layers,
   Download,
+  Send,
+  Edit2,
+  Bell,
+  X,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { listVehicles } from "../services/vehicleService";
@@ -30,6 +34,7 @@ import {
 import {
   listVehicleDocuments,
   createVehicleDocument,
+  updateVehicleDocument,
   deleteVehicleDocument,
   extractMaintenanceFromReceipt,
 } from "../services/vehicleDocumentService";
@@ -49,6 +54,12 @@ import type {
 } from "../types";
 import { getVehicleIcon, getVehicleTypeBadgeClass } from "./VehicleEntryPage";
 import { BangladeshNumberPlate } from "../components/common/BangladeshNumberPlate";
+import { ItemRecipientSelector } from "../components/common/ItemRecipientSelector";
+import {
+  dispatchVehicleDocReminderNow,
+  checkAndDispatchDueReminders,
+  parseLeadMinutes,
+} from "../services/reminderDaemon";
 
 const BD_DOC_PRESETS: Record<
   string,
@@ -159,6 +170,38 @@ export function VehicleDetailsPage() {
   const [docIssueDate, setDocIssueDate] = useState("");
   const [docFile, setDocFile] = useState<File | null>(null);
   const [docNotes, setDocNotes] = useState("");
+
+  // Document modal reminder state (Upload)
+  const [docReminderWhatsapp, setDocReminderWhatsapp] = useState(true);
+  const [docReminderLead, setDocReminderLead] = useState("15 days before");
+  const [docCustomLeadMinutes, setDocCustomLeadMinutes] = useState(15);
+  const [docCustomLeadUnit, setDocCustomLeadUnit] = useState<"minutes" | "hours" | "days">("days");
+  const [docDueTime, setDocDueTime] = useState("09:00");
+  const [docRecipients, setDocRecipients] = useState<string[]>(["Personal"]);
+
+  // Document Edit modal state
+  const [editingDoc, setEditingDoc] = useState<VehicleDocument | null>(null);
+  const [editDocName, setEditDocName] = useState("");
+  const [editDocCategory, setEditDocCategory] = useState<BangladeshDocType>("Tax Token");
+  const [editDocNumber, setEditDocNumber] = useState("");
+  const [editDocIssueDate, setEditDocIssueDate] = useState("");
+  const [editDocExpiryDate, setEditDocExpiryDate] = useState("");
+  const [editDocNotes, setEditDocNotes] = useState("");
+  const [editDocReminderWhatsapp, setEditDocReminderWhatsapp] = useState(true);
+  const [editDocReminderLead, setEditDocReminderLead] = useState("15 days before");
+  const [editDocCustomLeadMinutes, setEditDocCustomLeadMinutes] = useState(15);
+  const [editDocCustomLeadUnit, setEditDocCustomLeadUnit] = useState<"minutes" | "hours" | "days">("days");
+  const [editDocDueTime, setEditDocDueTime] = useState("09:00");
+  const [editDocRecipients, setEditDocRecipients] = useState<string[]>(["Personal"]);
+  const [isUpdatingDoc, setIsUpdatingDoc] = useState(false);
+
+  // Document manual WhatsApp sending state
+  const [sendingDocId, setSendingDocId] = useState<string | null>(null);
+  const [sentDocSuccessId, setSentDocSuccessId] = useState<string | null>(null);
+
+  // Document custom delete confirmation state
+  const [docToDelete, setDocToDelete] = useState<VehicleDocument | null>(null);
+  const [isDeletingDoc, setIsDeletingDoc] = useState(false);
 
   // Warranty modal state
   const [warrantyModalOpen, setWarrantyModalOpen] = useState(false);
@@ -285,6 +328,78 @@ export function VehicleDetailsPage() {
 
   const formatMoney = (amount: number) => `৳${amount.toLocaleString("en-BD")}`;
 
+  function formatTime12h(timeStr?: string) {
+    if (!timeStr) return "";
+    const parts = timeStr.split(":");
+    if (parts.length < 2) return timeStr;
+    let hh = parseInt(parts[0], 10);
+    const mm = parts[1];
+    const ampm = hh >= 12 ? "PM" : "AM";
+    hh = hh % 12;
+    if (hh === 0) hh = 12;
+    return `${hh}:${mm} ${ampm}`;
+  }
+
+  const docReminderPreviewText = useMemo(() => {
+    if (!docExpiryDate) return null;
+    const baseDate = new Date(docExpiryDate);
+    if (docDueTime) {
+      const [hh, mm] = docDueTime.split(":").map(Number);
+      baseDate.setHours(hh, mm, 0, 0);
+    } else {
+      baseDate.setHours(9, 0, 0, 0);
+    }
+    if (isNaN(baseDate.getTime())) return null;
+
+    const triggerDate = new Date(baseDate);
+    if (docReminderLead === "custom") {
+      const val = Number(docCustomLeadMinutes) || 0;
+      if (docCustomLeadUnit === "minutes") triggerDate.setMinutes(triggerDate.getMinutes() - val);
+      else if (docCustomLeadUnit === "hours") triggerDate.setHours(triggerDate.getHours() - val);
+      else triggerDate.setDate(triggerDate.getDate() - val);
+    } else if (docReminderLead === "On exact expiry date") {
+      // 0 min
+    } else if (docReminderLead === "1 day before") triggerDate.setDate(triggerDate.getDate() - 1);
+    else if (docReminderLead === "3 days before") triggerDate.setDate(triggerDate.getDate() - 3);
+    else if (docReminderLead === "7 days before") triggerDate.setDate(triggerDate.getDate() - 7);
+    else if (docReminderLead === "15 days before") triggerDate.setDate(triggerDate.getDate() - 15);
+    else if (docReminderLead === "30 days before") triggerDate.setDate(triggerDate.getDate() - 30);
+
+    const timeStr = triggerDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    const dateStr = triggerDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return `Notification triggers at ${timeStr} on ${dateStr}`;
+  }, [docExpiryDate, docDueTime, docReminderLead, docCustomLeadMinutes, docCustomLeadUnit]);
+
+  const editDocReminderPreviewText = useMemo(() => {
+    if (!editDocExpiryDate) return null;
+    const baseDate = new Date(editDocExpiryDate);
+    if (editDocDueTime) {
+      const [hh, mm] = editDocDueTime.split(":").map(Number);
+      baseDate.setHours(hh, mm, 0, 0);
+    } else {
+      baseDate.setHours(9, 0, 0, 0);
+    }
+    if (isNaN(baseDate.getTime())) return null;
+
+    const triggerDate = new Date(baseDate);
+    if (editDocReminderLead === "custom") {
+      const val = Number(editDocCustomLeadMinutes) || 0;
+      if (editDocCustomLeadUnit === "minutes") triggerDate.setMinutes(triggerDate.getMinutes() - val);
+      else if (editDocCustomLeadUnit === "hours") triggerDate.setHours(triggerDate.getHours() - val);
+      else triggerDate.setDate(triggerDate.getDate() - val);
+    } else if (editDocReminderLead === "On exact expiry date") {
+      // 0 min
+    } else if (editDocReminderLead === "1 day before") triggerDate.setDate(triggerDate.getDate() - 1);
+    else if (editDocReminderLead === "3 days before") triggerDate.setDate(triggerDate.getDate() - 3);
+    else if (editDocReminderLead === "7 days before") triggerDate.setDate(triggerDate.getDate() - 7);
+    else if (editDocReminderLead === "15 days before") triggerDate.setDate(triggerDate.getDate() - 15);
+    else if (editDocReminderLead === "30 days before") triggerDate.setDate(triggerDate.getDate() - 30);
+
+    const timeStr = triggerDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    const dateStr = triggerDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return `Notification triggers at ${timeStr} on ${dateStr}`;
+  }, [editDocExpiryDate, editDocDueTime, editDocReminderLead, editDocCustomLeadMinutes, editDocCustomLeadUnit]);
+
   // 1. Handle Fuel Log Submission
   const handleSaveFuel = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -403,6 +518,16 @@ export function VehicleDetailsPage() {
     setSaving(true);
     setError("");
     try {
+      let finalNotes = docNotes.trim();
+      if (docReminderWhatsapp && docExpiryDate) {
+        const rawLead = docReminderLead === "custom"
+          ? `${docCustomLeadMinutes} ${docCustomLeadUnit} before`
+          : docReminderLead;
+        const timeNote = docDueTime ? `, Due Time: ${formatTime12h(docDueTime)}` : "";
+        const rec = docRecipients.length > 0 ? `, Recipients: ${docRecipients.join(", ")}` : "";
+        finalNotes = `${finalNotes} [Reminder: ${rawLead}${timeNote}${rec}]`.trim();
+      }
+
       const fileUrl = docFile ? await fileToDataUrl(docFile) : undefined;
       const created = await createVehicleDocument({
         vehicleId,
@@ -415,7 +540,7 @@ export function VehicleDetailsPage() {
         fileUrl,
         fileName: docFile?.name,
         fileType: docFile?.type || "pdf",
-        notes: docNotes.trim(),
+        notes: finalNotes,
       });
 
       setDocuments((cur) => [created, ...cur]);
@@ -426,10 +551,124 @@ export function VehicleDetailsPage() {
       setDocIssueDate("");
       setDocFile(null);
       setDocNotes("");
+      setDocReminderLead("15 days before");
+      setDocCustomLeadMinutes(15);
+      setDocCustomLeadUnit("days");
+      setDocDueTime("09:00");
+
+      checkAndDispatchDueReminders().catch(() => {});
     } catch (saveErr) {
       setError(saveErr instanceof Error ? saveErr.message : "Could not save document.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const openEditDocModal = (doc: VehicleDocument) => {
+    setEditingDoc(doc);
+    setEditDocName(doc.name);
+    setEditDocCategory((doc.category as BangladeshDocType) || "Tax Token");
+    setEditDocNumber(doc.documentNumber || "");
+    setEditDocIssueDate(doc.issueDate || "");
+    setEditDocExpiryDate(doc.expiryDate || "");
+
+    const cleanNotes = (doc.notes || "").replace(/\s*\[Reminder:[^\]]+\]/gi, "").trim();
+    setEditDocNotes(cleanNotes);
+
+    const hasReminder = Boolean(doc.notes && /\[Reminder:[^\]]+\]/i.test(doc.notes));
+    setEditDocReminderWhatsapp(hasReminder || Boolean(doc.expiryDate));
+
+    const minutes = parseLeadMinutes(doc.notes);
+    if (minutes === 0) setEditDocReminderLead("On exact expiry date");
+    else if (minutes === 1440) setEditDocReminderLead("1 day before");
+    else if (minutes === 4320) setEditDocReminderLead("3 days before");
+    else if (minutes === 10080) setEditDocReminderLead("7 days before");
+    else if (minutes === 21600) setEditDocReminderLead("15 days before");
+    else if (minutes === 43200) setEditDocReminderLead("30 days before");
+    else {
+      setEditDocReminderLead("custom");
+      setEditDocCustomLeadMinutes(Math.round(minutes / 1440) || minutes || 15);
+      setEditDocCustomLeadUnit(minutes >= 1440 ? "days" : minutes >= 60 ? "hours" : "minutes");
+    }
+
+    const timeMatch = doc.notes?.match(/Due Time:\s*([^,\]\n]+)/i);
+    setEditDocDueTime(timeMatch ? timeMatch[1] : "09:00");
+
+    const recMatch = doc.notes?.match(/Recipients:\s*([^\]\n]+)/i);
+    if (recMatch) {
+      const parsed = recMatch[1].split(",").map((s) => s.trim()).filter(Boolean);
+      setEditDocRecipients(parsed.length > 0 ? parsed : ["Personal"]);
+    } else {
+      setEditDocRecipients(["Personal"]);
+    }
+  };
+
+  const handleUpdateDocument = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDoc) return;
+    setIsUpdatingDoc(true);
+    setError("");
+
+    try {
+      let finalNotes = editDocNotes.trim();
+      if (editDocReminderWhatsapp && editDocExpiryDate) {
+        const rawLead = editDocReminderLead === "custom"
+          ? `${editDocCustomLeadMinutes} ${editDocCustomLeadUnit} before`
+          : editDocReminderLead;
+        const timeNote = editDocDueTime ? `, Due Time: ${formatTime12h(editDocDueTime)}` : "";
+        const rec = editDocRecipients.length > 0 ? `, Recipients: ${editDocRecipients.join(", ")}` : "";
+        finalNotes = `${finalNotes} [Reminder: ${rawLead}${timeNote}${rec}]`.trim();
+      }
+
+      const updated = await updateVehicleDocument(vehicleId, editingDoc.id, {
+        name: editDocName.trim(),
+        category: editDocCategory,
+        documentNumber: editDocNumber.trim() || undefined,
+        issueDate: editDocIssueDate || undefined,
+        expiryDate: editDocExpiryDate || undefined,
+        notes: finalNotes,
+      });
+
+      localStorage.removeItem(`lifenest_vehdoc_dispatched_${editingDoc.id}`);
+      setDocuments((cur) => cur.map((d) => (d.id === updated.id ? updated : d)));
+      setEditingDoc(null);
+
+      checkAndDispatchDueReminders().catch(() => {});
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update document.");
+    } finally {
+      setIsUpdatingDoc(false);
+    }
+  };
+
+  const handleSendDocWhatsApp = async (doc: VehicleDocument) => {
+    setSendingDocId(doc.id);
+    try {
+      const res = await dispatchVehicleDocReminderNow(doc, vehicle);
+      if (res.success) {
+        setSentDocSuccessId(doc.id);
+        setTimeout(() => setSentDocSuccessId(null), 3000);
+      } else {
+        alert(res.error || "WhatsApp gateway could not deliver alert. Check connection.");
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to dispatch WhatsApp alert");
+    } finally {
+      setSendingDocId(null);
+    }
+  };
+
+  const handleConfirmDeleteDoc = async () => {
+    if (!docToDelete) return;
+    setIsDeletingDoc(true);
+    try {
+      await deleteVehicleDocument(vehicleId, docToDelete.id);
+      setDocuments((cur) => cur.filter((d) => d.id !== docToDelete.id));
+      setDocToDelete(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete document.");
+    } finally {
+      setIsDeletingDoc(false);
     }
   };
 
@@ -1305,6 +1544,9 @@ export function VehicleDetailsPage() {
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {documents.map((doc) => {
                   const expiryInfo = getDaysRemaining(doc.expiryDate);
+                  const reminderMatch = doc.notes?.match(/\[Reminder:\s*([^\]]+)\]/i);
+                  const cleanNotes = (doc.notes || "").replace(/\s*\[Reminder:[^\]]+\]/gi, "").trim();
+
                   return (
                     <div
                       key={doc.id}
@@ -1320,19 +1562,24 @@ export function VehicleDetailsPage() {
                               {doc.name}
                             </h4>
                           </div>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (confirm(`Remove ${doc.name}?`)) {
-                                await deleteVehicleDocument(vehicleId, doc.id);
-                                setDocuments((cur) => cur.filter((d) => d.id !== doc.id));
-                              }
-                            }}
-                            className="rounded p-1 text-slate-300 hover:text-rose-600 transition"
-                            title="Delete document"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => openEditDocModal(doc)}
+                              className="rounded p-1 text-slate-400 hover:text-indigo-600 transition cursor-pointer"
+                              title="Edit document & notification options"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDocToDelete(doc)}
+                              className="rounded p-1 text-slate-300 hover:text-rose-600 transition cursor-pointer"
+                              title="Delete document"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
 
                         {doc.documentNumber && (
@@ -1363,15 +1610,59 @@ export function VehicleDetailsPage() {
                               </span>
                             </div>
                           )}
-                          {doc.notes && (
+                          {cleanNotes && (
                             <div className="text-[10px] text-slate-400 mt-1">
-                              {doc.notes}
+                              {cleanNotes}
                             </div>
                           )}
                         </div>
+
+                        {/* WhatsApp Reminder Status & Trigger Toolbar */}
+                        <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-1 text-[10px]">
+                          {reminderMatch ? (
+                            <div
+                              onClick={() => openEditDocModal(doc)}
+                              className="flex items-center gap-1 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200/60 truncate cursor-pointer transition"
+                              title="Click to edit reminder schedule"
+                            >
+                              <Bell className="h-3 w-3 shrink-0 text-emerald-600" />
+                              <span className="truncate font-medium">{reminderMatch[1]}</span>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => openEditDocModal(doc)}
+                              className="text-slate-400 hover:text-indigo-600 flex items-center gap-1 font-medium cursor-pointer"
+                              title="Set WhatsApp renewal reminder"
+                            >
+                              <Bell className="h-3 w-3" /> Set WhatsApp Alert
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            disabled={sendingDocId === doc.id}
+                            onClick={() => handleSendDocWhatsApp(doc)}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold transition cursor-pointer shrink-0 shadow-2xs ${
+                              sentDocSuccessId === doc.id
+                                ? "bg-emerald-600 text-white border-emerald-600"
+                                : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/70"
+                            }`}
+                            title="Send WhatsApp document expiry alert now"
+                          >
+                            <Send className={`h-2.5 w-2.5 ${sendingDocId === doc.id ? "animate-spin" : ""}`} />
+                            <span>
+                              {sendingDocId === doc.id
+                                ? "Sending..."
+                                : sentDocSuccessId === doc.id
+                                ? "Alert Sent!"
+                                : "WA Alert"}
+                            </span>
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="mt-4 border-t border-slate-100 pt-2.5 flex items-center justify-between">
+                      <div className="mt-3 border-t border-slate-100 pt-2 flex items-center justify-between">
                         <span className="text-[10px] text-slate-400">
                           {doc.fileType?.toUpperCase() || "FILE"}
                         </span>
@@ -1796,6 +2087,98 @@ export function VehicleDetailsPage() {
                 </label>
               </div>
 
+              {/* WhatsApp Renewal Alert Card */}
+              <div className="rounded-xl bg-emerald-50/70 border border-emerald-100 p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="docReminderWhatsapp"
+                      checked={docReminderWhatsapp}
+                      onChange={(e) => setDocReminderWhatsapp(e.target.checked)}
+                      className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <label htmlFor="docReminderWhatsapp" className="text-xs font-bold text-emerald-950 cursor-pointer">
+                      Send WhatsApp reminder for document renewal
+                    </label>
+                  </div>
+                  {docDueTime && (
+                    <span className="text-[11px] font-mono font-semibold text-emerald-700 bg-white/80 border border-emerald-200/80 px-2 py-0.5 rounded-full">
+                      ⏰ Time: {formatTime12h(docDueTime)}
+                    </span>
+                  )}
+                </div>
+
+                {docReminderWhatsapp && (
+                  <div className="space-y-2.5 pl-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <span className="text-[11px] font-semibold text-slate-700 shrink-0">
+                        Remind Lead:
+                      </span>
+                      <select
+                        value={docReminderLead}
+                        onChange={(e) => setDocReminderLead(e.target.value)}
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium"
+                      >
+                        <option value="30 days before">30 days before (Recommended for BRTA)</option>
+                        <option value="15 days before">15 days before</option>
+                        <option value="7 days before">7 days before</option>
+                        <option value="3 days before">3 days before</option>
+                        <option value="1 day before">1 day before</option>
+                        <option value="On exact expiry date">On exact expiry date</option>
+                        <option value="custom">Custom Days / Hours / Mins...</option>
+                      </select>
+
+                      {docReminderLead === "custom" && (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            min="1"
+                            max="999"
+                            value={docCustomLeadMinutes}
+                            onChange={(e) => setDocCustomLeadMinutes(Number(e.target.value))}
+                            className="w-16 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 font-mono text-center outline-none focus:border-emerald-600"
+                          />
+                          <select
+                            value={docCustomLeadUnit}
+                            onChange={(e) => setDocCustomLeadUnit(e.target.value as any)}
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium"
+                          >
+                            <option value="minutes">Minutes before</option>
+                            <option value="hours">Hours before</option>
+                            <option value="days">Days before</option>
+                          </select>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-1.5 ml-auto">
+                        <span className="text-[11px] font-semibold text-slate-700 shrink-0">Time:</span>
+                        <input
+                          type="time"
+                          value={docDueTime}
+                          onChange={(e) => setDocDueTime(e.target.value)}
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    {docReminderPreviewText && (
+                      <div className="text-[11px] text-emerald-800 bg-emerald-100/70 border border-emerald-200/90 rounded-lg px-2.5 py-1 font-medium flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                        <span>{docReminderPreviewText}</span>
+                      </div>
+                    )}
+
+                    <ItemRecipientSelector
+                      selectedRecipients={docRecipients}
+                      onChange={setDocRecipients}
+                      label="Send Document Alert To:"
+                      helperText="Pick which number alias(es) will receive the renewal reminder."
+                    />
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Notes
@@ -1990,6 +2373,332 @@ export function VehicleDetailsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: EDIT DOCUMENT & NOTIFICATION OPTIONS */}
+      {editingDoc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overflow-y-auto"
+          onMouseDown={() => setEditingDoc(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden my-8 max-h-[90vh] overflow-y-auto"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+              <div>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                    Edit Document
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">LN-BRTA</span>
+                </div>
+                <h2 className="text-base font-bold tracking-tight text-slate-900">
+                  {editingDoc.name}
+                </h2>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={sendingDocId === editingDoc.id}
+                  onClick={() => handleSendDocWhatsApp(editingDoc)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                    sentDocSuccessId === editingDoc.id
+                      ? "bg-emerald-600 text-white"
+                      : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200"
+                  }`}
+                  title="Send WhatsApp document alert now"
+                >
+                  <Send className={`h-3 w-3 ${sendingDocId === editingDoc.id ? "animate-spin" : ""}`} />
+                  {sendingDocId === editingDoc.id
+                    ? "Sending..."
+                    : sentDocSuccessId === editingDoc.id
+                    ? "Alert Sent!"
+                    : "WA Alert Now"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingDoc(null)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                  aria-label="Close modal"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleUpdateDocument} className="p-6 space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Document Title <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editDocName}
+                  onChange={(e) => setEditDocName(e.target.value)}
+                  placeholder="e.g. BRTA Tax Token (2026-2027), Smart Card, Driving License"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Document Category
+                </label>
+                <select
+                  value={editDocCategory}
+                  onChange={(e) => setEditDocCategory(e.target.value as BangladeshDocType)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                >
+                  <option value="Tax Token">Tax Token (BRTA)</option>
+                  <option value="Registration Certificate">Registration Paper / Certificate</option>
+                  <option value="Smart Registration Card">Smart Registration Card</option>
+                  <option value="Driving License">Driving License</option>
+                  <option value="Fitness Certificate">Fitness Certificate</option>
+                  <option value="Insurance Certificate">Insurance Certificate</option>
+                  <option value="Route Permit">Route Permit (BRTA)</option>
+                  <option value="Custom Document">Other / Custom Document</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Document / Token / License Number (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. TT-984210, DL-0043128"
+                  value={editDocNumber}
+                  onChange={(e) => setEditDocNumber(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-mono text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Issue Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editDocIssueDate}
+                    onChange={(e) => setEditDocIssueDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Expiry Date (Renewal Alert)
+                  </label>
+                  <input
+                    type="date"
+                    value={editDocExpiryDate}
+                    onChange={(e) => setEditDocExpiryDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                  />
+                </div>
+              </div>
+
+              {/* WhatsApp Renewal Alert Card */}
+              <div className="rounded-xl bg-emerald-50/70 border border-emerald-100 p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="editDocReminderWhatsapp"
+                      checked={editDocReminderWhatsapp}
+                      onChange={(e) => setEditDocReminderWhatsapp(e.target.checked)}
+                      className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <label htmlFor="editDocReminderWhatsapp" className="text-xs font-bold text-emerald-950 cursor-pointer">
+                      Send WhatsApp reminder for document renewal
+                    </label>
+                  </div>
+                  {editDocDueTime && (
+                    <span className="text-[11px] font-mono font-semibold text-emerald-700 bg-white/80 border border-emerald-200/80 px-2 py-0.5 rounded-full">
+                      ⏰ Time: {formatTime12h(editDocDueTime)}
+                    </span>
+                  )}
+                </div>
+
+                {editDocReminderWhatsapp && (
+                  <div className="space-y-2.5 pl-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <span className="text-[11px] font-semibold text-slate-700 shrink-0">
+                        Remind Lead:
+                      </span>
+                      <select
+                        value={editDocReminderLead}
+                        onChange={(e) => setEditDocReminderLead(e.target.value)}
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium"
+                      >
+                        <option value="30 days before">30 days before (Recommended for BRTA)</option>
+                        <option value="15 days before">15 days before</option>
+                        <option value="7 days before">7 days before</option>
+                        <option value="3 days before">3 days before</option>
+                        <option value="1 day before">1 day before</option>
+                        <option value="On exact expiry date">On exact expiry date</option>
+                        <option value="custom">Custom Days / Hours / Mins...</option>
+                      </select>
+
+                      {editDocReminderLead === "custom" && (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            min="1"
+                            max="999"
+                            value={editDocCustomLeadMinutes}
+                            onChange={(e) => setEditDocCustomLeadMinutes(Number(e.target.value))}
+                            className="w-16 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 font-mono text-center outline-none focus:border-emerald-600"
+                          />
+                          <select
+                            value={editDocCustomLeadUnit}
+                            onChange={(e) => setEditDocCustomLeadUnit(e.target.value as any)}
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium"
+                          >
+                            <option value="minutes">Minutes before</option>
+                            <option value="hours">Hours before</option>
+                            <option value="days">Days before</option>
+                          </select>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-1.5 ml-auto">
+                        <span className="text-[11px] font-semibold text-slate-700 shrink-0">Time:</span>
+                        <input
+                          type="time"
+                          value={editDocDueTime}
+                          onChange={(e) => setEditDocDueTime(e.target.value)}
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    {editDocReminderPreviewText && (
+                      <div className="text-[11px] text-emerald-800 bg-emerald-100/70 border border-emerald-200/90 rounded-lg px-2.5 py-1 font-medium flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                        <span>{editDocReminderPreviewText}</span>
+                      </div>
+                    )}
+
+                    <ItemRecipientSelector
+                      selectedRecipients={editDocRecipients}
+                      onChange={setEditDocRecipients}
+                      label="Send Document Alert To:"
+                      helperText="Pick which number alias(es) will receive the renewal reminder."
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Notes
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Renewed at Mirpur BRTA circle"
+                  value={editDocNotes}
+                  onChange={(e) => setEditDocNotes(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const doc = editingDoc;
+                    setEditingDoc(null);
+                    setDocToDelete(doc);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete Document
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingDoc(null)}
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingDoc}
+                    className="rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition shadow-xs cursor-pointer"
+                  >
+                    {isUpdatingDoc ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: CUSTOM DELETE DOCUMENT CONFIRMATION */}
+      {docToDelete && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          onMouseDown={() => !isDeletingDoc && setDocToDelete(null)}
+        >
+          <div
+            className="relative w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-2xl p-6"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 border border-rose-200/80">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-bold text-slate-900">
+                  Delete Document
+                </h3>
+                <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                  Are you sure you want to delete this document record? This action cannot be undone and will remove any associated renewal reminders.
+                </p>
+                {docToDelete.name && (
+                  <div className="mt-3 rounded-xl bg-slate-50 border border-slate-200/80 p-2.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                      Document
+                    </span>
+                    <p className="text-xs font-semibold text-slate-800 truncate">
+                      {docToDelete.name}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={isDeletingDoc}
+                onClick={() => setDocToDelete(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingDoc}
+                onClick={handleConfirmDeleteDoc}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 active:bg-rose-800 transition shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {isDeletingDoc ? "Deleting..." : "Yes, Delete Document"}
+              </button>
+            </div>
           </div>
         </div>
       )}

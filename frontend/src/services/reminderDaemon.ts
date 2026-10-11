@@ -1,18 +1,18 @@
 import { listTasks } from "./taskService";
 import { getLocalWhatsAppContacts, getUserSettings } from "./settingsService";
 import { sendSystemWhatsAppAlert, formatRecipientNumber } from "./whatsappService";
-import type { TaskItem } from "../types";
+import type { TaskItem, VehicleDocument, Vehicle } from "../types";
 
 /**
- * Parses reminder lead in minutes from task notes or string
- * e.g. "15 minutes before" -> 15, "1 hour before" -> 60, "At exact due time" -> 0
+ * Parses reminder lead in minutes from task or document notes or string
+ * e.g. "15 days before" -> 21600, "15 minutes before" -> 15, "1 hour before" -> 60, "At exact due time" -> 0
  */
 export function parseLeadMinutes(notesOrLead?: string): number {
   if (!notesOrLead) return 0;
   const match = notesOrLead.match(/Reminder:\s*([^,\]\n]+)/i);
   const text = (match ? match[1] : notesOrLead).toLowerCase().trim();
 
-  if (text.includes("exact") || text.includes("0 min")) return 0;
+  if (text.includes("exact") || text.includes("0 min") || text.includes("on expiry date") || text.includes("at due time")) return 0;
 
   const numMatch = text.match(/(\d+)\s*(minute|min|hour|hr|day)/i);
   if (numMatch) {
@@ -32,6 +32,10 @@ export function parseLeadMinutes(notesOrLead?: string): number {
   if (text.includes("2 hour")) return 120;
   if (text.includes("1 day")) return 1440;
   if (text.includes("2 day")) return 2880;
+  if (text.includes("3 day")) return 4320;
+  if (text.includes("7 day")) return 10080;
+  if (text.includes("15 day")) return 21600;
+  if (text.includes("30 day")) return 43200;
 
   return 0;
 }
@@ -58,17 +62,17 @@ export function parseTimeString(timeStr?: string): { hours: number; minutes: num
 }
 
 /**
- * Resolves recipient phone numbers from task notes or defaults
+ * Resolves recipient phone numbers from notes or defaults
  */
-export function resolveTaskRecipientNumbers(
-  task: TaskItem,
+export function resolveRecipientsFromNotes(
+  notes?: string,
   defaultPhone?: string,
   defaultCountry?: string,
 ): Array<{ alias: string; phone: string }> {
   const contacts = getLocalWhatsAppContacts();
   const recipients: Array<{ alias: string; phone: string }> = [];
 
-  const match = task.notes?.match(/Recipients:\s*([^\]\n]+)/i);
+  const match = notes?.match(/Recipients:\s*([^\]\n]+)/i);
   let targetAliases: string[] = [];
   if (match) {
     targetAliases = match[1].split(",").map((s) => s.trim()).filter(Boolean);
@@ -103,6 +107,14 @@ export function resolveTaskRecipientNumbers(
   }
 
   return recipients;
+}
+
+export function resolveTaskRecipientNumbers(
+  task: TaskItem,
+  defaultPhone?: string,
+  defaultCountry?: string,
+): Array<{ alias: string; phone: string }> {
+  return resolveRecipientsFromNotes(task.notes, defaultPhone, defaultCountry);
 }
 
 /**
@@ -194,75 +206,254 @@ export async function dispatchTaskReminderNow(
 }
 
 /**
- * Core scanner: checks active tasks and automatically dispatches due WhatsApp alerts
+ * Builds formatted WhatsApp message for a vehicle document (e.g. BRTA Tax Token, Fitness)
+ */
+export function buildVehicleDocWhatsAppMessage(doc: VehicleDocument, vehicle?: Vehicle): string {
+  const remainingDays = doc.expiryDate
+    ? Math.ceil((new Date(doc.expiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  const statusStr =
+    remainingDays === null
+      ? "Recorded"
+      : remainingDays < 0
+      ? `⚠️ Overdue by ${Math.abs(remainingDays)} day(s)`
+      : remainingDays === 0
+      ? `🚨 Expires Today`
+      : remainingDays <= 15
+      ? `⚡ Expires in ${remainingDays} day(s)`
+      : `✅ Valid (${remainingDays} days remaining)`;
+
+  const lines = [
+    `📄 *LifeNest Vehicle Document Alert*`,
+    ``,
+    `• *Document*: ${doc.name}`,
+    `• *Category*: ${doc.category || "BRTA Document"}`,
+  ];
+
+  if (vehicle) {
+    lines.push(`• *Vehicle*: ${vehicle.name} (${vehicle.registrationNumber || "Unregistered"})`);
+  }
+  if (doc.documentNumber) {
+    lines.push(`• *Doc / License No*: ${doc.documentNumber}`);
+  }
+  if (doc.issueDate) {
+    lines.push(`• *Issue Date*: ${doc.issueDate}`);
+  }
+  if (doc.expiryDate) {
+    lines.push(`• *Expiry Date*: ${doc.expiryDate}`);
+  }
+  lines.push(`• *Validity Status*: ${statusStr}`);
+
+  if (doc.notes) {
+    const cleanNotes = doc.notes.replace(/\s*\[Reminder:[^\]]+\]/gi, "").trim();
+    if (cleanNotes) {
+      lines.push(`• *Notes*: ${cleanNotes}`);
+    }
+  }
+
+  lines.push(``);
+  lines.push(`_LifeNest Automated Asset OS_`);
+  return lines.join("\n");
+}
+
+/**
+ * Manually dispatches a WhatsApp alert for a specific vehicle document right now
+ */
+export async function dispatchVehicleDocReminderNow(
+  doc: VehicleDocument,
+  vehicle?: Vehicle,
+): Promise<{ success: boolean; dispatchedTo: string[]; error?: string }> {
+  try {
+    const settings = await getUserSettings().catch(() => null);
+    const recipients = resolveRecipientsFromNotes(
+      doc.notes,
+      settings?.whatsappNumber,
+      settings?.countryCode,
+    );
+
+    if (recipients.length === 0) {
+      return {
+        success: false,
+        dispatchedTo: [],
+        error: "No valid recipient WhatsApp number registered.",
+      };
+    }
+
+    const message = buildVehicleDocWhatsAppMessage(doc, vehicle);
+    const dispatchedTo: string[] = [];
+
+    for (const r of recipients) {
+      const res = await sendSystemWhatsAppAlert({
+        to: r.phone,
+        message,
+      });
+      if (res.success) {
+        dispatchedTo.push(`${r.alias} (${r.phone})`);
+      }
+    }
+
+    if (dispatchedTo.length > 0) {
+      localStorage.setItem(`lifenest_vehdoc_dispatched_${doc.id}`, new Date().toISOString());
+      return { success: true, dispatchedTo };
+    }
+
+    return {
+      success: false,
+      dispatchedTo: [],
+      error: "WhatsApp gateway could not deliver alert.",
+    };
+  } catch (err) {
+    return {
+      success: false,
+      dispatchedTo: [],
+      error: err instanceof Error ? err.message : "Dispatch failed",
+    };
+  }
+}
+
+/**
+ * Core scanner: checks active tasks and vehicle documents and dispatches due WhatsApp alerts
  */
 export async function checkAndDispatchDueReminders(): Promise<number> {
   try {
-    const tasks = await listTasks().catch(() => []);
-    if (!tasks || tasks.length === 0) return 0;
-
     const settings = await getUserSettings().catch(() => null);
     if (settings && !settings.whatsappEnabled) return 0;
 
     const now = new Date();
     let sentCount = 0;
 
-    for (const task of tasks) {
-      // Must have WhatsApp alert enabled and not be completed
-      if (!task.reminderWhatsapp || task.status === "Completed") continue;
-      if (!task.dueDate) continue;
+    // 1. Scan Tasks
+    const tasks = await listTasks().catch(() => []);
+    if (tasks && tasks.length > 0) {
+      for (const task of tasks) {
+        if (!task.reminderWhatsapp || task.status === "Completed") continue;
+        if (!task.dueDate) continue;
 
-      const dispatchKey = `lifenest_task_dispatched_${task.id}`;
-      if (localStorage.getItem(dispatchKey)) continue;
+        const dispatchKey = `lifenest_task_dispatched_${task.id}`;
+        if (localStorage.getItem(dispatchKey)) continue;
 
-      // Parse due date and due time
-      const dateParts = task.dueDate.split("-");
-      if (dateParts.length < 3) continue;
-      const year = parseInt(dateParts[0], 10);
-      const month = parseInt(dateParts[1], 10) - 1;
-      const day = parseInt(dateParts[2], 10);
+        const dateParts = task.dueDate.split("-");
+        if (dateParts.length < 3) continue;
+        const year = parseInt(dateParts[0], 10);
+        const month = parseInt(dateParts[1], 10) - 1;
+        const day = parseInt(dateParts[2], 10);
 
-      const { hours, minutes } = parseTimeString(task.dueTime);
-      const dueDateTime = new Date(year, month, day, hours, minutes, 0);
+        const { hours, minutes } = parseTimeString(task.dueTime);
+        const dueDateTime = new Date(year, month, day, hours, minutes, 0);
 
-      // Parse lead minutes (e.g. 15 min before)
-      const leadMinutes = parseLeadMinutes(task.notes);
-      const triggerTime = new Date(dueDateTime.getTime() - leadMinutes * 60 * 1000);
+        const leadMinutes = parseLeadMinutes(task.notes);
+        const triggerTime = new Date(dueDateTime.getTime() - leadMinutes * 60 * 1000);
 
-      // If current time is past or at trigger time, and not older than 48 hours
-      const diffMs = now.getTime() - triggerTime.getTime();
-      const isDue = diffMs >= 0 && diffMs <= 48 * 3600 * 1000;
+        const diffMs = now.getTime() - triggerTime.getTime();
+        const isDue = diffMs >= 0 && diffMs <= 48 * 3600 * 1000;
 
-      if (isDue) {
-        const recipients = resolveTaskRecipientNumbers(
-          task,
-          settings?.whatsappNumber,
-          settings?.countryCode,
-        );
+        if (isDue) {
+          const recipients = resolveTaskRecipientNumbers(
+            task,
+            settings?.whatsappNumber,
+            settings?.countryCode,
+          );
 
-        if (recipients.length > 0) {
-          const message = buildTaskWhatsAppMessage(task);
-          let sentAny = false;
+          if (recipients.length > 0) {
+            const message = buildTaskWhatsAppMessage(task);
+            let sentAny = false;
 
-          for (const r of recipients) {
-            const res = await sendSystemWhatsAppAlert({
-              to: r.phone,
-              message,
-            });
-            if (res.success) {
-              sentAny = true;
+            for (const r of recipients) {
+              const res = await sendSystemWhatsAppAlert({
+                to: r.phone,
+                message,
+              });
+              if (res.success) sentAny = true;
             }
-          }
 
-          if (sentAny) {
-            localStorage.setItem(dispatchKey, new Date().toISOString());
-            sentCount++;
-            console.log(
-              `[LifeNest ReminderDaemon] Dispatched WhatsApp reminder for task "${task.title}" to ${recipients.map((r) => r.alias).join(", ")}`,
-            );
+            if (sentAny) {
+              localStorage.setItem(dispatchKey, new Date().toISOString());
+              sentCount++;
+              console.log(
+                `[LifeNest ReminderDaemon] Dispatched WhatsApp reminder for task "${task.title}" to ${recipients.map((r) => r.alias).join(", ")}`,
+              );
+            }
           }
         }
       }
+    }
+
+    // 2. Scan Vehicle Documents
+    try {
+      const docKeys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("lifenest_veh_docs_")) {
+          docKeys.push(key);
+        }
+      }
+
+      for (const docKey of docKeys) {
+        const raw = localStorage.getItem(docKey);
+        if (!raw) continue;
+        const docs: VehicleDocument[] = JSON.parse(raw);
+        if (!Array.isArray(docs)) continue;
+
+        for (const doc of docs) {
+          if (!doc.expiryDate) continue;
+
+          // Check if document has reminder configured in notes
+          const hasReminder = Boolean(doc.notes && /\[Reminder:[^\]]+\]/i.test(doc.notes));
+          if (!hasReminder) continue;
+
+          const dispatchKey = `lifenest_vehdoc_dispatched_${doc.id}`;
+          if (localStorage.getItem(dispatchKey)) continue;
+
+          const dateParts = doc.expiryDate.split("-");
+          if (dateParts.length < 3) continue;
+          const year = parseInt(dateParts[0], 10);
+          const month = parseInt(dateParts[1], 10) - 1;
+          const day = parseInt(dateParts[2], 10);
+
+          // Extract Due Time from notes if specified (e.g. Due Time: 09:00 AM)
+          const timeMatch = doc.notes?.match(/Due Time:\s*([^,\]\n]+)/i);
+          const { hours, minutes } = parseTimeString(timeMatch ? timeMatch[1] : "09:00");
+          const expiryDateTime = new Date(year, month, day, hours, minutes, 0);
+
+          const leadMinutes = parseLeadMinutes(doc.notes);
+          const triggerTime = new Date(expiryDateTime.getTime() - leadMinutes * 60 * 1000);
+
+          const diffMs = now.getTime() - triggerTime.getTime();
+          const isDue = diffMs >= 0 && diffMs <= 48 * 3600 * 1000;
+
+          if (isDue) {
+            const recipients = resolveRecipientsFromNotes(
+              doc.notes,
+              settings?.whatsappNumber,
+              settings?.countryCode,
+            );
+
+            if (recipients.length > 0) {
+              const message = buildVehicleDocWhatsAppMessage(doc);
+              let sentAny = false;
+
+              for (const r of recipients) {
+                const res = await sendSystemWhatsAppAlert({
+                  to: r.phone,
+                  message,
+                });
+                if (res.success) sentAny = true;
+              }
+
+              if (sentAny) {
+                localStorage.setItem(dispatchKey, new Date().toISOString());
+                sentCount++;
+                console.log(
+                  `[LifeNest ReminderDaemon] Dispatched WhatsApp reminder for vehicle document "${doc.name}" to ${recipients.map((r) => r.alias).join(", ")}`,
+                );
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[LifeNest ReminderDaemon] Vehicle doc scan error:", e);
     }
 
     return sentCount;

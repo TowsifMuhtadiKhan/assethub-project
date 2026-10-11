@@ -129,6 +129,47 @@ export async function deleteVehicleDocument(
   } catch {}
 }
 
+export async function updateVehicleDocument(
+  vehicleId: string,
+  id: string,
+  updates: Partial<VehicleDocument>,
+): Promise<VehicleDocument> {
+  const current = getLocalDocs(vehicleId);
+  const existing = current.find((d) => d.id === id);
+  if (!existing) {
+    throw new Error("Document not found");
+  }
+
+  const updated: VehicleDocument = {
+    ...existing,
+    ...updates,
+  };
+
+  const nextList = current.map((d) => (d.id === id ? updated : d));
+  saveLocalDocs(vehicleId, nextList);
+
+  try {
+    const payload: any = {};
+    if (updates.name !== undefined) payload.name = updates.name;
+    if (updates.documentNumber !== undefined) payload.document_number = updates.documentNumber;
+    if (updates.issueDate !== undefined) payload.issue_date = updates.issueDate;
+    if (updates.expiryDate !== undefined) payload.expiry_date = updates.expiryDate;
+    if (updates.notes !== undefined) payload.notes = updates.notes;
+    if (updates.category !== undefined) {
+      payload.tags = [updates.category];
+      payload.document_type = updates.category;
+    }
+
+    if (Object.keys(payload).length > 0) {
+      await supabase.from("lifenest_documents").update(payload).eq("id", id);
+    }
+  } catch {
+    // local fallback already persisted
+  }
+
+  return updated;
+}
+
 /**
  * Intelligent receipt & document parser for vehicle maintenance bills
  * Automatically extracts cost, workshop name, date, and service details.
