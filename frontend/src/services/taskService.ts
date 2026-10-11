@@ -120,6 +120,71 @@ export async function updateTaskStatus(
   if (error) throw error;
 }
 
+export async function updateTask(
+  id: string,
+  input: Partial<Omit<TaskItem, "id" | "createdAt">>,
+): Promise<TaskItem> {
+  const patch: Record<string, unknown> = {};
+
+  if (input.title !== undefined) patch.title = input.title;
+  if (input.description !== undefined) patch.description = input.description ?? "";
+  if (input.priority !== undefined) patch.priority = input.priority;
+  if (input.dueDate !== undefined) patch.due_date = input.dueDate || null;
+  if (input.dueTime !== undefined) patch.due_time = input.dueTime ?? "";
+  if (input.category !== undefined) patch.category = input.category;
+  if (input.recurrence !== undefined) patch.recurrence = input.recurrence;
+  if (input.familyMemberId !== undefined) patch.family_member_id = input.familyMemberId || null;
+  if (input.vehicleId !== undefined) patch.vehicle_id = input.vehicleId || null;
+  if (input.propertyId !== undefined) patch.property_id = input.propertyId || null;
+  if (input.documentId !== undefined) patch.document_id = input.documentId || null;
+  if (input.status !== undefined) {
+    patch.status = input.status;
+    patch.completed_at = input.status === "Completed" ? new Date().toISOString() : null;
+  }
+  if (input.reminderWhatsapp !== undefined) patch.reminder_whatsapp = input.reminderWhatsapp;
+  if (input.reminderDate !== undefined) patch.reminder_date = input.reminderDate || null;
+  if (input.notes !== undefined) patch.notes = input.notes ?? "";
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .update(patch)
+    .eq("id", id)
+    .select(
+      `
+      *,
+      lifenest_family_members(full_name),
+      lifenest_vehicles(name),
+      lifenest_properties(name)
+    `,
+    )
+    .single();
+
+  if (error) throw error;
+  return {
+    id: data.id,
+    title: data.title,
+    description: data.description ?? "",
+    priority: data.priority,
+    dueDate: data.due_date ?? undefined,
+    dueTime: data.due_time ?? "",
+    category: data.category ?? "General",
+    recurrence: data.recurrence ?? "None",
+    familyMemberId: data.family_member_id ?? undefined,
+    familyMemberName: data.lifenest_family_members?.full_name ?? undefined,
+    vehicleId: data.vehicle_id ?? undefined,
+    vehicleName: data.lifenest_vehicles?.name ?? undefined,
+    propertyId: data.property_id ?? undefined,
+    propertyName: data.lifenest_properties?.name ?? undefined,
+    documentId: data.document_id ?? undefined,
+    status: data.status,
+    reminderWhatsapp: data.reminder_whatsapp ?? true,
+    reminderDate: data.reminder_date ?? undefined,
+    notes: data.notes ?? "",
+    completedAt: data.completed_at ?? undefined,
+    createdAt: data.created_at,
+  };
+}
+
 export async function deleteTask(id: string): Promise<void> {
   const { error } = await supabase.from(TABLE).delete().eq("id", id);
   if (error) throw error;
