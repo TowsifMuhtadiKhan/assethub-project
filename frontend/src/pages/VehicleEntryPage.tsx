@@ -22,7 +22,6 @@ import {
   updateVehicle,
 } from "../services/vehicleService";
 import type { Vehicle, VehicleType } from "../types";
-import { BangladeshNumberPlate } from "../components/common/BangladeshNumberPlate";
 
 export function getVehicleIcon(type: string) {
   const normalized = (type || "").toLowerCase();
@@ -487,16 +486,9 @@ export function VehicleEntryPage({
 
                       <td className="whitespace-nowrap px-3.5 py-2.5">
                         {vehicle.registrationNumber ? (
-                          <div className="flex items-center gap-2">
-                            <BangladeshNumberPlate
-                              registrationNumber={vehicle.registrationNumber}
-                              size="sm"
-                              className="scale-90 origin-left"
-                            />
-                            <span className="text-[10px] font-mono text-slate-400 hidden xl:inline">
-                              {vehicle.registrationNumber}
-                            </span>
-                          </div>
+                          <span className="font-mono text-xs font-semibold text-slate-800 bg-slate-100/80 px-2 py-0.5 rounded border border-slate-200">
+                            {vehicle.registrationNumber}
+                          </span>
                         ) : (
                           <span className="font-mono text-[11px] text-slate-400">—</span>
                         )}
