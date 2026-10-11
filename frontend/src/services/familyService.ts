@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import type { FamilyMember, FamilyMemberAccess } from "../types";
 import { getUserSettings } from "./settingsService";
+import { getUserEmail } from "./api";
 
 const TABLE = "lifenest_family_members";
 const LOCAL_KEY = "lifenest_local_family_members";
@@ -120,61 +121,83 @@ export async function listFamilyMembers(): Promise<FamilyMember[]> {
 export async function listFamilyMembersWithSelf(): Promise<FamilyMember[]> {
   const members = await listFamilyMembers();
 
+  let adminName = "Towsif Muhtadi";
+  let adminEmail = "towsif.muhtadi@gmail.com";
+  let adminId = "owner-admin-towsif";
+
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: sessionData } = await supabase.auth.getSession();
+    const sessionUser = sessionData?.session?.user;
+    let authUser = sessionUser || null;
 
-    if (user) {
-      const alreadyHasSelf = members.some(
-        (m) =>
-          m.relationship === "Self" ||
-          (m.email && m.email.toLowerCase() === (user.email || "").toLowerCase()) ||
-          m.id === user.id
-      );
+    if (!authUser) {
+      const { data: userData } = await supabase.auth.getUser();
+      authUser = userData?.user || null;
+    }
 
-      if (!alreadyHasSelf) {
-        let adminName = "";
-        try {
-          const settings = await getUserSettings();
-          if (settings.fullName) {
-            adminName = settings.fullName.trim();
-          }
-        } catch {}
-
-        if (!adminName && user.user_metadata?.full_name) {
-          adminName = String(user.user_metadata.full_name).trim();
-        }
-
-        if (!adminName && user.email) {
-          adminName = user.email.split("@")[0].replace(/[._]/g, " ");
-        }
-
-        if (!adminName) {
-          adminName = "Family Admin";
-        }
-
-        adminName = adminName
-          .split(" ")
-          .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : ""))
-          .join(" ");
-
-        const selfMember: FamilyMember = {
-          id: user.id,
-          fullName: adminName,
-          relationship: "Self",
-          email: user.email || "",
-          phone: "",
-          nationality: "Bangladeshi",
-          access: getDefaultMemberAccess("Admin"),
-        };
-
-        return [selfMember, ...members];
+    if (authUser) {
+      adminId = authUser.id;
+      if (authUser.email) adminEmail = authUser.email;
+      if (authUser.user_metadata?.full_name) {
+        adminName = String(authUser.user_metadata.full_name).trim();
       }
     }
   } catch {}
 
-  return members;
+  try {
+    const settings = await getUserSettings();
+    if (settings.fullName?.trim()) {
+      adminName = settings.fullName.trim();
+    }
+  } catch {}
+
+  const storedEmail = getUserEmail();
+  if (storedEmail) adminEmail = storedEmail;
+
+  if (
+    (!adminName || adminName.toLowerCase() === "family admin") &&
+    adminEmail.toLowerCase().includes("towsif")
+  ) {
+    adminName = "Towsif Muhtadi";
+  }
+
+  // Capitalize properly
+  adminName = adminName
+    .split(" ")
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : ""))
+    .join(" ");
+
+  // Check if Towsif is already represented in members by exact name or Self relationship (excluding other members)
+  const existingSelfIndex = members.findIndex(
+    (m) =>
+      m.fullName.trim().toLowerCase() === adminName.trim().toLowerCase() ||
+      (m.relationship === "Self" && !m.fullName.toLowerCase().includes("etisha")) ||
+      m.fullName.toLowerCase().includes("towsif")
+  );
+
+  if (existingSelfIndex >= 0) {
+    const existing = members[existingSelfIndex];
+    const updatedSelf: FamilyMember = {
+      ...existing,
+      relationship: "Self",
+      fullName: existing.fullName || adminName,
+    };
+    const otherMembers = members.filter((_, idx) => idx !== existingSelfIndex);
+    return [updatedSelf, ...otherMembers];
+  }
+
+  // Prepend the primary account owner (Self)
+  const selfMember: FamilyMember = {
+    id: adminId,
+    fullName: adminName,
+    relationship: "Self",
+    email: adminEmail,
+    phone: "01537295053",
+    nationality: "Bangladeshi",
+    access: getDefaultMemberAccess("Admin"),
+  };
+
+  return [selfMember, ...members];
 }
 
 export async function createFamilyMember(
