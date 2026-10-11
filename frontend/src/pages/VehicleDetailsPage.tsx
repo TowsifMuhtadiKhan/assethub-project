@@ -38,6 +38,8 @@ import {
   listVehicleServices,
   updateVehicleExpense,
   deleteVehicleExpense,
+  updateVehicleService,
+  deleteVehicleService,
 } from "../services/vehicleRecordService";
 import {
   listVehicleDocuments,
@@ -294,6 +296,20 @@ export function VehicleDetailsPage() {
   // Fuel delete confirmation state
   const [fuelToDelete, setFuelToDelete] = useState<VehicleExpense | null>(null);
   const [isDeletingFuel, setIsDeletingFuel] = useState(false);
+
+  // Maintenance service edit & delete states
+  const [editingService, setEditingService] = useState<VehicleService | null>(null);
+  const [editServiceDate, setEditServiceDate] = useState("");
+  const [editServiceMileage, setEditServiceMileage] = useState<number | "">("");
+  const [editServiceCost, setEditServiceCost] = useState<number | "">("");
+  const [editServiceType, setEditServiceType] = useState("");
+  const [editServiceWorkshop, setEditServiceWorkshop] = useState("");
+  const [editServiceDescription, setEditServiceDescription] = useState("");
+  const [editServiceNextDate, setEditServiceNextDate] = useState("");
+  const [isUpdatingService, setIsUpdatingService] = useState(false);
+
+  const [serviceToDelete, setServiceToDelete] = useState<VehicleService | null>(null);
+  const [isDeletingService, setIsDeletingService] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -851,6 +867,65 @@ export function VehicleDetailsPage() {
       setError(err instanceof Error ? err.message : "Failed to delete fuel record.");
     } finally {
       setIsDeletingFuel(false);
+    }
+  };
+
+  // Open Edit Service Modal & populate state
+  const openEditServiceModal = (item: VehicleService) => {
+    setEditingService(item);
+    setEditServiceDate(item.serviceDate);
+    setEditServiceMileage(item.mileageAtService);
+    setEditServiceCost(item.cost);
+    setEditServiceType(item.serviceType);
+    setEditServiceWorkshop(item.workshopName || "");
+    setEditServiceDescription(item.description || "");
+    setEditServiceNextDate(item.nextServiceDate || "");
+  };
+
+  const handleUpdateService = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingService || editServiceCost === "" || editServiceMileage === "") {
+      setError("Please fill in the required fields (Date, Mileage, Cost).");
+      return;
+    }
+    setIsUpdatingService(true);
+    try {
+      const updated = await updateVehicleService(editingService.id, {
+        serviceDate: editServiceDate,
+        mileageAtService: Number(editServiceMileage),
+        cost: Number(editServiceCost),
+        serviceType: editServiceType,
+        workshopName: editServiceWorkshop,
+        description: editServiceDescription,
+        nextServiceDate: editServiceNextDate || undefined,
+      });
+
+      setServices((cur) => cur.map((s) => (s.id === updated.id ? updated : s)));
+
+      if (vehicle && Number(editServiceMileage) > vehicle.mileage) {
+        await updateVehicle(vehicle.id, { mileage: Number(editServiceMileage) });
+        setVehicle((v) => (v ? { ...v, mileage: Number(editServiceMileage) } : undefined));
+      }
+
+      setEditingService(null);
+    } catch (saveErr) {
+      setError(saveErr instanceof Error ? saveErr.message : "Could not update service record.");
+    } finally {
+      setIsUpdatingService(false);
+    }
+  };
+
+  const handleConfirmDeleteService = async () => {
+    if (!serviceToDelete) return;
+    setIsDeletingService(true);
+    try {
+      await deleteVehicleService(serviceToDelete.id);
+      setServices((cur) => cur.filter((item) => item.id !== serviceToDelete.id));
+      setServiceToDelete(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete service record.");
+    } finally {
+      setIsDeletingService(false);
     }
   };
 
@@ -1944,58 +2019,105 @@ export function VehicleDetailsPage() {
                 No maintenance records yet. Attach a bill or log your first Mobil/service entry on the left.
               </div>
             ) : (
-              <div className="space-y-2.5">
-                {services.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-3.5 transition hover:bg-white hover:shadow-2xs"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="rounded-md bg-emerald-100/80 px-2 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200/60">
-                          {item.serviceType}
-                        </span>
-                        <span className="text-xs font-semibold text-slate-800">
-                          {item.workshopName || "Workshop"}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-[11px] text-slate-500">
-                          {item.serviceDate} · {item.mileageAtService.toLocaleString()} km
-                        </span>
-                        <span className="font-mono text-sm font-bold text-slate-900">
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-left text-xs">
+                  <thead className="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-semibold text-slate-600">
+                    <tr>
+                      <th className="px-3 py-2.5">Date & Mileage</th>
+                      <th className="px-3 py-2.5">Service Type</th>
+                      <th className="px-3 py-2.5">Workshop</th>
+                      <th className="px-3 py-2.5">Work Done / Next Due</th>
+                      <th className="px-3 py-2.5 font-mono text-right">Cost</th>
+                      <th className="px-3 py-2.5 text-center">Bill</th>
+                      <th className="px-3 py-2.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {services.map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="whitespace-nowrap px-3 py-2.5">
+                          <div className="font-mono text-[11px] font-semibold text-slate-800">
+                            {item.serviceDate}
+                          </div>
+                          <div className="font-mono text-[10px] text-slate-500">
+                            {item.mileageAtService.toLocaleString()} km
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span className="inline-block rounded-md bg-emerald-100/80 px-2 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200/60 whitespace-nowrap">
+                            {item.serviceType}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <div className="font-semibold text-slate-800 text-[11px]">
+                            {item.workshopName || "Workshop"}
+                          </div>
+                          {(item.mechanicName || item.workshopLocation) && (
+                            <div className="text-[10px] text-slate-500 truncate max-w-[140px]">
+                              {[item.mechanicName, item.workshopLocation].filter(Boolean).join(" • ")}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 max-w-[220px]">
+                          <div className="text-slate-700 text-[11px] line-clamp-2">
+                            {item.description || "Service completed"}
+                          </div>
+                          {item.nextServiceDate ? (
+                            <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-amber-700 font-medium bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
+                              <Clock className="h-2.5 w-2.5 text-amber-600" />
+                              <span>Next: {item.nextServiceDate}</span>
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-slate-400">Regular servicing</div>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2.5 font-mono font-bold text-slate-900 text-right">
                           {formatMoney(item.cost)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <p className="mt-2 text-xs text-slate-600">
-                      {item.description || "Service completed"}
-                    </p>
-
-                    <div className="mt-2.5 flex items-center justify-between border-t border-slate-200/60 pt-2 text-[11px]">
-                      {item.nextServiceDate ? (
-                        <span className="inline-flex items-center gap-1 text-slate-500">
-                          <Clock className="h-3 w-3 text-amber-500" />
-                          Next Service Due: <strong className="font-mono">{item.nextServiceDate}</strong>
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">Regular servicing</span>
-                      )}
-
-                      {item.receiptUrl && (
-                        <a
-                          href={item.receiptUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:text-indigo-800 underline"
-                        >
-                          <Download className="h-3 w-3" /> View Attached Bill
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                          {item.partsCost > 0 || item.laborCost > 0 ? (
+                            <div className="text-[10px] text-slate-400 font-normal">
+                              P: {formatMoney(item.partsCost)} | L: {formatMoney(item.laborCost)}
+                            </div>
+                          ) : null}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-center">
+                          {item.receiptUrl ? (
+                            <a
+                              href={item.receiptUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition"
+                              title="View Attached Bill"
+                            >
+                              <Download className="h-3 w-3" /> Bill
+                            </a>
+                          ) : (
+                            <span className="text-slate-300 text-[11px]">—</span>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                          <div className="inline-flex items-center gap-1 justify-end">
+                            <button
+                              type="button"
+                              onClick={() => openEditServiceModal(item)}
+                              className="rounded p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition cursor-pointer"
+                              title="Edit service entry"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setServiceToDelete(item)}
+                              className="rounded p-1 text-slate-300 hover:text-rose-600 hover:bg-slate-100 transition cursor-pointer"
+                              title="Delete service entry"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
@@ -3957,6 +4079,240 @@ export function VehicleDetailsPage() {
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 {isDeletingFuel ? "Deleting..." : "Yes, Delete Fuel Record"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT MAINTENANCE SERVICE */}
+      {editingService && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overflow-y-auto"
+          onMouseDown={() => setEditingService(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden my-8"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+              <div>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    Maintenance Record
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">LN-SERVICE</span>
+                </div>
+                <h2 className="text-base font-bold tracking-tight text-slate-900">
+                  Edit Maintenance Entry
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingService(null)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateService} className="p-6 space-y-3.5">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Service Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editServiceDate}
+                    onChange={(e) => setEditServiceDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Odometer Mileage (km) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="e.g. 98564"
+                    value={editServiceMileage}
+                    onChange={(e) => setEditServiceMileage(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Service / Job Type *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Wheel Change, Mobil change"
+                    value={editServiceType}
+                    onChange={(e) => setEditServiceType(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Total Cost (৳) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="e.g. 39600"
+                    value={editServiceCost}
+                    onChange={(e) => setEditServiceCost(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-mono font-bold text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Workshop / Garage
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Yume Tyre and Battery"
+                    value={editServiceWorkshop}
+                    onChange={(e) => setEditServiceWorkshop(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Next Service Date (Optional)
+                  </label>
+                  <input
+                    type="date"
+                    value={editServiceNextDate}
+                    onChange={(e) => setEditServiceNextDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Work Done / Notes
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="e.g. Need to replace 4 wheels for the vehicle"
+                  value={editServiceDescription}
+                  onChange={(e) => setEditServiceDescription(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toDelete = editingService;
+                    setEditingService(null);
+                    setServiceToDelete(toDelete);
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 transition cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete Entry
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingService(null)}
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingService}
+                    className="rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition shadow-xs cursor-pointer"
+                  >
+                    {isUpdatingService ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: DELETE MAINTENANCE SERVICE CONFIRMATION */}
+      {serviceToDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs"
+          onMouseDown={() => setServiceToDelete(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 p-6 my-8"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-50 border border-rose-100 text-rose-600">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Delete Maintenance Record?
+                </h3>
+                <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                  Are you sure you want to delete this service entry? This will update your vehicle's total maintenance cost calculations.
+                </p>
+                <div className="mt-3 rounded-xl bg-slate-50 p-3 border border-slate-100 text-xs">
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-500">Service:</span>
+                    <span className="font-semibold text-slate-800">{serviceToDelete.serviceType}</span>
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-500">Workshop:</span>
+                    <span className="text-slate-800">{serviceToDelete.workshopName || "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-500">Date:</span>
+                    <span className="font-mono font-semibold text-slate-800">{serviceToDelete.serviceDate}</span>
+                  </div>
+                  <div className="flex justify-between py-0.5">
+                    <span className="text-slate-500">Cost:</span>
+                    <span className="font-mono font-bold text-slate-900">{formatMoney(serviceToDelete.cost)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={isDeletingService}
+                onClick={() => setServiceToDelete(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingService}
+                onClick={handleConfirmDeleteService}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 active:bg-rose-800 transition shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {isDeletingService ? "Deleting..." : "Yes, Delete Service Record"}
               </button>
             </div>
           </div>
