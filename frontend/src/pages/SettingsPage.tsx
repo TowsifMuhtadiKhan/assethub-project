@@ -89,7 +89,7 @@ export function SettingsPage() {
   const [systemWhatsApp, setSystemWhatsApp] = useState<WhatsAppSystemStatus>({
     configured: false,
     provider: "baileys_qr",
-    status: "connecting",
+    status: "idle",
   });
   const [sendingTest, setSendingTest] = useState(false);
   const [testResponse, setTestResponse] = useState<{
@@ -125,7 +125,7 @@ export function SettingsPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const [linkMethod, setLinkMethod] = useState<"pairing_code" | "qr">("pairing_code");
+  const [linkMethod, setLinkMethod] = useState<"pairing_code" | "qr">("qr");
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [requestingCode, setRequestingCode] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
@@ -444,6 +444,13 @@ export function SettingsPage() {
                   </button>
                 </div>
 
+                {systemWhatsApp.error && (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-2.5 text-xs text-amber-900 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                    <span>{systemWhatsApp.error}</span>
+                  </div>
+                )}
+
                 {/* TAB 1: 8-DIGIT PAIRING CODE (NO CAMERA NEEDED) */}
                 {linkMethod === "pairing_code" ? (
                   <div className="space-y-4 text-xs text-slate-700">
@@ -512,22 +519,41 @@ export function SettingsPage() {
                   /* TAB 2: QR CODE SCAN */
                   <div className="flex flex-col md:flex-row items-center gap-6">
                     <div className="flex flex-col items-center justify-center bg-slate-50 p-3 rounded-2xl border border-slate-200 shadow-inner shrink-0">
-                      {systemWhatsApp.qrDataUrl ? (
+                      {systemWhatsApp.status === "qr_ready" && systemWhatsApp.qrDataUrl ? (
                         <img
                           src={systemWhatsApp.qrDataUrl}
                           alt="WhatsApp Web QR Code"
-                          className="w-52 h-52 rounded-lg shadow-xs object-contain bg-white p-1"
+                          className="w-56 h-56 rounded-lg shadow-xs object-contain bg-white p-1"
                         />
-                      ) : (
-                        <div className="w-52 h-52 flex flex-col items-center justify-center text-slate-400 text-xs gap-2">
+                      ) : systemWhatsApp.status === "connecting" || refreshingQr ? (
+                        <div className="w-56 h-56 flex flex-col items-center justify-center text-slate-500 text-xs gap-2">
                           <RefreshCw className="h-6 w-6 animate-spin text-emerald-600" />
-                          <span>Generating QR...</span>
+                          <span>Connecting to WhatsApp...</span>
+                        </div>
+                      ) : (
+                        <div className="w-56 h-56 flex flex-col items-center justify-center text-center text-slate-600 text-xs gap-3 px-3">
+                          {systemWhatsApp.status === "qr_expired" && (
+                            <span className="text-rose-700 font-semibold">QR expired</span>
+                          )}
+                          <button
+                            type="button"
+                            disabled={refreshingQr}
+                            onClick={handleForceRestartQR}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-60 cursor-pointer"
+                          >
+                            <QrCode className="h-4 w-4" />
+                            {systemWhatsApp.status === "qr_expired" ? "Generate new QR" : "Show QR code"}
+                          </button>
+                          <span className="text-[10px] text-slate-500">
+                            Have your phone ready first — you'll have about 2 minutes.
+                          </span>
                         </div>
                       )}
-                      <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
-                        <RefreshCw className="h-3 w-3 animate-spin text-emerald-600" />
-                        Auto-refreshes every 20s
-                      </div>
+                      {systemWhatsApp.status === "qr_ready" && (
+                        <div className="mt-2 text-[11px] font-semibold text-emerald-700 text-center max-w-[14rem]">
+                          The pattern changes every ~20s (WhatsApp security). Just scan what you see.
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-3 text-xs text-slate-700 flex-1">

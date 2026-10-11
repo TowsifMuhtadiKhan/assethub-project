@@ -9,9 +9,10 @@ import { getBackendApiUrl } from "../utils/googleDrive";
 export interface WhatsAppSystemStatus {
   configured: boolean;
   provider: string;
-  status: "disconnected" | "connecting" | "qr_ready" | "connected";
+  status: "idle" | "connecting" | "qr_ready" | "qr_expired" | "connected" | "disconnected";
   qrDataUrl?: string | null;
   connectedPhone?: string | null;
+  error?: string | null;
 }
 
 export interface SendWhatsAppResponse {

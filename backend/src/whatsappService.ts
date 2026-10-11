@@ -1,7 +1,12 @@
 /**
- * LifeNest WhatsApp Gateway (Baileys Web QR Engine)
- * Connects directly to WhatsApp Web via QR code.
- * Sends automated alerts and reminders to ANY unlisted recipient number with zero restrictions.
+ * LifeNest WhatsApp Gateway (Baileys Web engine)
+ *
+ * Design rules (to avoid endless QR rotation / duplicate sockets):
+ *  - Only ONE socket exists at a time (tracked by a generation counter; events from old sockets are ignored).
+ *  - Linking starts ONLY when the user asks for it (Settings page). Nothing runs in the background otherwise.
+ *  - When the QR / pairing window expires, we STOP and wait for the user to click again (no auto loop).
+ *  - After a successful scan WhatsApp sends "restart required" (515) – we reconnect with the saved session.
+ *  - A saved, linked session is reconnected automatically on server boot so alerts keep working.
  */
 
 import makeWASocket, {
@@ -16,30 +21,30 @@ import pino from "pino";
 import path from "path";
 import fs from "fs";
 
+export type GatewayStatus = "idle" | "connecting" | "qr_ready" | "qr_expired" | "connected";
+
 let sock: WASocket | null = null;
+let generation = 0;
+let status: GatewayStatus = "idle";
 let qrCodeDataUrl: string | null = null;
-let isConnected = false;
 let connectedPhone: string | null = null;
-let connectionStatus: "disconnected" | "connecting" | "qr_ready" | "connected" = "disconnected";
-let isInitializing = false;
+let lastError: string | null = null;
+let reconnectAttempts = 0;
+let firstQrResolver: (() => void) | null = null;
 
 const AUTH_DIR = path.resolve(process.cwd(), "whatsapp_auth");
+const CREDS_FILE = path.join(AUTH_DIR, "creds.json");
 
 function ensureAuthDir(): void {
-  try {
-    if (!fs.existsSync(AUTH_DIR)) {
-      fs.mkdirSync(AUTH_DIR, { recursive: true });
-    }
-  } catch {}
+  if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true });
 }
 
-function cleanAuthDir(): void {
+function wipeAuthDir(): void {
   try {
     if (fs.existsSync(AUTH_DIR)) {
-      const files = fs.readdirSync(AUTH_DIR);
-      for (const file of files) {
+      for (const f of fs.readdirSync(AUTH_DIR)) {
         try {
-          fs.rmSync(path.join(AUTH_DIR, file), { recursive: true, force: true });
+          fs.rmSync(path.join(AUTH_DIR, f), { recursive: true, force: true });
         } catch {}
       }
     }
@@ -47,310 +52,240 @@ function cleanAuthDir(): void {
   ensureAuthDir();
 }
 
-/**
- * Normalizes phone numbers into WhatsApp JID format:
- * e.g. "01711353028" -> "8801711353028@s.whatsapp.net"
- * e.g. "+880 1711-353028" -> "8801711353028@s.whatsapp.net"
- */
+/** True if a fully linked session (with an account id) is saved on disk. */
+function hasLinkedSession(): boolean {
+  try {
+    if (!fs.existsSync(CREDS_FILE)) return false;
+    const creds = JSON.parse(fs.readFileSync(CREDS_FILE, "utf8"));
+    return Boolean(creds?.me?.id);
+  } catch {
+    return false;
+  }
+}
+
+/** "01711353028" / "+880 1711-353028" -> "8801711353028" */
 export function normalizePhoneNumber(input: string): string {
   if (!input) return "";
   let digits = input.replace(/[^0-9]/g, "");
-
-  // Bangladesh local 11-digit mobile (starts with 013-019)
-  if (digits.startsWith("01") && digits.length === 11) {
-    digits = `88${digits}`;
-  }
-
-  // Strip leading 00 international prefix
-  if (digits.startsWith("00")) {
-    digits = digits.substring(2);
-  }
-
+  if (digits.startsWith("00")) digits = digits.substring(2);
+  if (digits.startsWith("01") && digits.length === 11) digits = `88${digits}`;
   return digits;
 }
 
 export function toWhatsAppJid(phone: string): string {
-  const clean = normalizePhoneNumber(phone);
-  return `${clean}@s.whatsapp.net`;
+  return `${normalizePhoneNumber(phone)}@s.whatsapp.net`;
 }
 
-/**
- * Initializes the WhatsApp Web Socket and QR listener
- */
-export async function initWhatsAppGateway(): Promise<void> {
-  if (isInitializing || (isConnected && sock)) return;
-  isInitializing = true;
-  connectionStatus = "connecting";
+function killSocket(): void {
+  generation++; // invalidate events from the old socket
+  if (sock) {
+    try {
+      sock.ev.removeAllListeners("connection.update");
+      sock.ev.removeAllListeners("creds.update");
+      sock.end(undefined);
+    } catch {}
+  }
+  sock = null;
+}
 
-  try {
-    ensureAuthDir();
+/** Creates exactly one socket. Old socket (if any) is killed first. */
+async function startSocket(): Promise<void> {
+  killSocket();
+  const myGen = generation;
+  ensureAuthDir();
+  status = "connecting";
+  qrCodeDataUrl = null;
+  lastError = null;
 
-    // Clean up any lingering socket before creating a new one
-    if (sock) {
+  const { version } = await fetchLatestBaileysVersion();
+  const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
+  if (myGen !== generation) return; // superseded while awaiting
+
+  const s = makeWASocket({
+    version,
+    auth: state,
+    browser: Browsers.macOS("Chrome"),
+    logger: pino({ level: "silent" }),
+    keepAliveIntervalMs: 15_000,
+    connectTimeoutMs: 60_000,
+    syncFullHistory: false,
+    markOnlineOnConnect: false,
+  });
+  sock = s;
+
+  s.ev.on("creds.update", async () => {
+    try {
+      ensureAuthDir();
+      await saveCreds();
+    } catch (err) {
+      console.warn("[LifeNest WhatsApp] could not save creds:", err);
+    }
+  });
+
+  s.ev.on("connection.update", async (update) => {
+    if (myGen !== generation) return; // stale socket
+    const { connection, lastDisconnect, qr } = update;
+
+    if (qr) {
       try {
-        sock.ev.removeAllListeners("connection.update");
-        sock.ev.removeAllListeners("creds.update");
-        sock.end(undefined);
-      } catch {}
-      sock = null;
+        qrCodeDataUrl = await QRCode.toDataURL(qr, { width: 320, margin: 2 });
+        status = "qr_ready";
+        firstQrResolver?.();
+        firstQrResolver = null;
+      } catch (e) {
+        console.error("[LifeNest WhatsApp] QR render failed:", e);
+      }
     }
 
-    const { version } = await fetchLatestBaileysVersion();
-    const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
+    if (connection === "open") {
+      status = "connected";
+      qrCodeDataUrl = null;
+      reconnectAttempts = 0;
+      const id = s.user?.id || "";
+      const digits = id.split(":")[0].split("@")[0];
+      connectedPhone = digits ? `+${digits}` : null;
+      console.log(`[LifeNest WhatsApp] Linked & online as ${connectedPhone}`);
+    }
 
-    sock = makeWASocket({
-      version,
-      auth: state,
-      browser: ["Chrome (Linux)", "", ""],
-      logger: pino({ level: "silent" }),
-      keepAliveIntervalMs: 10_000,
-      connectTimeoutMs: 180_000,
-      defaultQueryTimeoutMs: 180_000,
-      syncFullHistory: false,
-    });
+    if (connection === "close") {
+      const code = (lastDisconnect?.error as { output?: { statusCode?: number } })?.output
+        ?.statusCode;
+      console.log(`[LifeNest WhatsApp] socket closed (code ${code})`);
+      sock = null;
+      qrCodeDataUrl = null;
 
-    sock.ev.on("connection.update", async (update) => {
-      const { connection, lastDisconnect, qr } = update;
-
-      if (qr) {
-        try {
-          qrCodeDataUrl = await QRCode.toDataURL(qr, {
-            width: 320,
-            margin: 2,
-            color: { dark: "#064e3b", light: "#ffffff" },
-          });
-          connectionStatus = "qr_ready";
-          console.log("[LifeNest WhatsApp] Fresh QR code ready for scanning.");
-        } catch (qrErr) {
-          console.error("[LifeNest WhatsApp] Failed to render QR:", qrErr);
-        }
+      if (code === DisconnectReason.loggedOut) {
+        // Unlinked from phone or pairing rejected -> clean slate, wait for user.
+        wipeAuthDir();
+        connectedPhone = null;
+        status = "idle";
+        lastError = "WhatsApp session was logged out. Click 'Link WhatsApp' to link again.";
+        return;
       }
 
-      if (connection === "open") {
-        isConnected = true;
-        connectionStatus = "connected";
-        qrCodeDataUrl = null;
-
-        const rawUser = sock?.user?.id || "";
-        const phone = rawUser.split(":")[0] || rawUser.split("@")[0] || "";
-        connectedPhone = phone ? `+${phone}` : "+8801711353028";
-
-        console.log(`[LifeNest WhatsApp] Connected successfully as ${connectedPhone}!`);
+      if (code === DisconnectReason.restartRequired) {
+        // Normal right after a successful scan: reconnect with the freshly saved session.
+        void startSocket();
+        return;
       }
 
-      if (connection === "close") {
-        isConnected = false;
-        const statusCode = (lastDisconnect?.error as { output?: { statusCode?: number } })
-          ?.output?.statusCode;
-        
-        // ONLY wipe credentials if explicitly logged out from phone (code 401)
-        const isLoggedOut =
-          statusCode === DisconnectReason.loggedOut ||
-          statusCode === 401;
-
-        console.log(
-          `[LifeNest WhatsApp] Connection closed (code ${statusCode}). LoggedOut: ${isLoggedOut}`,
-        );
-
-        if (isLoggedOut) {
-          // Explicit logout from WhatsApp mobile app: wipe auth and request new scan
-          connectionStatus = "disconnected";
-          connectedPhone = null;
-          qrCodeDataUrl = null;
-          cleanAuthDir();
-          setTimeout(() => {
-            isInitializing = false;
-            void initWhatsAppGateway();
-          }, 2000);
-        } else {
-          // Replaced connection, timeout, or temporary network blip: RECONNECT WITH EXISTING AUTH (do NOT wipe!)
-          connectionStatus = "connecting";
-          setTimeout(() => {
-            isInitializing = false;
-            if (!isConnected) {
-              void initWhatsAppGateway();
-            }
-          }, 3000);
-        }
+      if (hasLinkedSession()) {
+        // Linked account, temporary drop: reconnect with backoff.
+        reconnectAttempts++;
+        const delay = Math.min(30_000, 2_000 * reconnectAttempts);
+        status = "connecting";
+        setTimeout(() => {
+          if (myGen === generation && !sock) void startSocket();
+        }, delay);
+        return;
       }
-    });
 
-    sock.ev.on("creds.update", async () => {
-      try {
-        ensureAuthDir();
-        await saveCreds();
-      } catch (err) {
-        console.warn("[LifeNest WhatsApp] creds.update non-fatal save error:", err);
-      }
-    });
-  } catch (err) {
-    console.error("[LifeNest WhatsApp] Initialization error:", err);
-    connectionStatus = "disconnected";
-    sock = null;
-  } finally {
-    isInitializing = false;
+      // Not linked and the QR window ran out (408) or another error: STOP. No background loop.
+      status = "qr_expired";
+      lastError =
+        code === DisconnectReason.timedOut
+          ? "The QR code expired before it was scanned. Click 'Generate new QR' to try again."
+          : `Linking was interrupted (code ${code}). Click 'Generate new QR' to try again.`;
+    }
+  });
+}
+
+/** Called on server boot: reconnect only if an account is already linked. Never shows QR in background. */
+export async function initWhatsAppGateway(): Promise<void> {
+  if (hasLinkedSession()) {
+    console.log("[LifeNest WhatsApp] Saved session found, reconnecting...");
+    await startSocket();
+  } else {
+    status = "idle";
+    console.log("[LifeNest WhatsApp] Not linked. Waiting for user to start linking from Settings.");
   }
 }
 
-/**
- * Returns current gateway status, QR code, and connected account info
- */
-export async function getWhatsAppStatus() {
-  // If not started yet, trigger background init
-  if (!sock && !isInitializing) {
-    void initWhatsAppGateway();
-  }
+/** User clicked "Link WhatsApp" / "Generate new QR". */
+export async function restartWhatsAppGateway(): Promise<{ success: boolean }> {
+  if (status === "connected") return { success: true };
+  if (!hasLinkedSession()) wipeAuthDir(); // drop half-finished pairing junk
+  reconnectAttempts = 0;
+  await startSocket();
+  return { success: true };
+}
 
+export async function getWhatsAppStatus() {
   return {
-    configured: isConnected,
+    configured: status === "connected",
     provider: "baileys_qr",
-    status: connectionStatus,
+    status,
     qrDataUrl: qrCodeDataUrl,
     connectedPhone,
+    error: lastError,
   };
 }
 
-/**
- * Dispatches a WhatsApp notification to ANY phone number in the world.
- */
+export async function requestWhatsAppPairingCode(
+  phone: string,
+): Promise<{ success: boolean; code?: string; error?: string }> {
+  const number = normalizePhoneNumber(phone);
+  if (number.length < 10) return { success: false, error: "Please enter a valid phone number." };
+  if (status === "connected") return { success: false, error: "WhatsApp is already linked." };
+
+  try {
+    wipeAuthDir();
+    const ready = new Promise<void>((resolve, reject) => {
+      firstQrResolver = resolve;
+      setTimeout(() => reject(new Error("WhatsApp did not respond in time, try again.")), 15_000);
+    });
+    await startSocket();
+    await ready; // socket is registered with WhatsApp and waiting for pairing
+    if (!sock) throw new Error("Connection dropped, try again.");
+    const code = await sock.requestPairingCode(number);
+    qrCodeDataUrl = null; // don't confuse the user with a QR while they type the code
+    console.log(`[LifeNest WhatsApp] Pairing code for +${number}: ${code}`);
+    return { success: true, code };
+  } catch (err) {
+    firstQrResolver = null;
+    return { success: false, error: err instanceof Error ? err.message : "Failed to get code" };
+  }
+}
+
 export async function sendWhatsAppMessage({
   to,
   message,
 }: {
   to: string;
   message: string;
-}): Promise<{
-  success: boolean;
-  messageId?: string;
-  error?: string;
-}> {
-  if (!isConnected || !sock || !sock.user) {
+}): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  if (status !== "connected" || !sock?.user) {
     return {
       success: false,
-      error:
-        "WhatsApp Gateway is finalizing connection. Please wait a moment or scan the QR code to connect.",
+      error: "WhatsApp is not linked yet. Link it in Settings first.",
     };
   }
-
-  const recipientDigits = normalizePhoneNumber(to);
-  if (!recipientDigits || recipientDigits.length < 8) {
-    return {
-      success: false,
-      error: `Invalid phone number "${to}". Please provide a full mobile number.`,
-    };
-  }
-
-  const jid = toWhatsAppJid(recipientDigits);
+  const digits = normalizePhoneNumber(to);
+  if (digits.length < 10) return { success: false, error: `Invalid phone number "${to}".` };
 
   try {
+    const check = await sock.onWhatsApp(digits);
+    const found = check?.[0];
+    if (found && !found.exists) {
+      return { success: false, error: `+${digits} is not registered on WhatsApp.` };
+    }
+    const jid = found?.jid || toWhatsAppJid(digits);
     const result = await sock.sendMessage(jid, { text: message });
-    return {
-      success: true,
-      messageId: result?.key?.id || undefined,
-    };
+    return { success: true, messageId: result?.key?.id || undefined };
   } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : "Failed to send WhatsApp message";
-    console.error(`[LifeNest WhatsApp] Failed to send to ${jid}:`, err);
-    return {
-      success: false,
-      error: errorMsg,
-    };
+    console.error("[LifeNest WhatsApp] send failed:", err);
+    return { success: false, error: err instanceof Error ? err.message : "Send failed" };
   }
 }
 
-/**
- * Disconnects the linked WhatsApp device and resets for a new scan
- */
 export async function disconnectWhatsApp(): Promise<{ success: boolean }> {
   try {
-    if (sock) {
-      await sock.logout();
-    }
+    await sock?.logout();
   } catch {}
-
-  isConnected = false;
+  killSocket();
+  wipeAuthDir();
+  status = "idle";
   connectedPhone = null;
   qrCodeDataUrl = null;
-  connectionStatus = "disconnected";
-
-  cleanAuthDir();
-
-  setTimeout(() => {
-    isInitializing = false;
-    void initWhatsAppGateway();
-  }, 1000);
-
   return { success: true };
-}
-
-/**
- * Cleanly forces a fresh QR generation by resetting auth files and socket
- */
-export async function restartWhatsAppGateway(): Promise<{ success: boolean }> {
-  try {
-    if (sock) {
-      sock.end(undefined);
-      sock = null;
-    }
-  } catch {}
-
-  isConnected = false;
-  connectedPhone = null;
-  qrCodeDataUrl = null;
-  connectionStatus = "connecting";
-  isInitializing = false;
-
-  cleanAuthDir();
-
-  void initWhatsAppGateway();
-  return { success: true };
-}
-
-/**
- * Requests an 8-character pairing code for linking without camera scanning
- */
-export async function requestWhatsAppPairingCode(phone: string): Promise<{
-  success: boolean;
-  code?: string;
-  error?: string;
-}> {
-  try {
-    const cleanNumber = normalizePhoneNumber(phone);
-    if (!cleanNumber || cleanNumber.length < 8) {
-      return { success: false, error: "Please enter a valid phone number" };
-    }
-
-    // Always restart with a fresh socket so the code has the maximum validity window
-    if (sock) {
-      try {
-        sock.ev.removeAllListeners("connection.update");
-        sock.ev.removeAllListeners("creds.update");
-        sock.end(undefined);
-      } catch {}
-      sock = null;
-    }
-
-    isConnected = false;
-    isInitializing = false;
-    connectionStatus = "connecting";
-
-    await initWhatsAppGateway();
-    // Wait for connection to WhatsApp WS
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    if (sock && !sock.authState.creds.registered) {
-      const code = await sock.requestPairingCode(cleanNumber);
-      console.log(`[LifeNest WhatsApp] Fresh pairing code ready: ${code} for +${cleanNumber}`);
-      return { success: true, code };
-    } else if (sock?.authState?.creds?.registered) {
-      return { success: false, error: "Gateway is already linked!" };
-    }
-
-    return { success: false, error: "WhatsApp Gateway is initializing, please try again in a few seconds." };
-  } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Failed to generate pairing code",
-    };
-  }
 }
