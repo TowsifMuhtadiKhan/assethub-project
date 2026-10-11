@@ -2089,7 +2089,7 @@ export function VehicleDetailsPage() {
           onMouseDown={() => setDocModalOpen(false)}
         >
           <div
-            className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200/90 overflow-hidden"
+            className="w-full max-w-xl rounded-2xl bg-white shadow-2xl border border-slate-200/90 overflow-hidden"
             onMouseDown={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -2243,56 +2243,61 @@ export function VehicleDetailsPage() {
 
                 {docReminderWhatsapp && (
                   <div className="space-y-2.5 pl-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                      <span className="text-[11px] font-semibold text-slate-700 shrink-0">
-                        Remind Lead:
-                      </span>
-                      <select
-                        value={docReminderLead}
-                        onChange={(e) => setDocReminderLead(e.target.value)}
-                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium"
-                      >
-                        <option value="30 days before">30 days before (Recommended for BRTA)</option>
-                        <option value="15 days before">15 days before</option>
-                        <option value="7 days before">7 days before</option>
-                        <option value="3 days before">3 days before</option>
-                        <option value="1 day before">1 day before</option>
-                        <option value="On exact expiry date">On exact expiry date</option>
-                        <option value="custom">Custom Days / Hours / Mins...</option>
-                      </select>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Remind Lead
+                        </label>
+                        <select
+                          value={docReminderLead}
+                          onChange={(e) => setDocReminderLead(e.target.value)}
+                          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium"
+                        >
+                          <option value="30 days before">30 days before (Recommended for BRTA)</option>
+                          <option value="15 days before">15 days before</option>
+                          <option value="7 days before">7 days before</option>
+                          <option value="3 days before">3 days before</option>
+                          <option value="1 day before">1 day before</option>
+                          <option value="On exact expiry date">On exact expiry date</option>
+                          <option value="custom">Custom Days / Hours / Mins...</option>
+                        </select>
+                      </div>
 
-                      {docReminderLead === "custom" && (
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="number"
-                            min="1"
-                            max="999"
-                            value={docCustomLeadMinutes}
-                            onChange={(e) => setDocCustomLeadMinutes(Number(e.target.value))}
-                            className="w-16 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 font-mono text-center outline-none focus:border-emerald-600"
-                          />
-                          <select
-                            value={docCustomLeadUnit}
-                            onChange={(e) => setDocCustomLeadUnit(e.target.value as any)}
-                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium"
-                          >
-                            <option value="minutes">Minutes before</option>
-                            <option value="hours">Hours before</option>
-                            <option value="days">Days before</option>
-                          </select>
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-1.5 ml-auto">
-                        <span className="text-[11px] font-semibold text-slate-700 shrink-0">Time:</span>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Alert Time
+                        </label>
                         <input
                           type="time"
                           value={docDueTime}
                           onChange={(e) => setDocDueTime(e.target.value)}
-                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-mono"
+                          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-600 font-mono"
                         />
                       </div>
                     </div>
+
+                    {docReminderLead === "custom" && (
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <span className="text-[11px] font-semibold text-slate-600 shrink-0">Custom Lead:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="999"
+                          value={docCustomLeadMinutes}
+                          onChange={(e) => setDocCustomLeadMinutes(Number(e.target.value))}
+                          className="w-20 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 font-mono text-center outline-none focus:border-emerald-600"
+                        />
+                        <select
+                          value={docCustomLeadUnit}
+                          onChange={(e) => setDocCustomLeadUnit(e.target.value as any)}
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium"
+                        >
+                          <option value="minutes">Minutes before</option>
+                          <option value="hours">Hours before</option>
+                          <option value="days">Days before</option>
+                        </select>
+                      </div>
+                    )}
 
                     {docReminderPreviewText && (
                       <div className="text-[11px] text-emerald-800 bg-emerald-100/70 border border-emerald-200/90 rounded-lg px-2.5 py-1 font-medium flex items-center gap-1.5">
@@ -2516,7 +2521,7 @@ export function VehicleDetailsPage() {
           onMouseDown={() => setEditingDoc(null)}
         >
           <div
-            className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden my-8 max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden my-8 max-h-[90vh] overflow-y-auto"
             onMouseDown={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -2661,56 +2666,61 @@ export function VehicleDetailsPage() {
 
                 {editDocReminderWhatsapp && (
                   <div className="space-y-2.5 pl-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                      <span className="text-[11px] font-semibold text-slate-700 shrink-0">
-                        Remind Lead:
-                      </span>
-                      <select
-                        value={editDocReminderLead}
-                        onChange={(e) => setEditDocReminderLead(e.target.value)}
-                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium"
-                      >
-                        <option value="30 days before">30 days before (Recommended for BRTA)</option>
-                        <option value="15 days before">15 days before</option>
-                        <option value="7 days before">7 days before</option>
-                        <option value="3 days before">3 days before</option>
-                        <option value="1 day before">1 day before</option>
-                        <option value="On exact expiry date">On exact expiry date</option>
-                        <option value="custom">Custom Days / Hours / Mins...</option>
-                      </select>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Remind Lead
+                        </label>
+                        <select
+                          value={editDocReminderLead}
+                          onChange={(e) => setEditDocReminderLead(e.target.value)}
+                          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium"
+                        >
+                          <option value="30 days before">30 days before (Recommended for BRTA)</option>
+                          <option value="15 days before">15 days before</option>
+                          <option value="7 days before">7 days before</option>
+                          <option value="3 days before">3 days before</option>
+                          <option value="1 day before">1 day before</option>
+                          <option value="On exact expiry date">On exact expiry date</option>
+                          <option value="custom">Custom Days / Hours / Mins...</option>
+                        </select>
+                      </div>
 
-                      {editDocReminderLead === "custom" && (
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="number"
-                            min="1"
-                            max="999"
-                            value={editDocCustomLeadMinutes}
-                            onChange={(e) => setEditDocCustomLeadMinutes(Number(e.target.value))}
-                            className="w-16 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 font-mono text-center outline-none focus:border-emerald-600"
-                          />
-                          <select
-                            value={editDocCustomLeadUnit}
-                            onChange={(e) => setEditDocCustomLeadUnit(e.target.value as any)}
-                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium"
-                          >
-                            <option value="minutes">Minutes before</option>
-                            <option value="hours">Hours before</option>
-                            <option value="days">Days before</option>
-                          </select>
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-1.5 ml-auto">
-                        <span className="text-[11px] font-semibold text-slate-700 shrink-0">Time:</span>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Alert Time
+                        </label>
                         <input
                           type="time"
                           value={editDocDueTime}
                           onChange={(e) => setEditDocDueTime(e.target.value)}
-                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-mono"
+                          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-600 font-mono"
                         />
                       </div>
                     </div>
+
+                    {editDocReminderLead === "custom" && (
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <span className="text-[11px] font-semibold text-slate-600 shrink-0">Custom Lead:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="999"
+                          value={editDocCustomLeadMinutes}
+                          onChange={(e) => setEditDocCustomLeadMinutes(Number(e.target.value))}
+                          className="w-20 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 font-mono text-center outline-none focus:border-emerald-600"
+                        />
+                        <select
+                          value={editDocCustomLeadUnit}
+                          onChange={(e) => setEditDocCustomLeadUnit(e.target.value as any)}
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium"
+                        >
+                          <option value="minutes">Minutes before</option>
+                          <option value="hours">Hours before</option>
+                          <option value="days">Days before</option>
+                        </select>
+                      </div>
+                    )}
 
                     {editDocReminderPreviewText && (
                       <div className="text-[11px] text-emerald-800 bg-emerald-100/70 border border-emerald-200/90 rounded-lg px-2.5 py-1 font-medium flex items-center gap-1.5">
