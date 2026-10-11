@@ -85,6 +85,7 @@ export type FamilyMemberAccess = {
   canAccessWarranties: boolean;
   canAccessTasks?: boolean;
   canAccessSchedule?: boolean;
+  canAccessDailyExpenses?: boolean;
 };
 
 export type FamilyMember = {
@@ -505,4 +506,40 @@ export type CalendarEvent = {
   type: "task" | "document_expiry" | "rent_due" | "service_due" | "warranty_expiry";
   details?: string;
   link?: string;
+};
+
+// 10. Personal & Family Daily Expenses
+export type DailyExpenseCategory =
+  | "Food & Dining"
+  | "Groceries & Market"
+  | "Transport & Commute"
+  | "Shopping & Personal"
+  | "Bills & Utilities"
+  | "Healthcare & Medicine"
+  | "Education"
+  | "Entertainment"
+  | "Family & Home"
+  | "Others";
+
+export type DailyExpensePaymentMethod =
+  | "Cash"
+  | "bKash"
+  | "Nagad"
+  | "Bank Card"
+  | "Rocket"
+  | "Other";
+
+export type DailyExpense = {
+  id: string;
+  familyMemberId: string;
+  familyMemberName?: string;
+  date: string;
+  amount: number;
+  category: DailyExpenseCategory;
+  paymentMethod: DailyExpensePaymentMethod;
+  description: string;
+  merchant?: string;
+  receiptUrl?: string;
+  notes?: string;
+  createdAt?: string;
 };

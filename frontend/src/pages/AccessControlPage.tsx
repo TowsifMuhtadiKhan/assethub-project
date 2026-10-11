@@ -19,6 +19,7 @@ import {
   FolderLock,
   CheckSquare,
   ShieldCheck,
+  Wallet,
 } from "lucide-react";
 import {
   listFamilyMembers,
@@ -54,9 +55,9 @@ export function AccessControlPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Tabs: 'vehicles' | 'properties' | 'vault' | 'warranties' | 'tasks' | 'matrix'
+  // Tabs: 'vehicles' | 'properties' | 'vault' | 'warranties' | 'tasks' | 'expenses' | 'matrix'
   const [activeTab, setActiveTab] = useState<
-    "vehicles" | "properties" | "vault" | "warranties" | "tasks" | "matrix"
+    "vehicles" | "properties" | "vault" | "warranties" | "tasks" | "expenses" | "matrix"
   >("vehicles");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -504,6 +505,19 @@ export function AccessControlPage() {
           >
             <CheckSquare className="h-3.5 w-3.5 text-amber-500" />
             <span>Tasks & Schedule</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("expenses")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              activeTab === "expenses"
+                ? "bg-white text-rose-600 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Wallet className="h-3.5 w-3.5 text-rose-500" />
+            <span>Daily Expenses</span>
           </button>
 
           <button
@@ -1185,6 +1199,82 @@ export function AccessControlPage() {
                             }`}
                           >
                             {acc.canAccessSchedule !== false ? "Enabled" : "Restricted"}
+                          </span>
+                        </label>
+                      </td>
+
+                      <td className="py-3 px-4 text-right pr-6">
+                        <button
+                          type="button"
+                          onClick={() => setInviteMember(m)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-medium"
+                        >
+                          <Share2 className="h-3.5 w-3.5" />
+                          <span>Invite</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB: DAILY EXPENSES ACCESS                                                */}
+      {/* ========================================================================= */}
+      {!loading && activeTab === "expenses" && (
+        <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-rose-600" />
+                <span>Daily Expenses & Money Tracker Access</span>
+              </h3>
+              <p className="text-xs text-slate-500">
+                Control which family members can access and maintain their PIN-protected personal spending ledger
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50/80 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-100">
+                <tr>
+                  <th className="py-2.5 px-4 sm:px-6">Member</th>
+                  <th className="py-2.5 px-4">Daily Expenses Access</th>
+                  <th className="py-2.5 px-4 text-right pr-6">Invite</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredMembers.map((m) => {
+                  const acc = m.access || getDefaultMemberAccess();
+                  return (
+                    <tr key={m.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="py-3 px-4 sm:px-6 font-semibold text-slate-900">
+                        {m.fullName}
+                        <span className="block text-[11px] text-slate-400 font-normal">
+                          {m.relationship} • {m.email || m.phone || "No login"}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <label className="inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={acc.canAccessDailyExpenses !== false}
+                            onChange={() => toggleMemberFlag(m, "canAccessDailyExpenses")}
+                            className="sr-only peer"
+                          />
+                          <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
+                          <span
+                            className={`ms-2 text-xs font-semibold ${
+                              acc.canAccessDailyExpenses !== false ? "text-rose-700" : "text-slate-400"
+                            }`}
+                          >
+                            {acc.canAccessDailyExpenses !== false ? "Authorized" : "Restricted"}
                           </span>
                         </label>
                       </td>

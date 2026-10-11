@@ -12,6 +12,7 @@ import { FamilyPage } from "./pages/FamilyPage";
 import { AccessControlPage } from "./pages/AccessControlPage";
 import { TasksPage } from "./pages/TasksPage";
 import { CalendarPage } from "./pages/CalendarPage";
+import { DailyExpensesPage } from "./pages/DailyExpensesPage";
 import { WarrantiesPage } from "./pages/WarrantiesPage";
 import { LicensesPage } from "./pages/LicensesPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -62,6 +63,9 @@ function App() {
               {/* 2. My Life */}
               <Route path="/my-life/tasks" element={<TasksPage />} />
               <Route path="/my-life/calendar" element={<CalendarPage />} />
+              <Route path="/my-life/expenses" element={<DailyExpensesPage />} />
+              <Route path="/expenses" element={<Navigate to="/my-life/expenses" replace />} />
+              <Route path="/daily-expenses" element={<Navigate to="/my-life/expenses" replace />} />
 
               {/* 3. Document Vault & Licenses */}
               <Route path="/documents/vault" element={<DocumentsPage />} />

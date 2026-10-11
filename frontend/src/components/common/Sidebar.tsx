@@ -13,6 +13,7 @@ import {
   Settings,
   Shield,
   KeyRound,
+  Wallet,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -53,6 +54,7 @@ const MENU_GROUPS: MenuGroup[] = [
     items: [
       { to: "/my-life/tasks", label: "Tasks", icon: CheckSquare },
       { to: "/my-life/calendar", label: "Schedule", icon: Calendar },
+      { to: "/my-life/expenses", label: "Daily Expenses", icon: Wallet },
     ],
   },
   {
