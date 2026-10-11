@@ -1,16 +1,19 @@
 import React, { useState } from "react";
 import { Plus, Trash2, CheckCircle2, Phone, Star, Edit2, X, Check, Users } from "lucide-react";
 import type { WhatsAppContact } from "../../types";
+import { saveLocalWhatsAppContacts } from "../../services/settingsService";
 
 interface WhatsAppContactsManagerProps {
   contacts: WhatsAppContact[];
   onChange: (contacts: WhatsAppContact[]) => void;
+  onAutoSave?: (contacts: WhatsAppContact[]) => void;
   className?: string;
 }
 
 export function WhatsAppContactsManager({
   contacts,
   onChange,
+  onAutoSave,
   className = "",
 }: WhatsAppContactsManagerProps) {
   const [showAddForm, setShowAddForm] = useState(false);
@@ -25,19 +28,28 @@ export function WhatsAppContactsManager({
   const [editPhone, setEditPhone] = useState("");
   const [editCountryCode, setEditCountryCode] = useState("+880");
 
-  const handleAddContact = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddContact = (e?: React.FormEvent | React.MouseEvent | React.KeyboardEvent) => {
+    if (e && "preventDefault" in e) e.preventDefault();
     setErrorMsg("");
 
     const cleanPhone = newPhone.trim().replace(/\s+/g, "");
     const cleanAlias = newAlias.trim();
 
     if (!cleanAlias) {
-      setErrorMsg("Please enter an alias for this number (e.g. Personal, Driver, Spouse).");
+      setErrorMsg("Please enter an alias for this number (e.g. Wife, Driver, Office).");
       return;
     }
     if (!cleanPhone || cleanPhone.length < 8) {
-      setErrorMsg("Please enter a valid WhatsApp phone number.");
+      setErrorMsg("Please enter a valid WhatsApp phone number (minimum 8 digits).");
+      return;
+    }
+
+    // Prevent duplicate alias
+    const exists = contacts.some(
+      (c) => c.alias.trim().toLowerCase() === cleanAlias.toLowerCase(),
+    );
+    if (exists) {
+      setErrorMsg(`An alias named "${cleanAlias}" already exists. Use a distinct name like "${cleanAlias} 2".`);
       return;
     }
 
@@ -46,7 +58,7 @@ export function WhatsAppContactsManager({
       alias: cleanAlias,
       phone: cleanPhone,
       countryCode: newCountryCode.trim() || "+880",
-      isDefault: newIsDefault || contacts.length === 0,
+      isDefault: newIsDefault,
     };
 
     let updated = [...contacts];
@@ -55,7 +67,10 @@ export function WhatsAppContactsManager({
     }
     updated.push(newContact);
 
+    saveLocalWhatsAppContacts(updated);
     onChange(updated);
+    if (onAutoSave) onAutoSave(updated);
+
     setNewAlias("");
     setNewPhone("");
     setNewIsDefault(false);
@@ -67,7 +82,9 @@ export function WhatsAppContactsManager({
       ...c,
       isDefault: c.id === id,
     }));
+    saveLocalWhatsAppContacts(updated);
     onChange(updated);
+    if (onAutoSave) onAutoSave(updated);
   };
 
   const handleDelete = (id: string) => {
@@ -80,7 +97,9 @@ export function WhatsAppContactsManager({
     if (target?.isDefault && updated.length > 0) {
       updated[0].isDefault = true;
     }
+    saveLocalWhatsAppContacts(updated);
     onChange(updated);
+    if (onAutoSave) onAutoSave(updated);
   };
 
   const startEdit = (c: WhatsAppContact) => {
@@ -105,7 +124,9 @@ export function WhatsAppContactsManager({
           }
         : c,
     );
+    saveLocalWhatsAppContacts(updated);
     onChange(updated);
+    if (onAutoSave) onAutoSave(updated);
     setEditingId(null);
   };
 
@@ -270,10 +291,7 @@ export function WhatsAppContactsManager({
 
       {/* Add Contact Modal / Inline Form */}
       {showAddForm && (
-        <form
-          onSubmit={handleAddContact}
-          className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-3 transition"
-        >
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-3 transition">
           <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
             <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
               <Plus className="h-4 w-4 text-emerald-600" />
@@ -281,7 +299,10 @@ export function WhatsAppContactsManager({
             </span>
             <button
               type="button"
-              onClick={() => setShowAddForm(false)}
+              onClick={() => {
+                setShowAddForm(false);
+                setErrorMsg("");
+              }}
               className="text-slate-400 hover:text-slate-700 transition cursor-pointer"
             >
               <X className="h-4 w-4" />
@@ -298,7 +319,13 @@ export function WhatsAppContactsManager({
                 required
                 value={newAlias}
                 onChange={(e) => setNewAlias(e.target.value)}
-                placeholder="e.g. Driver - Kabir, Spouse, Office"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddContact();
+                  }
+                }}
+                placeholder="e.g. Driver - Kabir, Wife, Office"
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 focus:border-emerald-600 outline-none"
               />
             </div>
@@ -324,6 +351,12 @@ export function WhatsAppContactsManager({
                 required
                 value={newPhone}
                 onChange={(e) => setNewPhone(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddContact();
+                  }
+                }}
                 placeholder="e.g. 01812345678"
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-mono text-slate-900 focus:border-emerald-600 outline-none"
               />
@@ -336,7 +369,7 @@ export function WhatsAppContactsManager({
                 type="checkbox"
                 checked={newIsDefault}
                 onChange={(e) => setNewIsDefault(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
               />
               <span>Set as Primary Default Number</span>
             </label>
@@ -344,13 +377,17 @@ export function WhatsAppContactsManager({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setShowAddForm(false)}
+                onClick={() => {
+                  setShowAddForm(false);
+                  setErrorMsg("");
+                }}
                 className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
-                type="submit"
+                type="button"
+                onClick={() => handleAddContact()}
                 className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5"
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -364,7 +401,7 @@ export function WhatsAppContactsManager({
               {errorMsg}
             </p>
           )}
-        </form>
+        </div>
       )}
     </div>
   );

@@ -21,6 +21,7 @@ create table if not exists public.lifenest_user_settings (
 );
 
 alter table public.lifenest_user_settings add column if not exists callmebot_api_key text not null default '';
+alter table public.lifenest_user_settings add column if not exists whatsapp_contacts jsonb not null default '[]'::jsonb;
 
 alter table public.lifenest_user_settings enable row level security;
 drop policy if exists "lifenest_user_settings_policy" on public.lifenest_user_settings;

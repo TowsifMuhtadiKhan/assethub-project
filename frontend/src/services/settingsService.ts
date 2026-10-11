@@ -36,9 +36,9 @@ export async function getUserSettings(): Promise<UserSettings> {
     if (contacts.length === 0) {
       contacts = [
         {
-          id: "contact-1",
+          id: "contact_personal_default",
           alias: "Personal",
-          phone: "01777785590",
+          phone: "01537295053",
           countryCode: "+880",
           isDefault: true,
         },
@@ -46,11 +46,12 @@ export async function getUserSettings(): Promise<UserSettings> {
       saveLocalWhatsAppContacts(contacts);
     }
 
-    const defaultContact = contacts.find((c) => c.isDefault) || contacts[0];
+    const personal = contacts.find((c) => c.alias.toLowerCase() === "personal");
+    const defaultContact = contacts.find((c) => c.isDefault) || personal || contacts[0];
     return {
       fullName: "",
-      whatsappNumber: defaultContact?.phone || "01777785590",
-      countryCode: defaultContact?.countryCode || "+880",
+      whatsappNumber: personal?.phone || defaultContact?.phone || "01537295053",
+      countryCode: personal?.countryCode || defaultContact?.countryCode || "+880",
       whatsappEnabled: true,
       reminderDaysBefore: 7,
       whatsappContacts: contacts,
@@ -67,50 +68,63 @@ export async function getUserSettings(): Promise<UserSettings> {
     if (contacts.length === 0) {
       contacts = [
         {
-          id: "contact-1",
+          id: "contact_personal_default",
           alias: "Personal",
-          phone: "01777785590",
+          phone: "01537295053",
           countryCode: "+880",
           isDefault: true,
         },
       ];
       saveLocalWhatsAppContacts(contacts);
     }
-    const defaultContact = contacts.find((c) => c.isDefault) || contacts[0];
+    const personal = contacts.find((c) => c.alias.toLowerCase() === "personal");
+    const defaultContact = contacts.find((c) => c.isDefault) || personal || contacts[0];
     return {
       fullName: user.user_metadata?.full_name || "",
-      whatsappNumber: defaultContact?.phone || "01777785590",
-      countryCode: defaultContact?.countryCode || "+880",
+      whatsappNumber: personal?.phone || defaultContact?.phone || "01537295053",
+      countryCode: personal?.countryCode || defaultContact?.countryCode || "+880",
       whatsappEnabled: true,
       reminderDaysBefore: 7,
       whatsappContacts: contacts,
     };
   }
 
-  // If supabase has whatsapp_contacts column populated
+  // If supabase has whatsapp_contacts column populated with array
   if (Array.isArray(data.whatsapp_contacts) && data.whatsapp_contacts.length > 0) {
     contacts = data.whatsapp_contacts;
-    saveLocalWhatsAppContacts(contacts);
-  } else if (contacts.length === 0) {
-    contacts = [
-      {
-        id: "contact-1",
-        alias: "Personal",
-        phone: data.whatsapp_number || "01777785590",
-        countryCode: data.country_code || "+880",
-        isDefault: true,
-      },
-    ];
-    saveLocalWhatsAppContacts(contacts);
   }
 
-  const defaultContact = contacts.find((c) => c.isDefault) || contacts[0];
+  // Ensure Personal contact accurately reflects the user's personal number and is never overwritten
+  const dbPhone = data.whatsapp_number?.trim();
+  const personalIdx = contacts.findIndex((c) => c.alias.toLowerCase() === "personal");
+  if (personalIdx >= 0) {
+    if (dbPhone && (!contacts[personalIdx].phone || contacts[personalIdx].phone === "01777785590")) {
+      contacts[personalIdx].phone = dbPhone;
+    }
+    if (data.country_code) {
+      contacts[personalIdx].countryCode = data.country_code;
+    }
+  } else {
+    // No personal contact in list yet, insert at beginning
+    contacts.unshift({
+      id: "contact_personal_default",
+      alias: "Personal",
+      phone: dbPhone || "01537295053",
+      countryCode: data.country_code || "+880",
+      isDefault: contacts.length === 0,
+    });
+  }
+
+  saveLocalWhatsAppContacts(contacts);
+
+  const personal = contacts.find((c) => c.alias.toLowerCase() === "personal");
+  const defaultContact = contacts.find((c) => c.isDefault) || personal || contacts[0];
 
   return {
     id: data.id,
     fullName: data.full_name,
-    whatsappNumber: data.whatsapp_number || defaultContact?.phone || "",
-    countryCode: data.country_code || defaultContact?.countryCode || "+880",
+    whatsappNumber: data.whatsapp_number || personal?.phone || defaultContact?.phone || "01537295053",
+    countryCode: data.country_code || personal?.countryCode || defaultContact?.countryCode || "+880",
     whatsappEnabled: data.whatsapp_enabled,
     reminderDaysBefore: data.reminder_days_before,
     whatsappContacts: contacts,
@@ -134,15 +148,18 @@ export async function saveUserSettings(
     contacts = getLocalWhatsAppContacts();
   }
 
-  const defaultContact = contacts.find((c) => c.isDefault) || contacts[0];
-  const primaryPhone = defaultContact?.phone || settings.whatsappNumber || "";
-  const primaryCountry = defaultContact?.countryCode || settings.countryCode || "+880";
+  // The user's personal WhatsApp number should ALWAYS stay associated with the "Personal" contact,
+  // NOT overwritten by secondary contacts like Wife, Driver, etc.
+  const personalContact = contacts.find((c) => c.alias.toLowerCase() === "personal");
+  const defaultContact = contacts.find((c) => c.isDefault) || personalContact || contacts[0];
+  const personalPhone = personalContact?.phone || settings.whatsappNumber || defaultContact?.phone || "";
+  const personalCountry = personalContact?.countryCode || settings.countryCode || defaultContact?.countryCode || "+880";
 
   if (!user) {
     return {
       fullName: settings.fullName ?? "",
-      whatsappNumber: primaryPhone,
-      countryCode: primaryCountry,
+      whatsappNumber: personalPhone,
+      countryCode: personalCountry,
       whatsappEnabled: settings.whatsappEnabled ?? true,
       reminderDaysBefore: settings.reminderDaysBefore ?? 7,
       whatsappContacts: contacts,
@@ -154,8 +171,8 @@ export async function saveUserSettings(
   const rowData: Record<string, unknown> = {
     owner_id: user.id,
     full_name: settings.fullName ?? "",
-    whatsapp_number: primaryPhone,
-    country_code: primaryCountry,
+    whatsapp_number: personalPhone,
+    country_code: personalCountry,
     whatsapp_enabled: settings.whatsappEnabled ?? true,
     reminder_days_before: settings.reminderDaysBefore ?? 7,
     google_drive_folder_id: settings.googleDriveFolderId ?? "",

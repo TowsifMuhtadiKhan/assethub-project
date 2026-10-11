@@ -974,13 +974,23 @@ export function NotificationsPage() {
                 <WhatsAppContactsManager
                   contacts={settings.whatsappContacts || []}
                   onChange={(updatedContacts) => {
-                    const def = updatedContacts.find((c) => c.isDefault) || updatedContacts[0];
-                    setSettings({
+                    const personal = updatedContacts.find((c) => c.alias.toLowerCase() === "personal");
+                    setSettings((prev) => ({
+                      ...prev,
+                      whatsappContacts: updatedContacts,
+                      whatsappNumber: personal?.phone || prev.whatsappNumber,
+                      countryCode: personal?.countryCode || prev.countryCode,
+                    }));
+                  }}
+                  onAutoSave={(updatedContacts) => {
+                    const personal = updatedContacts.find((c) => c.alias.toLowerCase() === "personal");
+                    const toSave = {
                       ...settings,
                       whatsappContacts: updatedContacts,
-                      whatsappNumber: def?.phone || settings.whatsappNumber,
-                      countryCode: def?.countryCode || settings.countryCode,
-                    });
+                      whatsappNumber: personal?.phone || settings.whatsappNumber,
+                      countryCode: personal?.countryCode || settings.countryCode,
+                    };
+                    saveUserSettings(toSave).catch(() => {});
                   }}
                 />
               </div>
