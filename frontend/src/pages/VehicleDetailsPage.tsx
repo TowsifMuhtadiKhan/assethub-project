@@ -1123,18 +1123,9 @@ export function VehicleDetailsPage() {
             <ArrowLeft className="h-3.5 w-3.5" /> All Vehicles
           </button>
           <div className="flex items-center gap-3">
-            {vehicle.registrationNumber ? (
-              <div className="hidden sm:block shrink-0">
-                <BangladeshNumberPlate
-                  registrationNumber={vehicle.registrationNumber}
-                  size="sm"
-                />
-              </div>
-            ) : (
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-800">
-                <VehicleIcon className="h-4 w-4" />
-              </div>
-            )}
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-800">
+              <VehicleIcon className="h-4 w-4" />
+            </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-base font-bold tracking-tight text-slate-900">
@@ -2294,7 +2285,7 @@ export function VehicleDetailsPage() {
 
             {/* Official Bangladesh Digital Retroreflective Number Plate */}
             {vehicle.registrationNumber && (
-              <div className="flex flex-col items-center justify-center p-3.5 rounded-xl bg-gradient-to-b from-slate-50/90 to-slate-100/50 border border-slate-200/80 shadow-2xs">
+              <div className="flex flex-col items-center justify-center p-3.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
                 <BangladeshNumberPlate
                   registrationNumber={vehicle.registrationNumber}
                   size="md"

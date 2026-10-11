@@ -292,7 +292,7 @@ export function BangladeshNumberPlate({
         plateShadow: "shadow-[inset_0_1px_2px_rgba(255,255,255,0.4),0_6px_14px_rgba(0,0,0,0.2)]",
       }
     : {
-        plateBg: "bg-gradient-to-b from-[#f8fafc] via-[#f1f5f9] to-[#e2e8f0]",
+        plateBg: "bg-white",
         outerBorder: "border-slate-800",
         innerBorder: "border-slate-900",
         textColor: "text-slate-950",
