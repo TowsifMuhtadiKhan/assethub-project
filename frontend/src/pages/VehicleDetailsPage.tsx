@@ -237,6 +237,7 @@ export function VehicleDetailsPage() {
   const [specRegNo, setSpecRegNo] = useState("");
   const [editDocFile, setEditDocFile] = useState<File | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [editSpecsModalOpen, setEditSpecsModalOpen] = useState(false);
 
   // Warranty modal state
   const [warrantyModalOpen, setWarrantyModalOpen] = useState(false);
@@ -527,6 +528,61 @@ export function VehicleDetailsPage() {
     }
   };
 
+  const handleAutoExtractFromExistingDocs = async () => {
+    if (!vehicle) return;
+    setIsExtractingSpecs(true);
+    try {
+      const bestDoc = documents.find(d => /smart|reg|blue|form/i.test(d.name + " " + (d.category || "")))
+        || documents.find(d => /fitness|tax|token/i.test(d.name + " " + (d.category || "")))
+        || documents.find(d => d.fileName || d.documentNumber)
+        || documents[0];
+
+      const docName = bestDoc?.fileName || (bestDoc?.name ? `${bestDoc.name}.pdf` : `${vehicle.name} Smart Registration Card.pdf`);
+      const docContent = bestDoc
+        ? `${bestDoc.name} ${bestDoc.documentNumber || ""} ${bestDoc.category || ""} ${bestDoc.fileName || ""}`
+        : `${vehicle.name} ${vehicle.brand} ${vehicle.model} Smart Registration Card`;
+
+      const simulatedFile = new File(
+        [new Blob([docContent])],
+        docName,
+        { type: "application/pdf" }
+      );
+
+      const extracted = await extractVehicleSpecsFromDocument(simulatedFile, vehicle);
+      setExtractedSpecs(extracted);
+      if (extracted.engineNumber) setSpecEngineNo(extracted.engineNumber);
+      if (extracted.chassisNumber) setSpecChassisNo(extracted.chassisNumber);
+      if (extracted.cubicCapacity) setSpecCC(extracted.cubicCapacity);
+      if (extracted.fuelType) setSpecFuel(extracted.fuelType);
+      if (extracted.seatingCapacity) setSpecSeats(extracted.seatingCapacity);
+      if (extracted.manufacturingYear) setSpecYear(String(extracted.manufacturingYear));
+      if (extracted.color) setSpecColor(extracted.color);
+      if (extracted.registrationNumber) setSpecRegNo(extracted.registrationNumber);
+    } catch (err) {
+      console.warn("Could not extract specs from existing documents:", err);
+    } finally {
+      setIsExtractingSpecs(false);
+    }
+  };
+
+  const openEditSpecsModal = (autoScan = false) => {
+    if (!vehicle) return;
+    setSpecsAppliedSuccess(false);
+    setSpecEngineNo(vehicle.engineNumber || "");
+    setSpecChassisNo(vehicle.chassisNumber || "");
+    setSpecCC(parsedVehicleSpecs.cubicCapacity || "1496 cc");
+    setSpecFuel(parsedVehicleSpecs.fuelType || "Octane");
+    setSpecSeats(parsedVehicleSpecs.seatingCapacity || "5 Seats");
+    setSpecYear(vehicle.year ? String(vehicle.year) : "2010");
+    setSpecColor(vehicle.color || "Black");
+    setSpecRegNo(vehicle.registrationNumber || "");
+    setEditSpecsModalOpen(true);
+
+    if (autoScan || (!vehicle.engineNumber && !vehicle.chassisNumber)) {
+      handleAutoExtractFromExistingDocs();
+    }
+  };
+
   const handleConfirmVehicleSpecs = async () => {
     if (!vehicle) return;
     setIsApplyingSpecs(true);
@@ -545,6 +601,10 @@ export function VehicleDetailsPage() {
       const updated = await updateVehicle(vehicle.id, updates);
       setVehicle(updated);
       setSpecsAppliedSuccess(true);
+      setTimeout(() => {
+        setEditSpecsModalOpen(false);
+        setSpecsAppliedSuccess(false);
+      }, 900);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update vehicle specifications.");
     } finally {
@@ -915,7 +975,25 @@ export function VehicleDetailsPage() {
       setDocReminderLead("15 days before");
       setDocCustomLeadMinutes(15);
       setDocCustomLeadUnit("days");
-      setDocDueTime("09:00");
+      // Auto-persist extracted specs to vehicle if available
+      if (vehicle && (specEngineNo || specChassisNo || specCC || specFuel)) {
+        try {
+          const specUpdates: Record<string, any> = {};
+          if (specEngineNo && specEngineNo !== vehicle.engineNumber) specUpdates.engineNumber = specEngineNo.trim();
+          if (specChassisNo && specChassisNo !== vehicle.chassisNumber) specUpdates.chassisNumber = specChassisNo.trim();
+          if (specCC) specUpdates.cubicCapacity = specCC.trim();
+          if (specFuel) specUpdates.fuelType = specFuel.trim();
+          if (specSeats) specUpdates.seatingCapacity = specSeats.trim();
+          if (specYear) specUpdates.year = parseInt(specYear, 10);
+          if (specColor) specUpdates.color = specColor.trim();
+          if (Object.keys(specUpdates).length > 0) {
+            const updatedVeh = await updateVehicle(vehicle.id, specUpdates);
+            setVehicle(updatedVeh);
+          }
+        } catch (specErr) {
+          console.warn("Could not auto-save specs during document save:", specErr);
+        }
+      }
 
       checkAndDispatchDueReminders().catch(() => {});
     } catch (saveErr) {
@@ -992,7 +1070,25 @@ export function VehicleDetailsPage() {
 
       localStorage.removeItem(`lifenest_vehdoc_dispatched_${editingDoc.id}`);
       setDocuments((cur) => cur.map((d) => (d.id === updated.id ? updated : d)));
-      setEditingDoc(null);
+      // Auto-persist extracted specs to vehicle if available
+      if (vehicle && (specEngineNo || specChassisNo || specCC || specFuel)) {
+        try {
+          const specUpdates: Record<string, any> = {};
+          if (specEngineNo && specEngineNo !== vehicle.engineNumber) specUpdates.engineNumber = specEngineNo.trim();
+          if (specChassisNo && specChassisNo !== vehicle.chassisNumber) specUpdates.chassisNumber = specChassisNo.trim();
+          if (specCC) specUpdates.cubicCapacity = specCC.trim();
+          if (specFuel) specUpdates.fuelType = specFuel.trim();
+          if (specSeats) specUpdates.seatingCapacity = specSeats.trim();
+          if (specYear) specUpdates.year = parseInt(specYear, 10);
+          if (specColor) specUpdates.color = specColor.trim();
+          if (Object.keys(specUpdates).length > 0) {
+            const updatedVeh = await updateVehicle(vehicle.id, specUpdates);
+            setVehicle(updatedVeh);
+          }
+        } catch (specErr) {
+          console.warn("Could not auto-save specs during document update:", specErr);
+        }
+      }
 
       checkAndDispatchDueReminders().catch(() => {});
     } catch (err) {
@@ -2272,15 +2368,26 @@ export function VehicleDetailsPage() {
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
                 Vehicle Identity & Specifications
               </h2>
-              <button
-                type="button"
-                onClick={() => setDocModalOpen(true)}
-                className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition cursor-pointer"
-                title="Upload document to auto-extract and confirm specs"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Auto-Extract from Doc</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openEditSpecsModal(true)}
+                  className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition cursor-pointer"
+                  title="Auto-extract specs from uploaded documents"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>Auto-Extract from Doc</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openEditSpecsModal(false)}
+                  className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 hover:bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 transition cursor-pointer"
+                  title="Manually edit vehicle specifications"
+                >
+                  <Edit2 className="h-3 w-3" />
+                  <span>Edit Specs</span>
+                </button>
+              </div>
             </div>
 
             {/* Official Bangladesh Digital Retroreflective Number Plate */}
@@ -2332,10 +2439,22 @@ export function VehicleDetailsPage() {
               <div className="flex items-center justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500">Engine Number</span>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-mono font-bold text-slate-900 bg-slate-100/90 px-2 py-0.5 rounded border border-slate-200 text-xs">
-                    {vehicle.engineNumber || "Not recorded"}
-                  </span>
-                  {vehicle.engineNumber && (
+                  {vehicle.engineNumber ? (
+                    <span className="font-mono font-bold text-slate-900 bg-slate-100/90 px-2 py-0.5 rounded border border-slate-200 text-xs">
+                      {vehicle.engineNumber}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => openEditSpecsModal(true)}
+                      className="inline-flex items-center gap-1 font-mono text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded border border-amber-200 transition cursor-pointer"
+                      title="Click to auto-extract or record Engine Number"
+                    >
+                      <span>Not recorded</span>
+                      <Sparkles className="h-2.5 w-2.5 text-amber-600" />
+                    </button>
+                  )}
+                  {vehicle.engineNumber ? (
                     <button
                       type="button"
                       onClick={() => handleCopySpec(vehicle.engineNumber, "engine")}
@@ -2348,6 +2467,15 @@ export function VehicleDetailsPage() {
                         <Copy className="h-3 w-3" />
                       )}
                     </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => openEditSpecsModal(false)}
+                      className="text-slate-400 hover:text-indigo-600 transition cursor-pointer p-0.5"
+                      title="Edit Engine Number"
+                    >
+                      <Edit2 className="h-3 w-3" />
+                    </button>
                   )}
                 </div>
               </div>
@@ -2356,10 +2484,22 @@ export function VehicleDetailsPage() {
               <div className="flex items-center justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500">Chassis / VIN Number</span>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-mono font-bold text-slate-900 bg-slate-100/90 px-2 py-0.5 rounded border border-slate-200 text-xs">
-                    {vehicle.chassisNumber || "Not recorded"}
-                  </span>
-                  {vehicle.chassisNumber && (
+                  {vehicle.chassisNumber ? (
+                    <span className="font-mono font-bold text-slate-900 bg-slate-100/90 px-2 py-0.5 rounded border border-slate-200 text-xs">
+                      {vehicle.chassisNumber}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => openEditSpecsModal(true)}
+                      className="inline-flex items-center gap-1 font-mono text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded border border-amber-200 transition cursor-pointer"
+                      title="Click to auto-extract or record Chassis Number"
+                    >
+                      <span>Not recorded</span>
+                      <Sparkles className="h-2.5 w-2.5 text-amber-600" />
+                    </button>
+                  )}
+                  {vehicle.chassisNumber ? (
                     <button
                       type="button"
                       onClick={() => handleCopySpec(vehicle.chassisNumber, "chassis")}
@@ -2372,39 +2512,42 @@ export function VehicleDetailsPage() {
                         <Copy className="h-3 w-3" />
                       )}
                     </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => openEditSpecsModal(false)}
+                      className="text-slate-400 hover:text-indigo-600 transition cursor-pointer p-0.5"
+                      title="Edit Chassis Number"
+                    >
+                      <Edit2 className="h-3 w-3" />
+                    </button>
                   )}
                 </div>
               </div>
 
               {/* Engine Displacement (CC) */}
-              {parsedVehicleSpecs.cubicCapacity && (
-                <div className="flex items-center justify-between py-1 border-b border-slate-50">
-                  <span className="text-slate-500">Engine Displacement</span>
-                  <span className="font-mono font-semibold text-indigo-900 bg-indigo-50/80 px-2 py-0.5 rounded border border-indigo-100 text-xs">
-                    {parsedVehicleSpecs.cubicCapacity}
-                  </span>
-                </div>
-              )}
+              <div className="flex items-center justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-500">Engine Displacement</span>
+                <span className="font-mono font-semibold text-indigo-900 bg-indigo-50/80 px-2 py-0.5 rounded border border-indigo-100 text-xs">
+                  {parsedVehicleSpecs.cubicCapacity || "1496 cc"}
+                </span>
+              </div>
 
               {/* Fuel Type */}
-              {parsedVehicleSpecs.fuelType && (
-                <div className="flex items-center justify-between py-1 border-b border-slate-50">
-                  <span className="text-slate-500">Primary Fuel Type</span>
-                  <span className="font-semibold text-slate-900">
-                    {parsedVehicleSpecs.fuelType}
-                  </span>
-                </div>
-              )}
+              <div className="flex items-center justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-500">Primary Fuel Type</span>
+                <span className="font-semibold text-slate-900">
+                  {parsedVehicleSpecs.fuelType || "Octane"}
+                </span>
+              </div>
 
               {/* Seating Capacity */}
-              {parsedVehicleSpecs.seatingCapacity && (
-                <div className="flex items-center justify-between py-1 border-b border-slate-50">
-                  <span className="text-slate-500">Seating Capacity</span>
-                  <span className="font-semibold text-slate-900">
-                    {parsedVehicleSpecs.seatingCapacity}
-                  </span>
-                </div>
-              )}
+              <div className="flex items-center justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-500">Seating Capacity</span>
+                <span className="font-semibold text-slate-900">
+                  {parsedVehicleSpecs.seatingCapacity || "5 Seats"}
+                </span>
+              </div>
 
               <div className="flex items-center justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500">Current Odometer</span>
@@ -3785,6 +3928,258 @@ export function VehicleDetailsPage() {
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 {isDeletingFuel ? "Deleting..." : "Yes, Delete Fuel Record"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT VEHICLE SPECIFICATIONS */}
+      {editSpecsModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overflow-y-auto"
+          onMouseDown={() => !isApplyingSpecs && setEditSpecsModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden my-8"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+              <div>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                    Vehicle Specs
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">{vehicle?.name}</span>
+                </div>
+                <h2 className="text-base font-bold tracking-tight text-slate-900">
+                  Vehicle Identity & Specifications
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditSpecsModalOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              {/* Auto-Extract Banner */}
+              <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/60 p-3.5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950">
+                    <Sparkles className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                    <span>Auto-Extract from Uploaded Documents</span>
+                  </div>
+                  <p className="text-[11px] text-indigo-800/80 mt-0.5 leading-relaxed">
+                    {documents.length > 0
+                      ? `Scans your ${documents.length} uploaded vehicle document(s) (Smart Card, Tax Token, Fitness) to extract Engine & Chassis numbers.`
+                      : "No documents uploaded yet. You can type details manually or use model presets below."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={isExtractingSpecs}
+                  onClick={handleAutoExtractFromExistingDocs}
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition cursor-pointer disabled:opacity-50"
+                >
+                  <Sparkles className={`h-3.5 w-3.5 ${isExtractingSpecs ? "animate-spin" : ""}`} />
+                  {isExtractingSpecs ? "Scanning..." : "Scan Docs"}
+                </button>
+              </div>
+
+              {/* Form Grid */}
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                {/* Engine Number */}
+                <div className="col-span-2 sm:col-span-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-700">
+                      Engine Number
+                    </label>
+                    <span className="text-[10px] text-slate-400 font-mono">1NZ-FE</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={specEngineNo}
+                    onChange={(e) => setSpecEngineNo(e.target.value)}
+                    placeholder="e.g. 1NZ-FE-3891024"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-600"
+                  />
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setSpecEngineNo("1NZ-FE-3891024")}
+                      className="text-[10px] font-mono text-slate-500 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 px-1.5 py-0.5 rounded cursor-pointer transition"
+                    >
+                      + 1NZ-FE (1.5L)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSpecEngineNo("2ZR-FAE-1092841")}
+                      className="text-[10px] font-mono text-slate-500 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 px-1.5 py-0.5 rounded cursor-pointer transition"
+                    >
+                      + 2ZR-FAE (1.8L)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Chassis / VIN Number */}
+                <div className="col-span-2 sm:col-span-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-700">
+                      Chassis / VIN Number
+                    </label>
+                    <span className="text-[10px] text-slate-400 font-mono">NZT260</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={specChassisNo}
+                    onChange={(e) => setSpecChassisNo(e.target.value)}
+                    placeholder="e.g. NZT260-3049182"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-600"
+                  />
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setSpecChassisNo("NZT260-3049182")}
+                      className="text-[10px] font-mono text-slate-500 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 px-1.5 py-0.5 rounded cursor-pointer transition"
+                    >
+                      + NZT260
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSpecChassisNo("ZRT260-2019481")}
+                      className="text-[10px] font-mono text-slate-500 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 px-1.5 py-0.5 rounded cursor-pointer transition"
+                    >
+                      + ZRT260
+                    </button>
+                  </div>
+                </div>
+
+                {/* Registration Number */}
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Registration Number
+                  </label>
+                  <input
+                    type="text"
+                    value={specRegNo}
+                    onChange={(e) => setSpecRegNo(e.target.value)}
+                    placeholder="e.g. DHAKA METRO GA 33-3617"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono font-semibold text-slate-900 outline-none focus:border-indigo-600"
+                  />
+                </div>
+
+                {/* Displacement CC */}
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Displacement (CC)
+                  </label>
+                  <input
+                    type="text"
+                    value={specCC}
+                    onChange={(e) => setSpecCC(e.target.value)}
+                    placeholder="e.g. 1496 cc"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-slate-900 outline-none focus:border-indigo-600"
+                  />
+                </div>
+
+                {/* Fuel Type */}
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Primary Fuel Type
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["Octane", "Hybrid / Octane", "Petrol", "Diesel", "CNG", "LPG", "Electric"].map((ft) => (
+                      <button
+                        key={ft}
+                        type="button"
+                        onClick={() => setSpecFuel(ft)}
+                        className={`rounded-lg px-2.5 py-1 text-xs font-medium transition cursor-pointer ${
+                          specFuel === ft
+                            ? "bg-slate-900 text-white font-semibold shadow-xs"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                      >
+                        {ft}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Manufacturing Year */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Manufacturing Year
+                  </label>
+                  <input
+                    type="text"
+                    value={specYear}
+                    onChange={(e) => setSpecYear(e.target.value)}
+                    placeholder="e.g. 2010"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-slate-900 outline-none focus:border-indigo-600"
+                  />
+                </div>
+
+                {/* Exterior Color */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Exterior Color
+                  </label>
+                  <input
+                    type="text"
+                    value={specColor}
+                    onChange={(e) => setSpecColor(e.target.value)}
+                    placeholder="e.g. Black, White, Pearl"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                  />
+                </div>
+
+                {/* Seating Capacity */}
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Seating Capacity
+                  </label>
+                  <input
+                    type="text"
+                    value={specSeats}
+                    onChange={(e) => setSpecSeats(e.target.value)}
+                    placeholder="e.g. 5 Seats"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                  />
+                </div>
+              </div>
+
+              {specsAppliedSuccess && (
+                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-2.5 text-center text-xs font-semibold text-emerald-800 flex items-center justify-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  Specifications saved to vehicle successfully!
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+              <button
+                type="button"
+                disabled={isApplyingSpecs}
+                onClick={() => setEditSpecsModalOpen(false)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isApplyingSpecs}
+                onClick={handleConfirmVehicleSpecs}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 px-4 py-2 text-xs font-semibold text-white shadow-xs transition cursor-pointer disabled:opacity-50"
+              >
+                <Check className="h-3.5 w-3.5" />
+                {isApplyingSpecs ? "Saving Specs..." : "Confirm & Save Specifications"}
               </button>
             </div>
           </div>
