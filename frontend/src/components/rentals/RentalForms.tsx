@@ -51,15 +51,210 @@ export function PropertyForm({ propertyId, done, close }: FormProps & { property
   </form></Modal>;
 }
 
-export function TenancyForm({ unit, tenancy, done, close }: FormProps & { unit: PropertyUnit; tenancy?: RentalTenancy }) {
+export function TenancyForm({
+  unit,
+  tenancy,
+  schedules = [],
+  done,
+  close,
+}: FormProps & {
+  unit: PropertyUnit;
+  tenancy?: RentalTenancy;
+  schedules?: RentSchedule[];
+}) {
   const { busy, error, save } = useSave(done);
-  return <Modal title={`${tenancy ? "Edit tenancy" : "Add tenant"} · ${unit.unitNumber}`} close={() => !busy && close()}><form className="space-y-4" onSubmit={e => {
-    e.preventDefault(); const f = new FormData(e.currentTarget);
-    void save(() => saveTenancy({ id: tenancy?.id, unit_id: unit.id, tenant_name: value(f, "name"), tenant_phone: value(f, "phone"), tenant_nid: value(f, "nid"), start_month: value(f, "start"), end_month: value(f, "end") || null }));
-  }}><FormError error={error} /><Label title="Tenant name *"><input name="name" required defaultValue={tenancy?.tenant_name || unit.tenantName} className={field} /></Label><Label title="Phone number *"><input name="phone" type="tel" required minLength={6} maxLength={25} defaultValue={tenancy?.tenant_phone || unit.tenantPhone} className={field} /></Label><Label title="NID number (optional)"><input name="nid" defaultValue={tenancy?.tenant_nid || unit.tenantNid} className={field} /></Label>
-    <div className="grid grid-cols-2 gap-3"><Label title="First rental month *"><input type="month" name="start" required defaultValue={tenancy?.start_month.slice(0, 7) || currentMonth()} className={field} /></Label><Label title="Last rental month (optional)"><input type="month" name="end" defaultValue={tenancy?.end_month?.slice(0, 7)} className={field} /></Label></div>
-    <p className="text-xs text-slate-500">Months are inclusive. To change tenants, end the current tenancy and add a new one. Previous tenant records and payments are retained.</p><button disabled={busy} className={primary}>{busy ? "Saving…" : "Save tenant"}</button>
-  </form></Modal>;
+  const [rent, setRent] = useState<string>(unit.monthlyRent ? String(unit.monthlyRent) : "");
+  const [serviceCharge, setServiceCharge] = useState("");
+  const [gasBill, setGasBill] = useState("");
+  const [electricityBill, setElectricityBill] = useState("");
+  const [waterBill, setWaterBill] = useState("");
+
+  const totalCalculated =
+    (Number(rent) || 0) +
+    (Number(serviceCharge) || 0) +
+    (Number(gasBill) || 0) +
+    (Number(electricityBill) || 0) +
+    (Number(waterBill) || 0);
+
+  return (
+    <Modal
+      title={`${tenancy ? "Edit tenancy" : "Add tenant & monthly rent"} · ${unit.unitNumber}`}
+      close={() => !busy && close()}
+    >
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const f = new FormData(e.currentTarget);
+          const start = value(f, "start");
+          const end = value(f, "end");
+          const baseRentNum = Number(rent) || 0;
+
+          void save(async () => {
+            const tenancyId = await saveTenancy({
+              id: tenancy?.id,
+              unit_id: unit.id,
+              tenant_name: value(f, "name"),
+              tenant_phone: value(f, "phone"),
+              tenant_nid: value(f, "nid"),
+              start_month: start,
+              end_month: end || null,
+            });
+
+            if (baseRentNum > 0 && tenancyId) {
+              const chargesList: RentCharge[] = [];
+              if (Number(serviceCharge) > 0)
+                chargesList.push({ label: "Service charge", amount: Number(serviceCharge) });
+              if (Number(gasBill) > 0)
+                chargesList.push({ label: "Gas bill", amount: Number(gasBill) });
+              if (Number(electricityBill) > 0)
+                chargesList.push({ label: "Electricity bill", amount: Number(electricityBill) });
+              if (Number(waterBill) > 0)
+                chargesList.push({ label: "Water bill", amount: Number(waterBill) });
+
+              await saveRentSchedule(
+                {
+                  tenancy_id: tenancyId,
+                  from_month: start.slice(0, 7),
+                  to_month: end ? end.slice(0, 7) : null,
+                  base_rent: baseRentNum,
+                  charges: chargesList,
+                },
+                schedules
+              );
+            }
+          });
+        }}
+      >
+        <FormError error={error} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Label title="Tenant name *">
+            <input
+              name="name"
+              required
+              placeholder="e.g. Tariqul Islam"
+              defaultValue={tenancy?.tenant_name || unit.tenantName}
+              className={field}
+            />
+          </Label>
+          <Label title="Phone number *">
+            <input
+              name="phone"
+              type="tel"
+              required
+              minLength={6}
+              maxLength={25}
+              placeholder="e.g. 01711234567"
+              defaultValue={tenancy?.tenant_phone || unit.tenantPhone}
+              className={field}
+            />
+          </Label>
+        </div>
+
+        <Label title="NID / Passport number (optional)">
+          <input
+            name="nid"
+            placeholder="e.g. 19902692518..."
+            defaultValue={tenancy?.tenant_nid || unit.tenantNid}
+            className={field}
+          />
+        </Label>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Label title="First rental month *">
+            <input
+              type="month"
+              name="start"
+              required
+              defaultValue={tenancy?.start_month.slice(0, 7) || currentMonth()}
+              className={field}
+            />
+          </Label>
+          <Label title="Last rental month (optional)">
+            <input
+              type="month"
+              name="end"
+              defaultValue={tenancy?.end_month?.slice(0, 7)}
+              className={field}
+            />
+          </Label>
+        </div>
+
+        <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3.5 space-y-3">
+          <div className="flex items-center justify-between border-b border-indigo-100 pb-1.5">
+            <span className="font-bold text-xs text-indigo-950">
+              Monthly Rent & Bills Breakdown (How much they pay)
+            </span>
+            <span className="text-[11px] text-indigo-600 font-semibold font-mono">
+              Total: {money(totalCalculated)}/mo
+            </span>
+          </div>
+
+          <div>
+            <Label title="Monthly Base Rent (৳ BDT) *">
+              <input
+                type="number"
+                min="0"
+                step="1"
+                required={!tenancy}
+                placeholder="e.g. 25000"
+                value={rent}
+                onChange={(e) => setRent(e.target.value)}
+                className={`${field} font-bold font-mono text-slate-900`}
+              />
+            </Label>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <Label title="Service charge">
+              <input
+                type="number"
+                min="0"
+                placeholder="0"
+                value={serviceCharge}
+                onChange={(e) => setServiceCharge(e.target.value)}
+                className={`${field} text-xs font-mono`}
+              />
+            </Label>
+            <Label title="Gas bill">
+              <input
+                type="number"
+                min="0"
+                placeholder="0"
+                value={gasBill}
+                onChange={(e) => setGasBill(e.target.value)}
+                className={`${field} text-xs font-mono`}
+              />
+            </Label>
+            <Label title="Electricity">
+              <input
+                type="number"
+                min="0"
+                placeholder="0"
+                value={electricityBill}
+                onChange={(e) => setElectricityBill(e.target.value)}
+                className={`${field} text-xs font-mono`}
+              />
+            </Label>
+            <Label title="Water bill">
+              <input
+                type="number"
+                min="0"
+                placeholder="0"
+                value={waterBill}
+                onChange={(e) => setWaterBill(e.target.value)}
+                className={`${field} text-xs font-mono`}
+              />
+            </Label>
+          </div>
+        </div>
+
+        <button disabled={busy} className={primary}>
+          {busy ? "Saving…" : "Save Tenant & Rent Rate"}
+        </button>
+      </form>
+    </Modal>
+  );
 }
 
 export function ScheduleForm({ tenancy, schedule, schedules, done, close }: FormProps & { tenancy: RentalTenancy; schedule?: RentSchedule; schedules: RentSchedule[] }) {

@@ -1345,6 +1345,122 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                         </p>
                       )}
 
+                      {/* Flats & Monthly Rent Setup Helper Bar */}
+                      <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-100/80 pb-2">
+                          <div className="flex items-center gap-2 text-indigo-950 font-bold text-xs uppercase tracking-wider">
+                            <ReceiptText className="h-4 w-4 text-indigo-600" />
+                            <span>Monthly Rent & Tenant Rate Setup for {month}</span>
+                          </div>
+                          <span className="text-[11px] text-indigo-700 font-medium">
+                            Set tenant & rent amount to enable monthly collection & ledger
+                          </span>
+                        </div>
+
+                        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                          {units
+                            .filter((u) => !u.parentUnitId)
+                            .map((u) => {
+                              const activeT = tenancies.find(
+                                (t) =>
+                                  t.unit_id === u.id &&
+                                  t.start_month.slice(0, 7) <= month &&
+                                  (!t.end_month || t.end_month.slice(0, 7) >= month)
+                              );
+                              const activeSchedule = activeT
+                                ? data.schedules.find(
+                                    (s) =>
+                                      s.tenancy_id === activeT.id &&
+                                      s.from_month.slice(0, 7) <= month &&
+                                      (!s.to_month || s.to_month.slice(0, 7) >= month)
+                                  )
+                                : null;
+
+                              return (
+                                <div
+                                  key={u.id}
+                                  className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs flex flex-col justify-between"
+                                >
+                                  <div>
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-bold text-xs text-slate-900">
+                                        {u.unitNumber}
+                                      </span>
+                                      <span
+                                        className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                                          activeSchedule
+                                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                                            : activeT
+                                            ? "bg-amber-50 text-amber-800 border border-amber-200/60"
+                                            : "bg-slate-100 text-slate-600"
+                                        }`}
+                                      >
+                                        {activeSchedule
+                                          ? "Rent Active"
+                                          : activeT
+                                          ? "Missing Rent Rate"
+                                          : "Vacant"}
+                                      </span>
+                                    </div>
+
+                                    <p className="mt-1 text-xs text-slate-600">
+                                      {activeT ? (
+                                        <>
+                                          Tenant: <strong className="text-slate-800">{activeT.tenant_name}</strong>
+                                        </>
+                                      ) : (
+                                        "No tenant recorded"
+                                      )}
+                                    </p>
+
+                                    {activeSchedule ? (
+                                      <p className="mt-1 text-[11px] font-mono font-bold text-indigo-700">
+                                        Rate: {money(activeSchedule.base_rent + activeSchedule.charges.reduce((sum, c) => sum + c.amount, 0))}/mo
+                                      </p>
+                                    ) : (
+                                      <p className="mt-1 text-[10px] text-slate-400">
+                                        {activeT
+                                          ? `Add dated rate to show in ${month} ledger`
+                                          : "Assign tenant and set how much they pay"}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div className="mt-3 pt-2 border-t border-slate-100 flex justify-end">
+                                    {activeT ? (
+                                      <button
+                                        type="button"
+                                        className="inline-flex items-center gap-1 rounded-lg bg-indigo-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-indigo-800 transition"
+                                        onClick={() =>
+                                          setEditor({
+                                            type: "rate",
+                                            tenancy: activeT,
+                                            schedule: activeSchedule || undefined,
+                                          })
+                                        }
+                                      >
+                                        <Plus className="h-3 w-3" />
+                                        {activeSchedule ? "Update Rent Rate" : "Set Rent Amount (৳)"}
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white hover:bg-slate-800 transition"
+                                        onClick={() =>
+                                          setEditor({ type: "tenant", unit: u })
+                                        }
+                                      >
+                                        <Plus className="h-3 w-3" />
+                                        Add Tenant & Rent (৳)
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+
                       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
                         <table className="w-full text-left text-sm">
                           <thead className="bg-slate-50">
@@ -1483,10 +1599,17 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                               <tr>
                                 <td
                                   colSpan={6}
-                                  className="p-8 text-center text-slate-500"
+                                  className="p-8 text-center"
                                 >
-                                  No tenancy covers this month. Add a tenant and rent
-                                  period first.
+                                  <div className="max-w-md mx-auto space-y-2">
+                                    <ReceiptText className="h-8 w-8 text-indigo-400 mx-auto" />
+                                    <p className="font-bold text-slate-800 text-sm">
+                                      No rent records active for {month}
+                                    </p>
+                                    <p className="text-xs text-slate-500">
+                                      Use the buttons in the "Monthly Rent & Tenant Rate Setup" box above to set the rent for your flats. Once set, payment checkboxes and collection balances will appear here immediately.
+                                    </p>
+                                  </div>
                                 </td>
                               </tr>
                             )}
@@ -2061,6 +2184,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
             <TenancyForm
               unit={editor.unit}
               tenancy={editor.tenancy}
+              schedules={data.schedules}
               done={done}
               close={() => setEditor(null)}
             />

@@ -91,13 +91,14 @@ export async function deleteRentalProperty(propertyId: string) {
   const { error } = await supabase.from("lifenest_properties").delete().eq("id", propertyId);
   if (error) throw error;
 }
-export async function saveTenancy(input: Omit<RentalTenancy, "id" | "owner_id"> & { id?: string }) {
+export async function saveTenancy(input: Omit<RentalTenancy, "id" | "owner_id"> & { id?: string }): Promise<string> {
   if (!input.tenant_name.trim() || input.tenant_phone.trim().length < 6) throw new Error("Tenant name and phone number are required.");
   const { id, ...values } = input;
   const row = { ...values, start_month: values.start_month.slice(0, 7) + "-01", end_month: values.end_month ? values.end_month.slice(0, 7) + "-01" : null };
-  const query = id ? supabase.from("lifenest_rental_tenancies").update(row).eq("id", id) : supabase.from("lifenest_rental_tenancies").insert({ ...row, owner_id: await ownerId() });
-  const { error } = await query;
+  const query = id ? supabase.from("lifenest_rental_tenancies").update(row).eq("id", id).select().single() : supabase.from("lifenest_rental_tenancies").insert({ ...row, owner_id: await ownerId() }).select().single();
+  const { data, error } = await query;
   if (error) throw error;
+  return (data?.id || id) as string;
 }
 export async function saveRentSchedule(input: Omit<RentSchedule, "id"> & { id?: string }, existing: RentSchedule[]) {
   validateSchedule(input, existing);
