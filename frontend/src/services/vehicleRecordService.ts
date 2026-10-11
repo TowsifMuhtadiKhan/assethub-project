@@ -157,8 +157,8 @@ export async function createVehicleService(
     service_date: input.serviceDate,
     mileage_at_service: input.mileageAtService ?? 0,
     workshop_name: input.workshopName ?? "",
-    workshopLocation: input.workshopLocation ?? "",
-    mechanicName: input.mechanicName ?? "",
+    workshop_location: input.workshopLocation ?? "",
+    mechanic_name: input.mechanicName ?? "",
     cost: input.cost,
     parts_cost: input.partsCost ?? 0,
     labor_cost: input.laborCost ?? 0,
@@ -197,3 +197,59 @@ export async function createVehicleService(
     receiptUrl: data.receipt_url ?? undefined,
   };
 }
+
+export async function updateVehicleService(
+  id: string,
+  input: Partial<VehicleService>,
+): Promise<VehicleService> {
+  const patch: Record<string, any> = {};
+  if (input.serviceType !== undefined) patch.service_type = input.serviceType;
+  if (input.serviceDate !== undefined) patch.service_date = input.serviceDate;
+  if (input.mileageAtService !== undefined) patch.mileage_at_service = input.mileageAtService;
+  if (input.workshopName !== undefined) patch.workshop_name = input.workshopName;
+  if (input.workshopLocation !== undefined) patch.workshop_location = input.workshopLocation;
+  if (input.mechanicName !== undefined) patch.mechanic_name = input.mechanicName;
+  if (input.cost !== undefined) patch.cost = input.cost;
+  if (input.partsCost !== undefined) patch.parts_cost = input.partsCost;
+  if (input.laborCost !== undefined) patch.labor_cost = input.laborCost;
+  if (input.description !== undefined) patch.description = input.description;
+  if (input.notes !== undefined) patch.notes = input.notes;
+  if (input.nextServiceDate !== undefined) patch.next_service_date = input.nextServiceDate || null;
+  if (input.nextServiceMileage !== undefined) patch.next_service_mileage = input.nextServiceMileage;
+  if (input.reminderEnabled !== undefined) patch.reminder_enabled = input.reminderEnabled;
+  if (input.receiptUrl !== undefined) patch.receipt_url = input.receiptUrl;
+
+  const { data, error } = await supabase
+    .from(SERVICES_TABLE)
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return {
+    id: data.id,
+    vehicleId: data.vehicle_id,
+    serviceType: data.service_type,
+    serviceDate: data.service_date,
+    mileageAtService: data.mileage_at_service ?? 0,
+    workshopName: data.workshop_name ?? "",
+    workshopLocation: data.workshop_location ?? "",
+    mechanicName: data.mechanic_name ?? "",
+    cost: Number(data.cost),
+    partsCost: Number(data.parts_cost ?? 0),
+    laborCost: Number(data.labor_cost ?? 0),
+    description: data.description ?? "",
+    notes: data.notes ?? "",
+    nextServiceDate: data.next_service_date ?? "",
+    nextServiceMileage: data.next_service_mileage ?? 0,
+    reminderEnabled: data.reminder_enabled ?? true,
+    receiptUrl: data.receipt_url ?? undefined,
+  };
+}
+
+export async function deleteVehicleService(id: string): Promise<void> {
+  const { error } = await supabase.from(SERVICES_TABLE).delete().eq("id", id);
+  if (error) throw error;
+}
+
