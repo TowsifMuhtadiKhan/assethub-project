@@ -112,6 +112,15 @@ const MAINTENANCE_PRESETS = [
 
 const FUEL_TYPES = ["Octane", "Petrol", "Diesel", "CNG", "LPG", "Electricity"];
 
+const BD_FUEL_RATES: Record<string, number> = {
+  Octane: 125,
+  Petrol: 121,
+  Diesel: 105,
+  CNG: 43,
+  LPG: 115,
+  Electricity: 12,
+};
+
 function fileToDataUrl(file: File): Promise<string> {
   if (file.size > 8 * 1024 * 1024) {
     return Promise.reject(new Error("File must be 8 MB or smaller."));
@@ -239,6 +248,7 @@ export function VehicleDetailsPage() {
   const [fuelDate, setFuelDate] = useState(new Date().toISOString().split("T")[0]);
   const [fuelMileage, setFuelMileage] = useState<number | "">("");
   const [fuelAmount, setFuelAmount] = useState<number | "">("");
+  const [fuelPricePerLiter, setFuelPricePerLiter] = useState<number | "">(125);
   const [fuelLiters, setFuelLiters] = useState<number | "">("");
   const [fuelType, setFuelType] = useState("Octane");
   const [fuelNotes, setFuelNotes] = useState("");
@@ -400,6 +410,72 @@ export function VehicleDetailsPage() {
     return `Notification triggers at ${timeStr} on ${dateStr}`;
   }, [editDocExpiryDate, editDocDueTime, editDocReminderLead, editDocCustomLeadMinutes, editDocCustomLeadUnit]);
 
+  // Dynamic calculation handlers for Fuel purchase
+  const handleAmountChange = (valStr: string) => {
+    if (valStr === "") {
+      setFuelAmount("");
+      return;
+    }
+    const val = Number(valStr);
+    setFuelAmount(val);
+    if (fuelPricePerLiter && Number(fuelPricePerLiter) > 0) {
+      const calculatedLiters = Number((val / Number(fuelPricePerLiter)).toFixed(2));
+      setFuelLiters(calculatedLiters);
+    }
+  };
+
+  const handlePricePerLiterChange = (valStr: string) => {
+    if (valStr === "") {
+      setFuelPricePerLiter("");
+      return;
+    }
+    const price = Number(valStr);
+    setFuelPricePerLiter(price);
+    if (price > 0 && fuelAmount && Number(fuelAmount) > 0) {
+      const calculatedLiters = Number((Number(fuelAmount) / price).toFixed(2));
+      setFuelLiters(calculatedLiters);
+    } else if (price > 0 && fuelLiters && Number(fuelLiters) > 0) {
+      const calculatedAmount = Math.round(Number(fuelLiters) * price);
+      setFuelAmount(calculatedAmount);
+    }
+  };
+
+  const handleLitersChange = (valStr: string) => {
+    if (valStr === "") {
+      setFuelLiters("");
+      return;
+    }
+    const liters = Number(valStr);
+    setFuelLiters(liters);
+    if (fuelPricePerLiter && Number(fuelPricePerLiter) > 0) {
+      const calculatedAmount = Math.round(liters * Number(fuelPricePerLiter));
+      setFuelAmount(calculatedAmount);
+    } else if (fuelAmount && Number(fuelAmount) > 0 && liters > 0) {
+      const calculatedPrice = Number((Number(fuelAmount) / liters).toFixed(2));
+      setFuelPricePerLiter(calculatedPrice);
+    }
+  };
+
+  const applyPresetRate = (rate: number) => {
+    setFuelPricePerLiter(rate);
+    if (fuelAmount && Number(fuelAmount) > 0) {
+      const calculatedLiters = Number((Number(fuelAmount) / rate).toFixed(2));
+      setFuelLiters(calculatedLiters);
+    } else if (fuelLiters && Number(fuelLiters) > 0) {
+      const calculatedAmount = Math.round(Number(fuelLiters) * rate);
+      setFuelAmount(calculatedAmount);
+    }
+  };
+
+  const handleFuelTypeSelect = (ft: string) => {
+    const prevPreset = BD_FUEL_RATES[fuelType];
+    setFuelType(ft);
+    const newRate = BD_FUEL_RATES[ft];
+    if (newRate && (!fuelPricePerLiter || fuelPricePerLiter === prevPreset)) {
+      applyPresetRate(newRate);
+    }
+  };
+
   // 1. Handle Fuel Log Submission
   const handleSaveFuel = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -410,7 +486,8 @@ export function VehicleDetailsPage() {
     setSaving(true);
     setError("");
     try {
-      const description = `${fuelType} fill-up${fuelNotes ? ` · ${fuelNotes}` : ""}`;
+      const rateInfo = fuelPricePerLiter ? ` @ ৳${fuelPricePerLiter}/L` : "";
+      const description = `${fuelType} fill-up${rateInfo}${fuelNotes ? ` · ${fuelNotes}` : ""}`;
       const created = await createVehicleExpense({
         vehicleId,
         date: fuelDate,
@@ -424,6 +501,7 @@ export function VehicleDetailsPage() {
 
       setExpenses((cur) => [created, ...cur]);
       setFuelAmount("");
+      setFuelPricePerLiter(BD_FUEL_RATES[fuelType] || "");
       setFuelLiters("");
       setFuelNotes("");
     } catch (saveErr) {
@@ -1053,25 +1131,63 @@ export function VehicleDetailsPage() {
                   <input
                     type="number"
                     required
-                    placeholder="e.g. 3500"
+                    placeholder="e.g. 5000"
                     value={fuelAmount}
-                    onChange={(e) => setFuelAmount(e.target.value ? Number(e.target.value) : "")}
+                    onChange={(e) => handleAmountChange(e.target.value)}
                     className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-mono font-semibold text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Liters (Optional)
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-semibold text-slate-700">
+                      Per Liter Price (৳)
+                    </label>
+                    {BD_FUEL_RATES[fuelType] && (
+                      <button
+                        type="button"
+                        onClick={() => applyPresetRate(BD_FUEL_RATES[fuelType])}
+                        className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer underline decoration-dotted"
+                        title={`Apply standard BD ${fuelType} rate (৳${BD_FUEL_RATES[fuelType]}/L)`}
+                      >
+                        ৳{BD_FUEL_RATES[fuelType]} BD
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="number"
                     step="0.01"
-                    placeholder="e.g. 26.5"
-                    value={fuelLiters}
-                    onChange={(e) => setFuelLiters(e.target.value ? Number(e.target.value) : "")}
+                    placeholder={`e.g. ${BD_FUEL_RATES[fuelType] || 125}`}
+                    value={fuelPricePerLiter}
+                    onChange={(e) => handlePricePerLiterChange(e.target.value)}
                     className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
                   />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700">
+                    Liters (Auto-Calculated)
+                  </label>
+                  {fuelAmount && fuelPricePerLiter && (
+                    <span className="text-[10px] font-mono text-emerald-700 font-medium bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-100">
+                      ৳{fuelAmount} ÷ ৳{fuelPricePerLiter} = {fuelLiters || 0} L
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="e.g. 40.00"
+                    value={fuelLiters}
+                    onChange={(e) => handleLitersChange(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-slate-800 focus:bg-white pr-8"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-slate-400 pointer-events-none">
+                    L
+                  </span>
                 </div>
               </div>
 
@@ -1084,14 +1200,19 @@ export function VehicleDetailsPage() {
                     <button
                       key={ft}
                       type="button"
-                      onClick={() => setFuelType(ft)}
+                      onClick={() => handleFuelTypeSelect(ft)}
                       className={`rounded-md px-2 py-1 text-[11px] font-medium transition cursor-pointer ${
                         fuelType === ft
-                          ? "bg-slate-900 text-white font-semibold"
+                          ? "bg-slate-900 text-white font-semibold shadow-xs"
                           : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                       }`}
                     >
                       {ft}
+                      {BD_FUEL_RATES[ft] && (
+                        <span className="ml-1 text-[9px] opacity-75 font-mono">
+                          ৳{BD_FUEL_RATES[ft]}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -1167,7 +1288,18 @@ export function VehicleDetailsPage() {
                           {fuel.description || "Fuel fill-up"}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-600">
-                          {fuel.fuelLiters ? `${fuel.fuelLiters} L` : "—"}
+                          {fuel.fuelLiters ? (
+                            <div>
+                              <span>{fuel.fuelLiters} L</span>
+                              {fuel.amount > 0 && fuel.fuelLiters > 0 && (
+                                <span className="block text-[10px] text-slate-400">
+                                  ৳{(fuel.amount / fuel.fuelLiters).toFixed(1)}/L
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            "—"
+                          )}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2 font-mono font-bold text-slate-900 text-right">
                           {formatMoney(fuel.amount)}
