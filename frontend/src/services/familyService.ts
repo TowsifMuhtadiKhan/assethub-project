@@ -71,36 +71,49 @@ export async function listFamilyMembers(): Promise<FamilyMember[]> {
         };
       });
 
-      const map = new Map<string, FamilyMember>();
-      localList.forEach((m) => map.set(m.id, m));
-      remoteList.forEach((m) => map.set(m.id, m));
-      const merged = Array.from(map.values());
-      saveLocalMembers(merged);
-      return merged;
+      // Filter out any local temporary draft entries that match a remote member by full name or ID
+      const remoteNameSet = new Set(
+        remoteList.map((r) => r.fullName.trim().toLowerCase())
+      );
+      const genuineLocal = localList.filter(
+        (l) =>
+          !remoteList.some((r) => r.id === l.id) &&
+          !remoteNameSet.has(l.fullName.trim().toLowerCase())
+      );
+
+      // Deduplicate the combined list by normalized fullName & ID so every member appears exactly once
+      const seenNames = new Set<string>();
+      const deduped: FamilyMember[] = [];
+      for (const m of [...remoteList, ...genuineLocal]) {
+        const normName = m.fullName.trim().toLowerCase();
+        if (!seenNames.has(normName)) {
+          seenNames.add(normName);
+          deduped.push(m);
+        }
+      }
+
+      saveLocalMembers(deduped);
+      return deduped;
     }
   } catch {}
 
-  return localList;
+  // Offline fallback deduplication
+  const seenNames = new Set<string>();
+  const dedupedLocal: FamilyMember[] = [];
+  for (const m of localList) {
+    const normName = m.fullName.trim().toLowerCase();
+    if (!seenNames.has(normName)) {
+      seenNames.add(normName);
+      dedupedLocal.push(m);
+    }
+  }
+  return dedupedLocal;
 }
 
 export async function createFamilyMember(
   input: Omit<FamilyMember, "id">,
 ): Promise<FamilyMember> {
-  const localId = `fam_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
   const access = input.access || getDefaultMemberAccess();
-
-  const newMember: FamilyMember = {
-    ...input,
-    id: localId,
-    access,
-  };
-
-  const current = getLocalMembers();
-  const updated = [...current, newMember];
-  saveLocalMembers(updated);
-  try {
-    localStorage.setItem(`lifenest_fam_access_${localId}`, JSON.stringify(access));
-  } catch {}
 
   try {
     const {
@@ -127,12 +140,50 @@ export async function createFamilyMember(
         .single();
 
       if (!error && data) {
-        newMember.id = data.id;
+        const remoteMember: FamilyMember = {
+          id: data.id,
+          fullName: data.full_name,
+          relationship: data.relationship,
+          dateOfBirth: data.date_of_birth ?? undefined,
+          phone: data.phone ?? "",
+          email: data.email ?? "",
+          address: data.address ?? "",
+          nationality: data.nationality ?? "Bangladeshi",
+          identificationInfo: data.identification_info ?? "",
+          notes: "",
+          photoUrl: data.photo_url ?? undefined,
+          access,
+        };
+
         try {
           localStorage.setItem(`lifenest_fam_access_${data.id}`, JSON.stringify(access));
         } catch {}
+
+        // Remove any existing member with same name or ID from local list and append the official record
+        const current = getLocalMembers().filter(
+          (m) =>
+            m.fullName.trim().toLowerCase() !== input.fullName.trim().toLowerCase() &&
+            m.id !== data.id
+        );
+        saveLocalMembers([...current, remoteMember]);
+        return remoteMember;
       }
     }
+  } catch {}
+
+  const localId = `fam_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const newMember: FamilyMember = {
+    ...input,
+    id: localId,
+    access,
+  };
+
+  const current = getLocalMembers().filter(
+    (m) => m.fullName.trim().toLowerCase() !== input.fullName.trim().toLowerCase()
+  );
+  saveLocalMembers([...current, newMember]);
+  try {
+    localStorage.setItem(`lifenest_fam_access_${localId}`, JSON.stringify(access));
   } catch {}
 
   return newMember;
