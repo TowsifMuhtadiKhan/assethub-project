@@ -27,6 +27,9 @@ import {
   deletePropertyDocument,
   deleteRentalMaintenance,
   deleteRentalProperty,
+  deleteRentalUnit,
+  deleteRentalTenancy,
+  deleteRentSchedule,
   loadRentalData,
   rentalFileUrl,
   saveRentalMaintenance,
@@ -216,6 +219,37 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
     void run(async () => {
       await deleteRentalProperty(propertyId);
       if (selectedId === propertyId) setParams({});
+    });
+  };
+
+  const removeUnit = (unitId: string, unitName: string) => {
+    if (
+      !window.confirm(
+        `Delete space/flat "${unitName}" and all of its associated tenancies, rent history, and records? This cannot be undone.`
+      )
+    )
+      return;
+    void run(async () => {
+      await deleteRentalUnit(unitId);
+    });
+  };
+
+  const removeTenancy = (tenancyId: string, tenantName: string) => {
+    if (
+      !window.confirm(
+        `Delete tenancy record for "${tenantName}"? This will also remove associated rent schedules and payment history.`
+      )
+    )
+      return;
+    void run(async () => {
+      await deleteRentalTenancy(tenancyId);
+    });
+  };
+
+  const removeSchedule = (schedId: string) => {
+    if (!window.confirm("Delete this rent rate period?")) return;
+    void run(async () => {
+      await deleteRentSchedule(schedId);
     });
   };
 
@@ -1028,13 +1062,24 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                       <span className="text-xs text-slate-500">{property.location}</span>
                     </div>
 
-                    <button
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50 transition shadow-2xs"
-                      onClick={() => setEditor({ type: "flat" })}
-                    >
-                      <Plus className="h-3 w-3" />
-                      Add flat
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
+                        onClick={() => setEditor({ type: "flat" })}
+                      >
+                        <Plus className="h-3 w-3" />
+                        Add flat
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 hover:border-red-300 transition shadow-2xs cursor-pointer"
+                        onClick={() => removeProperty(property.id, property.name)}
+                        title={`Delete property "${property.name}"`}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Delete property
+                      </button>
+                    </div>
                   </div>
 
                   {/* Section Tabs */}
@@ -1112,6 +1157,18 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                   </p>
                                 )}
                               </div>
+
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => removeUnit(flat.id, flat.unitNumber)}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50/70 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 hover:border-red-300 transition shadow-2xs cursor-pointer"
+                                  title={`Delete flat "${flat.unitNumber}"`}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  <span>Delete Flat</span>
+                                </button>
+                              </div>
                             </div>
 
                             {(flat.rentalMode === "rooms"
@@ -1151,15 +1208,28 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                       </span>
                                     </div>
 
-                                    <button
-                                      className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-800 transition cursor-pointer"
-                                      onClick={() =>
-                                        setEditor({ type: "tenant", unit })
-                                      }
-                                    >
-                                      <Plus className="h-3 w-3" />
-                                      {activeTenancy ? "Add next tenancy" : "Add Tenant to this space"}
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-800 transition cursor-pointer"
+                                        onClick={() =>
+                                          setEditor({ type: "tenant", unit })
+                                        }
+                                      >
+                                        <Plus className="h-3 w-3" />
+                                        {activeTenancy ? "Add next tenancy" : "Add Tenant to this space"}
+                                      </button>
+                                      {flat.rentalMode === "rooms" && (
+                                        <button
+                                          type="button"
+                                          onClick={() => removeUnit(unit.id, unit.unitNumber)}
+                                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 hover:border-red-300 transition shadow-2xs cursor-pointer"
+                                          title={`Delete room "${unit.unitNumber}"`}
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                          <span className="hidden sm:inline">Delete Room</span>
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
 
                                   {!unitTenancies.length && (
@@ -1225,7 +1295,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                             </div>
                                           </div>
 
-                                          <div className="flex gap-2">
+                                          <div className="flex items-center gap-1.5">
                                             <button
                                               className={button}
                                               onClick={() =>
@@ -1245,6 +1315,15 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                               }
                                             >
                                               + Rent period
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => removeTenancy(t.id, t.tenant_name)}
+                                              className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 hover:border-red-300 transition shadow-2xs cursor-pointer"
+                                              title={`Delete tenancy for ${t.tenant_name}`}
+                                            >
+                                              <Trash2 className="h-3 w-3" />
+                                              <span className="hidden sm:inline">Delete Tenancy</span>
                                             </button>
                                           </div>
                                         </div>
@@ -1288,18 +1367,28 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                                   </div>
                                                 </div>
 
-                                                <button
-                                                  className={button}
-                                                  onClick={() =>
-                                                    setEditor({
-                                                      type: "rate",
-                                                      tenancy: t,
-                                                      schedule: s,
-                                                    })
-                                                  }
-                                                >
-                                                  Edit period
-                                                </button>
+                                                <div className="flex items-center gap-1.5">
+                                                  <button
+                                                    className={button}
+                                                    onClick={() =>
+                                                      setEditor({
+                                                        type: "rate",
+                                                        tenancy: t,
+                                                        schedule: s,
+                                                      })
+                                                    }
+                                                  >
+                                                    Edit period
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => removeSchedule(s.id)}
+                                                    className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 transition shadow-2xs cursor-pointer"
+                                                    title="Delete rate period"
+                                                  >
+                                                    <Trash2 className="h-3 w-3" />
+                                                  </button>
+                                                </div>
                                               </div>
                                             );
                                           })}

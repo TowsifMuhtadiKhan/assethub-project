@@ -91,6 +91,73 @@ export async function deleteRentalProperty(propertyId: string) {
   const { error } = await supabase.from("lifenest_properties").delete().eq("id", propertyId);
   if (error) throw error;
 }
+
+export async function deleteRentalUnit(unitId: string) {
+  // 1. Find any child units (e.g. rooms under this flat)
+  const { data: childUnits, error: childError } = await supabase
+    .from("lifenest_property_units")
+    .select("id")
+    .eq("parent_unit_id", unitId);
+  if (childError) throw childError;
+
+  const allUnitIds = [unitId, ...(childUnits || []).map((u) => u.id as string)];
+
+  // 2. Find tenancies under these units
+  const { data: tenancies, error: tenanciesError } = await supabase
+    .from("lifenest_rental_tenancies")
+    .select("id")
+    .in("unit_id", allUnitIds);
+  if (tenanciesError) throw tenanciesError;
+
+  const tenancyIds = (tenancies || []).map((t) => t.id as string);
+
+  // 3. Remove rent schedules and rent payments
+  const removeByIds = async (table: string, field: string, ids: string[]) => {
+    if (!ids.length) return;
+    const { error } = await supabase.from(table).delete().in(field, ids);
+    if (error) throw error;
+  };
+
+  await removeByIds("lifenest_rent_schedules", "tenancy_id", tenancyIds);
+  await removeByIds("lifenest_rent_payments", "unit_id", allUnitIds);
+  await removeByIds("lifenest_rental_tenancies", "unit_id", allUnitIds);
+
+  // 4. Update any property expenses attached to these units
+  await supabase
+    .from("lifenest_property_expenses")
+    .update({ unit_id: null })
+    .in("unit_id", allUnitIds);
+
+  // 5. Delete the units
+  const { error: unitDeleteError } = await supabase
+    .from("lifenest_property_units")
+    .delete()
+    .in("id", allUnitIds);
+  if (unitDeleteError) throw unitDeleteError;
+}
+
+export async function deleteRentalTenancy(tenancyId: string) {
+  const { error: schedError } = await supabase
+    .from("lifenest_rent_schedules")
+    .delete()
+    .eq("tenancy_id", tenancyId);
+  if (schedError) throw schedError;
+
+  const { error: tenError } = await supabase
+    .from("lifenest_rental_tenancies")
+    .delete()
+    .eq("id", tenancyId);
+  if (tenError) throw tenError;
+}
+
+export async function deleteRentSchedule(scheduleId: string) {
+  const { error } = await supabase
+    .from("lifenest_rent_schedules")
+    .delete()
+    .eq("id", scheduleId);
+  if (error) throw error;
+}
+
 export async function saveTenancy(input: Omit<RentalTenancy, "id" | "owner_id"> & { id?: string }): Promise<string> {
   if (!input.tenant_name.trim() || input.tenant_phone.trim().length < 6) throw new Error("Tenant name and phone number are required.");
   const { id, ...values } = input;
