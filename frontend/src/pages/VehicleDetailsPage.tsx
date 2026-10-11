@@ -117,7 +117,7 @@ const MAINTENANCE_PRESETS = [
   "Spark plugs",
   "Suspension",
   "General servicing",
-  "Other",
+  "Others",
 ];
 
 const FUEL_TYPES = ["Octane", "Petrol", "Diesel", "CNG", "LPG", "Electricity"];
@@ -882,12 +882,17 @@ export function VehicleDetailsPage() {
       setError("Please enter the total maintenance cost and mileage.");
       return;
     }
+    const isOther = maintenanceServiceType === "Others" || maintenanceServiceType === "Other";
+    if (isOther && !maintenanceCustomType.trim()) {
+      setError("Please specify the custom service title.");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
       const receiptUrl = maintenanceFile ? await fileToDataUrl(maintenanceFile) : undefined;
       const effectiveType =
-        maintenanceServiceType === "Other" && maintenanceCustomType.trim()
+        isOther && maintenanceCustomType.trim()
           ? maintenanceCustomType.trim()
           : maintenanceServiceType;
 
@@ -912,6 +917,7 @@ export function VehicleDetailsPage() {
 
       setServices((cur) => [created, ...cur]);
       setMaintenanceCost("");
+      setMaintenanceCustomType("");
       setMaintenanceDescription("");
       setMaintenanceWorkshop("");
       setMaintenanceNextDate("");
@@ -1779,19 +1785,40 @@ export function VehicleDetailsPage() {
                 </select>
               </div>
 
-              {maintenanceServiceType === "Other" && (
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Custom Maintenance Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Chain sprocket change, Fuel pump repair"
-                    value={maintenanceCustomType}
-                    onChange={(e) => setMaintenanceCustomType(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                  />
+              {(maintenanceServiceType === "Others" || maintenanceServiceType === "Other") && (
+                <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/50 p-3 space-y-2.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950">
+                    <Wrench className="h-3.5 w-3.5 text-indigo-600" />
+                    <span>Other Service Details</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Service Title / Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Chain sprocket change, Fuel pump repair, Radiator flush"
+                      value={maintenanceCustomType}
+                      onChange={(e) => setMaintenanceCustomType(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Service Details / Work Done *
+                    </label>
+                    <textarea
+                      rows={2}
+                      required
+                      placeholder="e.g. Replaced worn sprocket, adjusted chain tension, lubricated with high-grade chain wax"
+                      value={maintenanceDescription}
+                      onChange={(e) => setMaintenanceDescription(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                    />
+                  </div>
                 </div>
               )}
 
@@ -1857,18 +1884,20 @@ export function VehicleDetailsPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Work Done / Replaced Parts
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="e.g. 4L Mobil 1 5W-30 + OEM Oil filter replaced"
-                  value={maintenanceDescription}
-                  onChange={(e) => setMaintenanceDescription(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                />
-              </div>
+              {maintenanceServiceType !== "Others" && maintenanceServiceType !== "Other" && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Work Done / Replaced Parts (Optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="e.g. 4L Mobil 1 5W-30 + OEM Oil filter replaced"
+                    value={maintenanceDescription}
+                    onChange={(e) => setMaintenanceDescription(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">
