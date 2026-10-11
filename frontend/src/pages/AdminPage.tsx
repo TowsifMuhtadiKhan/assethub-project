@@ -91,6 +91,9 @@ export function AdminPage() {
   const [apiKey, setApiKey] = useState(() => {
     return localStorage.getItem("lifenest_gateway_api_key") || "wh_sec_live_9421873910";
   });
+  const [dailyDispatchTime, setDailyDispatchTime] = useState(() => {
+    return localStorage.getItem("lifenest_alert_delivery_time") || "09:00";
+  });
   const [savedGatewayNotice, setSavedGatewayNotice] = useState(false);
 
   // Google Drive State
@@ -286,6 +289,7 @@ export function AdminPage() {
     e.preventDefault();
     localStorage.setItem("lifenest_alert_gateway", gatewayProvider);
     localStorage.setItem("lifenest_gateway_api_key", apiKey);
+    localStorage.setItem("lifenest_alert_delivery_time", dailyDispatchTime);
     setSavedGatewayNotice(true);
     setTimeout(() => setSavedGatewayNotice(false), 3000);
   };
@@ -1092,7 +1096,7 @@ export function AdminPage() {
                 )}
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">
                     Provider Engine
@@ -1119,6 +1123,21 @@ export function AdminPage() {
                     placeholder="Enter API token or secret key..."
                     className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-mono text-white outline-none focus:border-emerald-500"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Daily Digest Dispatch Time
+                  </label>
+                  <input
+                    type="time"
+                    value={dailyDispatchTime}
+                    onChange={(e) => setDailyDispatchTime(e.target.value)}
+                    className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-mono text-white outline-none focus:border-emerald-500"
+                  />
+                  <span className="text-[10px] text-slate-500 mt-1 block">
+                    Automated background run time.
+                  </span>
                 </div>
               </div>
 

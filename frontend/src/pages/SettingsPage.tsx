@@ -62,8 +62,6 @@ export function SettingsPage() {
     issuesDeadline: true,
   });
 
-  const [deliveryTime, setDeliveryTime] = useState("09:00");
-
   const [systemWhatsApp, setSystemWhatsApp] = useState<WhatsAppSystemStatus>({
     configured: false,
     provider: "baileys_qr",
@@ -93,7 +91,6 @@ export function SettingsPage() {
     setSettings(updated);
     try {
       localStorage.setItem("lifenest_alert_triggers", JSON.stringify(alertTriggers));
-      localStorage.setItem("lifenest_alert_delivery_time", deliveryTime);
     } catch {}
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
@@ -352,47 +349,6 @@ export function SettingsPage() {
                 </select>
                 <span className="text-[10px] text-slate-400 mt-1 block">
                   How many days in advance alerts should start triggering.
-                </span>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    CallMeBot Free API Key (Optional)
-                  </label>
-                  <a
-                    href="https://www.callmebot.com/blog/free-api-whatsapp-messages/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[11px] text-emerald-600 hover:underline inline-flex items-center gap-0.5"
-                  >
-                    Get free key <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-                <input
-                  type="text"
-                  value={settings.callmebotApiKey || ""}
-                  onChange={(e) => setSettings({ ...settings, callmebotApiKey: e.target.value })}
-                  placeholder="Enter CallMeBot API key for silent delivery"
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 font-mono outline-none focus:border-emerald-600"
-                />
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  Allows LifeNest to deliver notifications silently in background.
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Daily Digest Dispatch Time
-                </label>
-                <input
-                  type="time"
-                  value={deliveryTime}
-                  onChange={(e) => setDeliveryTime(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-emerald-600"
-                />
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  Alerts are dispatched each morning at this time.
                 </span>
               </div>
             </div>
