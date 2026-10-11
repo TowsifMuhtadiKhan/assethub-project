@@ -379,6 +379,22 @@ export function DocumentsPage() {
       }
 
       const assignedFolder = String(form.get("folderName") || "General").trim();
+      const requiresRenewal = Boolean(form.get("requiresRenewal"));
+      const expiryDate = String(form.get("expiryDate") || "");
+      const reminderLead = Number(form.get("reminderLeadDays") || 15);
+      let reminderDate: string | undefined = undefined;
+      if (requiresRenewal && expiryDate) {
+        const exp = new Date(expiryDate);
+        if (!isNaN(exp.getTime())) {
+          exp.setDate(exp.getDate() - reminderLead);
+          reminderDate = exp.toISOString().split("T")[0];
+        }
+      }
+
+      let docNotes = String(form.get("notes") || "");
+      if (requiresRenewal) {
+        docNotes = `${docNotes} [Reminder: ${reminderLead} days before expiry]`.trim();
+      }
 
       const newDoc = await createDocument({
         name: String(form.get("name")),
@@ -386,7 +402,8 @@ export function DocumentsPage() {
         documentNumber: String(form.get("documentNumber") || ""),
         issuingAuthority: String(form.get("issuingAuthority") || ""),
         issueDate: String(form.get("issueDate") || ""),
-        expiryDate: String(form.get("expiryDate") || ""),
+        expiryDate,
+        reminderDate,
         familyMemberId: String(form.get("familyMemberId") || "") || undefined,
         folderName: assignedFolder || "General",
         fileUrl: fileUrl || undefined,
@@ -394,12 +411,12 @@ export function DocumentsPage() {
         storageProvider,
         driveFileId,
         isFavorite: false,
-        requiresRenewal: Boolean(form.get("requiresRenewal")),
+        requiresRenewal,
         tags: String(form.get("tags") || "")
           .split(",")
           .map((t) => t.trim())
           .filter(Boolean),
-        notes: String(form.get("notes") || ""),
+        notes: docNotes,
       });
 
       setDocuments((prev) => [newDoc, ...prev]);
@@ -2355,6 +2372,35 @@ export function DocumentsPage() {
                     type="date"
                     className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-mono text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                   />
+                </div>
+              </div>
+
+              {/* Item-Wise Automated WhatsApp Reminder */}
+              <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/40 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-900 cursor-pointer">
+                    <input
+                      name="requiresRenewal"
+                      type="checkbox"
+                      defaultChecked
+                      className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <span>Automated WhatsApp Expiry Reminder</span>
+                  </label>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-600">
+                  <span className="text-[11px] font-medium text-slate-700">Remind Lead Time:</span>
+                  <select
+                    name="reminderLeadDays"
+                    defaultValue={15}
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600"
+                  >
+                    <option value={3}>3 days before expiry (Urgent)</option>
+                    <option value={7}>7 days before expiry (Standard)</option>
+                    <option value={15}>15 days before expiry (Recommended)</option>
+                    <option value={30}>30 days before expiry (Early warning)</option>
+                    <option value={60}>60 days before expiry</option>
+                  </select>
                 </div>
               </div>
 

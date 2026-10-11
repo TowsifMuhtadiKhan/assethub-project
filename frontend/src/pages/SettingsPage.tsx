@@ -311,7 +311,7 @@ export function SettingsPage() {
               />
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 pt-1">
+            <div className="pt-1">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Recipient WhatsApp Number <span className="text-rose-500">*</span>
@@ -329,26 +329,7 @@ export function SettingsPage() {
                   />
                 </div>
                 <span className="text-[10px] text-slate-400 mt-1 block">
-                  Bangladesh numbers: 017..., 018..., 019..., 013...
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Reminder Lead Time
-                </label>
-                <select
-                  value={settings.reminderDaysBefore}
-                  onChange={(e) => setSettings({ ...settings, reminderDaysBefore: Number(e.target.value) })}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-600"
-                >
-                  <option value={3}>3 days before due date (Urgent)</option>
-                  <option value={7}>7 days before due date (Standard)</option>
-                  <option value={14}>14 days before due date (Recommended for BRTA)</option>
-                  <option value={30}>30 days before due date (Early warning)</option>
-                </select>
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  How many days in advance alerts should start triggering.
+                  Bangladesh numbers: 017..., 018..., 019..., 013... • Individual reminder lead times are configured directly per item.
                 </span>
               </div>
             </div>

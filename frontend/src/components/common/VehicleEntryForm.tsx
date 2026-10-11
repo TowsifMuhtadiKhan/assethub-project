@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Car, Bike, Truck, Bus, Zap, MoreHorizontal } from "lucide-react";
+import { Car, Bike, Truck, Bus, Zap, MoreHorizontal, Bell } from "lucide-react";
 import type { Vehicle, VehicleType } from "../../types";
 
 const VEHICLE_TYPE_OPTIONS: Array<{
@@ -62,6 +62,17 @@ export function VehicleEntryForm({
     color: initialVehicle?.color ?? "",
     notes: initialVehicle?.notes ?? "",
   });
+  const [reminderEnabled, setReminderEnabled] = useState(true);
+  const [fitnessExpiry, setFitnessExpiry] = useState(
+    initialVehicle?.fitnessExpiry || "",
+  );
+  const [taxTokenExpiry, setTaxTokenExpiry] = useState(
+    initialVehicle?.taxTokenExpiry || "",
+  );
+  const [reminderLeadDays, setReminderLeadDays] = useState<number>(() => {
+    const match = initialVehicle?.notes?.match(/\[Reminder: (\d+) days\]/);
+    return match ? Number(match[1]) : 15;
+  });
   const [validationError, setValidationError] = useState("");
 
   const updateField = (field: string, value: string | number) => {
@@ -83,6 +94,11 @@ export function VehicleEntryForm({
       DEFAULT_IMAGES[selectedType] ||
       DEFAULT_IMAGES.Car;
 
+    let finalNotes = form.notes.trim();
+    if (reminderEnabled) {
+      finalNotes = `${finalNotes} [Reminder: ${reminderLeadDays} days]`.trim();
+    }
+
     onSubmit({
       type: effectiveType,
       name: form.name.trim(),
@@ -92,12 +108,13 @@ export function VehicleEntryForm({
       registrationNumber: form.registrationNumber.trim().toUpperCase(),
       mileage: Number(form.mileage) || 0,
       color: form.color.trim(),
-      notes: form.notes.trim(),
+      notes: finalNotes,
       purchaseDate: initialVehicle?.purchaseDate || new Date().toISOString().slice(0, 10),
       purchasePrice: initialVehicle?.purchasePrice ?? 0,
       insuranceInfo: initialVehicle?.insuranceInfo || "Not added",
       taxTokenInfo: initialVehicle?.taxTokenInfo || "Not added",
-      fitnessExpiry: initialVehicle?.fitnessExpiry || new Date().toISOString().slice(0, 10),
+      fitnessExpiry: fitnessExpiry || initialVehicle?.fitnessExpiry || new Date().toISOString().slice(0, 10),
+      taxTokenExpiry: taxTokenExpiry || initialVehicle?.taxTokenExpiry,
       image,
       status: initialVehicle?.status || "GOOD",
     });
@@ -313,6 +330,71 @@ export function VehicleEntryForm({
               placeholder="e.g. Engine capacity 1500cc, smart card issued, tracking device installed, 2 keys."
               className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 resize-none"
             />
+          </div>
+
+          {/* Item-Specific WhatsApp Reminder Settings */}
+          <div className="sm:col-span-2 rounded-xl border border-emerald-200/80 bg-emerald-50/40 p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bell className="h-4 w-4 text-emerald-600" />
+                <span className="text-xs font-bold text-slate-900">
+                  Automated WhatsApp Expiry Reminder (This Vehicle)
+                </span>
+              </div>
+              <label className="flex items-center gap-1.5 text-xs font-medium text-emerald-900 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={reminderEnabled}
+                  onChange={(e) => setReminderEnabled(e.target.checked)}
+                  className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                />
+                <span>Active</span>
+              </label>
+            </div>
+
+            {reminderEnabled && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-xs">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Fitness Expiry Date
+                  </label>
+                  <input
+                    type="date"
+                    value={fitnessExpiry}
+                    onChange={(e) => setFitnessExpiry(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 font-mono outline-none focus:border-emerald-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Tax Token Expiry
+                  </label>
+                  <input
+                    type="date"
+                    value={taxTokenExpiry}
+                    onChange={(e) => setTaxTokenExpiry(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 font-mono outline-none focus:border-emerald-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Reminder Lead Time
+                  </label>
+                  <select
+                    value={reminderLeadDays}
+                    onChange={(e) => setReminderLeadDays(Number(e.target.value))}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-600"
+                  >
+                    <option value={3}>3 days before expiry</option>
+                    <option value={7}>7 days before expiry</option>
+                    <option value={15}>15 days before expiry (Recommended)</option>
+                    <option value={30}>30 days before expiry</option>
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

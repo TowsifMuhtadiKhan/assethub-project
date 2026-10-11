@@ -178,7 +178,9 @@ export function TasksPage() {
         propertyId: String(form.get("propertyId") || "") || undefined,
         status: (String(form.get("status")) as TaskStatus) || defaultAddStatus || "Pending",
         reminderWhatsapp: Boolean(form.get("reminderWhatsapp")),
-        notes: String(form.get("notes") || ""),
+        notes: Boolean(form.get("reminderWhatsapp"))
+          ? `${String(form.get("notes") || "")} [Reminder: ${String(form.get("taskReminderLead") || "1 day before")}]`.trim()
+          : String(form.get("notes") || ""),
       });
 
       setTasks((prev) => [newTask, ...prev]);
@@ -1004,18 +1006,33 @@ export function TasksPage() {
                 </div>
               </div>
 
-              {/* WhatsApp Alert Checkbox */}
-              <div className="flex items-center gap-2 rounded-xl bg-emerald-50/70 border border-emerald-100 p-3">
-                <input
-                  type="checkbox"
-                  id="reminderWhatsapp"
-                  name="reminderWhatsapp"
-                  defaultChecked
-                  className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                />
-                <label htmlFor="reminderWhatsapp" className="text-xs font-medium text-emerald-900 cursor-pointer">
-                  Send reminder via WhatsApp before due date
-                </label>
+              {/* WhatsApp Alert Checkbox & Lead Time */}
+              <div className="rounded-xl bg-emerald-50/70 border border-emerald-100 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="reminderWhatsapp"
+                    name="reminderWhatsapp"
+                    defaultChecked
+                    className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  />
+                  <label htmlFor="reminderWhatsapp" className="text-xs font-bold text-emerald-950 cursor-pointer">
+                    Send WhatsApp reminder for this task
+                  </label>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-600 pl-6">
+                  <span className="text-[11px] font-medium text-slate-700">Remind Lead:</span>
+                  <select
+                    name="taskReminderLead"
+                    defaultValue="1 day before"
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600"
+                  >
+                    <option value="On due date">On due date (Morning)</option>
+                    <option value="1 day before">1 day before due date</option>
+                    <option value="3 days before">3 days before due date</option>
+                    <option value="7 days before">7 days before due date</option>
+                  </select>
+                </div>
               </div>
 
               {/* Footer Actions */}

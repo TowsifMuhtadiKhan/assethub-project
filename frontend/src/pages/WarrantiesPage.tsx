@@ -51,6 +51,13 @@ export function WarrantiesPage() {
         });
       }
 
+      const reminderEnabled = Boolean(form.get("reminderEnabled"));
+      const reminderLead = Number(form.get("reminderLeadDays") || 15);
+      let notes = String(form.get("notes") || "");
+      if (reminderEnabled) {
+        notes = `${notes} [Reminder: ${reminderLead} days before expiry]`.trim();
+      }
+
       const newWarranty = await createWarranty({
         productName: String(form.get("productName")),
         category: String(form.get("category") || "Electronics"),
@@ -63,7 +70,7 @@ export function WarrantiesPage() {
         invoiceNumber: String(form.get("invoiceNumber") || ""),
         receiptUrl: receiptUrl || undefined,
         status: "ACTIVE",
-        notes: String(form.get("notes") || ""),
+        notes,
       });
 
       setWarranties((prev) => [newWarranty, ...prev]);
@@ -352,6 +359,33 @@ export function WarrantiesPage() {
                   accept=".pdf,.png,.jpg,.jpeg"
                   className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                 />
+              </div>
+
+              {/* Item-Specific WhatsApp Reminder */}
+              <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/40 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-900 cursor-pointer">
+                    <input
+                      name="reminderEnabled"
+                      type="checkbox"
+                      defaultChecked
+                      className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <span>Automated WhatsApp Warranty Expiry Alert</span>
+                  </label>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-600">
+                  <span className="text-[11px] font-medium text-slate-700">Remind Lead Time:</span>
+                  <select
+                    name="reminderLeadDays"
+                    defaultValue={15}
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600"
+                  >
+                    <option value={7}>7 days before expiry (Standard)</option>
+                    <option value={15}>15 days before expiry (Recommended)</option>
+                    <option value={30}>30 days before expiry (Early warning)</option>
+                  </select>
+                </div>
               </div>
 
               <div>

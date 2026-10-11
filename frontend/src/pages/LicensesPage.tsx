@@ -51,6 +51,13 @@ export function LicensesPage() {
     setError("");
     const form = new FormData(formElement);
     try {
+      const reminderEnabled = Boolean(form.get("reminderEnabled"));
+      const reminderLead = Number(form.get("reminderLeadDays") || 30);
+      let notes = String(form.get("notes") || "");
+      if (reminderEnabled) {
+        notes = `${notes} [Reminder: ${reminderLead} days before expiry]`.trim();
+      }
+
       const newLicense = await createLicense({
         licenseName: String(form.get("licenseName")),
         licenseNumber: String(form.get("licenseNumber") || ""),
@@ -61,7 +68,7 @@ export function LicensesPage() {
         expiryDate: String(form.get("expiryDate") || "") || undefined,
         renewalPeriod: String(form.get("renewalPeriod") || "Annual"),
         renewalCost: Number(form.get("renewalCost") || 0),
-        notes: String(form.get("notes") || ""),
+        notes,
       });
 
       setLicenses((prev) => [newLicense, ...prev]);
@@ -397,6 +404,34 @@ export function LicensesPage() {
                     placeholder="0"
                     className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                   />
+                </div>
+              </div>
+
+              {/* Item-Specific WhatsApp Reminder */}
+              <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/40 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-900 cursor-pointer">
+                    <input
+                      name="reminderEnabled"
+                      type="checkbox"
+                      defaultChecked
+                      className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <span>Automated WhatsApp License Expiry Alert</span>
+                  </label>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-600">
+                  <span className="text-[11px] font-medium text-slate-700">Remind Lead Time:</span>
+                  <select
+                    name="reminderLeadDays"
+                    defaultValue={30}
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600"
+                  >
+                    <option value={7}>7 days before expiry</option>
+                    <option value={15}>15 days before expiry</option>
+                    <option value={30}>30 days before expiry (Recommended)</option>
+                    <option value={60}>60 days before expiry</option>
+                  </select>
                 </div>
               </div>
 

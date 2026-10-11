@@ -19,7 +19,6 @@ import {
   HelpCircle,
   Settings as SettingsIcon,
 } from "lucide-react";
-import { FormControl, InputLabel, Select, MenuItem } from "@mui/material";
 import { getUserSettings, saveUserSettings } from "../services/settingsService";
 import {
   sendSystemWhatsAppAlert,
@@ -915,43 +914,8 @@ export function NotificationsPage() {
                   />
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">
-                  Where you receive alerts about your vehicles, tasks, and document renewals.
+                  Where you receive alerts about your vehicles, tasks, and document renewals. Individual reminder lead times are configured directly per item.
                 </p>
-              </div>
-
-              <div>
-                <FormControl size="small" fullWidth>
-                  <InputLabel id="lead-time-label" sx={{ fontSize: "0.8125rem" }}>
-                    Reminder Lead Time
-                  </InputLabel>
-                  <Select
-                    labelId="lead-time-label"
-                    value={settings.reminderDaysBefore}
-                    label="Reminder Lead Time"
-                    onChange={(e) =>
-                      setSettings({ ...settings, reminderDaysBefore: Number(e.target.value) })
-                    }
-                    sx={{ fontSize: "0.8125rem", borderRadius: "0.5rem", backgroundColor: "#f8fafc" }}
-                  >
-                    <MenuItem value={1}>1 day before due date</MenuItem>
-                    <MenuItem value={3}>3 days before due date</MenuItem>
-                    <MenuItem value={7}>7 days before due date (Standard)</MenuItem>
-                    <MenuItem value={14}>14 days before due date</MenuItem>
-                    <MenuItem value={30}>30 days before due date</MenuItem>
-                  </Select>
-                </FormControl>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  CallMeBot API Key (Optional Backup Channel)
-                </label>
-                <input
-                  value={settings.callmebotApiKey || ""}
-                  onChange={(e) => setSettings({ ...settings, callmebotApiKey: e.target.value })}
-                  placeholder="Enter CallMeBot API key"
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs font-mono"
-                />
               </div>
 
               <div className="pt-2 border-t border-slate-100 flex items-center gap-3">
