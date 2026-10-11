@@ -80,14 +80,115 @@ export function ScheduleForm({ tenancy, schedule, schedules, done, close }: Form
   </form></Modal>;
 }
 
-export const propertyDocumentTypes = ["Title deed / Sale deed (Dalil)", "Khatian / Record of rights (CS, SA, RS, BS)", "Mutation / Namjari", "Land development tax receipt (Dakhila)", "Holding tax receipt", "Approved building plan", "Occupancy / Completion certificate", "Lease / Tenancy agreement", "Utility connection document", "Other"];
-export function DocumentForm({ propertyId, done, close }: FormProps & { propertyId: string }) {
+export const propertyDocumentTypes = [
+  "Title deed / Sale deed (Dalil / দলিল)",
+  "Khatian / Record of rights (CS, SA, RS, BS খতিয়ান)",
+  "Mutation / Namjari (নামজারি)",
+  "Land development tax receipt (Dakhila / দাখিলা)",
+  "Holding tax receipt (হোল্ডিং ট্যাক্স)",
+  "Lease / Tenancy agreement (ভাড়া চুক্তিপত্র)",
+  "Utility connection document (WASA / DESCO / Titas)",
+  "Approved building plan (RAJUK / CDA)",
+  "Occupancy / Completion certificate",
+  "Other"
+];
+
+export function DocumentForm({
+  propertyId,
+  preset,
+  done,
+  close,
+}: FormProps & { propertyId: string; preset?: { name: string; category: string } }) {
   const { busy, error, save } = useSave(done);
   const [files, setFiles] = useState<File[]>([]);
-  return <Modal title="Add property document" close={() => !busy && close()}><form className="space-y-4" onSubmit={e => {
-    e.preventDefault(); const f = new FormData(e.currentTarget);
-    void save(() => savePropertyDocument({ property_id: propertyId, category: value(f, "category"), name: value(f, "name"), document_number: value(f, "number"), issue_date: value(f, "issue") || null, expiry_date: value(f, "expiry") || null, notes: value(f, "notes") }, files));
-  }}><FormError error={error} /><Label title="Document category"><select name="category" className={field}>{propertyDocumentTypes.map(t => <option key={t}>{t}</option>)}</select></Label><Label title="Document title *"><input name="name" required className={field} /></Label><Label title="Document / deed number (optional)"><input name="number" className={field} /></Label><div className="grid grid-cols-2 gap-3"><Label title="Issue date"><input name="issue" type="date" className={field} /></Label><Label title="Expiry / renewal date"><input name="expiry" type="date" className={field} /></Label></div><Label title="Images / PDF attachments"><input type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" onChange={e => setFiles(Array.from(e.target.files || []))} className={field} /></Label><Label title="Notes"><textarea name="notes" className={field} /></Label><p className="text-xs text-slate-500">Attachments are private. Each file can be up to 20 MB.</p><button disabled={busy} className={primary}>{busy ? "Uploading…" : "Save document"}</button></form></Modal>;
+  return (
+    <Modal
+      title={preset ? `Add ${preset.name}` : "Add property document"}
+      close={() => !busy && close()}
+    >
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const f = new FormData(e.currentTarget);
+          void save(
+            () =>
+              savePropertyDocument(
+                {
+                  property_id: propertyId,
+                  category: value(f, "category"),
+                  name: value(f, "name"),
+                  document_number: value(f, "number"),
+                  issue_date: value(f, "issue") || null,
+                  expiry_date: value(f, "expiry") || null,
+                  notes: value(f, "notes"),
+                },
+                files
+              )
+          );
+        }}
+      >
+        <FormError error={error} />
+        <Label title="Document category">
+          <select
+            name="category"
+            defaultValue={preset?.category || propertyDocumentTypes[0]}
+            className={field}
+          >
+            {propertyDocumentTypes.map((t) => (
+              <option key={t}>{t}</option>
+            ))}
+          </select>
+        </Label>
+        <Label title="Document title *">
+          <input
+            name="name"
+            required
+            defaultValue={preset?.name || ""}
+            className={field}
+            placeholder="e.g. Registered Sale Deed 4529/2021"
+          />
+        </Label>
+        <Label title="Document / deed / receipt number (optional)">
+          <input
+            name="number"
+            className={field}
+            placeholder="e.g. Khatian # 1042 / Deed # 8421"
+          />
+        </Label>
+        <div className="grid grid-cols-2 gap-3">
+          <Label title="Issue date">
+            <input name="issue" type="date" className={field} />
+          </Label>
+          <Label title="Expiry / renewal date (if any)">
+            <input name="expiry" type="date" className={field} />
+          </Label>
+        </div>
+        <Label title="Scan / PDF attachments">
+          <input
+            type="file"
+            multiple
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            onChange={(e) => setFiles(Array.from(e.target.files || []))}
+            className={field}
+          />
+        </Label>
+        <Label title="Notes / Location of Original">
+          <textarea
+            name="notes"
+            placeholder="e.g. Original deed kept in bank locker, mutation fee paid"
+            className={field}
+          />
+        </Label>
+        <p className="text-xs text-slate-500">
+          Attachments are private. Each file can be up to 20 MB.
+        </p>
+        <button disabled={busy} className={primary}>
+          {busy ? "Uploading…" : "Save document"}
+        </button>
+      </form>
+    </Modal>
+  );
 }
 
 export function MaintenanceForm({ propertyId, units, done, close }: FormProps & { propertyId: string; units: PropertyUnit[] }) {

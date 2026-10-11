@@ -150,3 +150,19 @@ export async function saveRentalMaintenance(input: Omit<RentalMaintenance, "id" 
     if (error) throw error;
   } catch (error) { await removeRentalFiles(uploaded); throw error; }
 }
+
+export async function deletePropertyDocument(docId: string, files: RentalFile[] = []) {
+  if (files.length) {
+    try { await removeRentalFiles(files); } catch { /* ignore */ }
+  }
+  const { error } = await supabase.from("lifenest_property_documents").delete().eq("id", docId);
+  if (error) throw error;
+}
+
+export async function deleteRentalMaintenance(maintenanceId: string, files: RentalFile[] = []) {
+  if (files.length) {
+    try { await removeRentalFiles(files); } catch { /* ignore */ }
+  }
+  const { error } = await supabase.from("lifenest_property_expenses").delete().eq("id", maintenanceId);
+  if (error) throw error;
+}
