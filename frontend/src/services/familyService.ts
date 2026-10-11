@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import type { FamilyMember, FamilyMemberAccess } from "../types";
+import { getUserSettings } from "./settingsService";
 
 const TABLE = "lifenest_family_members";
 const LOCAL_KEY = "lifenest_local_family_members";
@@ -21,6 +22,7 @@ export function getDefaultMemberAccess(role: FamilyMemberAccess["loginRole"] = "
     canAccessWarranties: true,
     canAccessTasks: true,
     canAccessSchedule: true,
+    canAccessDailyExpenses: true,
   };
 }
 
@@ -113,6 +115,66 @@ export async function listFamilyMembers(): Promise<FamilyMember[]> {
     }
   }
   return dedupedLocal;
+}
+
+export async function listFamilyMembersWithSelf(): Promise<FamilyMember[]> {
+  const members = await listFamilyMembers();
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      const alreadyHasSelf = members.some(
+        (m) =>
+          m.relationship === "Self" ||
+          (m.email && m.email.toLowerCase() === (user.email || "").toLowerCase()) ||
+          m.id === user.id
+      );
+
+      if (!alreadyHasSelf) {
+        let adminName = "";
+        try {
+          const settings = await getUserSettings();
+          if (settings.fullName) {
+            adminName = settings.fullName.trim();
+          }
+        } catch {}
+
+        if (!adminName && user.user_metadata?.full_name) {
+          adminName = String(user.user_metadata.full_name).trim();
+        }
+
+        if (!adminName && user.email) {
+          adminName = user.email.split("@")[0].replace(/[._]/g, " ");
+        }
+
+        if (!adminName) {
+          adminName = "Family Admin";
+        }
+
+        adminName = adminName
+          .split(" ")
+          .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : ""))
+          .join(" ");
+
+        const selfMember: FamilyMember = {
+          id: user.id,
+          fullName: adminName,
+          relationship: "Self",
+          email: user.email || "",
+          phone: "",
+          nationality: "Bangladeshi",
+          access: getDefaultMemberAccess("Admin"),
+        };
+
+        return [selfMember, ...members];
+      }
+    }
+  } catch {}
+
+  return members;
 }
 
 export async function createFamilyMember(

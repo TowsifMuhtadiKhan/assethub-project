@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import {
   Wallet,
   Plus,
@@ -14,7 +15,7 @@ import {
   List,
   Clock,
 } from "lucide-react";
-import { listFamilyMembers } from "../services/familyService";
+import { listFamilyMembersWithSelf } from "../services/familyService";
 import {
   listDailyExpenses,
   createDailyExpense,
@@ -101,23 +102,11 @@ export function DailyExpensesPage() {
   const loadInitialData = async () => {
     setLoading(true);
     try {
-      const famMembers = await listFamilyMembers();
+      const famMembers = await listFamilyMembersWithSelf();
       setMembers(famMembers);
 
-      // Auto-unlock the first member if no PIN is set on anyone yet (for zero friction first-time)
       const allExpenses = await listDailyExpenses();
       setExpenses(allExpenses);
-
-      if (famMembers.length > 0 && !activeMemberId) {
-        // If first member has no PIN, set them as default
-        const first = famMembers[0];
-        if (!hasMemberPin(first.id)) {
-          setActiveMemberId(first.id);
-          try {
-            sessionStorage.setItem("lifenest_unlocked_expense_member", first.id);
-          } catch {}
-        }
-      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -444,15 +433,32 @@ export function DailyExpensesPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-w-4xl mx-auto">
               {members.map((m) => {
                 const hasPin = hasMemberPin(m.id);
+                const isSelf = m.relationship === "Self";
                 return (
                   <button
                     key={m.id}
                     type="button"
                     onClick={() => handleSelectMember(m)}
-                    className="flex flex-col items-center p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:border-amber-400 hover:shadow-md transition text-center cursor-pointer group"
+                    className={`flex flex-col items-center p-4 rounded-xl border transition text-center cursor-pointer group relative ${
+                      isSelf
+                        ? "border-amber-300 bg-amber-50/30 hover:bg-white hover:border-amber-500 hover:shadow-md"
+                        : "border-slate-200 bg-slate-50/50 hover:bg-white hover:border-amber-400 hover:shadow-md"
+                    }`}
                   >
+                    {isSelf && (
+                      <span className="absolute top-2.5 right-2.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-200 text-amber-900 border border-amber-300">
+                        You
+                      </span>
+                    )}
+
                     <div className="relative">
-                      <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-400 text-white flex items-center justify-center font-bold text-lg uppercase shadow-sm">
+                      <div
+                        className={`h-14 w-14 rounded-2xl flex items-center justify-center font-bold text-lg uppercase shadow-sm ${
+                          isSelf
+                            ? "bg-gradient-to-tr from-slate-900 via-slate-800 to-amber-600 text-white"
+                            : "bg-gradient-to-tr from-amber-500 to-orange-400 text-white"
+                        }`}
+                      >
                         {m.fullName.charAt(0)}
                       </div>
                       <span
@@ -468,12 +474,14 @@ export function DailyExpensesPage() {
                     <h3 className="mt-3 text-xs font-bold text-slate-900 group-hover:text-amber-700">
                       {m.fullName}
                     </h3>
-                    <div className="text-[11px] text-slate-400">{m.relationship}</div>
+                    <div className="text-[11px] text-slate-400">
+                      {isSelf ? "Account Owner (Self)" : m.relationship}
+                    </div>
 
                     <span
-                      className={`mt-2.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                      className={`mt-2.5 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
                         hasPin
-                          ? "bg-slate-100 text-slate-600"
+                          ? "bg-slate-100 text-slate-700"
                           : "bg-amber-100 text-amber-800 border border-amber-200"
                       }`}
                     >
@@ -482,6 +490,22 @@ export function DailyExpensesPage() {
                   </button>
                 );
               })}
+
+              {/* Add Family Member quick shortcut */}
+              <Link
+                to="/workspace/family"
+                className="flex flex-col items-center justify-center p-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/40 hover:bg-white hover:border-amber-400 hover:text-amber-700 transition text-center cursor-pointer group text-slate-500 min-h-[160px]"
+              >
+                <div className="h-12 w-12 rounded-2xl border border-dashed border-slate-300 flex items-center justify-center mb-2 group-hover:border-amber-400 group-hover:bg-amber-50 transition">
+                  <Plus className="h-5 w-5 text-slate-400 group-hover:text-amber-600" />
+                </div>
+                <span className="text-xs font-bold text-slate-700 group-hover:text-amber-700">
+                  Add Family Member
+                </span>
+                <span className="text-[10px] text-slate-400 mt-0.5">
+                  Invite spouse, child, sibling
+                </span>
+              </Link>
             </div>
           </div>
         </div>
