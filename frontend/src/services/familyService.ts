@@ -19,6 +19,8 @@ export function getDefaultMemberAccess(role: FamilyMemberAccess["loginRole"] = "
     canWriteRent: role === "Admin",
     canWritePropertyMaintenance: role === "Admin",
     canAccessWarranties: true,
+    canAccessTasks: true,
+    canAccessSchedule: true,
   };
 }
 

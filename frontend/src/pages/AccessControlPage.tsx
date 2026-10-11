@@ -15,9 +15,14 @@ import {
   AlertCircle,
   KeyRound,
   Info,
+  Plus,
+  FolderLock,
+  CheckSquare,
+  ShieldCheck,
 } from "lucide-react";
 import {
   listFamilyMembers,
+  createFamilyMember,
   updateFamilyMember,
   getDefaultMemberAccess,
 } from "../services/familyService";
@@ -26,9 +31,19 @@ import { listProperties } from "../services/propertyService";
 import type {
   FamilyMember,
   FamilyMemberAccess,
+  RelationshipType,
   Vehicle,
   Property,
 } from "../types";
+
+const RELATIONSHIPS: RelationshipType[] = [
+  "Sibling",
+  "Spouse",
+  "Child",
+  "Parent",
+  "Self",
+  "Other",
+];
 
 export function AccessControlPage() {
   const [members, setMembers] = useState<FamilyMember[]>([]);
@@ -39,9 +54,20 @@ export function AccessControlPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Tabs: 'vehicles' | 'properties' | 'members'
-  const [activeTab, setActiveTab] = useState<"vehicles" | "properties" | "members">("vehicles");
+  // Tabs: 'vehicles' | 'properties' | 'vault' | 'warranties' | 'tasks' | 'matrix'
+  const [activeTab, setActiveTab] = useState<
+    "vehicles" | "properties" | "vault" | "warranties" | "tasks" | "matrix"
+  >("vehicles");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Add Member Modal state
+  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addRelationship, setAddRelationship] = useState<RelationshipType>("Sibling");
+  const [addPhone, setAddPhone] = useState("");
+  const [addEmail, setAddEmail] = useState("");
+  const [addRole, setAddRole] = useState<FamilyMemberAccess["loginRole"]>("Vehicle_Manager");
+  const [isAdding, setIsAdding] = useState(false);
 
   // Invite modal states
   const [inviteMember, setInviteMember] = useState<FamilyMember | null>(null);
@@ -78,7 +104,6 @@ export function AccessControlPage() {
   const memberHasVehicleAccess = (member: FamilyMember, vehicleId: string) => {
     const acc = member.access;
     if (!acc || !acc.canAccessVehicles) return false;
-    // empty assignedVehicleIds means all vehicles
     if (!acc.assignedVehicleIds || acc.assignedVehicleIds.length === 0) return true;
     return acc.assignedVehicleIds.includes(vehicleId);
   };
@@ -87,7 +112,6 @@ export function AccessControlPage() {
   const memberHasPropertyAccess = (member: FamilyMember, propertyId: string) => {
     const acc = member.access;
     if (!acc || !acc.canAccessProperties) return false;
-    // empty or undefined assignedPropertyIds means all properties
     if (!acc.assignedPropertyIds || acc.assignedPropertyIds.length === 0) return true;
     return acc.assignedPropertyIds.includes(propertyId);
   };
@@ -106,18 +130,15 @@ export function AccessControlPage() {
         currentAcc.canAccessVehicles = true;
       }
       if (!currentAcc.assignedVehicleIds || currentAcc.assignedVehicleIds.length === 0) {
-        newAssigned = []; // already has all
+        newAssigned = [];
       } else {
         newAssigned = Array.from(new Set([...currentAcc.assignedVehicleIds, vehicleId]));
-        // If now includes all vehicles, we can keep full scope
         if (newAssigned.length === allVehicleIds.length) {
           newAssigned = [];
         }
       }
     } else {
-      // Revoking access to vehicleId
       if (!currentAcc.assignedVehicleIds || currentAcc.assignedVehicleIds.length === 0) {
-        // Was 'all', so now restrict to all EXCEPT this one
         newAssigned = allVehicleIds.filter((id) => id !== vehicleId);
       } else {
         newAssigned = currentAcc.assignedVehicleIds.filter((id) => id !== vehicleId);
@@ -132,7 +153,6 @@ export function AccessControlPage() {
       assignedVehicleIds: newAssigned,
     };
 
-    // Optimistic UI update
     setMembers((prev) =>
       prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
     );
@@ -141,38 +161,8 @@ export function AccessControlPage() {
     try {
       await updateFamilyMember(member.id, { access: updatedAccess });
       showToast(`Updated vehicle access for ${member.fullName}`);
-    } catch (e) {
-      console.error(e);
-      showToast(`Failed to save access change`);
-    } finally {
-      setSavingId(null);
-    }
-  };
-
-  // Toggle specific vehicle action permission for a member (Fuel, Maintenance, Documents)
-  const toggleMemberVehicleAction = async (
-    member: FamilyMember,
-    field: "canWriteFuel" | "canWriteMaintenance" | "canWriteDocuments"
-  ) => {
-    const currentAcc: FamilyMemberAccess = member.access
-      ? { ...member.access }
-      : getDefaultMemberAccess();
-
-    const updatedAccess: FamilyMemberAccess = {
-      ...currentAcc,
-      [field]: !currentAcc[field],
-    };
-
-    setMembers((prev) =>
-      prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
-    );
-    setSavingId(member.id);
-
-    try {
-      await updateFamilyMember(member.id, { access: updatedAccess });
-      showToast(`Updated permission for ${member.fullName}`);
     } catch {
-      showToast(`Failed to update permission`);
+      showToast(`Failed to save access change`);
     } finally {
       setSavingId(null);
     }
@@ -192,7 +182,7 @@ export function AccessControlPage() {
         currentAcc.canAccessProperties = true;
       }
       if (!currentAcc.assignedPropertyIds || currentAcc.assignedPropertyIds.length === 0) {
-        newAssigned = []; // already has all
+        newAssigned = [];
       } else {
         newAssigned = Array.from(new Set([...currentAcc.assignedPropertyIds, propertyId]));
         if (newAssigned.length === allPropertyIds.length) {
@@ -223,26 +213,26 @@ export function AccessControlPage() {
     try {
       await updateFamilyMember(member.id, { access: updatedAccess });
       showToast(`Updated property access for ${member.fullName}`);
-    } catch (e) {
-      console.error(e);
+    } catch {
       showToast(`Failed to save access change`);
     } finally {
       setSavingId(null);
     }
   };
 
-  // Toggle specific property action permission for a member
-  const toggleMemberPropertyAction = async (
+  // Generic toggle for any boolean permission flag on a member
+  const toggleMemberFlag = async (
     member: FamilyMember,
-    field: "canWriteRent" | "canWritePropertyMaintenance" | "canAccessProperties"
+    field: keyof FamilyMemberAccess
   ) => {
     const currentAcc: FamilyMemberAccess = member.access
       ? { ...member.access }
       : getDefaultMemberAccess();
 
+    const currentVal = Boolean(currentAcc[field]);
     const updatedAccess: FamilyMemberAccess = {
       ...currentAcc,
-      [field]: !currentAcc[field],
+      [field]: !currentVal,
     };
 
     setMembers((prev) =>
@@ -260,7 +250,7 @@ export function AccessControlPage() {
     }
   };
 
-  // Quick grant all or restrict all members for a single vehicle
+  // Batch vehicle access
   const batchVehicleAccess = async (vehicleId: string, grantToAll: boolean) => {
     for (const member of members) {
       await toggleVehicleAccess(member, vehicleId, grantToAll);
@@ -268,7 +258,7 @@ export function AccessControlPage() {
     showToast(grantToAll ? "Granted access to all members" : "Restricted all members");
   };
 
-  // Quick grant all or restrict all members for a single property
+  // Batch property access
   const batchPropertyAccess = async (propertyId: string, grantToAll: boolean) => {
     for (const member of members) {
       await togglePropertyAccess(member, propertyId, grantToAll);
@@ -276,8 +266,11 @@ export function AccessControlPage() {
     showToast(grantToAll ? "Granted access to all members" : "Restricted all members");
   };
 
-  // Change member role
-  const handleRoleChange = async (member: FamilyMember, newRole: FamilyMemberAccess["loginRole"]) => {
+  // Role change
+  const handleRoleChange = async (
+    member: FamilyMember,
+    newRole: FamilyMemberAccess["loginRole"]
+  ) => {
     const base = getDefaultMemberAccess(newRole);
     const updatedAccess: FamilyMemberAccess = {
       ...base,
@@ -300,11 +293,41 @@ export function AccessControlPage() {
     }
   };
 
+  // Add Member submit
+  const handleAddMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addName.trim()) return;
+    setIsAdding(true);
+    try {
+      const defaultAccess = getDefaultMemberAccess(addRole);
+      const created = await createFamilyMember({
+        fullName: addName.trim(),
+        relationship: addRelationship,
+        phone: addPhone.trim(),
+        email: addEmail.trim(),
+        nationality: "Bangladeshi",
+        access: defaultAccess,
+      });
+
+      setMembers((prev) => [...prev, created]);
+      showToast(`Added ${created.fullName}! Now configure their permissions.`);
+      setIsAddMemberOpen(false);
+      setAddName("");
+      setAddPhone("");
+      setAddEmail("");
+      setAddRole("Vehicle_Manager");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to add member.");
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   // Invite text generator
   const getInviteText = (m: FamilyMember) => {
     const roleName = (m.access?.loginRole || "Vehicle_Manager").replace("_", " ");
     const origin = window.location.origin;
-    return `Hi ${m.fullName},\n\nYou have been invited to join our family workspace on LifeNest (${roleName})!\n\n🔑 How to sign in:\n1. Open LifeNest: ${origin}\n2. If it's your first time, click "Create your LifeNest account" (Sign Up).\n3. Enter your email: ${m.email} and set your own password.\n4. You will automatically have access to our family vehicles and records!\n\nNeed help? Let me know!`;
+    return `Hi ${m.fullName},\n\nYou have been invited to join our family workspace on LifeNest (${roleName})!\n\n🔑 How to sign in:\n1. Open LifeNest: ${origin}\n2. Click "Create your LifeNest account" (Sign Up).\n3. Enter your email: ${m.email}\n4. Set your own password.\n5. You will automatically have access to all assigned vehicles, properties, and family records!\n\nNeed help? Let me know!`;
   };
 
   const handleCopyInvite = (m: FamilyMember) => {
@@ -317,7 +340,9 @@ export function AccessControlPage() {
     const cleanPhone = (m.phone || "").replace(/[^0-9]/g, "");
     const formattedPhone = cleanPhone.startsWith("0") ? `88${cleanPhone}` : cleanPhone;
     const text = encodeURIComponent(getInviteText(m));
-    const url = cleanPhone ? `https://wa.me/${formattedPhone}?text=${text}` : `https://wa.me/?text=${text}`;
+    const url = cleanPhone
+      ? `https://wa.me/${formattedPhone}?text=${text}`
+      : `https://wa.me/?text=${text}`;
     window.open(url, "_blank");
   };
 
@@ -358,114 +383,157 @@ export function AccessControlPage() {
   }, [members, searchQuery]);
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="space-y-6 w-full text-slate-800">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <Check className="h-4 w-4" />
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <Check className="h-4 w-4 text-emerald-400" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+      {/* Page Header (Light Theme) */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/90 pb-5">
         <div>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-400">
-              <KeyRound className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-                Access Control & Permissions
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-400">
-                Manage granular asset-level access for family members across vehicles and real estate
-              </p>
-            </div>
+          <div className="flex items-center gap-2.5">
+            <span className="text-[11px] font-bold tracking-wider uppercase text-orange-700 bg-orange-50 px-2.5 py-0.5 rounded-md border border-orange-200/80">
+              Workspace • Security
+            </span>
+            <span className="text-xs text-slate-400 font-mono">ROLE & MODULE PERMISSIONS</span>
           </div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 mt-1">
+            Access Control & Module Permissions
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Add members, control access to vehicles, properties, document vault, warranties, and daily schedule
+          </p>
         </div>
 
-        {/* Quick Stats Banner */}
+        {/* Action Button & Metric Stats */}
         <div className="flex items-center gap-3">
-          <div className="rounded-xl border border-slate-800 bg-slate-800/50 px-3.5 py-2">
-            <div className="text-[10px] uppercase font-semibold text-slate-400">Family Members</div>
-            <div className="text-base font-bold text-white">{members.length}</div>
+          <div className="flex items-center gap-2">
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs text-center">
+              <div className="text-[10px] uppercase font-bold text-slate-400">Members</div>
+              <div className="text-sm font-extrabold text-slate-900">{members.length}</div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs text-center">
+              <div className="text-[10px] uppercase font-bold text-slate-400">Vehicles</div>
+              <div className="text-sm font-extrabold text-orange-600">{vehicles.length}</div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs text-center">
+              <div className="text-[10px] uppercase font-bold text-slate-400">Properties</div>
+              <div className="text-sm font-extrabold text-indigo-600">{properties.length}</div>
+            </div>
           </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-800/50 px-3.5 py-2">
-            <div className="text-[10px] uppercase font-semibold text-slate-400">Vehicles</div>
-            <div className="text-base font-bold text-orange-400">{vehicles.length}</div>
-          </div>
-          <div className="rounded-xl border border-slate-800 bg-slate-800/50 px-3.5 py-2">
-            <div className="text-[10px] uppercase font-semibold text-slate-400">Properties</div>
-            <div className="text-base font-bold text-indigo-400">{properties.length}</div>
-          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsAddMemberOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Family Member</span>
+          </button>
         </div>
       </div>
 
-      {/* Tabs and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        {/* Navigation Tabs */}
-        <div className="flex items-center p-1 bg-slate-800/70 rounded-xl border border-slate-700/60 max-w-fit">
+      {/* Tabs & Search Bar */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        {/* Module Navigation Tabs */}
+        <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100/90 rounded-xl border border-slate-200/80">
           <button
             type="button"
             onClick={() => setActiveTab("vehicles")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
               activeTab === "vehicles"
-                ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
-                : "text-slate-400 hover:text-slate-200"
+                ? "bg-white text-orange-600 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <Car className="h-4 w-4" />
-            <span>Vehicle-Wise Access ({vehicles.length})</span>
+            <Car className="h-3.5 w-3.5 text-orange-500" />
+            <span>Vehicles & Fuel ({vehicles.length})</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab("properties")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
               activeTab === "properties"
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
-                : "text-slate-400 hover:text-slate-200"
+                ? "bg-white text-indigo-600 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <Building2 className="h-4 w-4" />
-            <span>Property-Wise Access ({properties.length})</span>
+            <Building2 className="h-3.5 w-3.5 text-indigo-500" />
+            <span>Properties & Rent ({properties.length})</span>
           </button>
 
           <button
             type="button"
-            onClick={() => setActiveTab("members")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
-              activeTab === "members"
-                ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
-                : "text-slate-400 hover:text-slate-200"
+            onClick={() => setActiveTab("vault")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              activeTab === "vault"
+                ? "bg-white text-sky-600 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <Users className="h-4 w-4" />
-            <span>Member Roles & Matrix</span>
+            <FolderLock className="h-3.5 w-3.5 text-sky-500" />
+            <span>Document Vault</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("warranties")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              activeTab === "warranties"
+                ? "bg-white text-emerald-600 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+            <span>Warranties</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("tasks")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              activeTab === "tasks"
+                ? "bg-white text-amber-600 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <CheckSquare className="h-3.5 w-3.5 text-amber-500" />
+            <span>Tasks & Schedule</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("matrix")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              activeTab === "matrix"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Users className="h-3.5 w-3.5 text-slate-700" />
+            <span>All-In-One Matrix</span>
           </button>
         </div>
 
-        {/* Search Input */}
-        <div className="relative min-w-[240px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        {/* Search */}
+        <div className="relative min-w-[260px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={
-              activeTab === "vehicles"
-                ? "Search vehicles..."
-                : activeTab === "properties"
-                ? "Search properties..."
-                : "Search family members..."
-            }
-            className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-orange-500 transition"
+            placeholder="Search member, vehicle or property..."
+            className="w-full pl-9 pr-4 py-1.5 rounded-xl bg-white border border-slate-200/90 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-900 transition shadow-2xs"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -473,30 +541,29 @@ export function AccessControlPage() {
         </div>
       </div>
 
-      {/* Loading & Error States */}
       {loading && (
-        <div className="p-12 text-center text-slate-400 border border-slate-800 rounded-2xl bg-slate-800/20">
+        <div className="p-12 text-center text-slate-500 border border-slate-200 rounded-2xl bg-white shadow-2xs">
           <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-orange-500 border-t-transparent mb-2" />
-          <p className="text-xs">Loading permission matrices...</p>
+          <p className="text-xs">Loading access control configuration...</p>
         </div>
       )}
 
       {error && (
-        <div className="p-4 rounded-xl border border-red-800/60 bg-red-950/40 text-red-300 text-xs flex items-center gap-3">
-          <AlertCircle className="h-5 w-5 shrink-0 text-red-400" />
+        <div className="p-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 shrink-0 text-rose-500" />
           <span>{error}</span>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 1: VEHICLE-WISE ACCESS VIEW                                          */}
+      {/* TAB 1: VEHICLE-WISE ACCESS (LIGHT THEME)                                  */}
       {/* ========================================================================= */}
       {!loading && activeTab === "vehicles" && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {filteredVehicles.length === 0 ? (
-            <div className="p-12 text-center border border-dashed border-slate-800 rounded-2xl bg-slate-800/30">
-              <Car className="h-10 w-10 text-slate-500 mx-auto mb-2 opacity-50" />
-              <h3 className="text-sm font-semibold text-white">No vehicles found</h3>
+            <div className="p-12 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
+              <Car className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+              <h3 className="text-sm font-semibold text-slate-800">No vehicles found</h3>
               <p className="text-xs text-slate-400 mt-1">
                 Add vehicles in the Vehicles section first to manage permissions.
               </p>
@@ -510,118 +577,90 @@ export function AccessControlPage() {
               return (
                 <div
                   key={v.id}
-                  className="rounded-2xl border border-slate-800 bg-slate-850/80 overflow-hidden shadow-lg"
+                  className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs"
                 >
-                  {/* Vehicle Card Header */}
-                  <div className="p-4 sm:p-5 border-b border-slate-800 bg-slate-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      {/* Vehicle Thumbnail / Plate */}
-                      <div className="flex flex-col items-start gap-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="p-2 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400">
-                            <Car className="h-5 w-5" />
+                  {/* Card Header */}
+                  <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-600">
+                        <Car className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                          <span>{v.name}</span>
+                          <span className="text-xs font-normal text-slate-500">
+                            ({v.brand} {v.model} {v.year})
                           </span>
-                          <div>
-                            <div className="text-base font-bold text-white flex items-center gap-2">
-                              {v.name}
-                              <span className="text-xs font-normal text-slate-400">
-                                {v.brand} {v.model} ({v.year})
-                              </span>
-                            </div>
-                            <div className="text-xs text-slate-400 font-mono">
-                              {v.registrationNumber || "No Reg Number"}
-                            </div>
-                          </div>
+                        </div>
+                        <div className="text-xs font-mono text-slate-500">
+                          {v.registrationNumber || "No Plate Number"}
                         </div>
                       </div>
                     </div>
 
-                    {/* Batch Actions & Count */}
-                    <div className="flex items-center gap-3 self-end sm:self-center">
-                      <div className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium">
+                    <div className="flex items-center gap-2.5 self-end sm:self-auto">
+                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold">
                         {authorizedCount} of {members.length} Members Authorized
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => batchVehicleAccess(v.id, true)}
-                          title="Grant access to all family members for this vehicle"
-                          className="px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition cursor-pointer"
-                        >
-                          Grant All
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => batchVehicleAccess(v.id, false)}
-                          title="Restrict all family members from this vehicle"
-                          className="px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-rose-300 text-xs font-medium transition cursor-pointer"
-                        >
-                          Restrict All
-                        </button>
-                      </div>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => batchVehicleAccess(v.id, true)}
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition cursor-pointer shadow-2xs"
+                      >
+                        Grant All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => batchVehicleAccess(v.id, false)}
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-rose-600 text-xs font-medium transition cursor-pointer shadow-2xs"
+                      >
+                        Restrict All
+                      </button>
                     </div>
                   </div>
 
-                  {/* Members Permissions Table for this Vehicle */}
+                  {/* Table */}
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-900/60 text-slate-400 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-800/80">
+                      <thead className="bg-slate-50/80 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-100">
                         <tr>
-                          <th className="py-3 px-4 sm:px-6">Family Member</th>
-                          <th className="py-3 px-4">Access Status</th>
-                          <th className="py-3 px-4">Fuel Logging</th>
-                          <th className="py-3 px-4">Maintenance</th>
-                          <th className="py-3 px-4">Vehicle Docs</th>
-                          <th className="py-3 px-4 text-right pr-6">Quick Action</th>
+                          <th className="py-2.5 px-4 sm:px-6">Family Member</th>
+                          <th className="py-2.5 px-4">Vehicle Access</th>
+                          <th className="py-2.5 px-4">Fuel Logging</th>
+                          <th className="py-2.5 px-4">Maintenance</th>
+                          <th className="py-2.5 px-4">Vehicle Docs</th>
+                          <th className="py-2.5 px-4 text-right pr-6">Quick Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-800/50">
+                      <tbody className="divide-y divide-slate-100">
                         {members.map((member) => {
                           const hasAccess = memberHasVehicleAccess(member, v.id);
                           const acc = member.access || getDefaultMemberAccess();
                           const isSaving = savingId === member.id;
 
                           return (
-                            <tr
-                              key={member.id}
-                              className={`transition-colors ${
-                                hasAccess
-                                  ? "bg-transparent hover:bg-slate-800/30"
-                                  : "bg-slate-900/40 text-slate-500 hover:bg-slate-900/60"
-                              }`}
-                            >
-                              {/* Member Identity */}
-                              <td className="py-3.5 px-4 sm:px-6">
+                            <tr key={member.id} className="hover:bg-slate-50/60 transition-colors">
+                              <td className="py-3 px-4 sm:px-6">
                                 <div className="flex items-center gap-3">
                                   <div
                                     className={`h-8 w-8 rounded-full flex items-center justify-center font-bold text-xs uppercase border ${
                                       hasAccess
-                                        ? "bg-orange-500/15 border-orange-500/40 text-orange-400"
-                                        : "bg-slate-800 border-slate-700 text-slate-500"
+                                        ? "bg-orange-50 border-orange-200 text-orange-600"
+                                        : "bg-slate-100 border-slate-200 text-slate-400"
                                     }`}
                                   >
                                     {member.fullName.charAt(0)}
                                   </div>
                                   <div>
-                                    <div
-                                      className={`font-semibold ${
-                                        hasAccess ? "text-white" : "text-slate-400"
-                                      }`}
-                                    >
-                                      {member.fullName}
-                                    </div>
-                                    <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-                                      <span>{member.relationship}</span>
-                                      <span>•</span>
-                                      <span className="font-mono">{member.email || member.phone || "No login yet"}</span>
+                                    <div className="font-semibold text-slate-900">{member.fullName}</div>
+                                    <div className="text-[11px] text-slate-400">
+                                      {member.relationship} • {member.email || member.phone || "No login"}
                                     </div>
                                   </div>
                                 </div>
                               </td>
 
-                              {/* Access Toggle */}
-                              <td className="py-3.5 px-4">
+                              <td className="py-3 px-4">
                                 <label className="inline-flex items-center cursor-pointer">
                                   <input
                                     type="checkbox"
@@ -632,10 +671,10 @@ export function AccessControlPage() {
                                     disabled={isSaving}
                                     className="sr-only peer"
                                   />
-                                  <div className="relative w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                  <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
                                   <span
                                     className={`ms-2 text-xs font-semibold ${
-                                      hasAccess ? "text-emerald-400" : "text-slate-500"
+                                      hasAccess ? "text-emerald-700" : "text-slate-400"
                                     }`}
                                   >
                                     {hasAccess ? "Authorized" : "Blocked"}
@@ -643,77 +682,68 @@ export function AccessControlPage() {
                                 </label>
                               </td>
 
-                              {/* Action Permission 1: Fuel */}
-                              <td className="py-3.5 px-4">
+                              <td className="py-3 px-4">
                                 <button
                                   type="button"
                                   disabled={!hasAccess || isSaving}
-                                  onClick={() => toggleMemberVehicleAction(member, "canWriteFuel")}
+                                  onClick={() => toggleMemberFlag(member, "canWriteFuel")}
                                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
                                     !hasAccess
-                                      ? "opacity-30 cursor-not-allowed text-slate-600 bg-slate-800/40"
+                                      ? "opacity-40 cursor-not-allowed bg-slate-100 text-slate-400"
                                       : acc.canWriteFuel
-                                      ? "bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:bg-amber-500/25"
-                                      : "bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700"
+                                      ? "bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100"
+                                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                                   }`}
                                 >
-                                  <Fuel className="h-3.5 w-3.5" />
+                                  <Fuel className="h-3.5 w-3.5 text-amber-600" />
                                   <span>{acc.canWriteFuel ? "Can Log Fuel" : "View Only"}</span>
                                 </button>
                               </td>
 
-                              {/* Action Permission 2: Maintenance */}
-                              <td className="py-3.5 px-4">
+                              <td className="py-3 px-4">
                                 <button
                                   type="button"
                                   disabled={!hasAccess || isSaving}
-                                  onClick={() =>
-                                    toggleMemberVehicleAction(member, "canWriteMaintenance")
-                                  }
+                                  onClick={() => toggleMemberFlag(member, "canWriteMaintenance")}
                                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
                                     !hasAccess
-                                      ? "opacity-30 cursor-not-allowed text-slate-600 bg-slate-800/40"
+                                      ? "opacity-40 cursor-not-allowed bg-slate-100 text-slate-400"
                                       : acc.canWriteMaintenance
-                                      ? "bg-sky-500/15 border border-sky-500/40 text-sky-300 hover:bg-sky-500/25"
-                                      : "bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700"
+                                      ? "bg-sky-50 border border-sky-200 text-sky-800 hover:bg-sky-100"
+                                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                                   }`}
                                 >
-                                  <Wrench className="h-3.5 w-3.5" />
+                                  <Wrench className="h-3.5 w-3.5 text-sky-600" />
                                   <span>{acc.canWriteMaintenance ? "Can Log Service" : "View Only"}</span>
                                 </button>
                               </td>
 
-                              {/* Action Permission 3: Documents */}
-                              <td className="py-3.5 px-4">
+                              <td className="py-3 px-4">
                                 <button
                                   type="button"
                                   disabled={!hasAccess || isSaving}
-                                  onClick={() =>
-                                    toggleMemberVehicleAction(member, "canWriteDocuments")
-                                  }
+                                  onClick={() => toggleMemberFlag(member, "canWriteDocuments")}
                                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
                                     !hasAccess
-                                      ? "opacity-30 cursor-not-allowed text-slate-600 bg-slate-800/40"
+                                      ? "opacity-40 cursor-not-allowed bg-slate-100 text-slate-400"
                                       : acc.canWriteDocuments
-                                      ? "bg-purple-500/15 border border-purple-500/40 text-purple-300 hover:bg-purple-500/25"
-                                      : "bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700"
+                                      ? "bg-purple-50 border border-purple-200 text-purple-800 hover:bg-purple-100"
+                                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                                   }`}
                                 >
-                                  <FileText className="h-3.5 w-3.5" />
+                                  <FileText className="h-3.5 w-3.5 text-purple-600" />
                                   <span>{acc.canWriteDocuments ? "Can Upload" : "View Only"}</span>
                                 </button>
                               </td>
 
-                              {/* Quick Invite / Share Link */}
-                              <td className="py-3.5 px-4 text-right pr-6">
+                              <td className="py-3 px-4 text-right pr-6">
                                 <button
                                   type="button"
                                   onClick={() => setInviteMember(member)}
-                                  className="inline-flex items-center gap-1 text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
-                                  title="Send invite and credentials to this member"
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-[11px] font-semibold"
                                 >
                                   <Share2 className="h-3.5 w-3.5 text-slate-400" />
-                                  <span className="text-[11px]">Invite</span>
+                                  <span>Invite</span>
                                 </button>
                               </td>
                             </tr>
@@ -730,14 +760,14 @@ export function AccessControlPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 2: PROPERTY-WISE ACCESS VIEW                                         */}
+      {/* TAB 2: PROPERTY-WISE ACCESS (LIGHT THEME)                                */}
       {/* ========================================================================= */}
       {!loading && activeTab === "properties" && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {filteredProperties.length === 0 ? (
-            <div className="p-12 text-center border border-dashed border-slate-800 rounded-2xl bg-slate-800/30">
-              <Building2 className="h-10 w-10 text-slate-500 mx-auto mb-2 opacity-50" />
-              <h3 className="text-sm font-semibold text-white">No properties found</h3>
+            <div className="p-12 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
+              <Building2 className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+              <h3 className="text-sm font-semibold text-slate-800">No properties found</h3>
               <p className="text-xs text-slate-400 mt-1">
                 Add properties in the Real Estate section first to manage permissions.
               </p>
@@ -751,112 +781,87 @@ export function AccessControlPage() {
               return (
                 <div
                   key={p.id}
-                  className="rounded-2xl border border-slate-800 bg-slate-850/80 overflow-hidden shadow-lg"
+                  className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs"
                 >
-                  {/* Property Card Header */}
-                  <div className="p-4 sm:p-5 border-b border-slate-800 bg-slate-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      <span className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">
+                  <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-600">
                         <Building2 className="h-5 w-5" />
-                      </span>
+                      </div>
                       <div>
-                        <div className="text-base font-bold text-white flex items-center gap-2">
-                          {p.name}
-                          <span className="text-xs font-normal text-slate-400">
-                            ({p.type || "Real Estate"})
+                        <div className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                          <span>{p.name}</span>
+                          <span className="text-xs font-normal text-slate-500">
+                            ({p.type || "Rental Asset"})
                           </span>
                         </div>
-                        <div className="text-xs text-slate-400">
+                        <div className="text-xs text-slate-500">
                           {p.location} • {p.unitsCount} Units
                         </div>
                       </div>
                     </div>
 
-                    {/* Batch Actions & Count */}
-                    <div className="flex items-center gap-3 self-end sm:self-center">
-                      <div className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium">
+                    <div className="flex items-center gap-2.5 self-end sm:self-auto">
+                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold">
                         {authorizedCount} of {members.length} Members Authorized
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => batchPropertyAccess(p.id, true)}
-                          title="Grant access to all family members for this property"
-                          className="px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition cursor-pointer"
-                        >
-                          Grant All
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => batchPropertyAccess(p.id, false)}
-                          title="Restrict all family members from this property"
-                          className="px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-rose-300 text-xs font-medium transition cursor-pointer"
-                        >
-                          Restrict All
-                        </button>
-                      </div>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => batchPropertyAccess(p.id, true)}
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition cursor-pointer shadow-2xs"
+                      >
+                        Grant All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => batchPropertyAccess(p.id, false)}
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-rose-600 text-xs font-medium transition cursor-pointer shadow-2xs"
+                      >
+                        Restrict All
+                      </button>
                     </div>
                   </div>
 
-                  {/* Members Permissions Table for this Property */}
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-900/60 text-slate-400 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-800/80">
+                      <thead className="bg-slate-50/80 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-100">
                         <tr>
-                          <th className="py-3 px-4 sm:px-6">Family Member</th>
-                          <th className="py-3 px-4">Access Status</th>
-                          <th className="py-3 px-4">Rent Collection</th>
-                          <th className="py-3 px-4">Maintenance & Expense</th>
-                          <th className="py-3 px-4 text-right pr-6">Quick Action</th>
+                          <th className="py-2.5 px-4 sm:px-6">Family Member</th>
+                          <th className="py-2.5 px-4">Property Access</th>
+                          <th className="py-2.5 px-4">Rent Collection</th>
+                          <th className="py-2.5 px-4">Maintenance & Expenses</th>
+                          <th className="py-2.5 px-4 text-right pr-6">Quick Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-800/50">
+                      <tbody className="divide-y divide-slate-100">
                         {members.map((member) => {
                           const hasAccess = memberHasPropertyAccess(member, p.id);
                           const acc = member.access || getDefaultMemberAccess();
                           const isSaving = savingId === member.id;
 
                           return (
-                            <tr
-                              key={member.id}
-                              className={`transition-colors ${
-                                hasAccess
-                                  ? "bg-transparent hover:bg-slate-800/30"
-                                  : "bg-slate-900/40 text-slate-500 hover:bg-slate-900/60"
-                              }`}
-                            >
-                              {/* Member Identity */}
-                              <td className="py-3.5 px-4 sm:px-6">
+                            <tr key={member.id} className="hover:bg-slate-50/60 transition-colors">
+                              <td className="py-3 px-4 sm:px-6">
                                 <div className="flex items-center gap-3">
                                   <div
                                     className={`h-8 w-8 rounded-full flex items-center justify-center font-bold text-xs uppercase border ${
                                       hasAccess
-                                        ? "bg-indigo-500/15 border-indigo-500/40 text-indigo-400"
-                                        : "bg-slate-800 border-slate-700 text-slate-500"
+                                        ? "bg-indigo-50 border-indigo-200 text-indigo-600"
+                                        : "bg-slate-100 border-slate-200 text-slate-400"
                                     }`}
                                   >
                                     {member.fullName.charAt(0)}
                                   </div>
                                   <div>
-                                    <div
-                                      className={`font-semibold ${
-                                        hasAccess ? "text-white" : "text-slate-400"
-                                      }`}
-                                    >
-                                      {member.fullName}
-                                    </div>
-                                    <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-                                      <span>{member.relationship}</span>
-                                      <span>•</span>
-                                      <span className="font-mono">{member.email || member.phone || "No login yet"}</span>
+                                    <div className="font-semibold text-slate-900">{member.fullName}</div>
+                                    <div className="text-[11px] text-slate-400">
+                                      {member.relationship} • {member.email || member.phone || "No login"}
                                     </div>
                                   </div>
                                 </div>
                               </td>
 
-                              {/* Access Toggle */}
-                              <td className="py-3.5 px-4">
+                              <td className="py-3 px-4">
                                 <label className="inline-flex items-center cursor-pointer">
                                   <input
                                     type="checkbox"
@@ -867,10 +872,10 @@ export function AccessControlPage() {
                                     disabled={isSaving}
                                     className="sr-only peer"
                                   />
-                                  <div className="relative w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                  <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
                                   <span
                                     className={`ms-2 text-xs font-semibold ${
-                                      hasAccess ? "text-emerald-400" : "text-slate-500"
+                                      hasAccess ? "text-emerald-700" : "text-slate-400"
                                     }`}
                                   >
                                     {hasAccess ? "Authorized" : "Blocked"}
@@ -878,56 +883,52 @@ export function AccessControlPage() {
                                 </label>
                               </td>
 
-                              {/* Rent Collection Logging */}
-                              <td className="py-3.5 px-4">
+                              <td className="py-3 px-4">
                                 <button
                                   type="button"
                                   disabled={!hasAccess || isSaving}
-                                  onClick={() => toggleMemberPropertyAction(member, "canWriteRent")}
+                                  onClick={() => toggleMemberFlag(member, "canWriteRent")}
                                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
                                     !hasAccess
-                                      ? "opacity-30 cursor-not-allowed text-slate-600 bg-slate-800/40"
+                                      ? "opacity-40 cursor-not-allowed bg-slate-100 text-slate-400"
                                       : acc.canWriteRent
-                                      ? "bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/25"
-                                      : "bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700"
+                                      ? "bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100"
+                                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                                   }`}
                                 >
-                                  <DollarSign className="h-3.5 w-3.5" />
+                                  <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
                                   <span>{acc.canWriteRent ? "Can Collect Rent" : "View Only"}</span>
                                 </button>
                               </td>
 
-                              {/* Maintenance & Expenses */}
-                              <td className="py-3.5 px-4">
+                              <td className="py-3 px-4">
                                 <button
                                   type="button"
                                   disabled={!hasAccess || isSaving}
                                   onClick={() =>
-                                    toggleMemberPropertyAction(member, "canWritePropertyMaintenance")
+                                    toggleMemberFlag(member, "canWritePropertyMaintenance")
                                   }
                                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
                                     !hasAccess
-                                      ? "opacity-30 cursor-not-allowed text-slate-600 bg-slate-800/40"
+                                      ? "opacity-40 cursor-not-allowed bg-slate-100 text-slate-400"
                                       : acc.canWritePropertyMaintenance
-                                      ? "bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:bg-amber-500/25"
-                                      : "bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700"
+                                      ? "bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100"
+                                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                                   }`}
                                 >
-                                  <Wrench className="h-3.5 w-3.5" />
+                                  <Wrench className="h-3.5 w-3.5 text-amber-600" />
                                   <span>{acc.canWritePropertyMaintenance ? "Can Log Expenses" : "View Only"}</span>
                                 </button>
                               </td>
 
-                              {/* Quick Invite / Share Link */}
-                              <td className="py-3.5 px-4 text-right pr-6">
+                              <td className="py-3 px-4 text-right pr-6">
                                 <button
                                   type="button"
                                   onClick={() => setInviteMember(member)}
-                                  className="inline-flex items-center gap-1 text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
-                                  title="Send invite and credentials to this member"
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-[11px] font-semibold"
                                 >
                                   <Share2 className="h-3.5 w-3.5 text-slate-400" />
-                                  <span className="text-[11px]">Invite</span>
+                                  <span>Invite</span>
                                 </button>
                               </td>
                             </tr>
@@ -944,246 +945,637 @@ export function AccessControlPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 3: MEMBER MATRIX & ROLES OVERVIEW                                     */}
+      {/* TAB 3: DOCUMENT VAULT ACCESS                                             */}
       {/* ========================================================================= */}
-      {!loading && activeTab === "members" && (
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-800 bg-slate-850/80 overflow-hidden shadow-lg">
-            <div className="p-4 sm:p-5 border-b border-slate-800 bg-slate-800/40 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-white">Family Members Security & Roles Matrix</h3>
-                <p className="text-xs text-slate-400">
-                  Assign top-level workspace roles and review cross-asset privileges
-                </p>
-              </div>
+      {!loading && activeTab === "vault" && (
+        <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <FolderLock className="h-4 w-4 text-sky-600" />
+                <span>Document Vault Access & Confidentiality</span>
+              </h3>
+              <p className="text-xs text-slate-500">
+                Control who can view NID, Passports, property deeds, and confidential family vault folders
+              </p>
             </div>
+          </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-900/60 text-slate-400 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-800/80">
-                  <tr>
-                    <th className="py-3.5 px-4 sm:px-6">Member</th>
-                    <th className="py-3.5 px-4">System Role</th>
-                    <th className="py-3.5 px-4">Assigned Vehicles</th>
-                    <th className="py-3.5 px-4">Assigned Properties</th>
-                    <th className="py-3.5 px-4">Vault Access</th>
-                    <th className="py-3.5 px-4 text-right pr-6">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/50">
-                  {filteredMembers.map((member) => {
-                    const acc = member.access || getDefaultMemberAccess();
-                    const isSaving = savingId === member.id;
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50/80 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-100">
+                <tr>
+                  <th className="py-2.5 px-4 sm:px-6">Member</th>
+                  <th className="py-2.5 px-4">Vault Access</th>
+                  <th className="py-2.5 px-4">Upload Permissions</th>
+                  <th className="py-2.5 px-4 text-right pr-6">Invite</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredMembers.map((m) => {
+                  const acc = m.access || getDefaultMemberAccess();
+                  return (
+                    <tr key={m.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="py-3 px-4 sm:px-6 font-semibold text-slate-900">
+                        {m.fullName}
+                        <span className="block text-[11px] text-slate-400 font-normal">
+                          {m.relationship} • {m.email || m.phone || "No login"}
+                        </span>
+                      </td>
 
-                    const permittedVehicles =
-                      !acc.canAccessVehicles
-                        ? []
-                        : !acc.assignedVehicleIds || acc.assignedVehicleIds.length === 0
-                        ? vehicles
-                        : vehicles.filter((v) => acc.assignedVehicleIds.includes(v.id));
-
-                    const permittedProperties =
-                      !acc.canAccessProperties
-                        ? []
-                        : !acc.assignedPropertyIds || acc.assignedPropertyIds.length === 0
-                        ? properties
-                        : properties.filter((p) => acc.assignedPropertyIds?.includes(p.id));
-
-                    return (
-                      <tr key={member.id} className="hover:bg-slate-800/30 transition-colors">
-                        {/* Member identity */}
-                        <td className="py-4 px-4 sm:px-6">
-                          <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center font-bold text-xs text-white uppercase shadow-sm">
-                              {member.fullName.charAt(0)}
-                            </div>
-                            <div>
-                              <div className="font-semibold text-white text-sm">{member.fullName}</div>
-                              <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                                <span>{member.relationship}</span>
-                                <span>•</span>
-                                <span className="font-mono">{member.email || "No email"}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Role selector dropdown */}
-                        <td className="py-4 px-4">
-                          <select
-                            value={acc.loginRole}
-                            disabled={isSaving}
-                            onChange={(e) =>
-                              handleRoleChange(
-                                member,
-                                e.target.value as FamilyMemberAccess["loginRole"]
-                              )
-                            }
-                            className="bg-slate-800 border border-slate-700 text-xs font-semibold rounded-lg px-2.5 py-1.5 text-white focus:outline-none focus:border-orange-500"
-                          >
-                            <option value="Admin">Admin (Full Access)</option>
-                            <option value="Vehicle_Manager">Vehicle Manager</option>
-                            <option value="Viewer">Viewer (Read-Only)</option>
-                            <option value="Custom">Custom Granular</option>
-                          </select>
-                        </td>
-
-                        {/* Vehicles badge count */}
-                        <td className="py-4 px-4">
-                          {!acc.canAccessVehicles || permittedVehicles.length === 0 ? (
-                            <span className="text-slate-500 text-[11px]">No access</span>
-                          ) : permittedVehicles.length === vehicles.length ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 text-[11px]">
-                              All Vehicles ({vehicles.length})
-                            </span>
-                          ) : (
-                            <div className="flex flex-wrap gap-1">
-                              {permittedVehicles.map((pv) => (
-                                <span
-                                  key={pv.id}
-                                  className="text-[10px] bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded-md"
-                                >
-                                  {pv.name}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </td>
-
-                        {/* Properties badge count */}
-                        <td className="py-4 px-4">
-                          {!acc.canAccessProperties || permittedProperties.length === 0 ? (
-                            <span className="text-slate-500 text-[11px]">No access</span>
-                          ) : permittedProperties.length === properties.length ? (
-                            <span className="inline-flex items-center gap-1 text-indigo-400 font-semibold bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20 text-[11px]">
-                              All Properties ({properties.length})
-                            </span>
-                          ) : (
-                            <div className="flex flex-wrap gap-1">
-                              {permittedProperties.map((pp) => (
-                                <span
-                                  key={pp.id}
-                                  className="text-[10px] bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded-md"
-                                >
-                                  {pp.name}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </td>
-
-                        {/* Vault toggle */}
-                        <td className="py-4 px-4">
+                      <td className="py-3 px-4">
+                        <label className="inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={acc.canAccessVault}
+                            onChange={() => toggleMemberFlag(m, "canAccessVault")}
+                            className="sr-only peer"
+                          />
+                          <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-600"></div>
                           <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                              acc.canAccessVault
-                                ? "bg-purple-500/10 text-purple-300 border border-purple-500/30"
-                                : "bg-slate-800 text-slate-500 border border-slate-700"
+                            className={`ms-2 text-xs font-semibold ${
+                              acc.canAccessVault ? "text-sky-700" : "text-slate-400"
                             }`}
                           >
-                            {acc.canAccessVault ? "Vault Enabled" : "Restricted"}
+                            {acc.canAccessVault ? "Vault Unlocked" : "Restricted"}
                           </span>
-                        </td>
+                        </label>
+                      </td>
 
-                        {/* Actions */}
-                        <td className="py-4 px-4 text-right pr-6 space-x-2">
-                          <button
-                            type="button"
-                            onClick={() => setInviteMember(member)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition cursor-pointer"
-                          >
-                            <Share2 className="h-3.5 w-3.5 text-orange-400" />
-                            <span>Invite & Login</span>
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                      <td className="py-3 px-4">
+                        <button
+                          type="button"
+                          onClick={() => toggleMemberFlag(m, "canWriteDocuments")}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
+                            acc.canWriteDocuments
+                              ? "bg-purple-50 border border-purple-200 text-purple-800"
+                              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                          }`}
+                        >
+                          <FileText className="h-3.5 w-3.5 text-purple-600" />
+                          <span>{acc.canWriteDocuments ? "Can Upload & Manage" : "View Only"}</span>
+                        </button>
+                      </td>
+
+                      <td className="py-3 px-4 text-right pr-6">
+                        <button
+                          type="button"
+                          onClick={() => setInviteMember(m)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-medium"
+                        >
+                          <Share2 className="h-3.5 w-3.5" />
+                          <span>Invite</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL: SEND INVITE & CREDENTIALS                                         */}
+      {/* TAB 4: WARRANTIES & CLAIMS ACCESS                                         */}
+      {/* ========================================================================= */}
+      {!loading && activeTab === "warranties" && (
+        <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                <span>Purchases, Warranties & Receipts Access</span>
+              </h3>
+              <p className="text-xs text-slate-500">
+                Control access to electronics, vehicle batteries, appliances, and warranty receipts
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50/80 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-100">
+                <tr>
+                  <th className="py-2.5 px-4 sm:px-6">Member</th>
+                  <th className="py-2.5 px-4">Warranties Access</th>
+                  <th className="py-2.5 px-4 text-right pr-6">Invite</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredMembers.map((m) => {
+                  const acc = m.access || getDefaultMemberAccess();
+                  return (
+                    <tr key={m.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="py-3 px-4 sm:px-6 font-semibold text-slate-900">
+                        {m.fullName}
+                        <span className="block text-[11px] text-slate-400 font-normal">
+                          {m.relationship} • {m.email || m.phone || "No login"}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <label className="inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={acc.canAccessWarranties}
+                            onChange={() => toggleMemberFlag(m, "canAccessWarranties")}
+                            className="sr-only peer"
+                          />
+                          <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                          <span
+                            className={`ms-2 text-xs font-semibold ${
+                              acc.canAccessWarranties ? "text-emerald-700" : "text-slate-400"
+                            }`}
+                          >
+                            {acc.canAccessWarranties ? "Authorized" : "Restricted"}
+                          </span>
+                        </label>
+                      </td>
+
+                      <td className="py-3 px-4 text-right pr-6">
+                        <button
+                          type="button"
+                          onClick={() => setInviteMember(m)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-medium"
+                        >
+                          <Share2 className="h-3.5 w-3.5" />
+                          <span>Invite</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 5: TASKS & SCHEDULE ACCESS                                            */}
+      {/* ========================================================================= */}
+      {!loading && activeTab === "tasks" && (
+        <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <CheckSquare className="h-4 w-4 text-amber-600" />
+                <span>Tasks & Calendar Schedule Access</span>
+              </h3>
+              <p className="text-xs text-slate-500">
+                Control access to family reminders, daily to-dos, and calendar events
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50/80 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-100">
+                <tr>
+                  <th className="py-2.5 px-4 sm:px-6">Member</th>
+                  <th className="py-2.5 px-4">Tasks & Reminders</th>
+                  <th className="py-2.5 px-4">Schedule / Calendar</th>
+                  <th className="py-2.5 px-4 text-right pr-6">Invite</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredMembers.map((m) => {
+                  const acc = m.access || getDefaultMemberAccess();
+                  return (
+                    <tr key={m.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="py-3 px-4 sm:px-6 font-semibold text-slate-900">
+                        {m.fullName}
+                        <span className="block text-[11px] text-slate-400 font-normal">
+                          {m.relationship} • {m.email || m.phone || "No login"}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <label className="inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={acc.canAccessTasks !== false}
+                            onChange={() => toggleMemberFlag(m, "canAccessTasks")}
+                            className="sr-only peer"
+                          />
+                          <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                          <span
+                            className={`ms-2 text-xs font-semibold ${
+                              acc.canAccessTasks !== false ? "text-amber-700" : "text-slate-400"
+                            }`}
+                          >
+                            {acc.canAccessTasks !== false ? "Enabled" : "Restricted"}
+                          </span>
+                        </label>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <label className="inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={acc.canAccessSchedule !== false}
+                            onChange={() => toggleMemberFlag(m, "canAccessSchedule")}
+                            className="sr-only peer"
+                          />
+                          <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                          <span
+                            className={`ms-2 text-xs font-semibold ${
+                              acc.canAccessSchedule !== false ? "text-amber-700" : "text-slate-400"
+                            }`}
+                          >
+                            {acc.canAccessSchedule !== false ? "Enabled" : "Restricted"}
+                          </span>
+                        </label>
+                      </td>
+
+                      <td className="py-3 px-4 text-right pr-6">
+                        <button
+                          type="button"
+                          onClick={() => setInviteMember(m)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-medium"
+                        >
+                          <Share2 className="h-3.5 w-3.5" />
+                          <span>Invite</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 6: ALL-IN-ONE MASTER MATRIX                                           */}
+      {/* ========================================================================= */}
+      {!loading && activeTab === "matrix" && (
+        <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">
+                All-In-One Workspace Roles & Modules Matrix
+              </h3>
+              <p className="text-xs text-slate-500">
+                Comprehensive overview of all module access across every family member
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50/80 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-100">
+                <tr>
+                  <th className="py-2.5 px-4 sm:px-6">Member</th>
+                  <th className="py-2.5 px-4">System Role</th>
+                  <th className="py-2.5 px-4">Vehicles</th>
+                  <th className="py-2.5 px-4">Properties</th>
+                  <th className="py-2.5 px-4">Vault</th>
+                  <th className="py-2.5 px-4">Warranties</th>
+                  <th className="py-2.5 px-4">Tasks</th>
+                  <th className="py-2.5 px-4 text-right pr-6">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredMembers.map((member) => {
+                  const acc = member.access || getDefaultMemberAccess();
+                  const isSaving = savingId === member.id;
+
+                  const permittedVehicles =
+                    !acc.canAccessVehicles
+                      ? []
+                      : !acc.assignedVehicleIds || acc.assignedVehicleIds.length === 0
+                      ? vehicles
+                      : vehicles.filter((v) => acc.assignedVehicleIds.includes(v.id));
+
+                  const permittedProperties =
+                    !acc.canAccessProperties
+                      ? []
+                      : !acc.assignedPropertyIds || acc.assignedPropertyIds.length === 0
+                      ? properties
+                      : properties.filter((p) => acc.assignedPropertyIds?.includes(p.id));
+
+                  return (
+                    <tr key={member.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="py-3.5 px-4 sm:px-6">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs uppercase">
+                            {member.fullName.charAt(0)}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-slate-900">{member.fullName}</div>
+                            <div className="text-[11px] text-slate-400">
+                              {member.relationship} • {member.email || "No email"}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <select
+                          value={acc.loginRole}
+                          disabled={isSaving}
+                          onChange={(e) =>
+                            handleRoleChange(
+                              member,
+                              e.target.value as FamilyMemberAccess["loginRole"]
+                            )
+                          }
+                          className="bg-white border border-slate-200 text-xs font-semibold rounded-lg px-2.5 py-1 text-slate-900 focus:outline-none focus:border-slate-800 shadow-2xs"
+                        >
+                          <option value="Admin">Admin (Full Access)</option>
+                          <option value="Vehicle_Manager">Vehicle Manager</option>
+                          <option value="Viewer">Viewer (Read-Only)</option>
+                          <option value="Custom">Custom Granular</option>
+                        </select>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        {!acc.canAccessVehicles || permittedVehicles.length === 0 ? (
+                          <span className="text-slate-400 text-[11px]">No access</span>
+                        ) : permittedVehicles.length === vehicles.length ? (
+                          <span className="inline-flex items-center gap-1 text-orange-700 font-semibold bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200 text-[10px]">
+                            All Vehicles ({vehicles.length})
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-slate-700 font-medium bg-slate-100 px-2 py-0.5 rounded-full text-[10px]">
+                            {permittedVehicles.length} of {vehicles.length} Vehicles
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        {!acc.canAccessProperties || permittedProperties.length === 0 ? (
+                          <span className="text-slate-400 text-[11px]">No access</span>
+                        ) : permittedProperties.length === properties.length ? (
+                          <span className="inline-flex items-center gap-1 text-indigo-700 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200 text-[10px]">
+                            All Properties ({properties.length})
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-slate-700 font-medium bg-slate-100 px-2 py-0.5 rounded-full text-[10px]">
+                            {permittedProperties.length} Properties
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            acc.canAccessVault
+                              ? "bg-sky-50 text-sky-700 border border-sky-200"
+                              : "bg-slate-100 text-slate-400"
+                          }`}
+                        >
+                          {acc.canAccessVault ? "Vault OK" : "Locked"}
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            acc.canAccessWarranties
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : "bg-slate-100 text-slate-400"
+                          }`}
+                        >
+                          {acc.canAccessWarranties ? "Warranties OK" : "Locked"}
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            acc.canAccessTasks !== false
+                              ? "bg-amber-50 text-amber-700 border border-amber-200"
+                              : "bg-slate-100 text-slate-400"
+                          }`}
+                        >
+                          {acc.canAccessTasks !== false ? "Tasks OK" : "Locked"}
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 px-4 text-right pr-6">
+                        <button
+                          type="button"
+                          onClick={() => setInviteMember(member)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold transition cursor-pointer shadow-2xs"
+                        >
+                          <Share2 className="h-3.5 w-3.5 text-orange-500" />
+                          <span>Invite</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: ADD FAMILY MEMBER RIGHT FROM ACCESS CONTROL                        */}
+      {/* ========================================================================= */}
+      {isAddMemberOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-600">
+                  <Users className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Add Family Member</h3>
+                  <p className="text-xs text-slate-500">Create member and grant module access</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddMemberOpen(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddMember} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Etisha Habib, Towsif"
+                  value={addName}
+                  onChange={(e) => setAddName(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Relationship
+                  </label>
+                  <select
+                    value={addRelationship}
+                    onChange={(e) => setAddRelationship(e.target.value as RelationshipType)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  >
+                    {RELATIONSHIPS.map((rel) => (
+                      <option key={rel} value={rel}>
+                        {rel}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Starting Role
+                  </label>
+                  <select
+                    value={addRole}
+                    onChange={(e) =>
+                      setAddRole(e.target.value as FamilyMemberAccess["loginRole"])
+                    }
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  >
+                    <option value="Vehicle_Manager">Vehicle Manager</option>
+                    <option value="Admin">Admin (Full Access)</option>
+                    <option value="Viewer">Viewer (Read-Only)</option>
+                    <option value="Custom">Custom Granular</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Email (Used for LifeNest login)
+                </label>
+                <input
+                  type="email"
+                  placeholder="e.g. member@gmail.com"
+                  value={addEmail}
+                  onChange={(e) => setAddEmail(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Phone (WhatsApp invitations)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 01700000000"
+                  value={addPhone}
+                  onChange={(e) => setAddPhone(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddMemberOpen(false)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAdding}
+                  className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition shadow-xs cursor-pointer"
+                >
+                  {isAdding ? "Adding..." : "Add & Configure Access"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: SEND INVITE & CREDENTIALS (LIGHT THEME)                           */}
       {/* ========================================================================= */}
       {inviteMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-850 p-6 text-slate-200 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-700/80 pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-400">
+                <div className="h-10 w-10 rounded-xl bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-600">
                   <KeyRound className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">
+                  <h3 className="text-base font-bold text-slate-900">
                     Invite {inviteMember.fullName}
                   </h3>
-                  <p className="text-xs text-slate-400">
-                    Send login instructions and access credentials
+                  <p className="text-xs text-slate-500">
+                    Send sign-in credentials and access instructions
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setInviteMember(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* How does login work note */}
-            <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2 text-xs">
-              <div className="font-semibold text-white flex items-center gap-1.5">
-                <Info className="h-4 w-4 text-orange-400" />
-                <span>How the invited member logs in:</span>
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+              <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                <Info className="h-4 w-4 text-orange-600" />
+                <span>How the invited member signs in:</span>
               </div>
-              <ol className="list-decimal list-inside space-y-1 text-slate-300">
+              <ol className="list-decimal list-inside space-y-1 text-slate-700">
                 <li>
-                  They open LifeNest and click <span className="text-white font-semibold">Sign Up</span>.
+                  They open LifeNest and click <span className="font-semibold text-slate-900">Sign Up</span>.
                 </li>
                 <li>
-                  They type their email: <span className="text-orange-400 font-mono font-semibold">{inviteMember.email || "(no email registered yet)"}</span>.
+                  They enter their registered email:{" "}
+                  <span className="font-mono font-bold text-orange-700">
+                    {inviteMember.email || "(no email registered yet)"}
+                  </span>
+                  .
                 </li>
                 <li>They choose their own password.</li>
                 <li>
-                  Once logged in, they will automatically see the vehicles and properties you assigned here!
+                  Upon login, they will automatically see all the modules, vehicles, and properties you granted!
                 </li>
               </ol>
             </div>
 
-            {/* Message Preview */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-300">
-                Message Preview
-              </label>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700">Message Preview</label>
               <textarea
                 readOnly
                 value={getInviteText(inviteMember)}
-                rows={6}
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-xs text-slate-300 font-mono focus:outline-none resize-none"
+                rows={5}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 font-mono focus:outline-none resize-none"
               />
             </div>
 
-            {/* Modal Actions */}
-            <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-2">
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => handleCopyInvite(inviteMember)}
-                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition cursor-pointer"
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold transition cursor-pointer shadow-2xs"
               >
                 {copiedInvite ? (
                   <>
-                    <Check className="h-4 w-4 text-emerald-400" />
-                    <span className="text-emerald-400">Copied to Clipboard!</span>
+                    <Check className="h-4 w-4 text-emerald-600" />
+                    <span className="text-emerald-700">Copied!</span>
                   </>
                 ) : (
                   <>
                     <Copy className="h-4 w-4" />
-                    <span>Copy Instructions</span>
+                    <span>Copy Message</span>
                   </>
                 )}
               </button>
@@ -1191,7 +1583,7 @@ export function AccessControlPage() {
               <button
                 type="button"
                 onClick={() => shareInviteWhatsApp(inviteMember)}
-                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer shadow-lg shadow-emerald-600/30"
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition cursor-pointer shadow-sm shadow-emerald-600/30"
               >
                 <Share2 className="h-4 w-4" />
                 <span>Share via WhatsApp</span>

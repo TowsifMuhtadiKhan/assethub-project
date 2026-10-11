@@ -83,6 +83,8 @@ export type FamilyMemberAccess = {
   canWriteRent?: boolean;
   canWritePropertyMaintenance?: boolean;
   canAccessWarranties: boolean;
+  canAccessTasks?: boolean;
+  canAccessSchedule?: boolean;
 };
 
 export type FamilyMember = {
