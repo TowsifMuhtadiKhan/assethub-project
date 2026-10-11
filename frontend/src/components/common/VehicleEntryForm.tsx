@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Car, Bike, Truck, Bus, Zap, MoreHorizontal, Bell } from "lucide-react";
 import type { Vehicle, VehicleType } from "../../types";
 import { ItemRecipientSelector } from "./ItemRecipientSelector";
+import { BangladeshNumberPlate } from "./BangladeshNumberPlate";
 
 const VEHICLE_TYPE_OPTIONS: Array<{
   value: string;
@@ -294,12 +295,23 @@ export function VehicleEntryForm({
             <input
               value={form.registrationNumber}
               onChange={(event) => updateField("registrationNumber", event.target.value)}
-              placeholder="e.g. Dhaka Metro GA 11-2233 or Serial No"
+              placeholder="e.g. DHAKA METRO GA 33-3617"
               className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-mono text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
             />
             <p className="mt-1 text-[10px] text-slate-400">
-              Registration plate (or Serial/NA for bicycles)
+              Format: Dhaka Metro GA 33-3617 (Auto-formats to official BRTA plate)
             </p>
+
+            {form.registrationNumber.trim() && (
+              <div className="mt-2 p-2 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col items-center">
+                <span className="text-[10px] font-mono text-slate-400 mb-1 block">Live Plate Preview:</span>
+                <BangladeshNumberPlate
+                  registrationNumber={form.registrationNumber}
+                  size="sm"
+                  isCommercial={selectedType === "Commercial"}
+                />
+              </div>
+            )}
           </div>
 
           <div>

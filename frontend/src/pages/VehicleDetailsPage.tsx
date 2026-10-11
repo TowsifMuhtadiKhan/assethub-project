@@ -48,6 +48,7 @@ import type {
   BangladeshDocType,
 } from "../types";
 import { getVehicleIcon, getVehicleTypeBadgeClass } from "./VehicleEntryPage";
+import { BangladeshNumberPlate } from "../components/common/BangladeshNumberPlate";
 
 const BD_DOC_PRESETS: Record<
   string,
@@ -521,10 +522,19 @@ export function VehicleDetailsPage() {
           >
             <ArrowLeft className="h-3.5 w-3.5" /> All Vehicles
           </button>
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-800">
-              <VehicleIcon className="h-4 w-4" />
-            </div>
+          <div className="flex items-center gap-3">
+            {vehicle.registrationNumber ? (
+              <div className="hidden sm:block shrink-0">
+                <BangladeshNumberPlate
+                  registrationNumber={vehicle.registrationNumber}
+                  size="sm"
+                />
+              </div>
+            ) : (
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-800">
+                <VehicleIcon className="h-4 w-4" />
+              </div>
+            )}
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-base font-bold tracking-tight text-slate-900">
@@ -1540,9 +1550,34 @@ export function VehicleDetailsPage() {
       {activeTab === "overview" && (
         <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 border-b border-slate-100 pb-2">
-              Vehicle Identity & Specifications
-            </h2>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                Vehicle Identity & Specifications
+              </h2>
+              <span className="text-[10px] font-mono text-slate-400">
+                BRTA Digital Plate
+              </span>
+            </div>
+
+            {/* Official Bangladesh Digital Retroreflective Number Plate */}
+            {vehicle.registrationNumber && (
+              <div className="flex flex-col items-center justify-center p-3.5 rounded-xl bg-gradient-to-b from-slate-50/90 to-slate-100/50 border border-slate-200/80 shadow-2xs">
+                <BangladeshNumberPlate
+                  registrationNumber={vehicle.registrationNumber}
+                  size="md"
+                />
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-[11px] font-mono font-bold text-slate-700">
+                    {vehicle.registrationNumber}
+                  </span>
+                  <span className="text-[10px] text-slate-300">·</span>
+                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded">
+                    Retroreflective Aluminum
+                  </span>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2 text-xs">
               <div className="flex items-center justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500">Vehicle Name</span>
