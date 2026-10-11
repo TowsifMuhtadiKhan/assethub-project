@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ShieldCheck, Plus, Search, FileText, Trash2 } from "lucide-react";
+import { ShieldCheck, Plus, Search, FileText, Trash2, LayoutGrid, List } from "lucide-react";
 import {
   listWarranties,
   createWarranty,
@@ -16,6 +16,13 @@ export function WarrantiesPage() {
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [warrantyRecipients, setWarrantyRecipients] = useState<string[]>(["Personal"]);
+  const [viewMode, setViewMode] = useState<"grid" | "table">(() => {
+    try {
+      return (localStorage.getItem("lifenest_warranties_view_mode") as "grid" | "table") || "grid";
+    } catch {
+      return "grid";
+    }
+  });
 
   useEffect(() => {
     loadWarranties();
@@ -130,15 +137,58 @@ export function WarrantiesPage() {
         </div>
       )}
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search products, sellers, serial numbers..."
-          className="w-full rounded-lg border border-slate-200/80 bg-white py-2 pl-9 pr-3 text-xs shadow-2xs outline-none focus:border-slate-400"
-        />
+      {/* Search & View Mode Switcher */}
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search products, sellers, serial numbers..."
+            className="w-full rounded-lg border border-slate-200/80 bg-white py-2 pl-9 pr-3 text-xs shadow-2xs outline-none focus:border-slate-400"
+          />
+        </div>
+
+        {/* View Switcher: Grid vs Table */}
+        <div className="flex items-center gap-1 rounded-lg border border-slate-200/90 bg-slate-100/80 p-0.5 shrink-0 self-end sm:self-auto">
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode("grid");
+              try {
+                localStorage.setItem("lifenest_warranties_view_mode", "grid");
+              } catch {}
+            }}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
+              viewMode === "grid"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+            title="Grid card view"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            <span>Grid</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode("table");
+              try {
+                localStorage.setItem("lifenest_warranties_view_mode", "table");
+              } catch {}
+            }}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
+              viewMode === "table"
+                ? "bg-white text-slate-900 shadow-2xs"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+            title="Table list view"
+          >
+            <List className="h-3.5 w-3.5" />
+            <span>Table</span>
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -161,7 +211,7 @@ export function WarrantiesPage() {
             <Plus className="h-3 w-3" /> Add first warranty
           </button>
         </div>
-      ) : (
+      ) : viewMode === "grid" ? (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
           {filtered.map((w) => {
             const isExpired = w.expiryDate && new Date(w.expiryDate) < new Date();
@@ -226,7 +276,7 @@ export function WarrantiesPage() {
                   )}
                   <button
                     onClick={() => handleDelete(w.id)}
-                    className="p-1 text-slate-300 hover:text-rose-600 rounded transition-colors"
+                    className="p-1 text-slate-300 hover:text-rose-600 rounded transition-colors cursor-pointer"
                     title="Delete record"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -235,6 +285,96 @@ export function WarrantiesPage() {
               </div>
             );
           })}
+        </div>
+      ) : (
+        /* TABLE VIEW */
+        <div className="overflow-x-auto rounded-xl border border-slate-200/80 bg-white shadow-2xs">
+          <table className="min-w-full text-left text-xs">
+            <thead className="border-b border-slate-200/80 bg-slate-50/80 text-[11px] font-semibold text-slate-600">
+              <tr>
+                <th className="px-3.5 py-2.5">Product & Category</th>
+                <th className="px-3.5 py-2.5">Seller & S/N</th>
+                <th className="px-3.5 py-2.5">Purchase Date</th>
+                <th className="px-3.5 py-2.5">Warranty & Expiry</th>
+                <th className="px-3.5 py-2.5 font-mono text-right">Price</th>
+                <th className="px-3.5 py-2.5 text-center">Status</th>
+                <th className="px-3.5 py-2.5 text-center">Receipt</th>
+                <th className="px-3.5 py-2.5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filtered.map((w) => {
+                const isExpired = w.expiryDate && new Date(w.expiryDate) < new Date();
+                return (
+                  <tr key={w.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="px-3.5 py-2.5">
+                      <div className="font-bold text-slate-900 text-xs">{w.productName}</div>
+                      <span className="inline-block mt-0.5 rounded bg-slate-100 px-1.5 py-0.2 text-[10px] font-medium text-slate-600">
+                        {w.category}
+                      </span>
+                    </td>
+                    <td className="px-3.5 py-2.5 text-slate-700">
+                      <div className="font-medium text-slate-800">{w.seller || "—"}</div>
+                      {w.serialNumber && (
+                        <div className="font-mono text-[10px] text-slate-400 truncate max-w-[150px]">
+                          S/N: {w.serialNumber}
+                        </div>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-3.5 py-2.5 font-mono text-[11px] text-slate-600">
+                      {w.purchaseDate}
+                    </td>
+                    <td className="whitespace-nowrap px-3.5 py-2.5">
+                      <div className="text-slate-800 font-medium">
+                        {w.warrantyDurationMonths} Mos
+                      </div>
+                      <div className="font-mono text-[10px] text-slate-500">
+                        Until {w.expiryDate}
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-3.5 py-2.5 font-mono font-bold text-slate-900 text-right">
+                      {w.purchasePrice > 0 ? `৳${w.purchasePrice.toLocaleString()}` : "—"}
+                    </td>
+                    <td className="whitespace-nowrap px-3.5 py-2.5 text-center">
+                      <span
+                        className={`inline-block rounded px-2 py-0.5 text-[10px] font-bold ${
+                          isExpired
+                            ? "bg-rose-50 text-rose-700 border border-rose-200/60"
+                            : "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                        }`}
+                      >
+                        {isExpired ? "EXPIRED" : "ACTIVE"}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-3.5 py-2.5 text-center">
+                      {w.receiptUrl ? (
+                        <a
+                          href={w.receiptUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition"
+                          title="View Receipt"
+                        >
+                          <FileText className="h-3 w-3" /> View
+                        </a>
+                      ) : (
+                        <span className="text-slate-300 text-[11px]">—</span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-3.5 py-2.5 text-right">
+                      <button
+                        onClick={() => handleDelete(w.id)}
+                        className="rounded p-1 text-slate-300 hover:text-rose-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                        title="Delete record"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
