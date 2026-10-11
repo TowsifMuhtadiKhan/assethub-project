@@ -20,6 +20,7 @@ import {
   type WhatsAppSystemStatus,
 } from "../services/whatsappService";
 import type { UserSettings } from "../types";
+import { WhatsAppContactsManager } from "../components/common/WhatsAppContactsManager";
 
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -312,26 +313,18 @@ export function SettingsPage() {
             </div>
 
             <div className="pt-1">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Recipient WhatsApp Number <span className="text-rose-500">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-100 px-3 text-xs font-mono font-semibold text-slate-700">
-                    {settings.countryCode}
-                  </span>
-                  <input
-                    type="text"
-                    value={settings.whatsappNumber}
-                    onChange={(e) => setSettings({ ...settings, whatsappNumber: e.target.value })}
-                    placeholder="01712345678"
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 font-mono outline-none focus:border-emerald-600"
-                  />
-                </div>
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  Bangladesh numbers: 017..., 018..., 019..., 013... • Individual reminder lead times are configured directly per item.
-                </span>
-              </div>
+              <WhatsAppContactsManager
+                contacts={settings.whatsappContacts || []}
+                onChange={(updatedContacts) => {
+                  const def = updatedContacts.find((c) => c.isDefault) || updatedContacts[0];
+                  setSettings({
+                    ...settings,
+                    whatsappContacts: updatedContacts,
+                    whatsappNumber: def?.phone || settings.whatsappNumber,
+                    countryCode: def?.countryCode || settings.countryCode,
+                  });
+                }}
+              />
             </div>
           </div>
 

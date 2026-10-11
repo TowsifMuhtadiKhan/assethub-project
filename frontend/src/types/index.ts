@@ -97,6 +97,14 @@ export type FamilyMember = {
   access?: FamilyMemberAccess;
 };
 
+export type WhatsAppContact = {
+  id: string;
+  alias: string;
+  phone: string;
+  countryCode: string;
+  isDefault?: boolean;
+};
+
 export type UserSettings = {
   id?: string;
   fullName: string;
@@ -104,6 +112,7 @@ export type UserSettings = {
   countryCode: string;
   whatsappEnabled: boolean;
   reminderDaysBefore: number;
+  whatsappContacts?: WhatsAppContact[];
   googleDriveFolderId?: string;
   callmebotApiKey?: string;
   twilioAccountSid?: string;

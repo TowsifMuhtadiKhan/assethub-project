@@ -33,6 +33,7 @@ import { listProperties, listPropertyUnits } from "../services/propertyService";
 import { listVehicles } from "../services/vehicleService";
 import { tenants as mockTenants } from "../data/mockData";
 import type { UserSettings, PropertyUnit } from "../types";
+import { WhatsAppContactsManager } from "../components/common/WhatsAppContactsManager";
 
 interface PendingAlert {
   id: string;
@@ -178,17 +179,35 @@ export function NotificationsPage() {
     // 2. Vehicle BRTA Tax Token & Fitness Expiry alerts
     if (vehs.length > 0) {
       vehs.forEach((v) => {
-        alerts.push({
-          id: `veh-${v.id}`,
-          recipientName: settings.fullName || "Vehicle Owner",
-          recipientPhone: settings.whatsappNumber || "01711353028",
-          recipientRole: "Vehicle Owner",
-          category: "Vehicle BRTA",
-          itemTitle: `${v.name} BRTA Fitness & Tax Token`,
-          dueDate: "Within 14 Days",
-          daysRemaining: 14,
-          messageText: `🔔 *LifeNest BRTA Vehicle Document Alert*\n\nHello ${settings.fullName || "Owner"},\nThe BRTA Fitness & Tax Token for your vehicle *${v.name} (${v.registrationNumber || "Reg: Pending"})* is approaching expiry.\n\n• Vehicle: ${v.brand || ""} ${v.model || v.name}\n• Action: Renew via BRTA Service Portal\n\n_LifeNest Automated Asset OS_`,
-          status: "pending",
+        const match = v.notes?.match(/Recipients:\s*([^\]]+)/);
+        let targetAliases = match ? match[1].split(",").map((s: string) => s.trim()) : [];
+        if (targetAliases.length === 0) {
+          targetAliases = ["Personal"];
+        }
+
+        targetAliases.forEach((alias: string, aIdx: number) => {
+          const contactMatch = settings.whatsappContacts?.find(
+            (c) => c.alias.toLowerCase() === alias.toLowerCase(),
+          );
+          const ph = contactMatch
+            ? `${contactMatch.countryCode || "+880"} ${contactMatch.phone}`
+            : settings.whatsappNumber || "01711353028";
+          const rName = contactMatch
+            ? `${contactMatch.alias} (${settings.fullName || "Owner"})`
+            : settings.fullName || "Vehicle Owner";
+
+          alerts.push({
+            id: `veh-${v.id}-${aIdx}`,
+            recipientName: rName,
+            recipientPhone: ph,
+            recipientRole: "Vehicle Owner",
+            category: "Vehicle BRTA",
+            itemTitle: `${v.name} BRTA Fitness & Tax Token`,
+            dueDate: "Within 14 Days",
+            daysRemaining: 14,
+            messageText: `🔔 *LifeNest BRTA Vehicle Document Alert*\n\nHello ${rName},\nThe BRTA Fitness & Tax Token for your vehicle *${v.name} (${v.registrationNumber || "Reg: Pending"})* is approaching expiry.\n\n• Vehicle: ${v.brand || ""} ${v.model || v.name}\n• Action: Renew via BRTA Service Portal\n\n_LifeNest Automated Asset OS_`,
+            status: "pending",
+          });
         });
       });
     } else {
@@ -245,16 +264,57 @@ export function NotificationsPage() {
     if (recipientChoice === "owner") {
       return formatRecipientNumber(settings.countryCode || "+880", settings.whatsappNumber || "");
     }
+    if (recipientChoice.startsWith("contact-")) {
+      const alias = recipientChoice.replace("contact-", "");
+      const found = settings.whatsappContacts?.find((c) => c.alias.toLowerCase() === alias.toLowerCase());
+      if (found) {
+        return formatRecipientNumber(found.countryCode || "+880", found.phone);
+      }
+      return formatRecipientNumber(settings.countryCode || "+880", settings.whatsappNumber || "");
+    }
+    if (recipientChoice === "broadcast-all") {
+      return "ALL";
+    }
     if (recipientChoice.startsWith("tenant-")) {
       const name = recipientChoice.replace("tenant-", "");
       const found = mockTenants.find((t) => t.name.toLowerCase() === name.toLowerCase());
       return formatRecipientNumber("+880", found?.phone || "01711223344");
     }
     return formatRecipientNumber("+880", customPhone);
-  }, [recipientChoice, settings.countryCode, settings.whatsappNumber, customPhone]);
+  }, [recipientChoice, settings.countryCode, settings.whatsappNumber, settings.whatsappContacts, customPhone]);
 
   // Send single composed message via LifeNest WhatsApp Bot
   const handleSendComposedMessage = async () => {
+    if (recipientChoice === "broadcast-all") {
+      if (!composedMessage.trim()) {
+        alert("Please write a message to send.");
+        return;
+      }
+      setSendingComposer(true);
+      setComposerResult(null);
+      try {
+        const contacts = settings.whatsappContacts || [];
+        let successCount = 0;
+        for (const c of contacts) {
+          const ph = formatRecipientNumber(c.countryCode || "+880", c.phone);
+          const res = await sendSystemWhatsAppAlert({ to: ph, message: composedMessage });
+          if (res.success) successCount++;
+        }
+        setComposerResult({
+          success: true,
+          message: `Broadcast dispatched successfully to all ${successCount} configured recipient numbers!`,
+        });
+      } catch (e) {
+        setComposerResult({
+          success: false,
+          message: e instanceof Error ? e.message : "Error dispatching broadcast.",
+        });
+      } finally {
+        setSendingComposer(false);
+      }
+      return;
+    }
+
     if (!activeRecipientPhone || activeRecipientPhone.length < 8) {
       alert("Please specify a valid recipient phone number.");
       return;
@@ -602,9 +662,23 @@ export function NotificationsPage() {
                   onChange={(e) => setRecipientChoice(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-emerald-500 focus:outline-none"
                 >
-                  <option value="owner">
-                    My Personal Number (+{settings.countryCode} {settings.whatsappNumber || "Not configured"})
-                  </option>
+                  <optgroup label="My Configured Numbers & Aliases">
+                    {(settings.whatsappContacts || []).map((c) => (
+                      <option key={c.id} value={`contact-${c.alias}`}>
+                        {c.alias} (+{c.countryCode || "+880"} {c.phone}) {c.isDefault ? "★ Default" : ""}
+                      </option>
+                    ))}
+                    {(settings.whatsappContacts || []).length === 0 && (
+                      <option value="owner">
+                        My Personal Number (+{settings.countryCode} {settings.whatsappNumber || "Not configured"})
+                      </option>
+                    )}
+                    {(settings.whatsappContacts || []).length > 1 && (
+                      <option value="broadcast-all">
+                        📢 Broadcast to All Numbers ({settings.whatsappContacts?.length} contacts)
+                      </option>
+                    )}
+                  </optgroup>
                   <optgroup label="Registered Tenants">
                     {mockTenants.map((t) => (
                       <option key={t.id} value={`tenant-${t.name}`}>
@@ -896,26 +970,19 @@ export function NotificationsPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Your Personal Recipient WhatsApp Number <span className="text-rose-500">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    value={settings.countryCode}
-                    onChange={(e) => setSettings({ ...settings, countryCode: e.target.value })}
-                    className="w-16 rounded-lg border border-slate-200 bg-slate-50 p-2 text-center text-xs font-mono font-semibold"
-                  />
-                  <input
-                    value={settings.whatsappNumber}
-                    onChange={(e) => setSettings({ ...settings, whatsappNumber: e.target.value })}
-                    placeholder="017xxxxxxxx"
-                    className="flex-1 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs font-mono"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Where you receive alerts about your vehicles, tasks, and document renewals. Individual reminder lead times are configured directly per item.
-                </p>
+              <div className="pt-1">
+                <WhatsAppContactsManager
+                  contacts={settings.whatsappContacts || []}
+                  onChange={(updatedContacts) => {
+                    const def = updatedContacts.find((c) => c.isDefault) || updatedContacts[0];
+                    setSettings({
+                      ...settings,
+                      whatsappContacts: updatedContacts,
+                      whatsappNumber: def?.phone || settings.whatsappNumber,
+                      countryCode: def?.countryCode || settings.countryCode,
+                    });
+                  }}
+                />
               </div>
 
               <div className="pt-2 border-t border-slate-100 flex items-center gap-3">

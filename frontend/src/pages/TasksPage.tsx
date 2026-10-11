@@ -43,6 +43,7 @@ import type {
   Property,
   FamilyMember,
 } from "../types";
+import { ItemRecipientSelector } from "../components/common/ItemRecipientSelector";
 
 const priorities: TaskPriority[] = ["Low", "Medium", "High", "Urgent"];
 const recurrences: TaskRecurrence[] = [
@@ -134,6 +135,7 @@ export function TasksPage() {
   const [defaultAddStatus, setDefaultAddStatus] = useState<TaskStatus>("Pending");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [taskRecipients, setTaskRecipients] = useState<string[]>(["Personal"]);
 
   useEffect(() => {
     loadAll();
@@ -165,6 +167,9 @@ export function TasksPage() {
     setError("");
     const form = new FormData(formElement);
     try {
+      const isReminder = Boolean(form.get("reminderWhatsapp"));
+      const lead = String(form.get("taskReminderLead") || "1 day before");
+      const rec = taskRecipients.length > 0 ? `, Recipients: ${taskRecipients.join(", ")}` : "";
       const newTask = await createTask({
         title: String(form.get("title")),
         description: String(form.get("description") || ""),
@@ -177,9 +182,9 @@ export function TasksPage() {
         vehicleId: String(form.get("vehicleId") || "") || undefined,
         propertyId: String(form.get("propertyId") || "") || undefined,
         status: (String(form.get("status")) as TaskStatus) || defaultAddStatus || "Pending",
-        reminderWhatsapp: Boolean(form.get("reminderWhatsapp")),
-        notes: Boolean(form.get("reminderWhatsapp"))
-          ? `${String(form.get("notes") || "")} [Reminder: ${String(form.get("taskReminderLead") || "1 day before")}]`.trim()
+        reminderWhatsapp: isReminder,
+        notes: isReminder
+          ? `${String(form.get("notes") || "")} [Reminder: ${lead}${rec}]`.trim()
           : String(form.get("notes") || ""),
       });
 
@@ -1032,6 +1037,15 @@ export function TasksPage() {
                     <option value="3 days before">3 days before due date</option>
                     <option value="7 days before">7 days before due date</option>
                   </select>
+                </div>
+
+                <div className="pl-6">
+                  <ItemRecipientSelector
+                    selectedRecipients={taskRecipients}
+                    onChange={setTaskRecipients}
+                    label="Send Task Alert To:"
+                    helperText="Pick which number alias(es) will receive the task reminder."
+                  />
                 </div>
               </div>
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Car, Bike, Truck, Bus, Zap, MoreHorizontal, Bell } from "lucide-react";
 import type { Vehicle, VehicleType } from "../../types";
+import { ItemRecipientSelector } from "./ItemRecipientSelector";
 
 const VEHICLE_TYPE_OPTIONS: Array<{
   value: string;
@@ -70,8 +71,15 @@ export function VehicleEntryForm({
     initialVehicle?.taxTokenExpiry || "",
   );
   const [reminderLeadDays, setReminderLeadDays] = useState<number>(() => {
-    const match = initialVehicle?.notes?.match(/\[Reminder: (\d+) days\]/);
+    const match = initialVehicle?.notes?.match(/\[Reminder: (\d+) days/);
     return match ? Number(match[1]) : 15;
+  });
+  const [selectedRecipients, setSelectedRecipients] = useState<string[]>(() => {
+    const match = initialVehicle?.notes?.match(/Recipients:\s*([^\]]+)/);
+    if (match) {
+      return match[1].split(",").map((s) => s.trim());
+    }
+    return ["Personal"];
   });
   const [validationError, setValidationError] = useState("");
 
@@ -96,7 +104,8 @@ export function VehicleEntryForm({
 
     let finalNotes = form.notes.trim();
     if (reminderEnabled) {
-      finalNotes = `${finalNotes} [Reminder: ${reminderLeadDays} days]`.trim();
+      const rec = selectedRecipients.length > 0 ? `, Recipients: ${selectedRecipients.join(", ")}` : "";
+      finalNotes = `${finalNotes} [Reminder: ${reminderLeadDays} days${rec}]`.trim();
     }
 
     onSubmit({
@@ -392,6 +401,15 @@ export function VehicleEntryForm({
                     <option value={15}>15 days before expiry (Recommended)</option>
                     <option value={30}>30 days before expiry</option>
                   </select>
+                </div>
+
+                <div className="sm:col-span-3">
+                  <ItemRecipientSelector
+                    selectedRecipients={selectedRecipients}
+                    onChange={setSelectedRecipients}
+                    label="Send BRTA & Expiry Alerts To:"
+                    helperText="Pick which number alias(es) will receive the vehicle renewal reminders."
+                  />
                 </div>
               </div>
             )}

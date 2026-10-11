@@ -15,6 +15,7 @@ import {
 } from "../services/licenseService";
 import { listFamilyMembers } from "../services/familyService";
 import type { LicenseItem, FamilyMember } from "../types";
+import { ItemRecipientSelector } from "../components/common/ItemRecipientSelector";
 
 export function LicensesPage() {
   const [licenses, setLicenses] = useState<LicenseItem[]>([]);
@@ -24,6 +25,7 @@ export function LicensesPage() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const [licenseRecipients, setLicenseRecipients] = useState<string[]>(["Personal"]);
 
   useEffect(() => {
     loadAll();
@@ -55,7 +57,8 @@ export function LicensesPage() {
       const reminderLead = Number(form.get("reminderLeadDays") || 30);
       let notes = String(form.get("notes") || "");
       if (reminderEnabled) {
-        notes = `${notes} [Reminder: ${reminderLead} days before expiry]`.trim();
+        const rec = licenseRecipients.length > 0 ? `, Recipients: ${licenseRecipients.join(", ")}` : "";
+        notes = `${notes} [Reminder: ${reminderLead} days before expiry${rec}]`.trim();
       }
 
       const newLicense = await createLicense({
@@ -433,6 +436,13 @@ export function LicensesPage() {
                     <option value={60}>60 days before expiry</option>
                   </select>
                 </div>
+
+                <ItemRecipientSelector
+                  selectedRecipients={licenseRecipients}
+                  onChange={setLicenseRecipients}
+                  label="Send License Alert To:"
+                  helperText="Choose which recipient alias(es) will receive the license renewal alert."
+                />
               </div>
 
               <div>

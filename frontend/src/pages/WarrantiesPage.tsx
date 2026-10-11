@@ -6,6 +6,7 @@ import {
   deleteWarranty,
 } from "../services/warrantyService";
 import type { WarrantyItem } from "../types";
+import { ItemRecipientSelector } from "../components/common/ItemRecipientSelector";
 
 export function WarrantiesPage() {
   const [warranties, setWarranties] = useState<WarrantyItem[]>([]);
@@ -14,6 +15,7 @@ export function WarrantiesPage() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const [warrantyRecipients, setWarrantyRecipients] = useState<string[]>(["Personal"]);
 
   useEffect(() => {
     loadWarranties();
@@ -55,7 +57,8 @@ export function WarrantiesPage() {
       const reminderLead = Number(form.get("reminderLeadDays") || 15);
       let notes = String(form.get("notes") || "");
       if (reminderEnabled) {
-        notes = `${notes} [Reminder: ${reminderLead} days before expiry]`.trim();
+        const rec = warrantyRecipients.length > 0 ? `, Recipients: ${warrantyRecipients.join(", ")}` : "";
+        notes = `${notes} [Reminder: ${reminderLead} days before expiry${rec}]`.trim();
       }
 
       const newWarranty = await createWarranty({
@@ -386,6 +389,13 @@ export function WarrantiesPage() {
                     <option value={30}>30 days before expiry (Early warning)</option>
                   </select>
                 </div>
+
+                <ItemRecipientSelector
+                  selectedRecipients={warrantyRecipients}
+                  onChange={setWarrantyRecipients}
+                  label="Send Warranty Alert To:"
+                  helperText="Choose which recipient alias(es) will receive the warranty expiry reminder."
+                />
               </div>
 
               <div>

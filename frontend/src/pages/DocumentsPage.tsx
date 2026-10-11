@@ -63,6 +63,7 @@ import type {
   FamilyMember,
   DocumentFolder,
 } from "../types";
+import { ItemRecipientSelector } from "../components/common/ItemRecipientSelector";
 
 const categories: DocumentCategory[] = [
   "Identity",
@@ -149,6 +150,7 @@ export function DocumentsPage() {
   const [docToDelete, setDocToDelete] = useState<DocumentItem | null>(null);
   const [isDeletingDoc, setIsDeletingDoc] = useState(false);
   const [openFolderMenuId, setOpenFolderMenuId] = useState<string | null>(null);
+  const [docReminderRecipients, setDocReminderRecipients] = useState<string[]>(["Personal"]);
 
   useEffect(() => {
     const handleGlobalClick = () => setOpenFolderMenuId(null);
@@ -393,7 +395,8 @@ export function DocumentsPage() {
 
       let docNotes = String(form.get("notes") || "");
       if (requiresRenewal) {
-        docNotes = `${docNotes} [Reminder: ${reminderLead} days before expiry]`.trim();
+        const rec = docReminderRecipients.length > 0 ? `, Recipients: ${docReminderRecipients.join(", ")}` : "";
+        docNotes = `${docNotes} [Reminder: ${reminderLead} days before expiry${rec}]`.trim();
       }
 
       const newDoc = await createDocument({
@@ -2402,6 +2405,13 @@ export function DocumentsPage() {
                     <option value={60}>60 days before expiry</option>
                   </select>
                 </div>
+
+                <ItemRecipientSelector
+                  selectedRecipients={docReminderRecipients}
+                  onChange={setDocReminderRecipients}
+                  label="Send Expiry Reminder To:"
+                  helperText="Choose which recipient alias(es) will be alerted when this document approaches expiry."
+                />
               </div>
 
               {/* File Attachment */}
