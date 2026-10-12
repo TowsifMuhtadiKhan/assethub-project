@@ -29,8 +29,8 @@ export async function listVehicleDocuments(vehicleId: string): Promise<VehicleDo
       .eq("asset_id", vehicleId)
       .order("created_at", { ascending: false });
 
-    if (!error && data && data.length > 0) {
-      const remoteMapped: VehicleDocument[] = data.map((d: any) => ({
+    if (!error) {
+      const remoteMapped: VehicleDocument[] = (data || []).map((d: any) => ({
         id: d.id,
         vehicleId: d.asset_id || vehicleId,
         name: d.name,
@@ -46,7 +46,64 @@ export async function listVehicleDocuments(vehicleId: string): Promise<VehicleDo
         createdAt: d.created_at || new Date().toISOString(),
       }));
 
-      // Merge remote with local items without duplication
+      // Check if local storage has documents that are NOT yet in Supabase
+      // (e.g. documents created locally with temporary IDs or failed prior insert)
+      const unSyncedLocal = localList.filter(
+        (localItem) => !remoteMapped.some((r) => r.id === localItem.id || r.name === localItem.name)
+      );
+
+      if (unSyncedLocal.length > 0) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          for (const item of unSyncedLocal) {
+            const { data: inserted, error: insertError } = await supabase
+              .from("lifenest_documents")
+              .insert({
+                owner_id: user.id,
+                name: item.name,
+                category: "Vehicle",
+                folder_name: "Vehicles",
+                document_number: item.documentNumber ?? "",
+                issue_date: item.issueDate || null,
+                expiry_date: item.expiryDate || null,
+                issuing_authority: item.issuingAuthority || "BRTA Bangladesh",
+                asset_type: "vehicle",
+                asset_id: vehicleId,
+                file_url: item.fileUrl || null,
+                file_type: item.fileType || "pdf",
+                tags: [item.category],
+                notes: item.notes ?? "",
+              })
+              .select()
+              .single();
+
+            if (!insertError && inserted) {
+              remoteMapped.push({
+                id: inserted.id,
+                vehicleId: inserted.asset_id || vehicleId,
+                name: inserted.name,
+                category: (inserted.document_type || inserted.tags?.[0] || "Custom Document") as BangladeshDocType,
+                documentNumber: inserted.document_number || "",
+                issueDate: inserted.issue_date || undefined,
+                expiryDate: inserted.expiry_date || undefined,
+                issuingAuthority: inserted.issuing_authority || "",
+                fileUrl: inserted.file_url || undefined,
+                fileName: inserted.file_name || inserted.name,
+                fileType: inserted.file_type || "pdf",
+                notes: inserted.notes || "",
+                createdAt: inserted.created_at || new Date().toISOString(),
+              });
+            } else if (insertError) {
+              console.warn("Could not sync local vehicle document to Supabase:", insertError);
+            }
+          }
+        }
+      }
+
+      // Merge remote with local items
       const mergedMap = new Map<string, VehicleDocument>();
       localList.forEach((item) => mergedMap.set(item.id, item));
       remoteMapped.forEach((item) => mergedMap.set(item.id, item));
@@ -54,8 +111,8 @@ export async function listVehicleDocuments(vehicleId: string): Promise<VehicleDo
       saveLocalDocs(vehicleId, merged);
       return merged;
     }
-  } catch {
-    // offline or table missing
+  } catch (err) {
+    console.warn("listVehicleDocuments error, using local cache:", err);
   }
 
   return localList;
@@ -64,16 +121,8 @@ export async function listVehicleDocuments(vehicleId: string): Promise<VehicleDo
 export async function createVehicleDocument(
   input: Omit<VehicleDocument, "id" | "createdAt">,
 ): Promise<VehicleDocument> {
-  const id = `veh_doc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-  const newDoc: VehicleDocument = {
-    ...input,
-    id,
-    createdAt: new Date().toISOString(),
-  };
-
-  const current = getLocalDocs(input.vehicleId);
-  const updated = [newDoc, ...current];
-  saveLocalDocs(input.vehicleId, updated);
+  let id = `veh_doc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  let createdAt = new Date().toISOString();
 
   try {
     const {
@@ -81,26 +130,47 @@ export async function createVehicleDocument(
     } = await supabase.auth.getUser();
 
     if (user) {
-      await supabase.from("lifenest_documents").insert({
-        owner_id: user.id,
-        name: input.name,
-        category: "Vehicle",
-        folder_name: "Vehicles",
-        document_number: input.documentNumber || null,
-        issue_date: input.issueDate || null,
-        expiry_date: input.expiryDate || null,
-        issuing_authority: input.issuingAuthority || "BRTA",
-        asset_type: "vehicle",
-        asset_id: input.vehicleId,
-        file_url: input.fileUrl || null,
-        file_type: input.fileType || "pdf",
-        tags: [input.category],
-        notes: input.notes || null,
-      });
+      const { data, error } = await supabase
+        .from("lifenest_documents")
+        .insert({
+          owner_id: user.id,
+          name: input.name,
+          category: "Vehicle",
+          folder_name: "Vehicles",
+          document_number: input.documentNumber ?? "",
+          issue_date: input.issueDate || null,
+          expiry_date: input.expiryDate || null,
+          issuing_authority: input.issuingAuthority || "BRTA Bangladesh",
+          asset_type: "vehicle",
+          asset_id: input.vehicleId,
+          file_url: input.fileUrl || null,
+          file_type: input.fileType || "pdf",
+          tags: [input.category],
+          notes: input.notes ?? "",
+        })
+        .select()
+        .single();
+
+      if (!error && data) {
+        id = data.id;
+        createdAt = data.created_at || createdAt;
+      } else if (error) {
+        console.error("Supabase insert vehicle document error:", error);
+      }
     }
-  } catch {
-    // local fallback already persisted
+  } catch (err) {
+    console.warn("createVehicleDocument Supabase failed, using local persistence:", err);
   }
+
+  const newDoc: VehicleDocument = {
+    ...input,
+    id,
+    createdAt,
+  };
+
+  const current = getLocalDocs(input.vehicleId);
+  const updated = [newDoc, ...current.filter((d) => d.id !== id && d.name !== input.name)];
+  saveLocalDocs(input.vehicleId, updated);
 
   return newDoc;
 }
@@ -125,8 +195,12 @@ export async function deleteVehicleDocument(
   }
 
   try {
-    await supabase.from("lifenest_documents").delete().eq("id", id);
-  } catch {}
+    if (!id.startsWith("veh_doc_")) {
+      await supabase.from("lifenest_documents").delete().eq("id", id);
+    }
+  } catch (err) {
+    console.warn("deleteVehicleDocument Supabase error:", err);
+  }
 }
 
 export async function updateVehicleDocument(
@@ -149,22 +223,24 @@ export async function updateVehicleDocument(
   saveLocalDocs(vehicleId, nextList);
 
   try {
-    const payload: any = {};
-    if (updates.name !== undefined) payload.name = updates.name;
-    if (updates.documentNumber !== undefined) payload.document_number = updates.documentNumber;
-    if (updates.issueDate !== undefined) payload.issue_date = updates.issueDate;
-    if (updates.expiryDate !== undefined) payload.expiry_date = updates.expiryDate;
-    if (updates.notes !== undefined) payload.notes = updates.notes;
-    if (updates.category !== undefined) {
-      payload.tags = [updates.category];
-      payload.document_type = updates.category;
-    }
+    if (!id.startsWith("veh_doc_")) {
+      const payload: any = {};
+      if (updates.name !== undefined) payload.name = updates.name;
+      if (updates.documentNumber !== undefined) payload.document_number = updates.documentNumber ?? "";
+      if (updates.issueDate !== undefined) payload.issue_date = updates.issueDate || null;
+      if (updates.expiryDate !== undefined) payload.expiry_date = updates.expiryDate || null;
+      if (updates.notes !== undefined) payload.notes = updates.notes ?? "";
+      if (updates.category !== undefined) {
+        payload.tags = [updates.category];
+        payload.document_type = updates.category;
+      }
 
-    if (Object.keys(payload).length > 0) {
-      await supabase.from("lifenest_documents").update(payload).eq("id", id);
+      if (Object.keys(payload).length > 0) {
+        await supabase.from("lifenest_documents").update(payload).eq("id", id);
+      }
     }
-  } catch {
-    // local fallback already persisted
+  } catch (err) {
+    console.warn("updateVehicleDocument Supabase error:", err);
   }
 
   return updated;

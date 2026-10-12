@@ -215,22 +215,16 @@ export function AskAiAssistant() {
 
   return (
     <>
-      {/* 1. Floating Sparkly "Ask AI" Trigger Button (Round Circle FAB) */}
+      {/* 1. Floating Sparkly "Ask AI" Trigger Button (Compact Round Circle FAB) */}
       {!isOpen && (
         <button
           type="button"
           onClick={() => setIsOpen(true)}
           title="Ask LifeNest AI (Ctrl+J)"
           aria-label="Ask LifeNest AI (Ctrl+J)"
-          className="fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] right-4 sm:right-6 z-40 flex h-13 w-13 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-700 to-purple-600 text-white shadow-xl shadow-indigo-600/40 hover:scale-110 hover:shadow-2xl hover:shadow-indigo-600/60 transition-all duration-200 cursor-pointer group active:scale-95 ring-2 ring-white/40"
+          className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-3.5 sm:right-5 z-40 flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-700 to-purple-600 text-white shadow-md shadow-indigo-600/35 hover:scale-105 hover:shadow-xl hover:shadow-indigo-600/45 transition-all duration-150 cursor-pointer group active:scale-95 ring-1.5 ring-white/50"
         >
-          <div className="relative flex items-center justify-center">
-            <Sparkles className="h-6 w-6 text-amber-300 group-hover:rotate-12 transition-transform duration-200" />
-            <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-400"></span>
-            </span>
-          </div>
+          <Sparkles className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-amber-300 group-hover:rotate-12 transition-transform duration-150" />
         </button>
       )}
 
