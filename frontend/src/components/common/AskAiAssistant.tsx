@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   Sparkles,
   X,
@@ -208,6 +208,11 @@ export function AskAiAssistant() {
     { label: "📊 Summary", prompt: "Give me an executive summary of all my assets and records." },
   ];
 
+  // Suggestions are only displayed on the first-time / fresh chat. Once user has asked questions, not required.
+  const hasUserInteracted = useMemo(() => {
+    return messages.some((m) => m.sender === "user");
+  }, [messages]);
+
   return (
     <>
       {/* 1. Floating Sparkly "Ask AI" Trigger Button (Round Circle FAB) */}
@@ -288,20 +293,25 @@ export function AskAiAssistant() {
               </div>
             </div>
 
-            {/* Quick Prompt Pills (Scrollbar strictly hidden) */}
-            <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-slate-100 bg-slate-50/50 overflow-x-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-              {quickPrompts.map((qp, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => handleSend(qp.prompt)}
-                  disabled={loading}
-                  className="whitespace-nowrap rounded-full bg-white border border-slate-200/90 px-3 py-1 text-[11px] font-medium text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all cursor-pointer shrink-0 disabled:opacity-50 shadow-2xs active:scale-95"
-                >
-                  {qp.label}
-                </button>
-              ))}
-            </div>
+            {/* Quick Prompt Pills (Shown only on first-time unstarted chat; once user asks questions, not required) */}
+            {!hasUserInteracted && (
+              <div className="flex items-center gap-1.5 px-3 py-2 border-b border-slate-100 bg-slate-50/70 overflow-x-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden shrink-0 animate-in fade-in duration-200">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider shrink-0 pl-1 mr-0.5">
+                  Suggestions:
+                </span>
+                {quickPrompts.map((qp, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => handleSend(qp.prompt)}
+                    disabled={loading}
+                    className="whitespace-nowrap rounded-full bg-white border border-slate-200/90 px-3 py-1 text-[11px] font-medium text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all cursor-pointer shrink-0 disabled:opacity-50 shadow-2xs active:scale-95"
+                  >
+                    {qp.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Chat Messages Body */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50/40">
