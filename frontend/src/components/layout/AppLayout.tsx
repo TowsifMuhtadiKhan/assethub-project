@@ -106,9 +106,10 @@ export function AppLayout() {
           }`}
         >
           {/* Top Header Bar */}
-          <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-slate-200/80 bg-white/95 px-3.5 backdrop-blur-md sm:px-6 w-full">
-            <div className="flex items-center gap-2">
-              {/* Mobile Drawer Trigger */}
+          <header className="sticky top-0 z-20 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-md safe-area-top">
+            <div className="flex h-14 items-center justify-between px-3.5 sm:px-6 w-full">
+              <div className="flex items-center gap-2">
+                {/* Mobile Drawer Trigger */}
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(true)}
@@ -354,12 +355,13 @@ export function AppLayout() {
                     </div>
                   </>
                 )}
+                </div>
               </div>
             </div>
           </header>
 
           {/* Main Full-Width Content Container */}
-          <main className="flex-1 overflow-y-auto p-3.5 sm:p-5 lg:p-6 bg-slate-50/60 w-full">
+          <main className="flex-1 overflow-y-auto p-3.5 sm:p-5 lg:p-6 bg-slate-50/60 w-full safe-area-bottom">
             <Outlet />
           </main>
         </div>

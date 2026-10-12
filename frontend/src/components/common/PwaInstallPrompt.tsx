@@ -86,7 +86,7 @@ export function PwaInstallPrompt() {
   return (
     <>
       {/* Floating Bottom Prompt Banner for Mobile */}
-      <div className="fixed bottom-3 left-3 right-3 sm:left-auto sm:right-6 sm:max-w-md z-50 animate-in slide-in-from-bottom duration-300">
+      <div className="fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom,0px))] left-3 right-3 sm:left-auto sm:right-6 sm:max-w-md z-50 animate-in slide-in-from-bottom duration-300">
         <div className="rounded-2xl border border-slate-700/80 bg-slate-900/95 backdrop-blur-md p-3.5 shadow-2xl text-white flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <img
