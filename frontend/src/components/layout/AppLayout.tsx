@@ -320,23 +320,23 @@ export function AppLayout() {
                           type="button"
                           onClick={() => {
                             setProfileOpen(false);
-                            navigate("/settings");
-                          }}
-                          className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-100 hover:text-slate-950 transition text-left cursor-pointer bg-slate-50/50"
-                        >
-                          <Settings className="h-4 w-4 text-slate-600" />
-                          <span>Settings</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProfileOpen(false);
                             navigate("/settings?tab=profile");
                           }}
                           className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
                         >
                           <CircleUserRound className="h-4 w-4 text-slate-400" />
                           <span>Profile & Account</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProfileOpen(false);
+                            navigate("/settings");
+                          }}
+                          className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 transition text-left cursor-pointer"
+                        >
+                          <Settings className="h-4 w-4 text-slate-400" />
+                          <span>Settings</span>
                         </button>
                         <button
                           type="button"
