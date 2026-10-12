@@ -18,7 +18,6 @@ import {
   AlertTriangle,
   Sparkles,
   Layers,
-  Download,
   Send,
   Edit2,
   Bell,
@@ -33,6 +32,7 @@ import {
   parseVehicleSpecsFromNotes,
 } from "../services/vehicleService";
 import { SqlSetupBanner } from "../components/common/SqlSetupBanner";
+import { DocumentViewerModal, type ViewableDocument } from "../components/common/DocumentViewerModal";
 import {
   createVehicleExpense,
   createVehicleService,
@@ -244,6 +244,9 @@ export function VehicleDetailsPage() {
   const [editDocFile, setEditDocFile] = useState<File | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [editSpecsModalOpen, setEditSpecsModalOpen] = useState(false);
+
+  // Universal Document Viewer modal state
+  const [viewingDoc, setViewingDoc] = useState<ViewableDocument | null>(null);
 
   // Warranty modal state
   const [warrantyModalOpen, setWarrantyModalOpen] = useState(false);
@@ -2090,15 +2093,21 @@ export function VehicleDetailsPage() {
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-center">
                           {item.receiptUrl ? (
-                            <a
-                              href={item.receiptUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition"
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  name: `${item.serviceType || "Maintenance"} Bill`,
+                                  fileUrl: item.receiptUrl,
+                                  fileType: "pdf",
+                                  category: "Maintenance Receipt",
+                                })
+                              }
+                              className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition cursor-pointer"
                               title="View Attached Bill"
                             >
-                              <Download className="h-3 w-3" /> Bill
-                            </a>
+                              <FileText className="h-3 w-3" /> Bill
+                            </button>
                           ) : (
                             <span className="text-slate-300 text-[11px]">—</span>
                           )}
@@ -2352,14 +2361,22 @@ export function VehicleDetailsPage() {
                           {doc.fileType?.toUpperCase() || "FILE"}
                         </span>
                         {doc.fileUrl ? (
-                          <a
-                            href={doc.fileUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 underline"
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setViewingDoc({
+                                name: doc.name,
+                                fileUrl: doc.fileUrl,
+                                fileType: doc.fileType || "pdf",
+                                category: doc.category,
+                                documentNumber: doc.documentNumber,
+                                expiryDate: doc.expiryDate,
+                              })
+                            }
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
                           >
                             <ExternalLink className="h-3 w-3" /> View / Download File
-                          </a>
+                          </button>
                         ) : (
                           <span className="text-[11px] text-slate-400 italic">No attachment</span>
                         )}
@@ -2500,14 +2517,20 @@ export function VehicleDetailsPage() {
                         Component Warranty
                       </span>
                       {w.receiptUrl ? (
-                        <a
-                          href={w.receiptUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 hover:text-amber-900 underline"
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setViewingDoc({
+                              name: `${w.productName} Warranty Card`,
+                              fileUrl: w.receiptUrl,
+                              fileType: "pdf",
+                              category: "Warranty & Claim",
+                            })
+                          }
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 hover:text-amber-900 underline cursor-pointer"
                         >
                           <ExternalLink className="h-3 w-3" /> View Warranty Card
-                        </a>
+                        </button>
                       ) : (
                         <span className="text-[11px] text-slate-400 italic">No warranty doc</span>
                       )}
@@ -4515,6 +4538,13 @@ export function VehicleDetailsPage() {
           </div>
         </div>
       )}
+
+      {/* Universal In-App Document Viewer Modal */}
+      <DocumentViewerModal
+        isOpen={!!viewingDoc}
+        onClose={() => setViewingDoc(null)}
+        document={viewingDoc}
+      />
     </div>
   );
 }

@@ -7,10 +7,12 @@ import {
 } from "../services/warrantyService";
 import type { WarrantyItem } from "../types";
 import { ItemRecipientSelector } from "../components/common/ItemRecipientSelector";
+import { DocumentViewerModal, type ViewableDocument } from "../components/common/DocumentViewerModal";
 
 export function WarrantiesPage() {
   const [warranties, setWarranties] = useState<WarrantyItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewingDoc, setViewingDoc] = useState<ViewableDocument | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
@@ -263,14 +265,22 @@ export function WarrantiesPage() {
 
                 <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5">
                   {w.receiptUrl ? (
-                    <a
-                      href={w.receiptUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-800 hover:text-slate-900 underline"
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setViewingDoc({
+                          name: `${w.productName} Warranty Receipt`,
+                          fileUrl: w.receiptUrl,
+                          fileType: "pdf",
+                          category: "Warranty",
+                          documentNumber: w.serialNumber,
+                          expiryDate: w.expiryDate,
+                        })
+                      }
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-700 hover:text-indigo-900 underline cursor-pointer"
                     >
-                      <FileText className="h-3 w-3 text-slate-500" /> View Receipt
-                    </a>
+                      <FileText className="h-3 w-3 text-indigo-500" /> View Receipt
+                    </button>
                   ) : (
                     <span className="text-[10px] text-slate-400">No receipt file</span>
                   )}
@@ -348,15 +358,23 @@ export function WarrantiesPage() {
                     </td>
                     <td className="whitespace-nowrap px-3.5 py-2.5 text-center">
                       {w.receiptUrl ? (
-                        <a
-                          href={w.receiptUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition"
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setViewingDoc({
+                              name: `${w.productName} Warranty Receipt`,
+                              fileUrl: w.receiptUrl,
+                              fileType: "pdf",
+                              category: "Warranty",
+                              documentNumber: w.serialNumber,
+                              expiryDate: w.expiryDate,
+                            })
+                          }
+                          className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition cursor-pointer"
                           title="View Receipt"
                         >
                           <FileText className="h-3 w-3" /> View
-                        </a>
+                        </button>
                       ) : (
                         <span className="text-slate-300 text-[11px]">—</span>
                       )}
@@ -560,6 +578,13 @@ export function WarrantiesPage() {
           </div>
         </div>
       )}
+
+      {/* Universal In-App Document Viewer Modal */}
+      <DocumentViewerModal
+        isOpen={!!viewingDoc}
+        onClose={() => setViewingDoc(null)}
+        document={viewingDoc}
+      />
     </div>
   );
 }

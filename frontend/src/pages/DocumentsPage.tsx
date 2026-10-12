@@ -42,6 +42,7 @@ import {
   getGoogleDriveFileViewUrl,
   openDocumentFile,
   downloadDocumentFile,
+  dataUrlToBlob,
   deleteDocumentFromMasterGoogleDrive,
   deleteFolderFromMasterGoogleDrive,
   uploadUserDocumentToGoogleDrive,
@@ -2431,6 +2432,13 @@ export function DocumentsPage() {
                 }
 
                 if (isPdf && previewDoc.fileUrl) {
+                  let pdfSrc = previewDoc.fileUrl;
+                  if (pdfSrc.startsWith("data:")) {
+                    const blob = dataUrlToBlob(pdfSrc);
+                    if (blob) {
+                      pdfSrc = URL.createObjectURL(blob);
+                    }
+                  }
                   return (
                     <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50">
                       <div className="bg-slate-100/90 px-3.5 py-2 flex items-center justify-between border-b border-slate-200 text-xs">
@@ -2438,17 +2446,26 @@ export function DocumentsPage() {
                           <FileText className="h-4 w-4 text-indigo-600" />
                           PDF Document
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => openDocumentFile(previewDoc)}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800"
-                        >
-                          <span>Open in New Tab</span>
-                          <ExternalLink className="h-3 w-3" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => downloadDocumentFile(previewDoc)}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 cursor-pointer"
+                          >
+                            <span>Download PDF</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openDocumentFile(previewDoc)}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                          >
+                            <span>Open in New Tab</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </button>
+                        </div>
                       </div>
                       <iframe
-                        src={previewDoc.fileUrl}
+                        src={pdfSrc}
                         title={previewDoc.name}
                         className="w-full h-80 sm:h-96 border-0 bg-white"
                       />

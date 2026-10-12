@@ -75,6 +75,24 @@ export function getGoogleDriveDirectDownloadUrl(input: string): string {
   return input;
 }
 
+export function dataUrlToBlob(dataUrl: string): Blob | null {
+  try {
+    if (!dataUrl.startsWith("data:")) return null;
+    const parts = dataUrl.split(";base64,");
+    if (parts.length !== 2) return null;
+    const contentType = parts[0].replace(/^data:/, "") || "application/octet-stream";
+    const byteCharacters = atob(parts[1]);
+    const byteNumbers = new Uint8Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    return new Blob([byteNumbers], { type: contentType });
+  } catch (err) {
+    console.error("Failed to parse data URL to blob:", err);
+    return null;
+  }
+}
+
 /**
  * Safely opens or downloads a document file.
  * Prevents Chrome from blocking top-level navigation to data: URIs (about:blank#blocked)
@@ -107,51 +125,25 @@ export function openDocumentFile(doc: {
   // 2. Base64 data: URIs (PDFs, images, etc.)
   if (doc.fileUrl.startsWith("data:")) {
     try {
-      const parts = doc.fileUrl.split(";base64,");
-      if (parts.length === 2) {
-        const contentType = parts[0].replace("data:", "");
-        const byteCharacters = atob(parts[1]);
-        const byteNumbers = new Uint8Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const blob = new Blob([byteNumbers], { type: contentType });
+      const blob = dataUrlToBlob(doc.fileUrl);
+      if (blob) {
         const blobUrl = URL.createObjectURL(blob);
-
-        const newWin = window.open("", "_blank");
+        const newWin = window.open(blobUrl, "_blank", "noopener,noreferrer");
         if (newWin) {
-          newWin.document.write(`
-            <!DOCTYPE html>
-            <html>
-              <head>
-                <meta charset="utf-8" />
-                <title>${encodeURIComponent(doc.name)}</title>
-                <style>
-                  body { margin: 0; background: #0f172a; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-                  img { max-width: 95vw; max-height: 95vh; object-fit: contain; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); border-radius: 8px; }
-                  iframe { width: 100vw; height: 100vh; border: none; }
-                </style>
-              </head>
-              <body>
-                ${
-                  contentType.startsWith("image/")
-                    ? `<img src="${blobUrl}" alt="${encodeURIComponent(doc.name)}" />`
-                    : `<iframe src="${blobUrl}"></iframe>`
-                }
-              </body>
-            </html>
-          `);
-          newWin.document.close();
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 120000);
           return;
         }
 
         // If popup was blocked, fallback to downloading
+        const ext = doc.fileType || (blob.type.includes("pdf") ? "pdf" : "png");
+        const fullName = doc.name.includes(".") ? doc.name : `${doc.name}.${ext}`;
         const a = document.createElement("a");
         a.href = blobUrl;
-        a.download = `${doc.name}.${doc.fileType || "pdf"}`;
+        a.download = fullName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
         return;
       }
     } catch (e) {
@@ -159,9 +151,11 @@ export function openDocumentFile(doc: {
     }
 
     // Direct download fallback
+    const ext = doc.fileType || "pdf";
+    const fullName = doc.name.includes(".") ? doc.name : `${doc.name}.${ext}`;
     const a = document.createElement("a");
     a.href = doc.fileUrl;
-    a.download = `${doc.name}.${doc.fileType || "pdf"}`;
+    a.download = fullName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
