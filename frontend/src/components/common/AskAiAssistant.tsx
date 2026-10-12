@@ -45,12 +45,26 @@ export function AskAiAssistant() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom of messages
+  // Reliable Auto-scroll to bottom of messages (ensures latest message is always visible on mobile & desktop)
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior, block: "end" });
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      // Immediate scroll to bottom
+      scrollToBottom("auto");
+      // Delayed scroll after animations and layout calculations finalize
+      const t1 = setTimeout(() => scrollToBottom("smooth"), 80);
+      const t2 = setTimeout(() => scrollToBottom("smooth"), 250);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
     }
-  }, [messages, isOpen]);
+  }, [isOpen, messages, loading]);
 
   // Save chat to session storage
   useEffect(() => {
@@ -221,7 +235,7 @@ export function AskAiAssistant() {
           onClick={() => setIsOpen(false)}
         >
           <div
-            className="w-full sm:w-[480px] h-[85vh] sm:h-[640px] max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-3xl border border-slate-200/90 bg-white shadow-2xl shadow-indigo-950/20 text-slate-900 overflow-hidden animate-in slide-in-from-bottom-6 duration-200"
+            className="w-full sm:w-[480px] h-[88dvh] sm:h-[640px] max-h-[92dvh] flex flex-col rounded-t-3xl sm:rounded-3xl border border-slate-200/90 bg-white shadow-2xl shadow-indigo-950/20 text-slate-900 overflow-hidden animate-in slide-in-from-bottom-6 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -349,7 +363,7 @@ export function AskAiAssistant() {
             </div>
 
             {/* Chat Input Bar */}
-            <div className="p-3 border-t border-slate-100 bg-white">
+            <div className="p-3 border-t border-slate-100 bg-white pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.5rem))]">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();

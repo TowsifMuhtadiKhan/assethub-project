@@ -1,8 +1,7 @@
 // LifeNest PWA Service Worker
-const CACHE_NAME = 'lifenest-pwa-v1';
+const CACHE_NAME = 'lifenest-pwa-v2';
 const PRECACHE_ASSETS = [
   '/',
-  '/index.html',
   '/manifest.json',
   '/logo.png',
   '/favicon.png',
@@ -44,7 +43,23 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first with cache fallback
+  // For HTML page navigations, ALWAYS fetch fresh version from network so mobile sees latest deployments
+  if (event.request.mode === 'navigate' || event.request.headers.get('accept')?.includes('text/html')) {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-cache' })
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request).then((res) => res || caches.match('/')))
+    );
+    return;
+  }
+
+  // Network-first with cache fallback for other assets
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
@@ -56,14 +71,6 @@ self.addEventListener('fetch', (event) => {
         }
         return networkResponse;
       })
-      .catch(() => {
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) return cachedResponse;
-          if (event.request.mode === 'navigate') {
-            return caches.match('/');
-          }
-          return null;
-        });
-      })
+      .catch(() => caches.match(event.request))
   );
 });
