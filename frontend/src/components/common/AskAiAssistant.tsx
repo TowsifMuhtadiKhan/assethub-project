@@ -145,7 +145,10 @@ export function AskAiAssistant() {
       // Headers
       if (line.startsWith("### ")) {
         return (
-          <h4 key={idx} className="text-xs font-bold text-slate-900 mt-2 mb-1">
+          <h4
+            key={idx}
+            className="text-xs font-bold text-slate-900 mt-2.5 mb-1.5 pb-0.5 border-b border-slate-100 flex items-center gap-1.5"
+          >
             {line.replace("### ", "")}
           </h4>
         );
@@ -154,7 +157,7 @@ export function AskAiAssistant() {
       if (line.startsWith("* ") || line.startsWith("- ") || line.startsWith("• ")) {
         const clean = line.replace(/^[\*\-•]\s*/, "");
         return (
-          <li key={idx} className="text-xs text-slate-700 ml-3.5 list-disc my-0.5 leading-relaxed">
+          <li key={idx} className="text-xs text-slate-700 ml-3.5 list-disc my-1 leading-relaxed">
             <span dangerouslySetInnerHTML={{ __html: formatInlineMarkdown(clean) }} />
           </li>
         );
@@ -175,8 +178,11 @@ export function AskAiAssistant() {
   const formatInlineMarkdown = (text: string) => {
     return text
       .replace(/\*\*(.*?)\*\*/g, "<strong class='font-bold text-slate-900'>$1</strong>")
-      .replace(/\*(.*?)\*/g, "<em class='italic text-slate-800'>$1</em>")
-      .replace(/`([^`]+)`/g, "<code class='bg-slate-200/80 text-slate-800 px-1 py-0.2 rounded font-mono text-[11px]'>$1</code>");
+      .replace(/\*(.*?)\*/g, "<em class='italic text-slate-700'>$1</em>")
+      .replace(
+        /`([^`]+)`/g,
+        "<code class='bg-slate-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-mono text-[11px] font-semibold border border-slate-200/60'>$1</code>",
+      );
   };
 
   const quickPrompts = [
@@ -196,13 +202,13 @@ export function AskAiAssistant() {
           type="button"
           onClick={() => setIsOpen(true)}
           title="Ask LifeNest AI (Ctrl+J)"
-          className="fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] right-4 z-40 flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-xl shadow-indigo-600/30 hover:scale-105 hover:shadow-2xl transition-all cursor-pointer group active:scale-95"
+          className="fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] right-4 z-40 flex items-center gap-2.5 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 px-4 py-2.5 text-xs font-bold text-white shadow-xl shadow-indigo-600/35 hover:scale-105 hover:shadow-2xl hover:shadow-indigo-600/50 transition-all cursor-pointer group active:scale-95 ring-2 ring-white/30"
         >
-          <div className="relative">
+          <div className="relative flex items-center justify-center">
             <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
           </div>
           <span className="tracking-tight">Ask AI</span>
-          <span className="hidden sm:inline-block rounded-md bg-white/20 px-1.5 py-0.2 text-[9px] font-mono text-indigo-100">
+          <span className="hidden sm:inline-block rounded-full bg-white/20 px-2 py-0.5 text-[9px] font-mono text-indigo-100">
             Ctrl+J
           </span>
         </button>
@@ -215,23 +221,25 @@ export function AskAiAssistant() {
           onClick={() => setIsOpen(false)}
         >
           <div
-            className="w-full sm:max-w-lg h-[85vh] sm:h-[620px] max-h-[85vh] flex flex-col rounded-t-3xl sm:rounded-3xl border border-slate-200/90 bg-white shadow-2xl text-slate-900 overflow-hidden animate-in slide-in-from-bottom-6 duration-200"
+            className="w-full sm:w-[480px] h-[85vh] sm:h-[640px] max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-3xl border border-slate-200/90 bg-white shadow-2xl shadow-indigo-950/20 text-slate-900 overflow-hidden animate-in slide-in-from-bottom-6 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/90">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-sm shadow-indigo-500/20">
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100 bg-white/95 backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-700 to-purple-600 text-white shadow-md shadow-indigo-500/25 ring-2 ring-indigo-50">
                   <Bot className="h-5 w-5" />
+                  <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5 leading-tight">
                     <span>LifeNest AI</span>
-                    <span className="rounded-full bg-emerald-100 text-emerald-700 px-1.5 py-0.2 text-[9px] font-bold border border-emerald-200">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[9px] font-bold border border-emerald-200/70">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       Grounded
                     </span>
                   </div>
-                  <div className="text-[10px] text-slate-400">
+                  <div className="text-[10px] text-slate-400 mt-0.5">
                     Live context from your authentic records
                   </div>
                 </div>
@@ -242,7 +250,7 @@ export function AskAiAssistant() {
                   type="button"
                   onClick={() => setApiKeyModal(true)}
                   title="Configure Gemini API Key"
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200/60 hover:text-slate-700 transition cursor-pointer"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
                 >
                   <KeyRound className="h-4 w-4" />
                 </button>
@@ -250,7 +258,7 @@ export function AskAiAssistant() {
                   type="button"
                   onClick={handleClearChat}
                   title="Clear conversation"
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200/60 hover:text-slate-700 transition cursor-pointer"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-rose-600 transition cursor-pointer"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -258,22 +266,22 @@ export function AskAiAssistant() {
                   type="button"
                   onClick={() => setIsOpen(false)}
                   title="Close AI Assistant"
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200/60 hover:text-slate-700 transition cursor-pointer"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
-            {/* Quick Prompt Pills */}
-            <div className="flex items-center gap-1.5 px-3 py-2 border-b border-slate-100/80 bg-white overflow-x-auto no-scrollbar">
+            {/* Quick Prompt Pills (Scrollbar strictly hidden) */}
+            <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-slate-100 bg-slate-50/50 overflow-x-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {quickPrompts.map((qp, i) => (
                 <button
                   key={i}
                   type="button"
                   onClick={() => handleSend(qp.prompt)}
                   disabled={loading}
-                  className="whitespace-nowrap rounded-full bg-slate-50 border border-slate-200/70 px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition cursor-pointer shrink-0 disabled:opacity-50"
+                  className="whitespace-nowrap rounded-full bg-white border border-slate-200/90 px-3 py-1 text-[11px] font-medium text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all cursor-pointer shrink-0 disabled:opacity-50 shadow-2xs active:scale-95"
                 >
                   {qp.label}
                 </button>
@@ -290,16 +298,16 @@ export function AskAiAssistant() {
                     className={`flex gap-2.5 ${isUser ? "justify-end" : "justify-start"}`}
                   >
                     {!isUser && (
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 mt-0.5">
-                        <Bot className="h-4 w-4" />
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-50 to-purple-100 text-indigo-700 mt-0.5 border border-indigo-200/60 shadow-2xs">
+                        <Bot className="h-3.5 w-3.5" />
                       </div>
                     )}
 
                     <div
-                      className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs shadow-2xs leading-relaxed ${
+                      className={`max-w-[85%] rounded-2xl px-4 py-3 text-xs leading-relaxed ${
                         isUser
-                          ? "bg-slate-900 text-white rounded-br-xs"
-                          : "bg-white border border-slate-200/80 text-slate-800 rounded-bl-xs"
+                          ? "bg-gradient-to-br from-slate-900 to-indigo-950 text-white shadow-md shadow-slate-900/10 rounded-tr-xs"
+                          : "bg-white border border-slate-200/90 text-slate-800 shadow-xs rounded-tl-xs"
                       }`}
                     >
                       {isUser ? (
@@ -308,8 +316,8 @@ export function AskAiAssistant() {
                         <div>{renderFormattedText(m.text)}</div>
                       )}
                       <div
-                        className={`text-[9px] mt-1 text-right font-mono ${
-                          isUser ? "text-slate-400" : "text-slate-400"
+                        className={`text-[9px] mt-1.5 text-right font-medium ${
+                          isUser ? "text-indigo-200/70" : "text-slate-400"
                         }`}
                       >
                         {m.timestamp}
@@ -317,7 +325,7 @@ export function AskAiAssistant() {
                     </div>
 
                     {isUser && (
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white mt-0.5 text-xs font-bold">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white mt-0.5 shadow-2xs ring-1 ring-slate-800">
                         <User className="h-3.5 w-3.5" />
                       </div>
                     )}
@@ -327,10 +335,10 @@ export function AskAiAssistant() {
 
               {loading && (
                 <div className="flex gap-2.5 justify-start items-center">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-50 to-purple-100 text-indigo-700 border border-indigo-200/60 shadow-2xs">
                     <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                   </div>
-                  <div className="rounded-2xl bg-white border border-slate-200 px-3.5 py-2 text-xs text-slate-500 shadow-2xs flex items-center gap-2">
+                  <div className="rounded-full bg-white border border-slate-200 px-3.5 py-1.5 text-xs text-slate-500 shadow-2xs flex items-center gap-2">
                     <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 animate-ping" />
                     Checking your real records...
                   </div>
@@ -347,23 +355,23 @@ export function AskAiAssistant() {
                   e.preventDefault();
                   handleSend();
                 }}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50/80 p-1.5 pl-4 focus-within:border-indigo-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-500/15 transition-all shadow-inner"
               >
                 <input
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask about tasks, car fitness, family, units, docs..."
+                  placeholder="Ask about bike chassis, car fitness, family, tasks..."
                   disabled={loading}
-                  className="flex-1 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:border-indigo-500 focus:bg-white transition"
+                  className="flex-1 bg-transparent text-xs text-slate-900 placeholder:text-slate-400 outline-none"
                 />
                 <button
                   type="submit"
                   disabled={!input.trim() || loading}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white shadow-xs hover:bg-slate-800 disabled:opacity-40 transition cursor-pointer"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-600/30 hover:scale-105 active:scale-95 disabled:opacity-30 disabled:hover:scale-100 disabled:shadow-none transition-all cursor-pointer"
                   title="Send query"
                 >
-                  <Send className="h-4 w-4" />
+                  <Send className="h-3.5 w-3.5 ml-0.5" />
                 </button>
               </form>
             </div>

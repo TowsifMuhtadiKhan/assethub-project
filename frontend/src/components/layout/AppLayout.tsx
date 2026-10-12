@@ -148,7 +148,7 @@ export function AppLayout() {
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent("lifenest:open-ai-assistant"))}
                 title="Ask LifeNest AI (Ctrl+J)"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200/90 bg-indigo-50/70 px-2.5 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition cursor-pointer shadow-2xs"
+                className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200/90 bg-indigo-50/70 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition cursor-pointer shadow-2xs"
               >
                 <Sparkles className="h-3.5 w-3.5 text-indigo-600 animate-pulse" />
                 <span className="hidden sm:inline">Ask AI</span>
