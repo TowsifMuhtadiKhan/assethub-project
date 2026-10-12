@@ -15,12 +15,14 @@ import {
   Settings,
   Smartphone,
   Sparkles,
+  Download,
 } from "lucide-react";
 import { useNavigate, Outlet } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Sidebar } from "../common/Sidebar";
 import { PwaInstallPrompt } from "../common/PwaInstallPrompt";
 import { AskAiAssistant } from "../common/AskAiAssistant";
+import { ApkUpdateNotificationModal } from "../common/ApkUpdateNotificationModal";
 import { clearToken, getUserEmail } from "../../services/api";
 import { getUserSettings } from "../../services/settingsService";
 
@@ -349,6 +351,17 @@ export function AppLayout() {
                           <Smartphone className="h-4 w-4 text-slate-400" />
                           <span>Install App (Home Screen)</span>
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProfileOpen(false);
+                            window.dispatchEvent(new CustomEvent("lifenest:check-for-updates"));
+                          }}
+                          className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
+                        >
+                          <Download className="h-4 w-4 text-emerald-600" />
+                          <span>Check for App Updates (APK)</span>
+                        </button>
                       </div>
 
                       <div className="my-1.5 border-t border-slate-100" />
@@ -382,6 +395,9 @@ export function AppLayout() {
 
       {/* PWA Add to Home Screen Banner & iOS Guide */}
       <PwaInstallPrompt />
+
+      {/* Automatic APK Update Notification (Google Drive Direct Download) */}
+      <ApkUpdateNotificationModal />
 
       {/* Grounded LifeNest AI Assistant */}
       <AskAiAssistant />

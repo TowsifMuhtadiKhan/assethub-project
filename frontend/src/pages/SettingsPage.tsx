@@ -28,6 +28,12 @@ import { WhatsAppContactsManager } from "../components/common/WhatsAppContactsMa
 import { FamilyPage } from "./FamilyPage";
 import { AccessControlPage } from "./AccessControlPage";
 
+import {
+  getApkConfig,
+  saveApkConfig,
+  CURRENT_APP_BUILD,
+} from "../services/appUpdateService";
+
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
@@ -42,9 +48,10 @@ export function SettingsPage() {
     callmebotApiKey: "",
   });
 
-  const [apkDriveUrl, setApkDriveUrl] = useState(() => {
-    return localStorage.getItem("lifenest_android_apk_drive_url") || "";
-  });
+  const [apkConfig] = useState(() => getApkConfig());
+  const [apkDriveUrl, setApkDriveUrl] = useState(apkConfig.driveUrl);
+  const [apkVersion, setApkVersion] = useState(apkConfig.latestVersion);
+  const [apkReleaseNotes, setApkReleaseNotes] = useState(apkConfig.releaseNotes);
   const [apkUrlSaved, setApkUrlSaved] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"profile" | "access" | "notifications" | "app">(() => {
@@ -534,11 +541,11 @@ export function SettingsPage() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                localStorage.setItem("lifenest_android_apk_drive_url", apkDriveUrl.trim());
+                saveApkConfig(apkDriveUrl, apkVersion, apkReleaseNotes);
                 setApkUrlSaved(true);
                 setTimeout(() => setApkUrlSaved(false), 3000);
               }}
-              className="space-y-3"
+              className="space-y-3.5"
             >
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -557,7 +564,7 @@ export function SettingsPage() {
                     className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 transition cursor-pointer"
                   >
                     <Save className="h-3.5 w-3.5" />
-                    <span>Save Link</span>
+                    <span>Save & Publish</span>
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
@@ -565,15 +572,49 @@ export function SettingsPage() {
                 </p>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Latest APK Version / Build
+                  </label>
+                  <input
+                    type="text"
+                    value={apkVersion}
+                    onChange={(e) => setApkVersion(e.target.value)}
+                    placeholder="1.1.0"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-emerald-500 focus:bg-white font-mono"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Installed build baseline: <strong>v{CURRENT_APP_BUILD}</strong>. Increase this version to trigger update notifications for mobile users.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    What's New / Release Notes (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={apkReleaseNotes}
+                    onChange={(e) => setApkReleaseNotes(e.target.value)}
+                    placeholder="Chassis search, rounded AI chat, minimal answers..."
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-emerald-500 focus:bg-white"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Shown inside the mobile update prompt when users are notified.
+                  </p>
+                </div>
+              </div>
+
               {apkUrlSaved && (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-800 flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                  Google Drive APK link saved! Android devices will now offer this download link.
+                  Google Drive APK link and version saved! Mobile devices will now receive update prompts.
                 </div>
               )}
 
               {apkDriveUrl && (
-                <div className="pt-2 flex items-center gap-3">
+                <div className="pt-2 flex flex-wrap items-center gap-3">
                   <button
                     type="button"
                     onClick={() => {
@@ -585,6 +626,18 @@ export function SettingsPage() {
                     <Download className="h-4 w-4 text-emerald-400" />
                     <span>Test Direct APK Download</span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent("lifenest:check-for-updates"));
+                    }}
+                    className="inline-flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition cursor-pointer"
+                  >
+                    <Smartphone className="h-4 w-4 text-emerald-600" />
+                    <span>Test Update Notification Popup</span>
+                  </button>
+
                   <a
                     href={apkDriveUrl}
                     target="_blank"
