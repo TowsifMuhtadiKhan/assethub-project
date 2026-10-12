@@ -22,6 +22,7 @@ import { Sidebar } from "../common/Sidebar";
 import { PwaInstallPrompt } from "../common/PwaInstallPrompt";
 import { AskAiAssistant } from "../common/AskAiAssistant";
 import { ApkUpdateNotificationModal } from "../common/ApkUpdateNotificationModal";
+import { downloadApkFromConfiguredDrive } from "../../services/appUpdateService";
 import { clearToken, getUserEmail } from "../../services/api";
 import { getUserSettings } from "../../services/settingsService";
 
@@ -343,12 +344,28 @@ export function AppLayout() {
                           type="button"
                           onClick={() => {
                             setProfileOpen(false);
+                            downloadApkFromConfiguredDrive();
+                          }}
+                          className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-semibold text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100/80 hover:text-emerald-950 transition text-left cursor-pointer border border-emerald-200/50"
+                        >
+                          <Download className="h-4 w-4 text-emerald-600" />
+                          <div className="flex-1 min-w-0">
+                            <div>Download Android APK</div>
+                            <div className="text-[10px] font-normal text-emerald-600/80 truncate">
+                              Direct Google Drive (LifeNest.apk)
+                            </div>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProfileOpen(false);
                             window.dispatchEvent(new CustomEvent("lifenest:check-for-updates"));
                           }}
                           className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
                         >
-                          <Download className="h-4 w-4 text-emerald-600" />
-                          <span>Check for App Updates (APK)</span>
+                          <Smartphone className="h-4 w-4 text-slate-400" />
+                          <span>Check for APK Updates</span>
                         </button>
                       </div>
 

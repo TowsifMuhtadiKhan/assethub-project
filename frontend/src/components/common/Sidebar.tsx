@@ -14,8 +14,10 @@ import {
   ChevronRight,
   Pin,
   X,
+  Download,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
+import { downloadApkFromConfiguredDrive } from "../../services/appUpdateService";
 
 type MenuItem = {
   to: string;
@@ -363,6 +365,29 @@ export function Sidebar({
 
         {/* Mobile Navigation List */}
         {renderFullNavigation(onCloseMobile)}
+
+        {/* Mobile APK Download Button */}
+        <div className="px-3 pb-2 pt-1">
+          <button
+            type="button"
+            onClick={() => {
+              onCloseMobile?.();
+              downloadApkFromConfiguredDrive();
+            }}
+            className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-emerald-950/80 to-slate-900 border border-emerald-500/30 px-3 py-2 text-xs text-white hover:border-emerald-400 transition cursor-pointer shadow-sm group"
+          >
+            <div className="flex items-center gap-2">
+              <Download className="h-4 w-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+              <div className="text-left">
+                <div className="font-semibold text-emerald-200">Get Android App</div>
+                <div className="text-[10px] text-slate-400">Download APK directly</div>
+              </div>
+            </div>
+            <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-mono text-emerald-300">
+              APK
+            </span>
+          </button>
+        </div>
 
         {/* Mobile Footer */}
         <div className="border-t border-slate-800/80 p-3">

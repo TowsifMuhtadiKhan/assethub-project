@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "cap:sync": "cap sync android",
+    "cap:open": "cap open android",
+    "apk:build": "powershell -ExecutionPolicy Bypass -File ../build-apk.ps1",
+    "apk:upload": "npm --prefix ../backend run apk:upload"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -28,6 +32,9 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
     "@electric-sql/pglite": "0.5.8",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
