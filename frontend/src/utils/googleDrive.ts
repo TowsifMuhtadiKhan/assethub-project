@@ -109,21 +109,44 @@ export function openDocumentFile(doc: {
         const blob = new Blob([byteNumbers], { type: contentType });
         const blobUrl = URL.createObjectURL(blob);
 
-        // For images or PDFs, blob URLs open cleanly without about:blank#blocked
-        const newWin = window.open(blobUrl, "_blank");
-        if (!newWin) {
-          // If popup is blocked by browser, trigger direct download
-          const a = document.createElement("a");
-          a.href = blobUrl;
-          a.download = `${doc.name}.${doc.fileType || "pdf"}`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
+        const newWin = window.open("", "_blank");
+        if (newWin) {
+          newWin.document.write(`
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <meta charset="utf-8" />
+                <title>${encodeURIComponent(doc.name)}</title>
+                <style>
+                  body { margin: 0; background: #0f172a; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+                  img { max-width: 95vw; max-height: 95vh; object-fit: contain; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); border-radius: 8px; }
+                  iframe { width: 100vw; height: 100vh; border: none; }
+                </style>
+              </head>
+              <body>
+                ${
+                  contentType.startsWith("image/")
+                    ? `<img src="${blobUrl}" alt="${encodeURIComponent(doc.name)}" />`
+                    : `<iframe src="${blobUrl}"></iframe>`
+                }
+              </body>
+            </html>
+          `);
+          newWin.document.close();
+          return;
         }
+
+        // If popup was blocked, fallback to downloading
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = `${doc.name}.${doc.fileType || "pdf"}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
         return;
       }
     } catch (e) {
-      console.error("Error creating blob URL:", e);
+      console.error("Error opening document preview:", e);
     }
 
     // Direct download fallback

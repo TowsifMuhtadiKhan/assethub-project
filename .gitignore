@@ -26,6 +26,9 @@ backend/prisma/*.db-journal
 *.log
 npm-debug.log*
 
-# WhatsApp Baileys Local Auth Sessions
+# WhatsApp Baileys Local Auth Sessions & Logs
 backend/whatsapp_auth/
 whatsapp_auth/
+backend/whatsapp_message_logs.json
+*.temp/
+.temp/

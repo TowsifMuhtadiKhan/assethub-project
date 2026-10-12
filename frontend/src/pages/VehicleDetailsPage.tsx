@@ -1,3 +1,5 @@
+import { sumMoney } from "../utils/assetReports";
+import { VehicleBrandLogo } from "../components/common/VehicleBrandLogo";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -193,7 +195,7 @@ export function VehicleDetailsPage() {
   const [docNotes, setDocNotes] = useState("");
 
   // Document modal reminder state (Upload)
-  const [docReminderWhatsapp, setDocReminderWhatsapp] = useState(true);
+  const [docReminderWhatsapp, setDocReminderWhatsapp] = useState(false);
   const [docReminderLead, setDocReminderLead] = useState("15 days before");
   const [docCustomLeadMinutes, setDocCustomLeadMinutes] = useState(15);
   const [docCustomLeadUnit, setDocCustomLeadUnit] = useState<"minutes" | "hours" | "days">("days");
@@ -225,6 +227,8 @@ export function VehicleDetailsPage() {
   const [isDeletingDoc, setIsDeletingDoc] = useState(false);
 
   // Auto-extracted vehicle specifications state
+  const [specExtractionError, setSpecExtractionError] = useState("");
+  const [specsConfirmed, setSpecsConfirmed] = useState(false);
   const [extractedSpecs, setExtractedSpecs] = useState<ExtractedVehicleSpecs | null>(null);
   const [isExtractingSpecs, setIsExtractingSpecs] = useState(false);
   const [isApplyingSpecs, setIsApplyingSpecs] = useState(false);
@@ -349,7 +353,7 @@ export function VehicleDetailsPage() {
     [expenses],
   );
   const totalFuelCost = useMemo(
-    () => fuelExpenses.reduce((sum, item) => sum + Number(item.amount), 0),
+    () => sumMoney(fuelExpenses.map(item => Number(item.amount))),
     [fuelExpenses],
   );
   const totalFuelLiters = useMemo(
@@ -357,10 +361,10 @@ export function VehicleDetailsPage() {
     [fuelExpenses],
   );
   const totalMaintenanceCost = useMemo(
-    () => services.reduce((sum, item) => sum + Number(item.cost), 0),
+    () => sumMoney(services.map(item => Number(item.cost))),
     [services],
   );
-  const totalCombinedExpense = totalFuelCost + totalMaintenanceCost;
+  const totalCombinedExpense = sumMoney([...expenses.map(item => Number(item.amount)), totalMaintenanceCost]);
 
   // Active Warranties & Claims Highlight stats
   const activeWarrantiesCount = useMemo(
@@ -488,6 +492,9 @@ export function VehicleDetailsPage() {
 
   const handleDocFileChange = async (file: File) => {
     setDocFile(file);
+    setExtractedSpecs(null);
+    setSpecExtractionError("");
+    setSpecsConfirmed(false);
     setIsExtractingSpecs(true);
     setSpecsAppliedSuccess(false);
     try {
@@ -495,11 +502,11 @@ export function VehicleDetailsPage() {
       setExtractedSpecs(extracted);
       setSpecEngineNo(extracted.engineNumber || vehicle?.engineNumber || "");
       setSpecChassisNo(extracted.chassisNumber || vehicle?.chassisNumber || "");
-      setSpecCC(extracted.cubicCapacity || vehicle?.cubicCapacity || "1496 cc");
-      setSpecFuel(extracted.fuelType || vehicle?.fuelType || "Octane");
-      setSpecSeats(extracted.seatingCapacity || vehicle?.seatingCapacity || "5 Seats");
-      setSpecYear(extracted.manufacturingYear ? String(extracted.manufacturingYear) : vehicle?.year ? String(vehicle.year) : "2010");
-      setSpecColor(extracted.color || vehicle?.color || "Black");
+      setSpecCC(extracted.cubicCapacity || vehicle?.cubicCapacity || "");
+      setSpecFuel(extracted.fuelType || vehicle?.fuelType || "");
+      setSpecSeats(extracted.seatingCapacity || vehicle?.seatingCapacity || "");
+      setSpecYear(extracted.manufacturingYear ? String(extracted.manufacturingYear) : vehicle?.year ? String(vehicle.year) : "");
+      setSpecColor(extracted.color || vehicle?.color || "");
       setSpecRegNo(extracted.registrationNumber || vehicle?.registrationNumber || "");
 
       if (!docNumber && extracted.documentNumber) {
@@ -509,7 +516,7 @@ export function VehicleDetailsPage() {
         setDocExpiryDate(extracted.expiryDate);
       }
     } catch (err) {
-      console.warn("Could not extract vehicle specs:", err);
+      setSpecExtractionError(err instanceof Error ? err.message : "Could not read vehicle details.");
     } finally {
       setIsExtractingSpecs(false);
     }
@@ -517,6 +524,9 @@ export function VehicleDetailsPage() {
 
   const handleEditDocFileChange = async (file: File) => {
     setEditDocFile(file);
+    setExtractedSpecs(null);
+    setSpecExtractionError("");
+    setSpecsConfirmed(false);
     setIsExtractingSpecs(true);
     setSpecsAppliedSuccess(false);
     try {
@@ -524,11 +534,11 @@ export function VehicleDetailsPage() {
       setExtractedSpecs(extracted);
       setSpecEngineNo(extracted.engineNumber || vehicle?.engineNumber || "");
       setSpecChassisNo(extracted.chassisNumber || vehicle?.chassisNumber || "");
-      setSpecCC(extracted.cubicCapacity || vehicle?.cubicCapacity || "1496 cc");
-      setSpecFuel(extracted.fuelType || vehicle?.fuelType || "Octane");
-      setSpecSeats(extracted.seatingCapacity || vehicle?.seatingCapacity || "5 Seats");
-      setSpecYear(extracted.manufacturingYear ? String(extracted.manufacturingYear) : vehicle?.year ? String(vehicle.year) : "2010");
-      setSpecColor(extracted.color || vehicle?.color || "Black");
+      setSpecCC(extracted.cubicCapacity || vehicle?.cubicCapacity || "");
+      setSpecFuel(extracted.fuelType || vehicle?.fuelType || "");
+      setSpecSeats(extracted.seatingCapacity || vehicle?.seatingCapacity || "");
+      setSpecYear(extracted.manufacturingYear ? String(extracted.manufacturingYear) : vehicle?.year ? String(vehicle.year) : "");
+      setSpecColor(extracted.color || vehicle?.color || "");
       setSpecRegNo(extracted.registrationNumber || vehicle?.registrationNumber || "");
 
       if (!editDocNumber && extracted.documentNumber) {
@@ -538,7 +548,7 @@ export function VehicleDetailsPage() {
         setEditDocExpiryDate(extracted.expiryDate);
       }
     } catch (err) {
-      console.warn("Could not extract vehicle specs:", err);
+      setSpecExtractionError(err instanceof Error ? err.message : "Could not read vehicle details.");
     } finally {
       setIsExtractingSpecs(false);
     }
@@ -546,6 +556,9 @@ export function VehicleDetailsPage() {
 
   const handleAutoExtractFromExistingDocs = async () => {
     if (!vehicle) return;
+    setExtractedSpecs(null);
+    setSpecExtractionError("");
+    setSpecsConfirmed(false);
     setIsExtractingSpecs(true);
     try {
       const bestDoc = documents.find(d => /smart|reg|blue|form/i.test(d.name + " " + (d.category || "")))
@@ -553,18 +566,12 @@ export function VehicleDetailsPage() {
         || documents.find(d => d.fileName || d.documentNumber)
         || documents[0];
 
-      const docName = bestDoc?.fileName || (bestDoc?.name ? `${bestDoc.name}.pdf` : `${vehicle.name} Smart Registration Card.pdf`);
-      const docContent = bestDoc
-        ? `${bestDoc.name} ${bestDoc.documentNumber || ""} ${bestDoc.category || ""} ${bestDoc.fileName || ""}`
-        : `${vehicle.name} ${vehicle.brand} ${vehicle.model} Smart Registration Card`;
-
-      const simulatedFile = new File(
-        [new Blob([docContent])],
-        docName,
-        { type: "application/pdf" }
-      );
-
-      const extracted = await extractVehicleSpecsFromDocument(simulatedFile, vehicle);
+      if (!bestDoc?.fileUrl) throw new Error("No readable document attached. Enter specifications manually.");
+      const response = await fetch(bestDoc.fileUrl);
+      if (!response.ok) throw new Error("Could not read the document. Download it and attach it again.");
+      const blob = await response.blob();
+      const documentFile = new File([blob], bestDoc.fileName || bestDoc.name, { type: blob.type });
+      const extracted = await extractVehicleSpecsFromDocument(documentFile, vehicle);
       setExtractedSpecs(extracted);
       if (extracted.engineNumber) setSpecEngineNo(extracted.engineNumber);
       if (extracted.chassisNumber) setSpecChassisNo(extracted.chassisNumber);
@@ -575,7 +582,7 @@ export function VehicleDetailsPage() {
       if (extracted.color) setSpecColor(extracted.color);
       if (extracted.registrationNumber) setSpecRegNo(extracted.registrationNumber);
     } catch (err) {
-      console.warn("Could not extract specs from existing documents:", err);
+      setSpecExtractionError(err instanceof Error ? err.message : "Could not read vehicle details.");
     } finally {
       setIsExtractingSpecs(false);
     }
@@ -586,15 +593,15 @@ export function VehicleDetailsPage() {
     setSpecsAppliedSuccess(false);
     setSpecEngineNo(vehicle.engineNumber || "");
     setSpecChassisNo(vehicle.chassisNumber || "");
-    setSpecCC(parsedVehicleSpecs.cubicCapacity || "1496 cc");
-    setSpecFuel(parsedVehicleSpecs.fuelType || "Octane");
-    setSpecSeats(parsedVehicleSpecs.seatingCapacity || "5 Seats");
-    setSpecYear(vehicle.year ? String(vehicle.year) : "2010");
-    setSpecColor(vehicle.color || "Black");
+    setSpecCC(parsedVehicleSpecs.cubicCapacity || "");
+    setSpecFuel(parsedVehicleSpecs.fuelType || "");
+    setSpecSeats(parsedVehicleSpecs.seatingCapacity || "");
+    setSpecYear(vehicle.year ? String(vehicle.year) : "");
+    setSpecColor(vehicle.color || "");
     setSpecRegNo(vehicle.registrationNumber || "");
     setEditSpecsModalOpen(true);
 
-    if (autoScan || (!vehicle.engineNumber && !vehicle.chassisNumber)) {
+    if (autoScan) {
       handleAutoExtractFromExistingDocs();
     }
   };
@@ -1057,7 +1064,7 @@ export function VehicleDetailsPage() {
       setDocCustomLeadMinutes(15);
       setDocCustomLeadUnit("days");
       // Auto-persist extracted specs to vehicle if available
-      if (vehicle && (specEngineNo || specChassisNo || specCC || specFuel)) {
+      if (vehicle && extractedSpecs && specsConfirmed && (specEngineNo || specChassisNo || specCC || specFuel)) {
         try {
           const specUpdates: Record<string, any> = {};
           if (specEngineNo && specEngineNo !== vehicle.engineNumber) specUpdates.engineNumber = specEngineNo.trim();
@@ -1085,6 +1092,7 @@ export function VehicleDetailsPage() {
   };
 
   const openEditDocModal = (doc: VehicleDocument) => {
+    setExtractedSpecs(null); setSpecExtractionError(""); setSpecsConfirmed(false);
     setEditingDoc(doc);
     setEditDocName(doc.name);
     setEditDocCategory((doc.category as BangladeshDocType) || "Tax Token");
@@ -1152,7 +1160,7 @@ export function VehicleDetailsPage() {
       localStorage.removeItem(`lifenest_vehdoc_dispatched_${editingDoc.id}`);
       setDocuments((cur) => cur.map((d) => (d.id === updated.id ? updated : d)));
       // Auto-persist extracted specs to vehicle if available
-      if (vehicle && (specEngineNo || specChassisNo || specCC || specFuel)) {
+      if (vehicle && extractedSpecs && specsConfirmed && (specEngineNo || specChassisNo || specCC || specFuel)) {
         try {
           const specUpdates: Record<string, any> = {};
           if (specEngineNo && specEngineNo !== vehicle.engineNumber) specUpdates.engineNumber = specEngineNo.trim();
@@ -1301,7 +1309,7 @@ export function VehicleDetailsPage() {
           </button>
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-800">
-              <VehicleIcon className="h-4 w-4" />
+              <VehicleBrandLogo brand={vehicle.brand} type={vehicle.type} />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -1332,6 +1340,7 @@ export function VehicleDetailsPage() {
             type="button"
             onClick={() => {
               setDocPresetSelected({ name: "", category: "Custom Document" });
+              setExtractedSpecs(null); setSpecExtractionError(""); setSpecsConfirmed(false);
               setDocModalOpen(true);
             }}
             className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50/80 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition cursor-pointer"
@@ -1424,7 +1433,7 @@ export function VehicleDetailsPage() {
             {formatMoney(totalCombinedExpense)}
           </div>
           <div className="text-[10px] text-slate-400 mt-0.5">
-            Fuel + Maintenance combined
+            All expenses + service costs
           </div>
         </div>
 
@@ -1821,7 +1830,7 @@ export function VehicleDetailsPage() {
                 </span>
                 <input
                   type="file"
-                  accept="image/*,.pdf"
+                  accept="image/*,.pdf,.txt"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
@@ -2145,7 +2154,8 @@ export function VehicleDetailsPage() {
                 type="button"
                 onClick={() => {
                   setDocPresetSelected({ name: "", category: "Custom Document" });
-                  setDocModalOpen(true);
+                  setExtractedSpecs(null); setSpecExtractionError(""); setSpecsConfirmed(false);
+              setDocModalOpen(true);
                 }}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-800 transition cursor-pointer"
               >
@@ -2170,7 +2180,8 @@ export function VehicleDetailsPage() {
                         name: preset.name,
                         category: preset.category,
                       });
-                      setDocModalOpen(true);
+                      setExtractedSpecs(null); setSpecExtractionError(""); setSpecsConfirmed(false);
+              setDocModalOpen(true);
                     }}
                     className={`rounded-xl border p-2.5 text-left transition cursor-pointer ${
                       existing
@@ -2527,7 +2538,7 @@ export function VehicleDetailsPage() {
                   title="Auto-extract specs from uploaded documents"
                 >
                   <Sparkles className="h-3.5 w-3.5" />
-                  <span>Auto-Extract from Doc</span>
+                  <span>Read document details</span>
                 </button>
                 <button
                   type="button"
@@ -2680,7 +2691,7 @@ export function VehicleDetailsPage() {
               <div className="flex items-center justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500">Engine Displacement</span>
                 <span className="font-mono font-semibold text-indigo-900 bg-indigo-50/80 px-2 py-0.5 rounded border border-indigo-100 text-xs">
-                  {parsedVehicleSpecs.cubicCapacity || "1496 cc"}
+                  {parsedVehicleSpecs.cubicCapacity || "Not recorded"}
                 </span>
               </div>
 
@@ -2688,7 +2699,7 @@ export function VehicleDetailsPage() {
               <div className="flex items-center justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500">Primary Fuel Type</span>
                 <span className="font-semibold text-slate-900">
-                  {parsedVehicleSpecs.fuelType || "Octane"}
+                  {parsedVehicleSpecs.fuelType || "Not recorded"}
                 </span>
               </div>
 
@@ -2696,7 +2707,7 @@ export function VehicleDetailsPage() {
               <div className="flex items-center justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500">Seating Capacity</span>
                 <span className="font-semibold text-slate-900">
-                  {parsedVehicleSpecs.seatingCapacity || "5 Seats"}
+                  {parsedVehicleSpecs.seatingCapacity || "Not recorded"}
                 </span>
               </div>
 
@@ -2736,6 +2747,7 @@ export function VehicleDetailsPage() {
                   {formatMoney(totalMaintenanceCost)}
                 </span>
               </div>
+              <div className="flex items-center justify-between py-1 border-b border-slate-50"><span className="text-slate-500">Other recorded expenses</span><span className="font-mono font-bold">{formatMoney(sumMoney(expenses.filter(item => item.category !== "Fuel").map(item => Number(item.amount))))}</span></div>
               <div className="flex items-center justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500 font-bold">Total Vehicle Operational Cost</span>
                 <span className="font-mono font-bold text-indigo-700 text-sm">
@@ -2770,17 +2782,9 @@ export function VehicleDetailsPage() {
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                    Upload Document
-                  </span>
-                  <span className="text-xs text-slate-400 font-mono">LN-BRTA</span>
-                </div>
-                <h2 className="text-base font-bold tracking-tight text-slate-900 mt-0.5">
-                  {docPresetSelected.name || "Upload Vehicle Document"}
-                </h2>
-              </div>
+              <h2 className="text-base font-bold tracking-tight text-slate-900">
+                {docPresetSelected.name || "Upload Vehicle Document"}
+              </h2>
               <button
                 type="button"
                 onClick={() => setDocModalOpen(false)}
@@ -2878,10 +2882,10 @@ export function VehicleDetailsPage() {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-semibold text-slate-700">
-                    Upload Document File (PDF or Image)
+                    Upload Document File (PDF, Image or Text)
                   </label>
                   <span className="text-[10px] text-indigo-600 font-semibold flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" /> Auto-extracts Engine No & Specs
+                    <Sparkles className="h-3 w-3" /> Text extraction; images/PDFs require manual entry
                   </span>
                 </div>
                 <label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-3.5 hover:bg-slate-100 transition">
@@ -2891,7 +2895,7 @@ export function VehicleDetailsPage() {
                   </span>
                   <input
                     type="file"
-                    accept="image/*,.pdf"
+                    accept="image/*,.pdf,.txt"
                     className="hidden"
                     onChange={(e) => {
                       if (e.target.files?.[0]) handleDocFileChange(e.target.files[0]);
@@ -2908,14 +2912,16 @@ export function VehicleDetailsPage() {
                 </div>
               )}
 
+              {extractedSpecs && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={specsConfirmed} onChange={e => setSpecsConfirmed(e.target.checked)} />I checked these specifications against this vehicle's document. Apply them when saving.</label>}
               {/* Extracted Specifications Review & Confirmation Card */}
+              {specExtractionError && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">{specExtractionError}</p>}
               {extractedSpecs && !isExtractingSpecs && (
                 <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/40 p-3.5 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-indigo-600" />
                       <h4 className="text-xs font-bold text-indigo-950">
-                        Auto-Extracted Vehicle Specifications
+                        Document suggestions - verify before applying
                       </h4>
                     </div>
                     <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-full border border-indigo-200">
@@ -2936,7 +2942,7 @@ export function VehicleDetailsPage() {
                         type="text"
                         value={specEngineNo}
                         onChange={(e) => setSpecEngineNo(e.target.value)}
-                        placeholder="e.g. 1NZ-FE-3891024"
+                        placeholder="Engine number from your document"
                         className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-600"
                       />
                     </div>
@@ -2949,7 +2955,7 @@ export function VehicleDetailsPage() {
                         type="text"
                         value={specChassisNo}
                         onChange={(e) => setSpecChassisNo(e.target.value)}
-                        placeholder="e.g. NZT260-3049182"
+                        placeholder="Chassis number from your document"
                         className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-600"
                       />
                     </div>
@@ -2962,7 +2968,7 @@ export function VehicleDetailsPage() {
                         type="text"
                         value={specCC}
                         onChange={(e) => setSpecCC(e.target.value)}
-                        placeholder="e.g. 1496 cc"
+                        placeholder={/bike|motorcycle|scooter/i.test(vehicle.type) ? "Enter documented cc" : "Enter documented engine capacity"}
                         className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-indigo-600"
                       />
                     </div>
@@ -3177,18 +3183,10 @@ export function VehicleDetailsPage() {
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                    Warranty Claim
-                  </span>
-                  <span className="text-xs text-slate-400 font-mono">LN-WARRANTY</span>
-                </div>
-                <h2 className="text-base font-bold tracking-tight text-slate-900 mt-0.5 flex items-center gap-1.5">
-                  <ShieldCheck className="h-4 w-4 text-amber-600" />
-                  Add Component Warranty / Claim
-                </h2>
-              </div>
+              <h2 className="text-base font-bold tracking-tight text-slate-900 flex items-center gap-1.5">
+                <ShieldCheck className="h-4 w-4 text-amber-600" />
+                Add Component Warranty / Claim
+              </h2>
               <button
                 type="button"
                 onClick={() => setWarrantyModalOpen(false)}
@@ -3284,7 +3282,7 @@ export function VehicleDetailsPage() {
                   </span>
                   <input
                     type="file"
-                    accept="image/*,.pdf"
+                    accept="image/*,.pdf,.txt"
                     className="hidden"
                     onChange={(e) => {
                       if (e.target.files?.[0]) setWarrantyFile(e.target.files[0]);
@@ -3340,12 +3338,6 @@ export function VehicleDetailsPage() {
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
               <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                    Edit Document
-                  </span>
-                  <span className="text-xs text-slate-400 font-mono">LN-BRTA</span>
-                </div>
                 <h2 className="text-base font-bold tracking-tight text-slate-900">
                   {editingDoc.name}
                 </h2>
@@ -3461,7 +3453,7 @@ export function VehicleDetailsPage() {
                     Replace Document File / Re-Scan Specs <span className="text-slate-400 font-normal">(Optional)</span>
                   </label>
                   <span className="text-[10px] text-indigo-600 font-semibold flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" /> Auto-extracts Engine No & Specs
+                    <Sparkles className="h-3 w-3" /> Text extraction; images/PDFs require manual entry
                   </span>
                 </div>
                 <label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-3.5 hover:bg-slate-100 transition">
@@ -3471,7 +3463,7 @@ export function VehicleDetailsPage() {
                   </span>
                   <input
                     type="file"
-                    accept="image/*,.pdf"
+                    accept="image/*,.pdf,.txt"
                     className="hidden"
                     onChange={(e) => {
                       if (e.target.files?.[0]) handleEditDocFileChange(e.target.files[0]);
@@ -3488,14 +3480,16 @@ export function VehicleDetailsPage() {
                 </div>
               )}
 
+              {extractedSpecs && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={specsConfirmed} onChange={e => setSpecsConfirmed(e.target.checked)} />I checked these specifications against this vehicle's document. Apply them when saving.</label>}
               {/* Extracted Specifications Review & Confirmation Card */}
+              {specExtractionError && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">{specExtractionError}</p>}
               {extractedSpecs && !isExtractingSpecs && (
                 <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/40 p-3.5 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-indigo-600" />
                       <h4 className="text-xs font-bold text-indigo-950">
-                        Auto-Extracted Vehicle Specifications
+                        Document suggestions - verify before applying
                       </h4>
                     </div>
                     <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-full border border-indigo-200">
@@ -3516,7 +3510,7 @@ export function VehicleDetailsPage() {
                         type="text"
                         value={specEngineNo}
                         onChange={(e) => setSpecEngineNo(e.target.value)}
-                        placeholder="e.g. 1NZ-FE-3891024"
+                        placeholder="Engine number from your document"
                         className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-600"
                       />
                     </div>
@@ -3529,7 +3523,7 @@ export function VehicleDetailsPage() {
                         type="text"
                         value={specChassisNo}
                         onChange={(e) => setSpecChassisNo(e.target.value)}
-                        placeholder="e.g. NZT260-3049182"
+                        placeholder="Chassis number from your document"
                         className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-600"
                       />
                     </div>
@@ -3542,7 +3536,7 @@ export function VehicleDetailsPage() {
                         type="text"
                         value={specCC}
                         onChange={(e) => setSpecCC(e.target.value)}
-                        placeholder="e.g. 1496 cc"
+                        placeholder={/bike|motorcycle|scooter/i.test(vehicle.type) ? "Enter documented cc" : "Enter documented engine capacity"}
                         className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-indigo-600"
                       />
                     </div>
@@ -3827,17 +3821,9 @@ export function VehicleDetailsPage() {
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                    Fuel Entry
-                  </span>
-                  <span className="text-xs text-slate-400 font-mono">LN-FUEL</span>
-                </div>
-                <h2 className="text-base font-bold tracking-tight text-slate-900">
-                  Edit Fuel Purchase
-                </h2>
-              </div>
+              <h2 className="text-base font-bold tracking-tight text-slate-900">
+                Edit Fuel Purchase
+              </h2>
               <button
                 type="button"
                 onClick={() => setEditingFuel(null)}
@@ -4097,17 +4083,9 @@ export function VehicleDetailsPage() {
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                    Maintenance Record
-                  </span>
-                  <span className="text-xs text-slate-400 font-mono">LN-SERVICE</span>
-                </div>
-                <h2 className="text-base font-bold tracking-tight text-slate-900">
-                  Edit Maintenance Entry
-                </h2>
-              </div>
+              <h2 className="text-base font-bold tracking-tight text-slate-900">
+                Edit Maintenance Entry
+              </h2>
               <button
                 type="button"
                 onClick={() => setEditingService(null)}
@@ -4353,6 +4331,7 @@ export function VehicleDetailsPage() {
 
             {/* Modal Body */}
             <div className="p-6 space-y-4">
+              {specExtractionError && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">{specExtractionError}</p>}
               {/* Auto-Extract Banner */}
               <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/60 p-3.5 flex items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -4362,8 +4341,8 @@ export function VehicleDetailsPage() {
                   </div>
                   <p className="text-[11px] text-indigo-800/80 mt-0.5 leading-relaxed">
                     {documents.length > 0
-                      ? `Scans your ${documents.length} uploaded vehicle document(s) (Smart Card, Tax Token, Fitness) to extract Engine & Chassis numbers.`
-                      : "No documents uploaded yet. You can type details manually or use model presets below."}
+                      ? "Reads attached plain-text documents. Images and PDFs require manual entry."
+                      : "No documents uploaded yet. Enter details from your vehicle document."}
                   </p>
                 </div>
                 <button
@@ -4385,31 +4364,14 @@ export function VehicleDetailsPage() {
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-700">
                       Engine Number
                     </label>
-                    <span className="text-[10px] text-slate-400 font-mono">1NZ-FE</span>
                   </div>
                   <input
                     type="text"
                     value={specEngineNo}
                     onChange={(e) => setSpecEngineNo(e.target.value)}
-                    placeholder="e.g. 1NZ-FE-3891024"
+                    placeholder="Engine number from your document"
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-600"
                   />
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    <button
-                      type="button"
-                      onClick={() => setSpecEngineNo("1NZ-FE-3891024")}
-                      className="text-[10px] font-mono text-slate-500 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 px-1.5 py-0.5 rounded cursor-pointer transition"
-                    >
-                      + 1NZ-FE (1.5L)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSpecEngineNo("2ZR-FAE-1092841")}
-                      className="text-[10px] font-mono text-slate-500 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 px-1.5 py-0.5 rounded cursor-pointer transition"
-                    >
-                      + 2ZR-FAE (1.8L)
-                    </button>
-                  </div>
                 </div>
 
                 {/* Chassis / VIN Number */}
@@ -4418,31 +4380,14 @@ export function VehicleDetailsPage() {
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-700">
                       Chassis / VIN Number
                     </label>
-                    <span className="text-[10px] text-slate-400 font-mono">NZT260</span>
                   </div>
                   <input
                     type="text"
                     value={specChassisNo}
                     onChange={(e) => setSpecChassisNo(e.target.value)}
-                    placeholder="e.g. NZT260-3049182"
+                    placeholder="Chassis number from your document"
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-600"
                   />
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    <button
-                      type="button"
-                      onClick={() => setSpecChassisNo("NZT260-3049182")}
-                      className="text-[10px] font-mono text-slate-500 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 px-1.5 py-0.5 rounded cursor-pointer transition"
-                    >
-                      + NZT260
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSpecChassisNo("ZRT260-2019481")}
-                      className="text-[10px] font-mono text-slate-500 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 px-1.5 py-0.5 rounded cursor-pointer transition"
-                    >
-                      + ZRT260
-                    </button>
-                  </div>
                 </div>
 
                 {/* Registration Number */}
@@ -4468,7 +4413,7 @@ export function VehicleDetailsPage() {
                     type="text"
                     value={specCC}
                     onChange={(e) => setSpecCC(e.target.value)}
-                    placeholder="e.g. 1496 cc"
+                    placeholder={/bike|motorcycle|scooter/i.test(vehicle.type) ? "Enter documented cc" : "Enter documented engine capacity"}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-slate-900 outline-none focus:border-indigo-600"
                   />
                 </div>
@@ -4533,7 +4478,7 @@ export function VehicleDetailsPage() {
                     type="text"
                     value={specSeats}
                     onChange={(e) => setSpecSeats(e.target.value)}
-                    placeholder="e.g. 5 Seats"
+                    placeholder="Enter documented seat count"
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 outline-none focus:border-indigo-600"
                   />
                 </div>

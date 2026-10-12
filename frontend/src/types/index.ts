@@ -482,7 +482,9 @@ export type TaskItem = {
   reminderDate?: string;
   notes?: string;
   completedAt?: string;
+  cancelledAt?: string;
   createdAt?: string;
+  updatedAt?: string;
 };
 
 // 8. Notifications

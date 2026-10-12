@@ -38,7 +38,9 @@ export async function listTasks(): Promise<TaskItem[]> {
     reminderDate: row.reminder_date ?? undefined,
     notes: row.notes ?? "",
     completedAt: row.completed_at ?? undefined,
+    cancelledAt: row.status === "Cancelled" ? (row.completed_at || row.updated_at || row.created_at) : undefined,
     createdAt: row.created_at,
+    updatedAt: row.updated_at ?? undefined,
   }));
 }
 
@@ -112,12 +114,41 @@ export async function updateTaskStatus(
   id: string,
   status: TaskItem["status"],
 ): Promise<void> {
+  const now = new Date().toISOString();
   const patch: Record<string, unknown> = {
     status,
-    completed_at: status === "Completed" ? new Date().toISOString() : null,
+    completed_at: status === "Completed" || status === "Cancelled" ? now : null,
+    updated_at: now,
   };
   const { error } = await supabase.from(TABLE).update(patch).eq("id", id);
   if (error) throw error;
+}
+
+export async function cleanExpiredCancelledTasks(tasks: TaskItem[]): Promise<string[]> {
+  const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const deletedIds: string[] = [];
+
+  for (const t of tasks) {
+    if (t.status === "Cancelled") {
+      const refTime = t.cancelledAt
+        ? new Date(t.cancelledAt).getTime()
+        : t.updatedAt
+        ? new Date(t.updatedAt).getTime()
+        : t.createdAt
+        ? new Date(t.createdAt).getTime()
+        : 0;
+      if (refTime > 0 && now - refTime >= THREE_DAYS_MS) {
+        try {
+          await deleteTask(t.id);
+          deletedIds.push(t.id);
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+  return deletedIds;
 }
 
 export async function updateTask(

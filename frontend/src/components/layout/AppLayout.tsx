@@ -1,5 +1,4 @@
 import {
-  Bell,
   CircleUserRound,
   Menu,
   Plus,
@@ -14,11 +13,12 @@ import {
   ChevronDown,
   LogOut,
   Settings,
-  Cloud,
+  Smartphone,
 } from "lucide-react";
 import { useNavigate, Outlet } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Sidebar } from "../common/Sidebar";
+import { PwaInstallPrompt } from "../common/PwaInstallPrompt";
 import { clearToken, getUserEmail } from "../../services/api";
 import { getUserSettings } from "../../services/settingsService";
 
@@ -242,17 +242,6 @@ export function AppLayout() {
                 )}
               </div>
 
-              {/* Notification Bell */}
-              <button
-                type="button"
-                onClick={() => navigate("/settings?tab=notifications")}
-                className="relative rounded-xl border border-slate-200/80 bg-white p-2 text-slate-600 hover:bg-slate-50 transition cursor-pointer shadow-2xs"
-                title="Notifications & Settings"
-              >
-                <Bell className="h-4 w-4" />
-                <span className="absolute top-1.5 right-1.5 flex h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white" />
-              </button>
-
               {/* Professional User Profile */}
               <div className="relative">
                 <button
@@ -317,6 +306,17 @@ export function AppLayout() {
                           type="button"
                           onClick={() => {
                             setProfileOpen(false);
+                            navigate("/settings");
+                          }}
+                          className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-100 hover:text-slate-950 transition text-left cursor-pointer bg-slate-50/50"
+                        >
+                          <Settings className="h-4 w-4 text-slate-600" />
+                          <span>Settings</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProfileOpen(false);
                             navigate("/settings?tab=profile");
                           }}
                           className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
@@ -328,45 +328,12 @@ export function AppLayout() {
                           type="button"
                           onClick={() => {
                             setProfileOpen(false);
-                            navigate("/family/profiles");
+                            window.dispatchEvent(new CustomEvent("lifenest:open-install-prompt"));
                           }}
                           className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
                         >
-                          <Users className="h-4 w-4 text-slate-400" />
-                          <span>Family Access Directory</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProfileOpen(false);
-                            navigate("/settings?tab=notifications");
-                          }}
-                          className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
-                        >
-                          <Bell className="h-4 w-4 text-slate-400" />
-                          <span>WhatsApp & Alerts</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProfileOpen(false);
-                            navigate("/settings?tab=storage");
-                          }}
-                          className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
-                        >
-                          <Cloud className="h-4 w-4 text-slate-400" />
-                          <span>Google Drive Storage</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProfileOpen(false);
-                            navigate("/settings");
-                          }}
-                          className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
-                        >
-                          <Settings className="h-4 w-4 text-slate-400" />
-                          <span>Workspace Settings</span>
+                          <Smartphone className="h-4 w-4 text-slate-400" />
+                          <span>Install App (Home Screen)</span>
                         </button>
                       </div>
 
@@ -397,6 +364,9 @@ export function AppLayout() {
           </main>
         </div>
       </div>
+
+      {/* PWA Add to Home Screen Banner & iOS Guide */}
+      <PwaInstallPrompt />
     </div>
   );
 }

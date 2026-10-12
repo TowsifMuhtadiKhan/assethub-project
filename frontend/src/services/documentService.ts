@@ -319,3 +319,53 @@ export async function deleteDocumentFolder(idOrName: string): Promise<void> {
     ),
   );
 }
+
+export async function updateDocumentFolder(
+  id: string,
+  input: {
+    name?: string;
+    color?: string;
+    parentId?: string;
+    oldName?: string;
+  },
+): Promise<void> {
+  const current = getLocalFolders();
+  const folder = current.find(
+    (f) => f.id === id || (input.oldName && f.name.toLowerCase() === input.oldName.toLowerCase()),
+  );
+  if (folder) {
+    if (input.name !== undefined) folder.name = input.name;
+    if (input.color !== undefined) folder.color = input.color;
+    if (input.parentId !== undefined) folder.parentId = input.parentId;
+    saveLocalFolders(current);
+  }
+
+  if (input.name && input.oldName && input.name !== input.oldName) {
+    const parentMap = getFolderParentsMap();
+    if (parentMap[input.oldName.toLowerCase()]) {
+      parentMap[input.name.toLowerCase()] = parentMap[input.oldName.toLowerCase()];
+      delete parentMap[input.oldName.toLowerCase()];
+      try {
+        localStorage.setItem(HIERARCHY_MAP_KEY, JSON.stringify(parentMap));
+      } catch {}
+    }
+  }
+
+  try {
+    const patch: Record<string, unknown> = {};
+    if (input.name !== undefined) patch.name = input.name;
+    if (input.color !== undefined) patch.color = input.color;
+    if (input.parentId !== undefined) patch.parent_id = input.parentId || null;
+
+    await supabase.from(FOLDERS_TABLE).update(patch).eq("id", id);
+  } catch {}
+
+  if (input.name && input.oldName && input.name !== input.oldName) {
+    try {
+      await supabase
+        .from(TABLE)
+        .update({ folder_name: input.name })
+        .eq("folder_name", input.oldName);
+    } catch {}
+  }
+}

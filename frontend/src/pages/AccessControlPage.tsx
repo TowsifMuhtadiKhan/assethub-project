@@ -54,7 +54,11 @@ const RELATIONSHIPS: RelationshipType[] = [
   "Other",
 ];
 
-export function AccessControlPage() {
+interface AccessControlPageProps {
+  embedMode?: boolean;
+}
+
+export function AccessControlPage({ embedMode = false }: AccessControlPageProps = {}) {
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -621,49 +625,45 @@ export function AccessControlPage() {
       )}
 
       {/* Page Header (Light Theme) */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/90 pb-5">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <span className="text-[11px] font-bold tracking-wider uppercase text-orange-700 bg-orange-50 px-2.5 py-0.5 rounded-md border border-orange-200/80">
-              Workspace • Security
-            </span>
-            <span className="text-xs text-slate-400 font-mono">ROLE & MODULE PERMISSIONS</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 mt-1">
-            Access Control & Module Permissions
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Add members, control access to vehicles, properties, document vault, warranties, and daily schedule
-          </p>
-        </div>
-
-        {/* Action Button & Metric Stats */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs text-center">
-              <div className="text-[10px] uppercase font-bold text-slate-400">Members</div>
-              <div className="text-sm font-extrabold text-slate-900">{members.length}</div>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs text-center">
-              <div className="text-[10px] uppercase font-bold text-slate-400">Vehicles</div>
-              <div className="text-sm font-extrabold text-orange-600">{vehicles.length}</div>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs text-center">
-              <div className="text-[10px] uppercase font-bold text-slate-400">Properties</div>
-              <div className="text-sm font-extrabold text-indigo-600">{properties.length}</div>
-            </div>
+      {!embedMode && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/90 pb-5">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+              Access Control & Permissions
+            </h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Control access to vehicles, properties, document vault, warranties, and daily schedule.
+            </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsAddMemberOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Family Member</span>
-          </button>
+          {/* Action Button & Metric Stats */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs text-center">
+                <div className="text-[10px] uppercase font-bold text-slate-400">Members</div>
+                <div className="text-sm font-extrabold text-slate-900">{members.length}</div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs text-center">
+                <div className="text-[10px] uppercase font-bold text-slate-400">Vehicles</div>
+                <div className="text-sm font-extrabold text-orange-600">{vehicles.length}</div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs text-center">
+                <div className="text-[10px] uppercase font-bold text-slate-400">Properties</div>
+                <div className="text-sm font-extrabold text-indigo-600">{properties.length}</div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsAddMemberOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Family Member</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Tabs & Search Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
+import { AccessControlPage } from "./AccessControlPage";
 import {
   Users,
   Plus,
@@ -14,10 +15,8 @@ import {
   Share2,
   Copy,
   Check,
-  ExternalLink,
   X,
   KeyRound,
-  Database,
 } from "lucide-react";
 import {
   listFamilyMembers,
@@ -38,7 +37,26 @@ const RELATIONSHIPS: RelationshipType[] = [
   "Other",
 ];
 
-export function FamilyPage() {
+export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState<"profiles" | "permissions">(() => {
+    if (embedMode) return "profiles";
+    return tabParam === "permissions" ? "permissions" : "profiles";
+  });
+
+  useEffect(() => {
+    if (embedMode) return;
+    if (tabParam === "permissions") setActiveTab("permissions");
+    else if (tabParam === "profiles") setActiveTab("profiles");
+  }, [tabParam, embedMode]);
+
+  const switchTab = (tab: "profiles" | "permissions") => {
+    if (embedMode) return;
+    setActiveTab(tab);
+    setSearchParams({ tab });
+  };
+
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,11 +89,9 @@ export function FamilyPage() {
   const [canAccessProperties, setCanAccessProperties] = useState(false);
   const [canAccessWarranties, setCanAccessWarranties] = useState(true);
 
-  // Invite & Sharing modal states
+  // Invite modal states
   const [inviteMember, setInviteMember] = useState<FamilyMember | null>(null);
   const [copiedInvite, setCopiedInvite] = useState(false);
-  const [showRlsHelper, setShowRlsHelper] = useState(false);
-  const [copiedRls, setCopiedRls] = useState(false);
 
   const getInviteText = (m: FamilyMember) => {
     const roleName = (m.access?.loginRole || "Vehicle_Manager").replace("_", " ");
@@ -246,40 +262,96 @@ export function FamilyPage() {
 
   return (
     <div className="space-y-4 w-full">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3.5">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold tracking-wider uppercase text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
-              Workspace • Family
-            </span>
-            <span className="text-xs text-slate-400 font-mono">ACCESS CONTROL</span>
-          </div>
-          <h1 className="text-xl font-extrabold tracking-tight text-slate-900 mt-1">
-            Family Profiles & Member Permissions
-          </h1>
-          <p className="text-xs text-slate-500">
-            Add multiple family members, grant restricted logins, and assign specific vehicle management (e.g. brother maintaining a specific car).
-          </p>
-        </div>
+      {!embedMode ? (
+        <>
+          {/* Header */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3.5">
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">
+                Family & Access
+              </h1>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Manage family directory profiles, logins, and access permissions.
+              </p>
+            </div>
 
-        <div className="flex items-center gap-2">
-          <Link
-            to="/workspace/access-control"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition cursor-pointer"
-          >
-            <KeyRound className="h-3.5 w-3.5 text-orange-500" />
-            <span>Access Control Matrix</span>
-          </Link>
+            <div className="flex items-center gap-2">
+              {activeTab === "profiles" && (
+                <button
+                  type="button"
+                  onClick={openAddModal}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Add Family Member</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Primary Tab Navigation */}
+          <div className="border-b border-slate-200/80">
+            <div className="flex gap-4 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => switchTab("profiles")}
+                className={`inline-flex items-center gap-2 pb-2.5 pt-1 border-b-2 transition cursor-pointer ${
+                  activeTab === "profiles"
+                    ? "border-rose-600 text-rose-700 font-bold"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Users className="h-4 w-4" />
+                <span>Family Profiles</span>
+                <span className="rounded-full bg-slate-100 px-1.5 py-0.2 text-[10px] font-mono text-slate-600 border border-slate-200">
+                  {members.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => switchTab("permissions")}
+                className={`inline-flex items-center gap-2 pb-2.5 pt-1 border-b-2 transition cursor-pointer ${
+                  activeTab === "permissions"
+                    ? "border-orange-600 text-orange-700 font-bold"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <KeyRound className="h-4 w-4" />
+                <span>Access Control & Permissions</span>
+              </button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900">Family Members & Profiles</h2>
+            <p className="text-xs text-slate-500">
+              Manage family directory profiles, contact details, and vehicle access.
+            </p>
+          </div>
           <button
             type="button"
             onClick={openAddModal}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer self-start sm:self-auto"
           >
-            <Plus className="h-3.5 w-3.5" /> Add Family Member
+            <Plus className="h-3.5 w-3.5" />
+            <span>Add Family Member</span>
           </button>
         </div>
-      </div>
+      )}
+
+      {/* Permissions Tab Content (Embedded Seamlessly) */}
+      {activeTab === "permissions" && (
+        <div className="pt-1">
+          <AccessControlPage embedMode />
+        </div>
+      )}
+
+      {/* Profiles Tab Content */}
+      {activeTab === "profiles" && (
+        <div className="space-y-4">
 
       {error && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
@@ -287,35 +359,6 @@ export function FamilyPage() {
         </div>
       )}
 
-      {/* Shared Family Fleet Access Setup Alert */}
-      <div className="rounded-xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50/90 via-sky-50/60 to-indigo-50/90 p-3.5 text-xs text-indigo-950 shadow-2xs">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-          <div className="flex items-start gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-700 shrink-0 mt-0.5">
-              <Shield className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="font-bold flex items-center gap-1.5">
-                <span>Multi-User Family Sharing & Database Access</span>
-                <span className="rounded-full bg-indigo-200/80 px-2 py-0.2 text-[10px] font-semibold text-indigo-900">
-                  Shared Fleet
-                </span>
-              </div>
-              <p className="mt-0.5 text-[11px] text-indigo-800/80 leading-relaxed">
-                When invited family members sign in, Supabase Row-Level Security (RLS) requires the family access policy so they can see your shared vehicles and records.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowRlsHelper(true)}
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-indigo-300/80 bg-white hover:bg-indigo-50/80 px-3 py-1.5 text-xs font-semibold text-indigo-900 shadow-2xs transition cursor-pointer"
-          >
-            <Database className="h-3.5 w-3.5 text-indigo-600" />
-            <span>Enable Database Sharing</span>
-          </button>
-        </div>
-      </div>
 
       {/* Family Directory Grid */}
       {loading ? (
@@ -502,6 +545,8 @@ export function FamilyPage() {
           })}
         </div>
       )}
+    </div>
+  )}
 
       {/* ========================================================================= */}
       {/* MODAL: ADD / EDIT FAMILY MEMBER WITH SPECIFIC VEHICLE ACCESS             */}
@@ -517,17 +562,9 @@ export function FamilyPage() {
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                    Member Access
-                  </span>
-                  <span className="text-xs text-slate-400 font-mono">LN-FAMILY</span>
-                </div>
-                <h2 className="text-base font-bold tracking-tight text-slate-900 mt-0.5">
-                  {editingMember ? `Edit ${editingMember.fullName}` : "Add Family Member & Access"}
-                </h2>
-              </div>
+              <h2 className="text-base font-bold tracking-tight text-slate-900">
+                {editingMember ? `Edit ${editingMember.fullName}` : "Add Family Member"}
+              </h2>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
@@ -827,17 +864,9 @@ export function FamilyPage() {
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                    Login Access
-                  </span>
-                  <span className="text-xs text-slate-400 font-mono">LN-INVITE</span>
-                </div>
-                <h2 className="text-base font-bold tracking-tight text-slate-900">
-                  Send Login Invite to {inviteMember.fullName}
-                </h2>
-              </div>
+              <h2 className="text-base font-bold tracking-tight text-slate-900">
+                Send Login Invite to {inviteMember.fullName}
+              </h2>
               <button
                 type="button"
                 onClick={() => setInviteMember(null)}
@@ -940,170 +969,7 @@ export function FamilyPage() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* MODAL: DATABASE MULTI-USER ACCESS & RLS HELPER                            */}
-      {/* ========================================================================= */}
-      {showRlsHelper && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-xs overflow-y-auto"
-          onMouseDown={() => setShowRlsHelper(false)}
-        >
-          <div
-            className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden my-8"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200">
-                  <Database className="h-4 w-4" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold tracking-tight text-slate-900">
-                    Enable Database Sharing for Family Members
-                  </h2>
-                  <p className="text-xs text-slate-500">1-Minute Supabase SQL Setup</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowRlsHelper(false)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
 
-            {/* Modal Body */}
-            <div className="p-6 space-y-3.5 text-xs">
-              <p className="text-slate-600 leading-relaxed">
-                By default, Supabase isolates every user so they only see rows they created (<code>auth.uid() = owner_id</code>). To allow invited family members (like <strong>Etisha Habib</strong>) to view your vehicles and records when they log in with their own account, run this SQL script in your Supabase SQL Editor.
-              </p>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
-                <div className="font-bold text-slate-800">Quick 2-Step Instructions:</div>
-                <ol className="list-decimal list-inside space-y-1 text-slate-600 pl-1">
-                  <li>
-                    Open your Supabase SQL Editor:{" "}
-                    <a
-                      href="https://supabase.com/dashboard/project/rbrseemfyiqcdezxhssx/sql"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-indigo-600 underline font-semibold inline-flex items-center gap-0.5"
-                    >
-                      <span>Supabase SQL Dashboard</span>
-                      <ExternalLink className="h-2.5 w-2.5" />
-                    </a>
-                  </li>
-                  <li>Click <strong>New Query</strong>, paste the script below, and click <strong>Run</strong>.</li>
-                </ol>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    SQL Script (family_access_rls.sql)
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(`create or replace function public.get_accessible_owner_ids()
-returns setof uuid
-language sql
-security definer
-stable
-as $$
-  select auth.uid()
-  union
-  select owner_id
-  from public.lifenest_family_members
-  where lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-     or (phone <> '' and phone = coalesce(auth.jwt() ->> 'phone', ''));
-$$;
-
-grant execute on function public.get_accessible_owner_ids() to authenticated;
-
-drop policy if exists "lifenest_vehicles_policy" on public.lifenest_vehicles;
-create policy "lifenest_vehicles_policy"
-  on public.lifenest_vehicles for all
-  to authenticated
-  using (owner_id in (select public.get_accessible_owner_ids()))
-  with check (owner_id in (select public.get_accessible_owner_ids()));
-
-drop policy if exists "lifenest_vehicle_expenses_policy" on public.lifenest_vehicle_expenses;
-create policy "lifenest_vehicle_expenses_policy"
-  on public.lifenest_vehicle_expenses for all
-  to authenticated
-  using (owner_id in (select public.get_accessible_owner_ids()))
-  with check (owner_id in (select public.get_accessible_owner_ids()));
-
-drop policy if exists "lifenest_vehicle_services_policy" on public.lifenest_vehicle_services;
-create policy "lifenest_vehicle_services_policy"
-  on public.lifenest_vehicle_services for all
-  to authenticated
-  using (owner_id in (select public.get_accessible_owner_ids()))
-  with check (owner_id in (select public.get_accessible_owner_ids()));
-
-drop policy if exists "lifenest_family_members_policy" on public.lifenest_family_members;
-create policy "lifenest_family_members_policy"
-  on public.lifenest_family_members for all
-  to authenticated
-  using (owner_id in (select public.get_accessible_owner_ids()))
-  with check (owner_id in (select public.get_accessible_owner_ids()));
-
-drop policy if exists "lifenest_documents_policy" on public.lifenest_documents;
-create policy "lifenest_documents_policy"
-  on public.lifenest_documents for all
-  to authenticated
-  using (owner_id in (select public.get_accessible_owner_ids()))
-  with check (owner_id in (select public.get_accessible_owner_ids()));
-
-drop policy if exists "lifenest_tasks_policy" on public.lifenest_tasks;
-create policy "lifenest_tasks_policy"
-  on public.lifenest_tasks for all
-  to authenticated
-  using (owner_id in (select public.get_accessible_owner_ids()))
-  with check (owner_id in (select public.get_accessible_owner_ids()));`);
-                      setCopiedRls(true);
-                      setTimeout(() => setCopiedRls(false), 2000);
-                    }}
-                    className="inline-flex items-center gap-1 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2 py-0.5 text-xs font-semibold cursor-pointer transition"
-                  >
-                    {copiedRls ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
-                    <span>{copiedRls ? "Copied!" : "Copy SQL Script"}</span>
-                  </button>
-                </div>
-                <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-slate-900 p-3 font-mono text-[11px] text-slate-200">
-                  <pre className="whitespace-pre-wrap">{`create or replace function public.get_accessible_owner_ids()
-returns setof uuid language sql security definer stable as $$
-  select auth.uid() union
-  select owner_id from public.lifenest_family_members
-  where lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-     or (phone <> '' and phone = coalesce(auth.jwt() ->> 'phone', ''));
-$$;
-grant execute on function public.get_accessible_owner_ids() to authenticated;
-
--- Policies for vehicles, expenses, services, family & docs
-create policy "lifenest_vehicles_policy" on public.lifenest_vehicles
-  for all to authenticated
-  using (owner_id in (select public.get_accessible_owner_ids()));`}</pre>
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
-              <button
-                type="button"
-                onClick={() => setShowRlsHelper(false)}
-                className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

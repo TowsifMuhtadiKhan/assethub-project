@@ -262,17 +262,9 @@ export function LicensesPage() {
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                    Add License
-                  </span>
-                  <span className="text-xs text-slate-400 font-mono">LN-LICENSE</span>
-                </div>
-                <h2 className="text-base font-bold tracking-tight text-slate-900 mt-0.5">
-                  New License & Permit
-                </h2>
-              </div>
+              <h2 className="text-base font-bold tracking-tight text-slate-900">
+                New License & Permit
+              </h2>
               <button
                 type="button"
                 onClick={() => setIsAddOpen(false)}
@@ -417,7 +409,7 @@ export function LicensesPage() {
                     <input
                       name="reminderEnabled"
                       type="checkbox"
-                      defaultChecked
+                      defaultChecked={false}
                       className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                     />
                     <span>Automated WhatsApp License Expiry Alert</span>

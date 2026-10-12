@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Circle,
   FileText,
-  AlertTriangle,
   Clock,
   ArrowRight,
   Plus,
+  Calendar,
+  CheckSquare,
+  Car,
+  ShieldAlert,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { listTasks, updateTaskStatus } from "../services/taskService";
@@ -31,6 +34,10 @@ export function DashboardPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [warranties, setWarranties] = useState<WarrantyItem[]>([]);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+
+  // Schedule filtering state
+  const [scheduleTimeframe, setScheduleTimeframe] = useState<"7days" | "30days" | "all">("30days");
+  const [scheduleFilter, setScheduleFilter] = useState<"all" | "task" | "document" | "vehicle" | "warranty">("all");
 
   useEffect(() => {
     Promise.all([
@@ -75,6 +82,124 @@ export function DashboardPage() {
     const days = (new Date(w.expiryDate).getTime() - Date.now()) / (1000 * 3600 * 24);
     return days > 0 && days <= 60;
   });
+
+  // Aggregate unified schedule from tasks, document renewals, vehicle fitness, and warranties
+  const scheduleEvents = useMemo(() => {
+    const evs: Array<{
+      id: string;
+      title: string;
+      date: string;
+      time?: string;
+      type: "task" | "document" | "vehicle" | "warranty";
+      categoryLabel: string;
+      details: string;
+      link: string;
+      priority?: string;
+    }> = [];
+
+    // 1. Pending Tasks with due dates
+    tasks.forEach((t) => {
+      if (t.dueDate && t.status !== "Completed") {
+        evs.push({
+          id: `task-${t.id}`,
+          title: t.title,
+          date: t.dueDate,
+          time: t.dueTime,
+          type: "task",
+          categoryLabel: "Task",
+          details: `Priority: ${t.priority || "Medium"}${t.familyMemberName ? ` · ${t.familyMemberName}` : ""}`,
+          link: "/my-life/tasks",
+          priority: t.priority,
+        });
+      }
+    });
+
+    // 2. Documents Expiring
+    documents.forEach((d) => {
+      if (d.expiryDate) {
+        evs.push({
+          id: `doc-${d.id}`,
+          title: d.name,
+          date: d.expiryDate,
+          type: "document",
+          categoryLabel: "Document",
+          details: `${d.category}${d.issuingAuthority ? ` · ${d.issuingAuthority}` : ""}`,
+          link: "/documents/vault",
+        });
+      }
+    });
+
+    // 3. Warranties Expiring
+    warranties.forEach((w) => {
+      if (w.expiryDate) {
+        evs.push({
+          id: `war-${w.id}`,
+          title: w.productName,
+          date: w.expiryDate,
+          type: "warranty",
+          categoryLabel: "Warranty",
+          details: `Warranty · ${w.seller || "Active"}`,
+          link: "/assets/warranties",
+        });
+      }
+    });
+
+    // 4. Vehicles Next Fitness Renewal
+    vehicles.forEach((v) => {
+      const hasReminder = Boolean(v.notes && /\[Reminder:[^\]]+\]/i.test(v.notes));
+      if (v.fitnessExpiry && hasReminder) {
+        evs.push({
+          id: `veh-${v.id}`,
+          title: `${v.name} - Fitness Renewal`,
+          date: v.fitnessExpiry,
+          type: "vehicle",
+          categoryLabel: "Vehicle",
+          details: `${v.brand} ${v.model} (${v.registrationNumber || "Vehicle"})`,
+          link: "/assets/vehicles",
+        });
+      }
+    });
+
+    // Sort chronologically ascending
+    evs.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    return evs;
+  }, [tasks, documents, warranties, vehicles]);
+
+  // Filter schedule by timeframe and category
+  const filteredSchedule = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    return scheduleEvents.filter((ev) => {
+      if (scheduleFilter !== "all" && ev.type !== scheduleFilter) return false;
+
+      const evDate = new Date(ev.date).getTime();
+      const diffDays = Math.ceil((evDate - today) / (1000 * 60 * 60 * 24));
+
+      if (scheduleTimeframe === "7days" && (diffDays < -1 || diffDays > 7)) return false;
+      if (scheduleTimeframe === "30days" && (diffDays < -3 || diffDays > 30)) return false;
+
+      return true;
+    });
+  }, [scheduleEvents, scheduleTimeframe, scheduleFilter]);
+
+  const getRelativeDateLabel = (dateStr: string) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const target = new Date(dateStr).getTime();
+    const diffDays = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      return { label: `${Math.abs(diffDays)}d overdue`, isOverdue: true, isToday: false };
+    }
+    if (diffDays === 0) {
+      return { label: "Today", isOverdue: false, isToday: true };
+    }
+    if (diffDays === 1) {
+      return { label: "Tomorrow", isOverdue: false, isToday: false };
+    }
+    return { label: `In ${diffDays}d`, isOverdue: false, isToday: false };
+  };
 
   return (
     <div className="space-y-4 w-full">
@@ -251,65 +376,148 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* Panel 2: Regulatory & Expiry Watch */}
-        <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-2xs">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-              Expiring Items (Next 30 Days)
-            </span>
-            <button
-              onClick={() => navigate("/documents/vault")}
-              className="text-xs text-slate-500 hover:text-slate-900 font-medium inline-flex items-center gap-1"
-            >
-              Vault <ArrowRight className="h-3 w-3" />
-            </button>
+        {/* Panel 2: Upcoming Schedule & Deadlines Timeline */}
+        <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-2xs flex flex-col">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-orange-500" />
+              <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+                Schedule & Deadlines ({filteredSchedule.length})
+              </span>
+            </div>
+
+            {/* Timeframe Filter Pills */}
+            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-[11px] self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setScheduleTimeframe("7days")}
+                className={`px-2 py-0.5 rounded-md font-medium transition cursor-pointer ${
+                  scheduleTimeframe === "7days"
+                    ? "bg-white text-slate-900 shadow-2xs font-semibold"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                7 Days
+              </button>
+              <button
+                type="button"
+                onClick={() => setScheduleTimeframe("30days")}
+                className={`px-2 py-0.5 rounded-md font-medium transition cursor-pointer ${
+                  scheduleTimeframe === "30days"
+                    ? "bg-white text-slate-900 shadow-2xs font-semibold"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                30 Days
+              </button>
+              <button
+                type="button"
+                onClick={() => setScheduleTimeframe("all")}
+                className={`px-2 py-0.5 rounded-md font-medium transition cursor-pointer ${
+                  scheduleTimeframe === "all"
+                    ? "bg-white text-slate-900 shadow-2xs font-semibold"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                All
+              </button>
+            </div>
           </div>
 
-          <div className="mt-2 divide-y divide-slate-100">
-            {expiringDocs.length === 0 && expiringWarranties.length === 0 ? (
-              <div className="py-8 text-center text-xs text-slate-400">
-                All documents, fitness certificates, and warranties are up to date.
+          {/* Category Filter Chips */}
+          <div className="flex items-center gap-1.5 py-2 overflow-x-auto no-scrollbar border-b border-slate-100/70 text-[11px]">
+            {[
+              { id: "all", label: "All Types" },
+              { id: "task", label: "Tasks" },
+              { id: "document", label: "Documents" },
+              { id: "vehicle", label: "Vehicles" },
+              { id: "warranty", label: "Warranties" },
+            ].map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setScheduleFilter(cat.id as any)}
+                className={`px-2 py-0.5 rounded-full whitespace-nowrap transition cursor-pointer ${
+                  scheduleFilter === cat.id
+                    ? "bg-slate-900 text-white font-medium"
+                    : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60"
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Chronological Event Rows */}
+          <div className="mt-2 divide-y divide-slate-100 flex-1 overflow-y-auto max-h-[340px]">
+            {filteredSchedule.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-400">
+                <Clock className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                No scheduled events or deadlines in this window.
               </div>
             ) : (
-              <>
-                {expiringDocs.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="flex items-center justify-between py-2 px-1 text-xs"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                      <div className="truncate">
-                        <span className="font-medium text-slate-900">{doc.name}</span>
-                        <span className="ml-1 text-[11px] text-slate-400">
-                          ({doc.category})
-                        </span>
-                      </div>
-                    </div>
-                    <span className="font-mono text-[11px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/50 shrink-0">
-                      Due: {doc.expiryDate}
-                    </span>
-                  </div>
-                ))}
+              filteredSchedule.map((ev) => {
+                const rel = getRelativeDateLabel(ev.date);
+                const isTask = ev.type === "task";
+                const isDoc = ev.type === "document";
+                const isVeh = ev.type === "vehicle";
 
-                {expiringWarranties.map((w) => (
+                return (
                   <div
-                    key={w.id}
-                    className="flex items-center justify-between py-2 px-1 text-xs"
+                    key={ev.id}
+                    onClick={() => navigate(ev.link)}
+                    className="flex items-center justify-between py-2.5 px-2 hover:bg-slate-50/80 rounded-lg transition-colors cursor-pointer group"
                   >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Clock className="h-3.5 w-3.5 text-purple-500 shrink-0" />
-                      <div className="truncate">
-                        <span className="font-medium text-slate-900">{w.productName}</span>
-                        <span className="ml-1 text-[11px] text-slate-400">Warranty</span>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {/* Event Type Icon */}
+                      <div
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${
+                          isTask
+                            ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                            : isDoc
+                              ? "bg-sky-50 text-sky-600 border-sky-100"
+                              : isVeh
+                                ? "bg-amber-50 text-amber-600 border-amber-100"
+                                : "bg-purple-50 text-purple-600 border-purple-100"
+                        }`}
+                      >
+                        {isTask && <CheckSquare className="h-3.5 w-3.5" />}
+                        {isDoc && <FileText className="h-3.5 w-3.5" />}
+                        {isVeh && <Car className="h-3.5 w-3.5" />}
+                        {!isTask && !isDoc && !isVeh && <ShieldAlert className="h-3.5 w-3.5" />}
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="font-semibold text-slate-800 truncate group-hover:text-slate-950 text-xs">
+                          {ev.title}
+                        </div>
+                        <div className="text-[10px] text-slate-400 truncate">
+                          {ev.details}
+                        </div>
                       </div>
                     </div>
-                    <span className="font-mono text-[11px] text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200/50 shrink-0">
-                      Due: {w.expiryDate}
-                    </span>
+
+                    {/* Date & Relative Tag */}
+                    <div className="flex items-center gap-2 shrink-0 font-mono text-[11px]">
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                          rel.isOverdue
+                            ? "bg-rose-50 text-rose-700 border border-rose-200"
+                            : rel.isToday
+                              ? "bg-amber-100 text-amber-800 border border-amber-300 font-extrabold"
+                              : "bg-slate-100 text-slate-600 border border-slate-200/80"
+                        }`}
+                      >
+                        {rel.label}
+                      </span>
+                      <span className="text-slate-400 text-[10px] hidden sm:inline">
+                        {ev.date}
+                        {ev.time ? ` ${ev.time}` : ""}
+                      </span>
+                    </div>
                   </div>
-                ))}
-              </>
+                );
+              })
             )}
           </div>
         </div>

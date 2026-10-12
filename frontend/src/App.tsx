@@ -1,3 +1,4 @@
+import { AssetDashboardPage } from "./pages/AssetDashboardPage";
 import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { BrowserRouter } from "react-router-dom";
@@ -8,8 +9,6 @@ import { VehicleDetailsPage } from "./pages/VehicleDetailsPage";
 import { AuthGate } from "./components/auth/AuthGate";
 import { PropertiesPage } from "./pages/PropertiesPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
-import { FamilyPage } from "./pages/FamilyPage";
-import { AccessControlPage } from "./pages/AccessControlPage";
 import { TasksPage } from "./pages/TasksPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { DailyExpensesPage } from "./pages/DailyExpensesPage";
@@ -72,6 +71,8 @@ function App() {
               <Route path="/documents/licenses" element={<LicensesPage />} />
 
               {/* 4. Assets & Vehicles */}
+              <Route path="/assets/vehicles/dashboard" element={<AssetDashboardPage key="vehicle" kind="vehicle" />} />
+              <Route path="/rentals/dashboard" element={<PropertiesPage key="property-dashboard" dashboard />} />
               <Route path="/assets/vehicles" element={<AllVehiclesPage />} />
               <Route path="/assets/vehicles/cars" element={<CarsPage />} />
               <Route path="/assets/vehicles/bikes" element={<BikesPage />} />
@@ -81,10 +82,10 @@ function App() {
               {/* 5. Real Estate & Rentals */}
               <Route path="/rentals/properties" element={<PropertiesPage />} />
 
-              {/* 6. Family Profiles & Workspace Access Control */}
-              <Route path="/family/profiles" element={<FamilyPage />} />
-              <Route path="/workspace/access-control" element={<AccessControlPage />} />
-              <Route path="/family/access-control" element={<Navigate to="/workspace/access-control" replace />} />
+              {/* 6. Family Profiles & Workspace Access Control (Unified in Settings) */}
+              <Route path="/family/profiles" element={<Navigate to="/settings?tab=profile" replace />} />
+              <Route path="/workspace/access-control" element={<Navigate to="/settings?tab=access" replace />} />
+              <Route path="/family/access-control" element={<Navigate to="/settings?tab=access" replace />} />
 
               {/* 7. Notifications & Settings */}
               <Route path="/notifications" element={<Navigate to="/settings?tab=notifications" replace />} />

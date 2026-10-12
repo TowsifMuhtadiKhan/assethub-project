@@ -546,18 +546,11 @@ export function DailyExpensesPage() {
       {/* ========================================================================= */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/90 pb-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <span className="text-[11px] font-bold tracking-wider uppercase text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200/80 flex items-center gap-1">
-              <Wallet className="h-3.5 w-3.5" />
-              <span>Personal Finance</span>
-            </span>
-            <span className="text-xs text-slate-400 font-mono">PIN-PROTECTED LEDGER</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 mt-1">
-            Daily Expenses & Money Tracker
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+            Daily Expenses
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Maintain your daily money spent, food, transport, and personal expenses protected by your private PIN
+            Log and track daily personal expenses, food, and transport with your PIN.
           </p>
         </div>
 
@@ -812,10 +805,10 @@ export function DailyExpensesPage() {
           </div>
 
           {/* Filter Bar & Quick Add */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               {/* Time Range Pills */}
-              <div className="inline-flex items-center p-0.5 rounded-xl border border-slate-200 bg-slate-100/90 text-xs">
+              <div className="inline-flex flex-wrap items-center p-0.5 rounded-xl border border-slate-200 bg-slate-100/90 text-xs">
                 <button
                   type="button"
                   onClick={() => setTimeFilter("today")}
@@ -866,7 +859,7 @@ export function DailyExpensesPage() {
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-slate-800 shadow-2xs font-medium"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-slate-800 shadow-2xs font-medium w-full sm:w-auto"
               >
                 <option value="all">All Categories</option>
                 {CATEGORIES.map((c) => (
@@ -877,16 +870,16 @@ export function DailyExpensesPage() {
               </select>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Search Box */}
-              <div className="relative">
+              <div className="relative flex-1 sm:flex-initial">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search item, merchant..."
-                  className="pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-800 shadow-2xs"
+                  className="w-full sm:w-48 pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-800 shadow-2xs"
                 />
               </div>
 
@@ -918,7 +911,7 @@ export function DailyExpensesPage() {
               <button
                 type="button"
                 onClick={openCreateModal}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer w-full sm:w-auto"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>Log Expense</span>

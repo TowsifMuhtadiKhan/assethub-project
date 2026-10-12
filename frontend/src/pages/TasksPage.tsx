@@ -8,8 +8,6 @@ import {
   Trash2,
   Repeat,
   MessageSquare,
-  LayoutGrid,
-  List,
   Search,
   ArrowRight,
   RotateCcw,
@@ -19,6 +17,7 @@ import {
   Send,
   Edit2,
   X,
+  XCircle,
 } from "lucide-react";
 import {
   FormControl,
@@ -27,13 +26,13 @@ import {
   TextField,
   InputAdornment,
 } from "@mui/material";
-import { SqlSetupBanner } from "../components/common/SqlSetupBanner";
 import {
   listTasks,
   createTask,
   updateTask,
   updateTaskStatus,
   deleteTask,
+  cleanExpiredCancelledTasks,
 } from "../services/taskService";
 import { listVehicles } from "../services/vehicleService";
 import { listProperties } from "../services/propertyService";
@@ -63,6 +62,21 @@ const recurrences: TaskRecurrence[] = [
   "Quarterly",
   "Yearly",
 ];
+
+// Jira card left-border priority accent
+function getPriorityCardBorder(priority: TaskPriority) {
+  switch (priority) {
+    case "Urgent":
+      return "border-l-4 border-l-rose-500 hover:border-l-rose-600";
+    case "High":
+      return "border-l-4 border-l-orange-500 hover:border-l-orange-600";
+    case "Medium":
+      return "border-l-4 border-l-amber-400 hover:border-l-amber-500";
+    case "Low":
+    default:
+      return "border-l-4 border-l-sky-500 hover:border-l-sky-600";
+  }
+}
 
 // Jira priority colors & icons
 function getPriorityBadgeStyle(priority: TaskPriority) {
@@ -135,6 +149,27 @@ export function formatTime12h(timeStr?: string) {
   return `${hh}:${mm} ${ampm}`;
 }
 
+export function getCancelledCountdown(task: TaskItem): string {
+  const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+  const refTime = task.cancelledAt
+    ? new Date(task.cancelledAt).getTime()
+    : task.updatedAt
+    ? new Date(task.updatedAt).getTime()
+    : task.completedAt
+    ? new Date(task.completedAt).getTime()
+    : task.createdAt
+    ? new Date(task.createdAt).getTime()
+    : Date.now();
+  const remaining = THREE_DAYS_MS - (Date.now() - refTime);
+  if (remaining <= 0) return "Auto-deleting now";
+  const hours = Math.max(1, Math.floor(remaining / (1000 * 60 * 60)));
+  if (hours >= 24) {
+    const days = Math.ceil(hours / 24);
+    return `Deletes in ${days}d`;
+  }
+  return `Deletes in ${hours}h`;
+}
+
 export function TasksPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -142,8 +177,9 @@ export function TasksPage() {
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Jira View Mode: Board (Kanban) or List (Backlog)
-  const [viewMode, setViewMode] = useState<"board" | "list">("board");
+  // Drag and Drop State
+  const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -153,6 +189,8 @@ export function TasksPage() {
 
   // Modals & form
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [addModalTab, setAddModalTab] = useState<"general" | "advanced">("general");
+  const [editModalTab, setEditModalTab] = useState<"general" | "advanced">("general");
   const [defaultAddStatus, setDefaultAddStatus] = useState<TaskStatus>("Pending");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -237,6 +275,7 @@ export function TasksPage() {
 
   const openTaskDetails = (task: TaskItem) => {
     setSelectedTask(task);
+    setEditModalTab("general");
     setEditTitle(task.title);
     setEditDescription(task.description || "");
     setEditPriority(task.priority || "Medium");
@@ -367,7 +406,9 @@ export function TasksPage() {
         listProperties(),
         listFamilyMembers(),
       ]);
-      setTasks(t);
+      const deletedIds = await cleanExpiredCancelledTasks(t);
+      const activeTasks = deletedIds.length ? t.filter((item) => !deletedIds.includes(item.id)) : t;
+      setTasks(activeTasks);
       setVehicles(v);
       setProperties(p);
       setMembers(m);
@@ -452,11 +493,57 @@ export function TasksPage() {
   const handleStatusChange = async (task: TaskItem, newStatus: TaskStatus) => {
     try {
       await updateTaskStatus(task.id, newStatus);
+      const now = new Date().toISOString();
       setTasks((prev) =>
-        prev.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t)),
+        prev.map((t) =>
+          t.id === task.id
+            ? {
+                ...t,
+                status: newStatus,
+                cancelledAt: newStatus === "Cancelled" ? now : undefined,
+                completedAt: newStatus === "Completed" ? now : undefined,
+                updatedAt: now,
+              }
+            : t,
+        ),
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update status");
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    e.dataTransfer.setData("text/plain", taskId);
+    e.dataTransfer.effectAllowed = "move";
+    setDraggingTaskId(taskId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingTaskId(null);
+    setDragOverColumn(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, status: TaskStatus) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverColumn !== status) {
+      setDragOverColumn(status);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverColumn(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetStatus: TaskStatus) => {
+    e.preventDefault();
+    const taskId = e.dataTransfer.getData("text/plain") || draggingTaskId;
+    setDraggingTaskId(null);
+    setDragOverColumn(null);
+    if (!taskId) return;
+    const task = tasks.find((t) => t.id === taskId);
+    if (task && task.status !== targetStatus) {
+      await handleStatusChange(task, targetStatus);
     }
   };
 
@@ -487,6 +574,7 @@ export function TasksPage() {
 
   const openAddWithStatus = (status: TaskStatus) => {
     setDefaultAddStatus(status);
+    setAddModalTab("general");
     setIsAddOpen(true);
   };
 
@@ -521,10 +609,11 @@ export function TasksPage() {
 
   // Kanban Column buckets
   const todoTasks = filteredTasks.filter(
-    (t) => t.status === "Pending" || !t.status || t.status === "Cancelled",
+    (t) => t.status === "Pending" || !t.status,
   );
   const inProgressTasks = filteredTasks.filter((t) => t.status === "In Progress");
   const doneTasks = filteredTasks.filter((t) => t.status === "Completed");
+  const cancelledTasks = filteredTasks.filter((t) => t.status === "Cancelled");
 
   // Sprint Progress %
   const totalCount = tasks.length;
@@ -533,52 +622,18 @@ export function TasksPage() {
 
   return (
     <div className="space-y-4 w-full">
-      {/* Jira Board Header */}
+      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3.5">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold tracking-wider uppercase text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-              Personal OS • Kanban
-            </span>
-            <span className="text-xs text-slate-400 font-mono">LN-BOARD</span>
-          </div>
-          <h1 className="text-xl font-extrabold tracking-tight text-slate-900 mt-1 font-display">
-            Tasks & Actions
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 font-display">
+            Tasks
           </h1>
-          <p className="text-xs text-slate-500">
-            Track and resolve tasks, vehicle maintenance items, renewals, and responsibilities.
+          <p className="text-xs text-slate-500 mt-0.5">
+            Organize personal to-dos, maintenance items, and responsibilities.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* View Mode Toggle: Board vs List */}
-          <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 text-xs">
-            <button
-              type="button"
-              onClick={() => setViewMode("board")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition cursor-pointer ${
-                viewMode === "board"
-                  ? "bg-white text-slate-900 shadow-2xs"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              <span>Board</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("list")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition cursor-pointer ${
-                viewMode === "list"
-                  ? "bg-white text-slate-900 shadow-2xs"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              <List className="h-3.5 w-3.5" />
-              <span>List</span>
-            </button>
-          </div>
-
           {/* Primary Create Button */}
           <button
             type="button"
@@ -590,9 +645,6 @@ export function TasksPage() {
           </button>
         </div>
       </div>
-
-      {/* Database Setup Banner */}
-      <SqlSetupBanner error={error} />
 
       {error && !error.toLowerCase().includes("could not find the table") && !error.includes("PGRST205") && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
@@ -712,18 +764,27 @@ export function TasksPage() {
         </div>
       </div>
 
-      {/* VIEW MODE 1: JIRA KANBAN BOARD VIEW */}
+      {/* 4-COLUMN KANBAN BOARD WITH DRAG & DROP */}
       {loading ? (
         <div className="py-20 text-center text-xs text-slate-400">Loading tasks...</div>
-      ) : viewMode === "board" ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+      ) : (
+        <div className="flex overflow-x-auto snap-x snap-mandatory pb-4 gap-3.5 scrollbar-thin md:grid md:grid-cols-2 xl:grid-cols-4 md:overflow-visible items-start">
           {/* COLUMN 1: TO DO */}
-          <div className="flex flex-col rounded-2xl border border-slate-200/90 bg-slate-100/70 p-3 shadow-2xs min-h-[580px]">
+          <div
+            onDragOver={(e) => handleDragOver(e, "Pending")}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, "Pending")}
+            className={`flex flex-col min-w-[280px] sm:min-w-[300px] flex-1 snap-start rounded-2xl border transition-all p-3 shadow-2xs min-h-[580px] ${
+              dragOverColumn === "Pending"
+                ? "border-indigo-400 bg-indigo-50/60 ring-2 ring-indigo-300"
+                : "border-slate-200/90 bg-slate-100/70"
+            }`}
+          >
             {/* Column Header */}
             <div className="flex items-center justify-between pb-3 px-1">
               <div className="flex items-center gap-2">
                 <span className="flex h-2.5 w-2.5 rounded-full bg-slate-400" />
-                <h2 className="text-xs font-bold tracking-wider uppercase text-slate-700">
+                <h2 className="text-xs font-semibold text-slate-700">
                   To Do
                 </h2>
                 <span className="rounded-full bg-slate-200/80 px-2 py-0.5 text-[11px] font-bold text-slate-700">
@@ -746,6 +807,7 @@ export function TasksPage() {
                 <div className="flex flex-col items-center justify-center py-16 text-center text-xs text-slate-400 border border-dashed border-slate-300/80 rounded-xl bg-white/40">
                   <Circle className="h-6 w-6 text-slate-300 mb-1" />
                   <span>No to-do tasks</span>
+                  <span className="text-[10px] text-slate-400/80 mt-0.5">Drag tasks here</span>
                 </div>
               ) : (
                 todoTasks.map((task, idx) => (
@@ -759,29 +821,32 @@ export function TasksPage() {
                     onSendWhatsApp={handleSendTaskWhatsApp}
                     isSendingWA={sendingTaskId === task.id}
                     wasSentWA={sendSuccessId === task.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, task.id)}
+                    onDragEnd={handleDragEnd}
+                    isDragging={draggingTaskId === task.id}
                   />
                 ))
               )}
             </div>
-
-            {/* Bottom Add Trigger */}
-            <button
-              type="button"
-              onClick={() => openAddWithStatus("Pending")}
-              className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300/80 bg-white/60 py-2 text-xs font-semibold text-slate-600 hover:bg-white hover:text-slate-900 transition cursor-pointer"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Create Task</span>
-            </button>
           </div>
 
           {/* COLUMN 2: IN PROGRESS */}
-          <div className="flex flex-col rounded-2xl border border-indigo-200/90 bg-indigo-50/40 p-3 shadow-2xs min-h-[580px]">
+          <div
+            onDragOver={(e) => handleDragOver(e, "In Progress")}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, "In Progress")}
+            className={`flex flex-col min-w-[280px] sm:min-w-[300px] flex-1 snap-start rounded-2xl border transition-all p-3 shadow-2xs min-h-[580px] ${
+              dragOverColumn === "In Progress"
+                ? "border-indigo-500 bg-indigo-100/70 ring-2 ring-indigo-400"
+                : "border-indigo-200/90 bg-indigo-50/40"
+            }`}
+          >
             {/* Column Header */}
             <div className="flex items-center justify-between pb-3 px-1">
               <div className="flex items-center gap-2">
                 <span className="flex h-2.5 w-2.5 rounded-full bg-indigo-500 animate-pulse" />
-                <h2 className="text-xs font-bold tracking-wider uppercase text-indigo-900">
+                <h2 className="text-xs font-semibold text-indigo-900">
                   In Progress
                 </h2>
                 <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-800">
@@ -804,6 +869,7 @@ export function TasksPage() {
                 <div className="flex flex-col items-center justify-center py-16 text-center text-xs text-indigo-400/80 border border-dashed border-indigo-200 rounded-xl bg-white/40">
                   <Clock className="h-6 w-6 text-indigo-300 mb-1" />
                   <span>No tasks in progress</span>
+                  <span className="text-[10px] text-indigo-400/70 mt-0.5">Drag tasks here</span>
                 </div>
               ) : (
                 inProgressTasks.map((task, idx) => (
@@ -817,29 +883,32 @@ export function TasksPage() {
                     onSendWhatsApp={handleSendTaskWhatsApp}
                     isSendingWA={sendingTaskId === task.id}
                     wasSentWA={sendSuccessId === task.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, task.id)}
+                    onDragEnd={handleDragEnd}
+                    isDragging={draggingTaskId === task.id}
                   />
                 ))
               )}
             </div>
-
-            {/* Bottom Add Trigger */}
-            <button
-              type="button"
-              onClick={() => openAddWithStatus("In Progress")}
-              className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-indigo-200 bg-white/70 py-2 text-xs font-semibold text-indigo-700 hover:bg-white hover:text-indigo-900 transition cursor-pointer"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Create Task</span>
-            </button>
           </div>
 
           {/* COLUMN 3: COMPLETED */}
-          <div className="flex flex-col rounded-2xl border border-emerald-200/90 bg-emerald-50/40 p-3 shadow-2xs min-h-[580px]">
+          <div
+            onDragOver={(e) => handleDragOver(e, "Completed")}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, "Completed")}
+            className={`flex flex-col min-w-[280px] sm:min-w-[300px] flex-1 snap-start rounded-2xl border transition-all p-3 shadow-2xs min-h-[580px] ${
+              dragOverColumn === "Completed"
+                ? "border-emerald-500 bg-emerald-100/70 ring-2 ring-emerald-400"
+                : "border-emerald-200/90 bg-emerald-50/40"
+            }`}
+          >
             {/* Column Header */}
             <div className="flex items-center justify-between pb-3 px-1">
               <div className="flex items-center gap-2">
                 <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                <h2 className="text-xs font-bold tracking-wider uppercase text-emerald-900">
+                <h2 className="text-xs font-semibold text-emerald-900">
                   Done
                 </h2>
                 <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
@@ -862,6 +931,7 @@ export function TasksPage() {
                 <div className="flex flex-col items-center justify-center py-16 text-center text-xs text-emerald-400/80 border border-dashed border-emerald-200 rounded-xl bg-white/40">
                   <CheckCircle2 className="h-6 w-6 text-emerald-300 mb-1" />
                   <span>No completed tasks yet</span>
+                  <span className="text-[10px] text-emerald-400/70 mt-0.5">Drag finished tasks here</span>
                 </div>
               ) : (
                 doneTasks.map((task, idx) => (
@@ -875,166 +945,82 @@ export function TasksPage() {
                     onSendWhatsApp={handleSendTaskWhatsApp}
                     isSendingWA={sendingTaskId === task.id}
                     wasSentWA={sendSuccessId === task.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, task.id)}
+                    onDragEnd={handleDragEnd}
+                    isDragging={draggingTaskId === task.id}
                   />
                 ))
               )}
             </div>
-
-            {/* Bottom Add Trigger */}
-            <button
-              type="button"
-              onClick={() => openAddWithStatus("Completed")}
-              className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-emerald-200 bg-white/70 py-2 text-xs font-semibold text-emerald-700 hover:bg-white hover:text-emerald-900 transition cursor-pointer"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Create Task</span>
-            </button>
           </div>
-        </div>
-      ) : (
-        /* VIEW MODE 2: JIRA LIST / BACKLOG VIEW */
-        <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xs">
-          {filteredTasks.length === 0 ? (
-            <div className="py-16 text-center text-xs text-slate-400">
-              No tasks matching current filters.
-            </div>
-          ) : (
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/70 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                  <th className="py-3 px-3 w-20">Key</th>
-                  <th className="py-3 px-3">Summary</th>
-                  <th className="py-3 px-3">Status</th>
-                  <th className="py-3 px-3">Priority</th>
-                  <th className="py-3 px-3">Category</th>
-                  <th className="py-3 px-3">Assignee</th>
-                  <th className="py-3 px-3">Due Date</th>
-                  <th className="py-3 px-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
-                {filteredTasks.map((task, idx) => {
-                  const dueMeta = getDueDateStyle(task.dueDate);
-                  const isDone = task.status === "Completed";
 
-                  return (
-                    <tr key={task.id} className="hover:bg-slate-50/80 transition">
-                      <td className="py-2.5 px-3 font-mono font-semibold text-slate-500 text-[11px]">
-                        LN-{String(idx + 1).padStart(2, "0")}
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <div
-                          onClick={() => openTaskDetails(task)}
-                          className="font-semibold text-slate-900 flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 transition"
-                        >
-                          <span className={isDone ? "line-through text-slate-400" : ""}>
-                            {task.title}
-                          </span>
-                          {task.reminderWhatsapp && (
-                            <button
-                              type="button"
-                              disabled={sendingTaskId === task.id}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSendTaskWhatsApp(task);
-                              }}
-                              title="Click to Send WhatsApp Alert Now"
-                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded border inline-flex items-center gap-1 transition cursor-pointer ${
-                                sendSuccessId === task.id
-                                  ? "bg-emerald-600 text-white border-emerald-600"
-                                  : "text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200"
-                              }`}
-                            >
-                              <MessageSquare className="h-2.5 w-2.5" />
-                              <span>{sendingTaskId === task.id ? "..." : sendSuccessId === task.id ? "Sent!" : "WA"}</span>
-                              {sendingTaskId !== task.id && sendSuccessId !== task.id && (
-                                <Send className="h-2 w-2 opacity-70" />
-                              )}
-                            </button>
-                          )}
-                        </div>
-                        {task.description && (
-                          <div className="text-[11px] text-slate-400 truncate max-w-sm">
-                            {task.description}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <select
-                          value={task.status || "Pending"}
-                          onChange={(e) => handleStatusChange(task, e.target.value as TaskStatus)}
-                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 cursor-pointer outline-none"
-                        >
-                          <option value="Pending">To Do</option>
-                          <option value="In Progress">In Progress</option>
-                          <option value="Completed">Done</option>
-                        </select>
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <span
-                          className={`inline-block rounded px-2 py-0.5 text-[10px] uppercase tracking-wider ${getPriorityBadgeStyle(
-                            task.priority,
-                          )}`}
-                        >
-                          {task.priority}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
-                          {task.category || "General"}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-slate-600 text-[11px]">
-                        {task.familyMemberName ? (
-                          <span>👤 {task.familyMemberName}</span>
-                        ) : (
-                          <span className="text-slate-400">Personal</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3">
-                        {dueMeta ? (
-                          <div className="flex flex-col gap-0.5">
-                            <span className={`inline-flex items-center gap-1 text-[11px] ${dueMeta.className}`}>
-                              <Calendar className="h-3 w-3 shrink-0" />
-                              <span>{dueMeta.label}</span>
-                            </span>
-                            {task.dueTime && (
-                              <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 font-mono">
-                                <Clock className="h-2.5 w-2.5 text-emerald-600" />
-                                <span>{formatTime12h(task.dueTime)}</span>
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 text-[11px]">—</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => openTaskDetails(task)}
-                            className="text-slate-400 hover:text-indigo-600 p-1 cursor-pointer transition rounded"
-                            title="Edit task details"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(task.id)}
-                            className="text-slate-300 hover:text-rose-600 p-1 cursor-pointer transition rounded"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+          {/* COLUMN 4: CANCELLED (Auto-deletes in 3 days) */}
+          <div
+            onDragOver={(e) => handleDragOver(e, "Cancelled")}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, "Cancelled")}
+            className={`flex flex-col min-w-[280px] sm:min-w-[300px] flex-1 snap-start rounded-2xl border transition-all p-3 shadow-2xs min-h-[580px] ${
+              dragOverColumn === "Cancelled"
+                ? "border-rose-400 bg-rose-100/70 ring-2 ring-rose-400"
+                : "border-rose-200/80 bg-rose-50/30"
+            }`}
+          >
+            {/* Column Header */}
+            <div className="flex items-center justify-between pb-3 px-1">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="flex h-2.5 w-2.5 rounded-full bg-rose-500" />
+                  <h2 className="text-xs font-semibold text-rose-900">
+                    Cancelled
+                  </h2>
+                  <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-800">
+                    {cancelledTasks.length}
+                  </span>
+                </div>
+                <p className="text-[10px] text-rose-600/80 font-medium mt-0.5">
+                  Auto-purges after 3 days
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => openAddWithStatus("Cancelled")}
+                className="rounded-lg p-1 text-rose-600 hover:bg-rose-100 transition cursor-pointer"
+                title="Add task directly to Cancelled"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Column Cards */}
+            <div className="space-y-2.5 flex-1">
+              {cancelledTasks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center text-xs text-rose-400/80 border border-dashed border-rose-200 rounded-xl bg-white/40">
+                  <XCircle className="h-6 w-6 text-rose-300 mb-1" />
+                  <span>No cancelled tasks</span>
+                  <span className="text-[10px] text-rose-400/70 mt-0.5">Drop here to cancel (3-day auto delete)</span>
+                </div>
+              ) : (
+                cancelledTasks.map((task, idx) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    index={idx}
+                    onStatusChange={handleStatusChange}
+                    onDelete={handleDelete}
+                    onSelect={openTaskDetails}
+                    onSendWhatsApp={handleSendTaskWhatsApp}
+                    isSendingWA={sendingTaskId === task.id}
+                    wasSentWA={sendSuccessId === task.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, task.id)}
+                    onDragEnd={handleDragEnd}
+                    isDragging={draggingTaskId === task.id}
+                  />
+                ))
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1050,17 +1036,9 @@ export function TasksPage() {
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                    Create Task
-                  </span>
-                  <span className="text-xs text-slate-400 font-mono">LN-TASK</span>
-                </div>
-                <h2 className="text-base font-bold tracking-tight text-slate-900 mt-0.5">
-                  New Life Task & To-Do
-                </h2>
-              </div>
+              <h2 className="text-base font-bold tracking-tight text-slate-900">
+                New Task
+              </h2>
               <button
                 type="button"
                 onClick={() => setIsAddOpen(false)}
@@ -1071,187 +1049,223 @@ export function TasksPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Summary / Title <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  name="title"
-                  required
-                  placeholder="e.g. Renew car tax token, Pay DESCO electricity bill"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
-                />
-              </div>
+            {/* Modal Tabs: General vs Advanced */}
+            <div className="flex border-b border-slate-200/90 px-6 bg-white">
+              <button
+                type="button"
+                onClick={() => setAddModalTab("general")}
+                className={`py-2.5 text-xs font-semibold border-b-2 mr-6 transition cursor-pointer flex items-center gap-1.5 ${
+                  addModalTab === "general"
+                    ? "border-slate-900 text-slate-900 font-bold"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <span>General Info</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddModalTab("advanced")}
+                className={`py-2.5 text-xs font-semibold border-b-2 transition cursor-pointer flex items-center gap-1.5 ${
+                  addModalTab === "advanced"
+                    ? "border-slate-900 text-slate-900 font-bold"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <span>Advanced & Notifications</span>
+                <span className="rounded-full bg-slate-100 px-1.5 py-0.2 text-[10px] font-mono text-slate-600 border border-slate-200">
+                  Optional
+                </span>
+              </button>
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Description / Notes
-                </label>
-                <textarea
-                  name="description"
-                  rows={2}
-                  placeholder="Additional context, account numbers, or steps to complete..."
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
-                />
-              </div>
-
-              {/* Status & Priority */}
-              <div className="grid grid-cols-2 gap-3.5">
+            <form onSubmit={handleCreate} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              {/* TAB 1: GENERAL (Summary, Description, Priority, Due Date, Due Time, Status) */}
+              <div className={addModalTab === "general" ? "space-y-4" : "hidden"}>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Initial Status
-                  </label>
-                  <FormControl size="small" fullWidth>
-                    <Select
-                      name="status"
-                      defaultValue={defaultAddStatus}
-                      sx={{
-                        fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
-                        borderRadius: "0.75rem",
-                        backgroundColor: "#f8fafc",
-                        "& .MuiSelect-select": {
-                          fontSize: "0.75rem",
-                          py: "8px",
-                        },
-                      }}
-                    >
-                      <MenuItem value="Pending" sx={{ fontSize: "0.75rem" }}>To Do</MenuItem>
-                      <MenuItem value="In Progress" sx={{ fontSize: "0.75rem" }}>In Progress</MenuItem>
-                      <MenuItem value="Completed" sx={{ fontSize: "0.75rem" }}>Done</MenuItem>
-                    </Select>
-                  </FormControl>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Priority
-                  </label>
-                  <FormControl size="small" fullWidth>
-                    <Select
-                      name="priority"
-                      defaultValue="Medium"
-                      sx={{
-                        fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
-                        borderRadius: "0.75rem",
-                        backgroundColor: "#f8fafc",
-                        "& .MuiSelect-select": {
-                          fontSize: "0.75rem",
-                          py: "8px",
-                        },
-                      }}
-                    >
-                      {priorities.map((p) => (
-                        <MenuItem key={p} value={p} sx={{ fontSize: "0.75rem" }}>
-                          <span className="inline-flex items-center gap-2">
-                            <span
-                              className={`h-2 w-2 rounded-full ${
-                                p === "Urgent"
-                                  ? "bg-rose-600 animate-pulse"
-                                  : p === "High"
-                                    ? "bg-orange-500"
-                                    : p === "Medium"
-                                      ? "bg-amber-500"
-                                      : "bg-slate-400"
-                              }`}
-                            />
-                            <span
-                              className={
-                                p === "Urgent"
-                                  ? "text-rose-700 font-bold"
-                                  : p === "High"
-                                    ? "text-orange-700 font-semibold"
-                                    : p === "Medium"
-                                      ? "text-amber-800 font-medium"
-                                      : "text-slate-700"
-                              }
-                            >
-                              {p} Priority {p === "Urgent" ? "(Critical)" : ""}
-                            </span>
-                          </span>
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </div>
-              </div>
-
-              {/* Due Date, Due Time & Recurrence */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                    Due Date
+                    Summary / Title <span className="text-rose-500">*</span>
                   </label>
                   <input
-                    name="dueDate"
-                    type="date"
-                    value={modalDueDate}
-                    onChange={(e) => setModalDueDate(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5 text-emerald-600" />
-                    Due Time (Hour & Min)
-                  </label>
-                  <input
-                    name="dueTime"
-                    type="time"
-                    value={modalDueTime}
-                    onChange={(e) => setModalDueTime(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                    <Repeat className="h-3.5 w-3.5 text-slate-400" />
-                    Recurrence
-                  </label>
-                  <FormControl size="small" fullWidth>
-                    <Select
-                      name="recurrence"
-                      defaultValue="None"
-                      sx={{
-                        fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
-                        borderRadius: "0.75rem",
-                        backgroundColor: "#f8fafc",
-                        "& .MuiSelect-select": {
-                          fontSize: "0.75rem",
-                          py: "8px",
-                        },
-                      }}
-                    >
-                      {recurrences.map((r) => (
-                        <MenuItem key={r} value={r} sx={{ fontSize: "0.75rem" }}>
-                          {r}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </div>
-              </div>
-
-              {/* Category & Assignee */}
-              <div className="grid grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Category
-                  </label>
-                  <input
-                    name="category"
-                    defaultValue="General"
-                    placeholder="e.g. Bills, Vehicle, Family"
+                    name="title"
+                    required
+                    placeholder="e.g. Renew car tax token, Pay DESCO electricity bill"
                     className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                   />
                 </div>
 
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Description / Notes
+                  </label>
+                  <textarea
+                    name="description"
+                    rows={2}
+                    placeholder="Additional context, account numbers, or steps to complete..."
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                  />
+                </div>
+
+                {/* Status & Priority */}
+                <div className="grid grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Initial Status
+                    </label>
+                    <FormControl size="small" fullWidth>
+                      <Select
+                        name="status"
+                        defaultValue={defaultAddStatus}
+                        sx={{
+                          fontSize: "0.75rem",
+                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          borderRadius: "0.75rem",
+                          backgroundColor: "#f8fafc",
+                          "& .MuiSelect-select": {
+                            fontSize: "0.75rem",
+                            py: "8px",
+                          },
+                        }}
+                      >
+                        <MenuItem value="Pending" sx={{ fontSize: "0.75rem" }}>To Do</MenuItem>
+                        <MenuItem value="In Progress" sx={{ fontSize: "0.75rem" }}>In Progress</MenuItem>
+                        <MenuItem value="Completed" sx={{ fontSize: "0.75rem" }}>Done</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Priority
+                    </label>
+                    <FormControl size="small" fullWidth>
+                      <Select
+                        name="priority"
+                        defaultValue="Medium"
+                        sx={{
+                          fontSize: "0.75rem",
+                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          borderRadius: "0.75rem",
+                          backgroundColor: "#f8fafc",
+                          "& .MuiSelect-select": {
+                            fontSize: "0.75rem",
+                            py: "8px",
+                          },
+                        }}
+                      >
+                        {priorities.map((p) => (
+                          <MenuItem key={p} value={p} sx={{ fontSize: "0.75rem" }}>
+                            <span className="inline-flex items-center gap-2">
+                              <span
+                                className={`h-2 w-2 rounded-full ${
+                                  p === "Urgent"
+                                    ? "bg-rose-600 animate-pulse"
+                                    : p === "High"
+                                      ? "bg-orange-500"
+                                      : p === "Medium"
+                                        ? "bg-amber-500"
+                                        : "bg-slate-400"
+                                }`}
+                              />
+                              <span
+                                className={
+                                  p === "Urgent"
+                                    ? "text-rose-700 font-bold"
+                                    : p === "High"
+                                      ? "text-orange-700 font-semibold"
+                                      : p === "Medium"
+                                        ? "text-amber-800 font-medium"
+                                        : "text-slate-700"
+                                }
+                              >
+                                {p} Priority {p === "Urgent" ? "(Critical)" : ""}
+                              </span>
+                            </span>
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </div>
+                </div>
+
+                {/* Due Date & Due Time in First Tab */}
+                <div className="grid grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                      Due Date
+                    </label>
+                    <input
+                      name="dueDate"
+                      type="date"
+                      value={modalDueDate}
+                      onChange={(e) => setModalDueDate(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5 text-emerald-600" />
+                      Due Time (Hour & Min)
+                    </label>
+                    <input
+                      name="dueTime"
+                      type="time"
+                      value={modalDueTime}
+                      onChange={(e) => setModalDueTime(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* TAB 2: ADVANCED (Recurrence, Category, Assignee, Vehicle, Property, WhatsApp) */}
+              <div className={addModalTab === "advanced" ? "space-y-4" : "hidden"}>
+                {/* Recurrence & Category */}
+                <div className="grid grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                      <Repeat className="h-3.5 w-3.5 text-slate-400" />
+                      Recurrence
+                    </label>
+                    <FormControl size="small" fullWidth>
+                      <Select
+                        name="recurrence"
+                        defaultValue="None"
+                        sx={{
+                          fontSize: "0.75rem",
+                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          borderRadius: "0.75rem",
+                          backgroundColor: "#f8fafc",
+                          "& .MuiSelect-select": {
+                            fontSize: "0.75rem",
+                            py: "8px",
+                          },
+                        }}
+                      >
+                        {recurrences.map((r) => (
+                          <MenuItem key={r} value={r} sx={{ fontSize: "0.75rem" }}>
+                            {r}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Category
+                    </label>
+                    <input
+                      name="category"
+                      defaultValue="General"
+                      placeholder="e.g. Bills, Vehicle, Family"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                    />
+                  </div>
+                </div>
+
+                {/* Assignee */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Assignee (Family Member)
@@ -1281,143 +1295,102 @@ export function TasksPage() {
                     </Select>
                   </FormControl>
                 </div>
-              </div>
 
-              {/* Linked Records (Optional) */}
-              <div className="grid grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Link Vehicle (Optional)
-                  </label>
-                  <FormControl size="small" fullWidth>
-                    <Select
-                      name="vehicleId"
-                      defaultValue=""
-                      displayEmpty
-                      sx={{
-                        fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
-                        borderRadius: "0.75rem",
-                        backgroundColor: "#f8fafc",
-                        "& .MuiSelect-select": {
-                          fontSize: "0.75rem",
-                          py: "8px",
-                        },
-                      }}
-                    >
-                      <MenuItem value="" sx={{ fontSize: "0.75rem" }}>None</MenuItem>
-                      {vehicles.map((v) => (
-                        <MenuItem key={v.id} value={v.id} sx={{ fontSize: "0.75rem" }}>
-                          🚗 {v.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Link Property (Optional)
-                  </label>
-                  <FormControl size="small" fullWidth>
-                    <Select
-                      name="propertyId"
-                      defaultValue=""
-                      displayEmpty
-                      sx={{
-                        fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
-                        borderRadius: "0.75rem",
-                        backgroundColor: "#f8fafc",
-                        "& .MuiSelect-select": {
-                          fontSize: "0.75rem",
-                          py: "8px",
-                        },
-                      }}
-                    >
-                      <MenuItem value="" sx={{ fontSize: "0.75rem" }}>None</MenuItem>
-                      {properties.map((p) => (
-                        <MenuItem key={p.id} value={p.id} sx={{ fontSize: "0.75rem" }}>
-                          🏢 {p.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </div>
-              </div>
-
-              {/* WhatsApp Alert Checkbox & Lead Time */}
-              <div className="rounded-xl bg-emerald-50/70 border border-emerald-100 p-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="reminderWhatsapp"
-                      name="reminderWhatsapp"
-                      defaultChecked
-                      className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                    />
-                    <label htmlFor="reminderWhatsapp" className="text-xs font-bold text-emerald-950 cursor-pointer">
-                      Send WhatsApp reminder for this task
+                {/* Linked Records (Optional) */}
+                <div className="grid grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Link Vehicle (Optional)
                     </label>
+                    <FormControl size="small" fullWidth>
+                      <Select
+                        name="vehicleId"
+                        defaultValue=""
+                        displayEmpty
+                        sx={{
+                          fontSize: "0.75rem",
+                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          borderRadius: "0.75rem",
+                          backgroundColor: "#f8fafc",
+                          "& .MuiSelect-select": {
+                            fontSize: "0.75rem",
+                            py: "8px",
+                          },
+                        }}
+                      >
+                        <MenuItem value="" sx={{ fontSize: "0.75rem" }}>None</MenuItem>
+                        {vehicles.map((v) => (
+                          <MenuItem key={v.id} value={v.id} sx={{ fontSize: "0.75rem" }}>
+                            🚗 {v.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
                   </div>
-                  {modalDueTime && (
-                    <span className="text-[11px] font-mono font-semibold text-emerald-700 bg-white/80 border border-emerald-200/80 px-2 py-0.5 rounded-full">
-                      ⏰ Due: {formatTime12h(modalDueTime)}
-                    </span>
-                  )}
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Link Property (Optional)
+                    </label>
+                    <FormControl size="small" fullWidth>
+                      <Select
+                        name="propertyId"
+                        defaultValue=""
+                        displayEmpty
+                        sx={{
+                          fontSize: "0.75rem",
+                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          borderRadius: "0.75rem",
+                          backgroundColor: "#f8fafc",
+                          "& .MuiSelect-select": {
+                            fontSize: "0.75rem",
+                            py: "8px",
+                          },
+                        }}
+                      >
+                        <MenuItem value="" sx={{ fontSize: "0.75rem" }}>None</MenuItem>
+                        {properties.map((p) => (
+                          <MenuItem key={p.id} value={p.id} sx={{ fontSize: "0.75rem" }}>
+                            🏢 {p.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </div>
                 </div>
 
-                <div className="space-y-2.5 pl-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <span className="text-[11px] font-semibold text-slate-700 shrink-0">
-                      Remind Lead:
-                    </span>
-                    <select
-                      name="taskReminderLead"
-                      value={modalReminderLead}
-                      onChange={(e) => setModalReminderLead(e.target.value)}
-                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium"
-                    >
-                      <option value="At due time">At exact due time (0 min)</option>
-                      <option value="5 minutes before">5 minutes before</option>
-                      <option value="10 minutes before">10 minutes before</option>
-                      <option value="15 minutes before">15 minutes before (Recommended)</option>
-                      <option value="30 minutes before">30 minutes before</option>
-                      <option value="45 minutes before">45 minutes before</option>
-                      <option value="1 hour before">1 hour before</option>
-                      <option value="2 hours before">2 hours before</option>
-                      <option value="1 day before">1 day before (Morning)</option>
-                      <option value="2 days before">2 days before</option>
-                      <option value="custom">Custom Minutes / Hours...</option>
-                    </select>
+                {/* Simplified WhatsApp Alert Card */}
+                <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/80 p-3.5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="reminderWhatsapp" className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        id="reminderWhatsapp"
+                        name="reminderWhatsapp"
+                        defaultChecked={false}
+                        className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      />
+                      <span className="text-xs font-bold text-emerald-950">
+                        Send WhatsApp reminder for this task
+                      </span>
+                    </label>
 
-                    {modalReminderLead === "custom" && (
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="number"
-                          min="1"
-                          max="999"
-                          name="customReminderMinutes"
-                          value={modalCustomLeadMinutes}
-                          onChange={(e) => setModalCustomLeadMinutes(Number(e.target.value))}
-                          className="w-16 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 font-mono text-center outline-none focus:border-emerald-600"
-                        />
-                        <select
-                          name="customReminderUnit"
-                          value={modalCustomLeadUnit}
-                          onChange={(e) => setModalCustomLeadUnit(e.target.value as any)}
-                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium"
-                        >
-                          <option value="minutes">Minutes before</option>
-                          <option value="hours">Hours before</option>
-                          <option value="days">Days before</option>
-                        </select>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-slate-600 font-medium">Remind:</span>
+                      <select
+                        name="taskReminderLead"
+                        value={modalReminderLead}
+                        onChange={(e) => setModalReminderLead(e.target.value)}
+                        className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium shadow-2xs"
+                      >
+                        <option value="At due time">At due time</option>
+                        <option value="15 minutes before">15 mins before</option>
+                        <option value="1 hour before">1 hour before</option>
+                        <option value="1 day before">1 day before</option>
+                      </select>
+                    </div>
                   </div>
 
-                  {/* Trigger preview indicator */}
                   {reminderPreviewText && (
                     <div className="text-[11px] text-emerald-800 bg-emerald-100/70 border border-emerald-200/90 rounded-lg px-2.5 py-1 font-medium flex items-center gap-1.5">
                       <Clock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
@@ -1428,28 +1401,50 @@ export function TasksPage() {
                   <ItemRecipientSelector
                     selectedRecipients={taskRecipients}
                     onChange={setTaskRecipients}
-                    label="Send Task Alert To:"
-                    helperText="Pick which number alias(es) will receive the task reminder."
+                    label="Send Alert To:"
+                    helperText="Select which phone alias receives the reminder."
                   />
                 </div>
               </div>
 
               {/* Footer Actions */}
-              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsAddOpen(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  disabled={saving}
-                  type="submit"
-                  className="rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition shadow-xs cursor-pointer"
-                >
-                  {saving ? "Saving..." : "Create Task"}
-                </button>
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                <div>
+                  {addModalTab === "general" ? (
+                    <button
+                      type="button"
+                      onClick={() => setAddModalTab("advanced")}
+                      className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+                    >
+                      Configure Advanced &rarr;
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setAddModalTab("general")}
+                      className="text-xs text-slate-500 hover:text-slate-800 font-semibold cursor-pointer"
+                    >
+                      &larr; Back to General
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddOpen(false)}
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={saving}
+                    type="submit"
+                    className="rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition shadow-xs cursor-pointer"
+                  >
+                    {saving ? "Saving..." : "Create Task"}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -1458,10 +1453,16 @@ export function TasksPage() {
 
       {/* Task Details & Edit Modal */}
       {selectedTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="relative w-full max-w-2xl rounded-2xl bg-white border border-slate-200 shadow-2xl p-6 my-8 max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto"
+          onMouseDown={() => setSelectedTask(null)}
+        >
+          <div
+            className="relative w-full max-w-2xl rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden my-8"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
             {/* Header */}
-            <div className="flex items-start justify-between border-b border-slate-100 pb-4 mb-4">
+            <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/50">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
@@ -1512,154 +1513,190 @@ export function TasksPage() {
               </div>
             </div>
 
-            <form onSubmit={handleSaveEditedTask} className="space-y-4">
-              {/* Title */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Task Title <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  placeholder="Task title"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-medium text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
-                />
-              </div>
+            {/* Modal Tabs: General vs Advanced */}
+            <div className="flex border-b border-slate-200/90 px-6 bg-white">
+              <button
+                type="button"
+                onClick={() => setEditModalTab("general")}
+                className={`py-2.5 text-xs font-semibold border-b-2 mr-6 transition cursor-pointer flex items-center gap-1.5 ${
+                  editModalTab === "general"
+                    ? "border-slate-900 text-slate-900 font-bold"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <span>General Info</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditModalTab("advanced")}
+                className={`py-2.5 text-xs font-semibold border-b-2 transition cursor-pointer flex items-center gap-1.5 ${
+                  editModalTab === "advanced"
+                    ? "border-slate-900 text-slate-900 font-bold"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <span>Advanced & Notifications</span>
+                <span className="rounded-full bg-slate-100 px-1.5 py-0.2 text-[10px] font-mono text-slate-600 border border-slate-200">
+                  Optional
+                </span>
+              </button>
+            </div>
 
-              {/* Description */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Description
-                </label>
-                <textarea
-                  rows={2}
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  placeholder="Detailed instructions or context..."
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 resize-none"
-                />
-              </div>
-
-              {/* Status, Priority & Category */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <form onSubmit={handleSaveEditedTask} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              {/* TAB 1: GENERAL (Title, Description, Status, Priority, Due Date, Due Time) */}
+              <div className={editModalTab === "general" ? "space-y-4" : "hidden"}>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Status
-                  </label>
-                  <FormControl size="small" fullWidth>
-                    <Select
-                      value={editStatus}
-                      onChange={(e) => setEditStatus(e.target.value as TaskStatus)}
-                      sx={{
-                        fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
-                        borderRadius: "0.75rem",
-                        backgroundColor: "#f8fafc",
-                        "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
-                      }}
-                    >
-                      <MenuItem value="Pending" sx={{ fontSize: "0.75rem" }}>Pending (To Do)</MenuItem>
-                      <MenuItem value="In Progress" sx={{ fontSize: "0.75rem" }}>In Progress</MenuItem>
-                      <MenuItem value="Completed" sx={{ fontSize: "0.75rem" }}>Completed (Done)</MenuItem>
-                      <MenuItem value="Cancelled" sx={{ fontSize: "0.75rem" }}>Cancelled</MenuItem>
-                    </Select>
-                  </FormControl>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Priority
-                  </label>
-                  <FormControl size="small" fullWidth>
-                    <Select
-                      value={editPriority}
-                      onChange={(e) => setEditPriority(e.target.value as TaskPriority)}
-                      sx={{
-                        fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
-                        borderRadius: "0.75rem",
-                        backgroundColor: "#f8fafc",
-                        "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
-                      }}
-                    >
-                      {priorities.map((p) => (
-                        <MenuItem key={p} value={p} sx={{ fontSize: "0.75rem" }}>
-                          {p}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Category
+                    Task Title <span className="text-rose-500">*</span>
                   </label>
                   <input
-                    value={editCategory}
-                    onChange={(e) => setEditCategory(e.target.value)}
-                    placeholder="e.g. Bills, Vehicle, Family"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
-                  />
-                </div>
-              </div>
-
-              {/* Schedule: Due Date, Due Time & Recurrence */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Due Date
-                  </label>
-                  <input
-                    type="date"
-                    value={editDueDate}
-                    onChange={(e) => setEditDueDate(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                    type="text"
+                    required
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    placeholder="Task title"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-medium text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Due Time
+                    Description
                   </label>
-                  <input
-                    type="time"
-                    value={editDueTime}
-                    onChange={(e) => setEditDueTime(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                  <textarea
+                    rows={2}
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    placeholder="Detailed instructions or context..."
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 resize-none"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Recurrence
-                  </label>
-                  <FormControl size="small" fullWidth>
-                    <Select
-                      value={editRecurrence}
-                      onChange={(e) => setEditRecurrence(e.target.value as TaskRecurrence)}
-                      sx={{
-                        fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
-                        borderRadius: "0.75rem",
-                        backgroundColor: "#f8fafc",
-                        "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
-                      }}
-                    >
-                      {recurrences.map((r) => (
-                        <MenuItem key={r} value={r} sx={{ fontSize: "0.75rem" }}>
-                          {r}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                {/* Status & Priority */}
+                <div className="grid grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Status
+                    </label>
+                    <FormControl size="small" fullWidth>
+                      <Select
+                        value={editStatus}
+                        onChange={(e) => setEditStatus(e.target.value as TaskStatus)}
+                        sx={{
+                          fontSize: "0.75rem",
+                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          borderRadius: "0.75rem",
+                          backgroundColor: "#f8fafc",
+                          "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
+                        }}
+                      >
+                        <MenuItem value="Pending" sx={{ fontSize: "0.75rem" }}>Pending (To Do)</MenuItem>
+                        <MenuItem value="In Progress" sx={{ fontSize: "0.75rem" }}>In Progress</MenuItem>
+                        <MenuItem value="Completed" sx={{ fontSize: "0.75rem" }}>Completed (Done)</MenuItem>
+                        <MenuItem value="Cancelled" sx={{ fontSize: "0.75rem" }}>Cancelled</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Priority
+                    </label>
+                    <FormControl size="small" fullWidth>
+                      <Select
+                        value={editPriority}
+                        onChange={(e) => setEditPriority(e.target.value as TaskPriority)}
+                        sx={{
+                          fontSize: "0.75rem",
+                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          borderRadius: "0.75rem",
+                          backgroundColor: "#f8fafc",
+                          "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
+                        }}
+                      >
+                        {priorities.map((p) => (
+                          <MenuItem key={p} value={p} sx={{ fontSize: "0.75rem" }}>
+                            {p}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </div>
+                </div>
+
+                {/* Due Date & Due Time in First Tab */}
+                <div className="grid grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                      Due Date
+                    </label>
+                    <input
+                      type="date"
+                      value={editDueDate}
+                      onChange={(e) => setEditDueDate(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5 text-emerald-600" />
+                      Due Time (Hour & Min)
+                    </label>
+                    <input
+                      type="time"
+                      value={editDueTime}
+                      onChange={(e) => setEditDueTime(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 font-mono"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Assignee & Linked Entities */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* TAB 2: ADVANCED (Recurrence, Category, Assignee, Vehicle, Property, WhatsApp) */}
+              <div className={editModalTab === "advanced" ? "space-y-4" : "hidden"}>
+                <div className="grid grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                      <Repeat className="h-3.5 w-3.5 text-slate-400" />
+                      Recurrence
+                    </label>
+                    <FormControl size="small" fullWidth>
+                      <Select
+                        value={editRecurrence}
+                        onChange={(e) => setEditRecurrence(e.target.value as TaskRecurrence)}
+                        sx={{
+                          fontSize: "0.75rem",
+                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          borderRadius: "0.75rem",
+                          backgroundColor: "#f8fafc",
+                          "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
+                        }}
+                      >
+                        {recurrences.map((r) => (
+                          <MenuItem key={r} value={r} sx={{ fontSize: "0.75rem" }}>
+                            {r}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Category
+                    </label>
+                    <input
+                      value={editCategory}
+                      onChange={(e) => setEditCategory(e.target.value)}
+                      placeholder="e.g. Bills, Vehicle, Family"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                    />
+                  </div>
+                </div>
+
+                {/* Assignee */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Assignee
@@ -1687,145 +1724,114 @@ export function TasksPage() {
                   </FormControl>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Linked Vehicle
-                  </label>
-                  <FormControl size="small" fullWidth>
-                    <Select
-                      value={editVehicleId}
-                      onChange={(e) => setEditVehicleId(e.target.value)}
-                      displayEmpty
-                      sx={{
-                        fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
-                        borderRadius: "0.75rem",
-                        backgroundColor: "#f8fafc",
-                        "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
-                      }}
-                    >
-                      <MenuItem value="" sx={{ fontSize: "0.75rem" }}>None</MenuItem>
-                      {vehicles.map((v) => (
-                        <MenuItem key={v.id} value={v.id} sx={{ fontSize: "0.75rem" }}>
-                          🚗 {v.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Linked Property
-                  </label>
-                  <FormControl size="small" fullWidth>
-                    <Select
-                      value={editPropertyId}
-                      onChange={(e) => setEditPropertyId(e.target.value)}
-                      displayEmpty
-                      sx={{
-                        fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
-                        borderRadius: "0.75rem",
-                        backgroundColor: "#f8fafc",
-                        "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
-                      }}
-                    >
-                      <MenuItem value="" sx={{ fontSize: "0.75rem" }}>None</MenuItem>
-                      {properties.map((p) => (
-                        <MenuItem key={p.id} value={p.id} sx={{ fontSize: "0.75rem" }}>
-                          🏢 {p.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </div>
-              </div>
-
-              {/* WhatsApp Notification Card */}
-              <div className="rounded-xl bg-emerald-50/70 border border-emerald-100 p-3.5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="editReminderWhatsapp"
-                      checked={editReminderWhatsapp}
-                      onChange={(e) => setEditReminderWhatsapp(e.target.checked)}
-                      className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                    />
-                    <label htmlFor="editReminderWhatsapp" className="text-xs font-bold text-emerald-950 cursor-pointer">
-                      Send WhatsApp reminder for this task
+                {/* Linked Records (Optional) */}
+                <div className="grid grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Linked Vehicle
                     </label>
+                    <FormControl size="small" fullWidth>
+                      <Select
+                        value={editVehicleId}
+                        onChange={(e) => setEditVehicleId(e.target.value)}
+                        displayEmpty
+                        sx={{
+                          fontSize: "0.75rem",
+                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          borderRadius: "0.75rem",
+                          backgroundColor: "#f8fafc",
+                          "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
+                        }}
+                      >
+                        <MenuItem value="" sx={{ fontSize: "0.75rem" }}>None</MenuItem>
+                        {vehicles.map((v) => (
+                          <MenuItem key={v.id} value={v.id} sx={{ fontSize: "0.75rem" }}>
+                            🚗 {v.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
                   </div>
-                  {editDueTime && (
-                    <span className="text-[11px] font-mono font-semibold text-emerald-700 bg-white/80 border border-emerald-200/80 px-2 py-0.5 rounded-full">
-                      ⏰ Due: {formatTime12h(editDueTime)}
-                    </span>
-                  )}
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Linked Property
+                    </label>
+                    <FormControl size="small" fullWidth>
+                      <Select
+                        value={editPropertyId}
+                        onChange={(e) => setEditPropertyId(e.target.value)}
+                        displayEmpty
+                        sx={{
+                          fontSize: "0.75rem",
+                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          borderRadius: "0.75rem",
+                          backgroundColor: "#f8fafc",
+                          "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
+                        }}
+                      >
+                        <MenuItem value="" sx={{ fontSize: "0.75rem" }}>None</MenuItem>
+                        {properties.map((p) => (
+                          <MenuItem key={p.id} value={p.id} sx={{ fontSize: "0.75rem" }}>
+                            🏢 {p.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </div>
                 </div>
 
-                {editReminderWhatsapp && (
-                  <div className="space-y-2.5 pl-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                      <span className="text-[11px] font-semibold text-slate-700 shrink-0">
-                        Remind Lead:
+                {/* Simplified WhatsApp Notification Card */}
+                <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/80 p-3.5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="editReminderWhatsapp" className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        id="editReminderWhatsapp"
+                        checked={editReminderWhatsapp}
+                        onChange={(e) => setEditReminderWhatsapp(e.target.checked)}
+                        className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      />
+                      <span className="text-xs font-bold text-emerald-950">
+                        Send WhatsApp reminder for this task
                       </span>
-                      <select
-                        value={editReminderLead}
-                        onChange={(e) => setEditReminderLead(e.target.value)}
-                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium"
-                      >
-                        <option value="At due time">At exact due time (0 min)</option>
-                        <option value="5 minutes before">5 minutes before</option>
-                        <option value="10 minutes before">10 minutes before</option>
-                        <option value="15 minutes before">15 minutes before (Recommended)</option>
-                        <option value="30 minutes before">30 minutes before</option>
-                        <option value="45 minutes before">45 minutes before</option>
-                        <option value="1 hour before">1 hour before</option>
-                        <option value="2 hours before">2 hours before</option>
-                        <option value="1 day before">1 day before (Morning)</option>
-                        <option value="2 days before">2 days before</option>
-                        <option value="custom">Custom Minutes / Hours...</option>
-                      </select>
+                    </label>
 
-                      {editReminderLead === "custom" && (
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="number"
-                            min="1"
-                            max="999"
-                            value={editCustomLeadMinutes}
-                            onChange={(e) => setEditCustomLeadMinutes(Number(e.target.value))}
-                            className="w-16 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 font-mono text-center outline-none focus:border-emerald-600"
-                          />
-                          <select
-                            value={editCustomLeadUnit}
-                            onChange={(e) => setEditCustomLeadUnit(e.target.value as any)}
-                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium"
-                          >
-                            <option value="minutes">Minutes before</option>
-                            <option value="hours">Hours before</option>
-                            <option value="days">Days before</option>
-                          </select>
-                        </div>
-                      )}
-                    </div>
-
-                    {editReminderPreviewText && (
-                      <div className="text-[11px] text-emerald-800 bg-emerald-100/70 border border-emerald-200/90 rounded-lg px-2.5 py-1 font-medium flex items-center gap-1.5">
-                        <Clock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                        <span>{editReminderPreviewText}</span>
+                    {editReminderWhatsapp && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-slate-600 font-medium">Remind:</span>
+                        <select
+                          value={editReminderLead}
+                          onChange={(e) => setEditReminderLead(e.target.value)}
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium shadow-2xs"
+                        >
+                          <option value="At due time">At due time</option>
+                          <option value="15 minutes before">15 mins before</option>
+                          <option value="1 hour before">1 hour before</option>
+                          <option value="1 day before">1 day before</option>
+                        </select>
                       </div>
                     )}
-
-                    <ItemRecipientSelector
-                      selectedRecipients={editRecipients}
-                      onChange={setEditRecipients}
-                      label="Send Task Alert To:"
-                      helperText="Pick which number alias(es) will receive the task reminder."
-                    />
                   </div>
-                )}
+
+                  {editReminderWhatsapp && (
+                    <>
+                      {editReminderPreviewText && (
+                        <div className="text-[11px] text-emerald-800 bg-emerald-100/70 border border-emerald-200/90 rounded-lg px-2.5 py-1 font-medium flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                          <span>{editReminderPreviewText}</span>
+                        </div>
+                      )}
+
+                      <ItemRecipientSelector
+                        selectedRecipients={editRecipients}
+                        onChange={setEditRecipients}
+                        label="Send Alert To:"
+                        helperText="Select which phone alias receives the reminder."
+                      />
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Footer Actions */}
@@ -1931,6 +1937,10 @@ interface TaskCardProps {
   onSendWhatsApp?: (task: TaskItem) => void;
   isSendingWA?: boolean;
   wasSentWA?: boolean;
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
+  isDragging?: boolean;
 }
 
 function TaskCard({
@@ -1942,33 +1952,51 @@ function TaskCard({
   onSendWhatsApp,
   isSendingWA,
   wasSentWA,
+  draggable,
+  onDragStart,
+  onDragEnd,
+  isDragging,
 }: TaskCardProps) {
   const dueMeta = getDueDateStyle(task.dueDate);
   const isDone = task.status === "Completed";
+  const isCancelled = task.status === "Cancelled";
+  const cancelledCountdown = isCancelled ? getCancelledCountdown(task) : null;
 
   return (
     <div
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       onClick={() => onSelect?.(task)}
-      className="group rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs hover:border-indigo-400 hover:shadow-xs transition space-y-2.5 cursor-pointer"
+      className={`group rounded-xl border bg-white p-3 shadow-2xs hover:shadow-xs transition space-y-2.5 cursor-grab active:cursor-grabbing select-none ${
+        isDragging
+          ? "opacity-40 border-dashed border-indigo-400 scale-[0.98]"
+          : isCancelled
+          ? "border-rose-200/90 bg-rose-50/20 border-l-4 border-l-rose-400"
+          : `border-slate-200/90 hover:border-slate-300 ${getPriorityCardBorder(task.priority)}`
+      }`}
     >
-      {/* Top Tag Row: Key + Priority + Category */}
+      {/* Top Tag Row: Key + Category */}
       <div className="flex items-center justify-between gap-1">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="font-mono text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/70">
-            LN-{String(index + 1).padStart(2, "0")}
-          </span>
-
-          <span
-            className={`inline-block rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wider ${getPriorityBadgeStyle(
-              task.priority,
-            )}`}
-          >
-            {task.priority}
+            TSK-{String(index + 1).padStart(2, "0")}
           </span>
 
           {task.category && (
-            <span className="rounded bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 border border-slate-200/60">
+            <span className="rounded-md bg-slate-100/80 px-2 py-0.5 text-[10px] font-medium text-slate-600 border border-slate-200/70">
               {task.category}
+            </span>
+          )}
+
+          {/* Auto-delete countdown for Cancelled tasks */}
+          {cancelledCountdown && (
+            <span
+              className="rounded bg-rose-100 text-rose-700 px-1.5 py-0.5 text-[10px] font-bold border border-rose-200 flex items-center gap-1"
+              title="This task will be automatically deleted when timer expires"
+            >
+              <Clock className="h-2.5 w-2.5 text-rose-600" />
+              {cancelledCountdown}
             </span>
           )}
         </div>
@@ -1992,7 +2020,7 @@ function TaskCard({
               onDelete(task.id);
             }}
             className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-600 p-0.5 rounded transition cursor-pointer"
-            title="Delete task"
+            title="Delete task immediately"
           >
             <Trash2 className="h-3 w-3" />
           </button>
@@ -2003,7 +2031,7 @@ function TaskCard({
       <div>
         <h3
           className={`text-xs font-bold leading-snug ${
-            isDone ? "text-slate-400 line-through" : "text-slate-900"
+            isDone || isCancelled ? "text-slate-400 line-through" : "text-slate-900"
           }`}
         >
           {task.title}
@@ -2056,7 +2084,7 @@ function TaskCard({
         </div>
       )}
 
-      {/* Footer: Due date + Assignee + Transition Button */}
+      {/* Footer: Due date + Assignee + Transition Buttons */}
       <div className="flex items-center justify-between pt-2 border-t border-slate-100">
         <div className="flex items-center gap-2">
           {/* Due date & time */}
@@ -2086,36 +2114,62 @@ function TaskCard({
           </span>
         </div>
 
-        {/* Jira-Style 1-Click Status Transitions */}
+        {/* 1-Click Status Transitions (Great for Mobile Touch!) */}
         <div className="flex items-center gap-1">
           {task.status === "Pending" && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStatusChange(task, "In Progress");
-              }}
-              className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-100 transition cursor-pointer"
-              title="Start Progress"
-            >
-              <span>Start</span>
-              <ArrowRight className="h-2.5 w-2.5" />
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStatusChange(task, "In Progress");
+                }}
+                className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-100 transition cursor-pointer"
+                title="Start Progress"
+              >
+                <span>Start</span>
+                <ArrowRight className="h-2.5 w-2.5" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStatusChange(task, "Cancelled");
+                }}
+                className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-[10px] text-slate-500 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition cursor-pointer"
+                title="Cancel Task (auto-deletes in 3 days)"
+              >
+                <XCircle className="h-3 w-3" />
+              </button>
+            </>
           )}
 
           {task.status === "In Progress" && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStatusChange(task, "Completed");
-              }}
-              className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-100 transition cursor-pointer"
-              title="Mark Complete"
-            >
-              <CheckCircle2 className="h-2.5 w-2.5" />
-              <span>Done</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStatusChange(task, "Completed");
+                }}
+                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-100 transition cursor-pointer"
+                title="Mark Complete"
+              >
+                <CheckCircle2 className="h-2.5 w-2.5" />
+                <span>Done</span>
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStatusChange(task, "Cancelled");
+                }}
+                className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-[10px] text-slate-500 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition cursor-pointer"
+                title="Cancel Task"
+              >
+                <XCircle className="h-3 w-3" />
+              </button>
+            </>
           )}
 
           {task.status === "Completed" && (
@@ -2130,6 +2184,21 @@ function TaskCard({
             >
               <RotateCcw className="h-2.5 w-2.5" />
               <span>Reopen</span>
+            </button>
+          )}
+
+          {task.status === "Cancelled" && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onStatusChange(task, "Pending");
+              }}
+              className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-2 py-1 text-[10px] font-medium text-rose-700 hover:bg-rose-100 transition cursor-pointer"
+              title="Restore Task to To Do"
+            >
+              <RotateCcw className="h-2.5 w-2.5" />
+              <span>Restore</span>
             </button>
           )}
         </div>

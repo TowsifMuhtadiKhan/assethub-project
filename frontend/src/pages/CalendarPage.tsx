@@ -91,7 +91,9 @@ export function CalendarPage() {
 
       // 4. Vehicles Next Fitness / Tax Token from vehicle records
       vehs.forEach((v) => {
-        if (v.fitnessExpiry) {
+        // Only include if vehicle actually has an active reminder configured in notes
+        const hasReminder = Boolean(v.notes && /\[Reminder:[^\]]+\]/i.test(v.notes));
+        if (v.fitnessExpiry && hasReminder) {
           evs.push({
             id: `veh-fit-${v.id}`,
             title: `${v.name} - BRTA Fitness Renewal Due`,
@@ -200,17 +202,11 @@ export function CalendarPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3.5">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold tracking-wider uppercase text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-100">
-              My Life • Schedule
-            </span>
-            <span className="text-xs text-slate-400 font-mono">CALENDAR</span>
-          </div>
-          <h1 className="text-xl font-extrabold tracking-tight text-slate-900 mt-1">
-            Schedule & Action Deadlines
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">
+            Schedule & Deadlines
           </h1>
-          <p className="text-xs text-slate-500">
-            Unified chronological schedule for vehicle BRTA renewals, task deadlines, and warranty expirations.
+          <p className="text-xs text-slate-500 mt-0.5">
+            Unified chronological schedule for vehicle renewals, task deadlines, and warranty expirations.
           </p>
         </div>
 

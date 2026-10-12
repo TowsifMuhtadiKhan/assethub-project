@@ -64,7 +64,7 @@ export function VehicleEntryForm({
     color: initialVehicle?.color ?? "",
     notes: initialVehicle?.notes ?? "",
   });
-  const [reminderEnabled, setReminderEnabled] = useState(true);
+  const [reminderEnabled, setReminderEnabled] = useState(false);
   const [fitnessExpiry, setFitnessExpiry] = useState(
     initialVehicle?.fitnessExpiry || "",
   );
@@ -123,8 +123,8 @@ export function VehicleEntryForm({
       purchasePrice: initialVehicle?.purchasePrice ?? 0,
       insuranceInfo: initialVehicle?.insuranceInfo || "Not added",
       taxTokenInfo: initialVehicle?.taxTokenInfo || "Not added",
-      fitnessExpiry: fitnessExpiry || initialVehicle?.fitnessExpiry || new Date().toISOString().slice(0, 10),
-      taxTokenExpiry: taxTokenExpiry || initialVehicle?.taxTokenExpiry,
+      fitnessExpiry: fitnessExpiry || initialVehicle?.fitnessExpiry || "",
+      taxTokenExpiry: taxTokenExpiry || initialVehicle?.taxTokenExpiry || "",
       image,
       status: initialVehicle?.status || "GOOD",
     });
@@ -148,17 +148,9 @@ export function VehicleEntryForm({
     >
       {/* Modal Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-              {initialVehicle ? "Edit Vehicle" : "Create Vehicle"}
-            </span>
-            <span className="text-xs text-slate-400 font-mono">LN-VEHICLE</span>
-          </div>
-          <h2 className="text-base font-bold tracking-tight text-slate-900 mt-0.5">
-            {initialVehicle ? `Edit ${initialVehicle.name}` : `New Vehicle Profile`}
-          </h2>
-        </div>
+        <h2 className="text-base font-bold tracking-tight text-slate-900">
+          {initialVehicle ? `Edit ${initialVehicle.name}` : "New Vehicle Profile"}
+        </h2>
         {onCancel && (
           <button
             type="button"
