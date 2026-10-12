@@ -66,6 +66,15 @@ export function getGoogleDriveFileViewUrl(fileId: string): string {
   return `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/view`;
 }
 
+export function getGoogleDriveDirectDownloadUrl(input: string): string {
+  if (!input) return "";
+  const fileId = extractGoogleDriveFileId(input);
+  if (fileId) {
+    return `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`;
+  }
+  return input;
+}
+
 /**
  * Safely opens or downloads a document file.
  * Prevents Chrome from blocking top-level navigation to data: URIs (about:blank#blocked)
