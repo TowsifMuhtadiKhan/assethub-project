@@ -124,7 +124,7 @@ function buildSystemContextText(data: AiContextData): string {
   const vehiclesSummary = data.vehicles
     .map(
       (v) =>
-        `- ${v.name} (${v.brand} ${v.model}, ${v.type || "Vehicle"}, Reg: ${v.registrationNumber || "Unregistered"}): Fitness Expiry: ${v.fitnessExpiry || "N/A"}, Tax Token Expiry: ${v.taxTokenExpiry || "N/A"}, Insurance Expiry: ${v.insuranceExpiry || "N/A"}, Mileage: ${v.mileage || 0} km`,
+        `- ${v.name} (${v.brand} ${v.model}, ${v.type || "Vehicle"}, Reg: ${v.registrationNumber || "Unregistered"}): Chassis/VIN: ${v.chassisNumber || "N/A"}, Engine No: ${v.engineNumber || "N/A"}, Fitness Expiry: ${v.fitnessExpiry || "N/A"}, Tax Token Expiry: ${v.taxTokenExpiry || "N/A"}, Insurance Expiry: ${v.insuranceExpiry || "N/A"}, Mileage: ${v.mileage || 0} km, Year: ${v.year || "N/A"}, Color: ${v.color || "N/A"}`,
     )
     .join("\n");
 
@@ -234,28 +234,165 @@ Here is the current snapshot of your personal and family hub:
     return `### 👨‍👩‍👧‍👦 Family Access Directory (${data.familyMembers.length} members)\n\n${list}`;
   }
 
-  // 3. Vehicles, Fitness, Tax Token, Servicing
-  if (
+  // 3. Vehicles, Fitness, Tax Token, Servicing, Chassis, Engine
+  const isChassisQuery = /chassis|cahasis|chasis|chassi|vin/i.test(q);
+  const isEngineQuery = /engine|motor\s*no|engin/i.test(q);
+  const isFitnessQuery = /fitness|renewal|brta/i.test(q);
+  const isTaxQuery = /tax\s*token|token/i.test(q);
+  const isMileageQuery = /mileage|odometer|km|kilometer/i.test(q);
+  const isRegQuery = /reg|registration|number\s*plate|plate/i.test(q) && !q.includes("tax");
+  const mentionsVehicleKeyword =
     q.includes("vehicle") ||
     q.includes("car") ||
     q.includes("bike") ||
-    q.includes("fitness") ||
-    q.includes("tax token") ||
+    q.includes("motorcycle") ||
+    q.includes("scooter") ||
     q.includes("fleet") ||
-    q.includes("fuel")
+    q.includes("fuel");
+
+  const matchesAnyVehicleName = data.vehicles.some(
+    (v) =>
+      (v.name && q.includes(v.name.toLowerCase())) ||
+      (v.brand && q.includes(v.brand.toLowerCase())) ||
+      (v.model && q.includes(v.model.toLowerCase())) ||
+      (v.registrationNumber && q.includes(v.registrationNumber.toLowerCase())),
+  );
+
+  if (
+    mentionsVehicleKeyword ||
+    isChassisQuery ||
+    isEngineQuery ||
+    isFitnessQuery ||
+    isTaxQuery ||
+    isMileageQuery ||
+    isRegQuery ||
+    matchesAnyVehicleName
   ) {
     if (data.vehicles.length === 0) {
       return `🚗 No vehicles or bikes are currently registered in your fleet. You can add one from **Assets ➔ Vehicles & Fuel**.`;
     }
 
-    const items = data.vehicles.map((v) => {
+    // Determine targeted vehicles (e.g. bike, car, specific model/brand/name)
+    const targetVehicles = data.vehicles.filter((v) => {
+      const vText = `${v.name} ${v.brand} ${v.model} ${v.type}`.toLowerCase();
+      if (
+        (q.includes("bike") || q.includes("motorcycle") || q.includes("scooter")) &&
+        (v.type?.toLowerCase().includes("bike") ||
+          v.type?.toLowerCase().includes("motorcycle") ||
+          vText.includes("bike") ||
+          vText.includes("motorcycle"))
+      ) {
+        return true;
+      }
+      if (
+        (q.includes("car") || q.includes("auto")) &&
+        (v.type?.toLowerCase().includes("car") || vText.includes("car"))
+      ) {
+        return true;
+      }
+      if (v.name && q.includes(v.name.toLowerCase())) return true;
+      if (v.brand && q.includes(v.brand.toLowerCase())) return true;
+      if (v.model && q.includes(v.model.toLowerCase())) return true;
+      if (v.registrationNumber && q.includes(v.registrationNumber.toLowerCase())) return true;
+      return false;
+    });
+
+    const activeList =
+      targetVehicles.length > 0
+        ? targetVehicles
+        : data.vehicles.length === 1
+          ? data.vehicles
+          : data.vehicles;
+
+    // A. Chassis / VIN query
+    if (isChassisQuery) {
+      const list = activeList
+        .map((v) => {
+          const chassis = v.chassisNumber ? `**\`${v.chassisNumber}\`**` : "*Not recorded in system*";
+          const engine = v.engineNumber ? `\`${v.engineNumber}\`` : "*N/A*";
+          const reg = v.registrationNumber ? `\`${v.registrationNumber}\`` : "*Unregistered*";
+          return `* **${v.name}** (${v.brand} ${v.model} • ${v.type || "Vehicle"}):\n  • 🔑 **Chassis / VIN Number:** ${chassis}\n  • ⚙️ Engine Number: ${engine}\n  • 🚘 Registration: ${reg}`;
+        })
+        .join("\n\n");
+
+      return `### 🔍 Chassis (VIN) Number Details\n\n${list}\n\n*Manage your vehicles anytime in **Assets ➔ Vehicles & Fuel**.*`;
+    }
+
+    // B. Engine Number query
+    if (isEngineQuery) {
+      const list = activeList
+        .map((v) => {
+          const engine = v.engineNumber ? `**\`${v.engineNumber}\`**` : "*Not recorded in system*";
+          const chassis = v.chassisNumber ? `\`${v.chassisNumber}\`` : "*N/A*";
+          const reg = v.registrationNumber ? `\`${v.registrationNumber}\`` : "*Unregistered*";
+          return `* **${v.name}** (${v.brand} ${v.model} • ${v.type || "Vehicle"}):\n  • ⚙️ **Engine Number:** ${engine}\n  • 🔑 Chassis / VIN: ${chassis}\n  • 🚘 Registration: ${reg}`;
+        })
+        .join("\n\n");
+
+      return `### ⚙️ Engine Number Details\n\n${list}\n\n*Manage your vehicles anytime in **Assets ➔ Vehicles & Fuel**.*`;
+    }
+
+    // C. Registration Number query
+    if (isRegQuery) {
+      const list = activeList
+        .map((v) => {
+          const reg = v.registrationNumber ? `**\`${v.registrationNumber}\`**` : "*Not set*";
+          return `* **${v.name}** (${v.brand} ${v.model}):\n  • 🚘 **Registration Plate:** ${reg}\n  • Chassis: \`${v.chassisNumber || "N/A"}\``;
+        })
+        .join("\n\n");
+
+      return `### 🚘 Registration Details\n\n${list}`;
+    }
+
+    // D. Fitness query
+    if (isFitnessQuery) {
+      const list = activeList
+        .map((v) => {
+          const fitness = v.fitnessExpiry ? `**Due: ${v.fitnessExpiry}**` : "*No renewal scheduled*";
+          return `* **${v.name}** (${v.brand} ${v.model}):\n  • 🛠️ **BRTA Fitness Expiry:** ${fitness}\n  • Tax Token Expiry: ${v.taxTokenExpiry || "N/A"}`;
+        })
+        .join("\n\n");
+
+      return `### 🛠️ BRTA Fitness & Renewal Status\n\n${list}`;
+    }
+
+    // E. Tax Token query
+    if (isTaxQuery) {
+      const list = activeList
+        .map((v) => {
+          const tax = v.taxTokenExpiry ? `**Due: ${v.taxTokenExpiry}**` : "*No expiry recorded*";
+          return `* **${v.name}** (${v.brand} ${v.model}):\n  • 📄 **Tax Token Expiry:** ${tax}\n  • Fitness Expiry: ${v.fitnessExpiry || "N/A"}`;
+        })
+        .join("\n\n");
+
+      return `### 📄 Tax Token Expiry Status\n\n${list}`;
+    }
+
+    // F. Mileage / Odometer query
+    if (isMileageQuery) {
+      const list = activeList
+        .map((v) => `* **${v.name}** (${v.brand} ${v.model}): **\`${v.mileage || 0} km\`**`)
+        .join("\n");
+
+      return `### 🛣️ Odometer / Mileage\n\n${list}`;
+    }
+
+    // G. General or Fleet listing
+    const items = activeList.map((v) => {
       const fitness = v.fitnessExpiry ? `**Due: ${v.fitnessExpiry}**` : "Not scheduled";
       const taxToken = v.taxTokenExpiry ? `**Due: ${v.taxTokenExpiry}**` : "Not scheduled";
       const reg = v.registrationNumber ? `(Reg: ${v.registrationNumber})` : "";
-      return `* **${v.name}** — ${v.brand} ${v.model} ${reg}\n  • Type: *${v.type}*\n  • BRTA Fitness Renewal: ${fitness}\n  • Tax Token Expiry: ${taxToken}\n  • Odometer Mileage: \`${v.mileage || 0} km\``;
+      const chassis = v.chassisNumber ? `\`${v.chassisNumber}\`` : "Not recorded";
+      const engine = v.engineNumber ? `\`${v.engineNumber}\`` : "Not recorded";
+      return `* **${v.name}** — ${v.brand} ${v.model} ${reg}\n  • Type: *${v.type || "Vehicle"}*\n  • Chassis / VIN: ${chassis}\n  • Engine No: ${engine}\n  • BRTA Fitness Renewal: ${fitness}\n  • Tax Token Expiry: ${taxToken}\n  • Odometer Mileage: \`${v.mileage || 0} km\``;
     });
 
-    return `### 🚗 Fleet & Vehicle Status (${data.vehicles.length} vehicles)\n\n${items.join("\n\n")}`;
+    const header =
+      targetVehicles.length > 0 && targetVehicles.length < data.vehicles.length
+        ? `### 🚗 ${targetVehicles.map((v) => v.name).join(", ")} Details`
+        : `### 🚗 Fleet & Vehicle Status (${data.vehicles.length} vehicle${data.vehicles.length === 1 ? "" : "s"})`;
+
+    return `${header}\n\n${items.join("\n\n")}`;
   }
 
   // 4. Tasks, Deadlines, To-Do
@@ -385,8 +522,8 @@ ${recent.length > 0 ? recent.join("\n") : "No recent expenses logged."}`;
     if (d.name.toLowerCase().includes(q)) allHits.push(`• Document: **${d.name}** (Expiry: ${d.expiryDate || "N/A"})`);
   });
   data.vehicles.forEach((v) => {
-    if (`${v.name} ${v.brand} ${v.model}`.toLowerCase().includes(q))
-      allHits.push(`• Vehicle: **${v.name}** (${v.brand} ${v.model}, Reg: ${v.registrationNumber || "N/A"})`);
+    if (`${v.name} ${v.brand} ${v.model} ${v.chassisNumber || ""} ${v.engineNumber || ""}`.toLowerCase().includes(q))
+      allHits.push(`• Vehicle: **${v.name}** (${v.brand} ${v.model}, Reg: ${v.registrationNumber || "N/A"}, Chassis: ${v.chassisNumber || "N/A"}, Engine: ${v.engineNumber || "N/A"})`);
   });
   data.familyMembers.forEach((m) => {
     if (m.fullName.toLowerCase().includes(q))
@@ -416,7 +553,7 @@ export async function askLifeNestAi(
   if (apiKey) {
     try {
       const systemContext = buildSystemContextText(contextData);
-      const systemInstruction = `You are LifeNest AI, the intelligent personal and family life operating system assistant. You have access to the user's authentic records provided below. Answer the user's question directly, accurately, and politely based ONLY on this provided real data. Format your response cleanly using bullet points, bold headers, and concise markdown. If information is not in the records, state so politely. Do not make up facts.`;
+      const systemInstruction = `You are LifeNest AI, the intelligent personal and family life operating system assistant. You have access to the user's authentic records provided below. Answer the user's question directly, accurately, and politely based ONLY on this provided real data. For queries regarding specific fields (such as chassis number, VIN, engine number, registration plate, expiry dates, phone numbers), provide the exact requested values clearly and prominently. Format your response cleanly using bullet points, bold headers, and concise markdown. If information is not in the records, state so politely. Do not make up facts.`;
 
       const contents = [
         {
