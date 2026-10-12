@@ -198,3 +198,40 @@ Backend:
 cd backend
 npm run build
 ```
+
+## Document Storage Architecture
+
+LifeNest stores documents across two complementary layers:
+
+1. **Database Persistence (Supabase PostgreSQL)**:
+   - Table: `lifenest_documents`
+   - Stores metadata: `id`, `user_id`, `asset_id` (vehicle/property), `name`, `document_type`, `document_number`, `issue_date`, `expiry_date`, `status`, and `file_url`.
+   - Shared between local development and production.
+
+2. **File Storage & Vault (Master Google Drive)**:
+   - Configured via OAuth2 credentials in `backend/.env` (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_DRIVE_FOLDER_ID`, `GOOGLE_REFRESH_TOKEN`).
+   - Organized hierarchically:
+     ```text
+     Master Root (GOOGLE_DRIVE_FOLDER_ID)
+     ├── User - [Member Name]
+     │   ├── Tax & Finance/
+     │   ├── Vehicle Records/
+     │   └── General/
+     └── LifeNest APK Releases/
+         └── LifeNest.apk
+     ```
+
+## Android Mobile App (APK)
+
+LifeNest is packaged for Android using **Capacitor 7**:
+
+- **Build APK**:
+  ```powershell
+  .\build-apk.ps1
+  # Or with automatic Google Drive upload:
+  .\build-apk.ps1 -Upload
+  ```
+- **Output APK Path**: `apk-output/LifeNest-debug.apk`
+- **Google Drive Distribution**: The APK is published to `LifeNest APK Releases` with public link access (`Anyone with link can download`).
+- **Direct Download URL**: `https://drive.google.com/uc?export=download&id=17nW-lR7bXoAYUVBzx3cfJ53V61J0cNhD`
+- **In-App Downloads**: Accessible via User Profile Dropdown, Mobile Drawer, and auto-update notification modal (`/apk-version.json`).
