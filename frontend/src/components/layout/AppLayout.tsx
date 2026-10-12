@@ -14,7 +14,6 @@ import {
   LogOut,
   Settings,
   Smartphone,
-  Sparkles,
   Download,
 } from "lucide-react";
 import { useNavigate, Outlet } from "react-router-dom";
@@ -145,17 +144,6 @@ export function AppLayout() {
 
             {/* Header Right Actions */}
             <div className="flex items-center gap-2 sm:gap-2.5">
-              {/* Ask AI Trigger Button */}
-              <button
-                type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent("lifenest:open-ai-assistant"))}
-                title="Ask LifeNest AI (Ctrl+J)"
-                className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200/90 bg-indigo-50/70 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition cursor-pointer shadow-2xs"
-              >
-                <Sparkles className="h-3.5 w-3.5 text-indigo-600 animate-pulse" />
-                <span className="hidden sm:inline">Ask AI</span>
-              </button>
-
               {/* Quick Create Dropdown */}
               <div className="relative">
                 <button

@@ -20,8 +20,6 @@ function saveLocalDocs(vehicleId: string, docs: VehicleDocument[]) {
 }
 
 export async function listVehicleDocuments(vehicleId: string): Promise<VehicleDocument[]> {
-  const localList = getLocalDocs(vehicleId);
-
   try {
     const { data, error } = await supabase
       .from("lifenest_documents")
@@ -29,8 +27,39 @@ export async function listVehicleDocuments(vehicleId: string): Promise<VehicleDo
       .eq("asset_id", vehicleId)
       .order("created_at", { ascending: false });
 
-    if (!error) {
-      const remoteMapped: VehicleDocument[] = (data || []).map((d: any) => ({
+    if (!error && data) {
+      // 1. Deduplicate remote data by document name (keeps the newest created_at)
+      const seen = new Set<string>();
+      const deduplicatedRemote: any[] = [];
+      const duplicateIdsToDelete: string[] = [];
+
+      for (const d of data) {
+        const normKey = (d.name || d.document_type || "doc").trim().toLowerCase();
+        if (!seen.has(normKey)) {
+          seen.add(normKey);
+          deduplicatedRemote.push(d);
+        } else {
+          // Found an older duplicate copy in the database
+          duplicateIdsToDelete.push(d.id);
+        }
+      }
+
+      // 2. Automatically delete duplicate rows from Supabase in background
+      if (duplicateIdsToDelete.length > 0) {
+        void (async () => {
+          try {
+            await supabase
+              .from("lifenest_documents")
+              .delete()
+              .in("id", duplicateIdsToDelete);
+            console.log("Cleaned up", duplicateIdsToDelete.length, "duplicate vehicle documents in Supabase");
+          } catch (delErr) {
+            console.warn("Duplicate cleanup warning:", delErr);
+          }
+        })();
+      }
+
+      const remoteMapped: VehicleDocument[] = deduplicatedRemote.map((d: any) => ({
         id: d.id,
         vehicleId: d.asset_id || vehicleId,
         name: d.name,
@@ -46,76 +75,15 @@ export async function listVehicleDocuments(vehicleId: string): Promise<VehicleDo
         createdAt: d.created_at || new Date().toISOString(),
       }));
 
-      // Check if local storage has documents that are NOT yet in Supabase
-      // (e.g. documents created locally with temporary IDs or failed prior insert)
-      const unSyncedLocal = localList.filter(
-        (localItem) => !remoteMapped.some((r) => r.id === localItem.id || r.name === localItem.name)
-      );
-
-      if (unSyncedLocal.length > 0) {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (user) {
-          for (const item of unSyncedLocal) {
-            const { data: inserted, error: insertError } = await supabase
-              .from("lifenest_documents")
-              .insert({
-                owner_id: user.id,
-                name: item.name,
-                category: "Vehicle",
-                folder_name: "Vehicles",
-                document_number: item.documentNumber ?? "",
-                issue_date: item.issueDate || null,
-                expiry_date: item.expiryDate || null,
-                issuing_authority: item.issuingAuthority || "BRTA Bangladesh",
-                asset_type: "vehicle",
-                asset_id: vehicleId,
-                file_url: item.fileUrl || null,
-                file_type: item.fileType || "pdf",
-                tags: [item.category],
-                notes: item.notes ?? "",
-              })
-              .select()
-              .single();
-
-            if (!insertError && inserted) {
-              remoteMapped.push({
-                id: inserted.id,
-                vehicleId: inserted.asset_id || vehicleId,
-                name: inserted.name,
-                category: (inserted.document_type || inserted.tags?.[0] || "Custom Document") as BangladeshDocType,
-                documentNumber: inserted.document_number || "",
-                issueDate: inserted.issue_date || undefined,
-                expiryDate: inserted.expiry_date || undefined,
-                issuingAuthority: inserted.issuing_authority || "",
-                fileUrl: inserted.file_url || undefined,
-                fileName: inserted.file_name || inserted.name,
-                fileType: inserted.file_type || "pdf",
-                notes: inserted.notes || "",
-                createdAt: inserted.created_at || new Date().toISOString(),
-              });
-            } else if (insertError) {
-              console.warn("Could not sync local vehicle document to Supabase:", insertError);
-            }
-          }
-        }
-      }
-
-      // Merge remote with local items
-      const mergedMap = new Map<string, VehicleDocument>();
-      localList.forEach((item) => mergedMap.set(item.id, item));
-      remoteMapped.forEach((item) => mergedMap.set(item.id, item));
-      const merged = Array.from(mergedMap.values());
-      saveLocalDocs(vehicleId, merged);
-      return merged;
+      // Supabase is the single source of truth: sync to local cache
+      saveLocalDocs(vehicleId, remoteMapped);
+      return remoteMapped;
     }
   } catch (err) {
     console.warn("listVehicleDocuments error, using local cache:", err);
   }
 
-  return localList;
+  return getLocalDocs(vehicleId);
 }
 
 export async function createVehicleDocument(
@@ -130,6 +98,13 @@ export async function createVehicleDocument(
     } = await supabase.auth.getUser();
 
     if (user) {
+      // Remove any existing duplicate document with the same name before inserting
+      await supabase
+        .from("lifenest_documents")
+        .delete()
+        .eq("asset_id", input.vehicleId)
+        .eq("name", input.name);
+
       const { data, error } = await supabase
         .from("lifenest_documents")
         .insert({
@@ -195,8 +170,17 @@ export async function deleteVehicleDocument(
   }
 
   try {
+    // 1. Delete by UUID if valid UUID
     if (!id.startsWith("veh_doc_")) {
       await supabase.from("lifenest_documents").delete().eq("id", id);
+    }
+    // 2. Also delete all matching duplicates by asset_id and name to ensure cloud is clean
+    if (targetDoc?.name) {
+      await supabase
+        .from("lifenest_documents")
+        .delete()
+        .eq("asset_id", vehicleId)
+        .eq("name", targetDoc.name);
     }
   } catch (err) {
     console.warn("deleteVehicleDocument Supabase error:", err);

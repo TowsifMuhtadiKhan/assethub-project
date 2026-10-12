@@ -32,3 +32,6 @@ whatsapp_auth/
 backend/whatsapp_message_logs.json
 *.temp/
 .temp/
+
+.idea/
+
