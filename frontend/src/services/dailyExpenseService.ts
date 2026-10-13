@@ -19,19 +19,71 @@ function saveLocalExpenses(list: DailyExpense[]) {
   } catch {}
 }
 
+export async function syncLocalExpensesToRemote(): Promise<number> {
+  let synced = 0;
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return 0;
+
+    const localList = getLocalExpenses();
+    const unsynced = localList.filter((e) => e.id.startsWith("exp_"));
+    if (unsynced.length === 0) return 0;
+
+    for (const item of unsynced) {
+      const { data, error } = await supabase
+        .from(TABLE)
+        .insert({
+          owner_id: user.id,
+          family_member_id: item.familyMemberId,
+          family_member_name: item.familyMemberName || "",
+          date: item.date,
+          amount: item.amount,
+          category: item.category,
+          payment_method: item.paymentMethod,
+          description: item.description || "",
+          merchant: item.merchant || "",
+          receipt_url: item.receiptUrl || null,
+          notes: item.notes || "",
+        })
+        .select()
+        .single();
+
+      if (!error && data) {
+        synced++;
+        const currentList = getLocalExpenses();
+        const updated = currentList.map((c) =>
+          c.id === item.id ? { ...c, id: data.id } : c,
+        );
+        saveLocalExpenses(updated);
+      } else if (error) {
+        console.warn("Could not sync expense to Supabase:", error.message);
+        break;
+      }
+    }
+  } catch (err) {
+    console.warn("syncLocalExpensesToRemote error:", err);
+  }
+  return synced;
+}
+
 export async function listDailyExpenses(
   familyMemberId?: string,
 ): Promise<DailyExpense[]> {
   const localList = getLocalExpenses();
 
   try {
+    // Attempt auto-sync of any unsynced local items
+    await syncLocalExpensesToRemote();
+
     let query = supabase.from(TABLE).select("*").order("date", { ascending: false });
     if (familyMemberId) {
       query = query.eq("family_member_id", familyMemberId);
     }
 
     const { data, error } = await query;
-    if (!error && data && data.length > 0) {
+    if (!error && data) {
       const remoteList: DailyExpense[] = data.map((row) => ({
         id: row.id,
         familyMemberId: row.family_member_id,
@@ -49,7 +101,8 @@ export async function listDailyExpenses(
 
       // Merge and save
       const remoteIdSet = new Set(remoteList.map((r) => r.id));
-      const filteredLocal = localList.filter((l) => !remoteIdSet.has(l.id));
+      const currentLocal = getLocalExpenses();
+      const filteredLocal = currentLocal.filter((l) => !remoteIdSet.has(l.id));
       const combined = [...remoteList, ...filteredLocal];
       saveLocalExpenses(combined);
 
@@ -57,7 +110,9 @@ export async function listDailyExpenses(
         ? combined.filter((e) => e.familyMemberId === familyMemberId)
         : combined;
     }
-  } catch {}
+  } catch (err) {
+    console.warn("listDailyExpenses remote query failed, fallback to local:", err);
+  }
 
   // Fallback to local storage
   return familyMemberId
@@ -112,9 +167,13 @@ export async function createDailyExpense(
 
         saveLocalExpenses([remoteItem, ...localList]);
         return remoteItem;
+      } else if (error) {
+        console.warn("createDailyExpense failed on Supabase, saving to local:", error.message);
       }
     }
-  } catch {}
+  } catch (err) {
+    console.warn("createDailyExpense caught exception, saving to local:", err);
+  }
 
   // Local fallback
   const localItem: DailyExpense = {
@@ -148,19 +207,21 @@ export async function updateDailyExpense(
 
   saveLocalExpenses(localList.map((e) => (e.id === id ? updatedItem : e)));
 
-  try {
-    const patch: Record<string, any> = {};
-    if (input.date !== undefined) patch.date = input.date;
-    if (input.amount !== undefined) patch.amount = input.amount;
-    if (input.category !== undefined) patch.category = input.category;
-    if (input.paymentMethod !== undefined) patch.payment_method = input.paymentMethod;
-    if (input.description !== undefined) patch.description = input.description;
-    if (input.merchant !== undefined) patch.merchant = input.merchant;
-    if (input.receiptUrl !== undefined) patch.receipt_url = input.receiptUrl;
-    if (input.notes !== undefined) patch.notes = input.notes;
+  if (!id.startsWith("exp_")) {
+    try {
+      const patch: Record<string, any> = {};
+      if (input.date !== undefined) patch.date = input.date;
+      if (input.amount !== undefined) patch.amount = input.amount;
+      if (input.category !== undefined) patch.category = input.category;
+      if (input.paymentMethod !== undefined) patch.payment_method = input.paymentMethod;
+      if (input.description !== undefined) patch.description = input.description;
+      if (input.merchant !== undefined) patch.merchant = input.merchant;
+      if (input.receiptUrl !== undefined) patch.receipt_url = input.receiptUrl;
+      if (input.notes !== undefined) patch.notes = input.notes;
 
-    await supabase.from(TABLE).update(patch).eq("id", id);
-  } catch {}
+      await supabase.from(TABLE).update(patch).eq("id", id);
+    } catch {}
+  }
 
   return updatedItem;
 }
@@ -169,10 +230,13 @@ export async function deleteDailyExpense(id: string): Promise<void> {
   const localList = getLocalExpenses();
   saveLocalExpenses(localList.filter((e) => e.id !== id));
 
-  try {
-    await supabase.from(TABLE).delete().eq("id", id);
-  } catch {}
+  if (!id.startsWith("exp_")) {
+    try {
+      await supabase.from(TABLE).delete().eq("id", id);
+    } catch {}
+  }
 }
+
 
 // ==============================================================================
 // PIN SECURITY HELPERS
@@ -241,16 +305,78 @@ function saveLocalLoans(list: MemberLoan[]): void {
   } catch {}
 }
 
+export async function syncLocalLoansToRemote(): Promise<number> {
+  let synced = 0;
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return 0;
+
+    const localList = getLocalLoans();
+    const unsynced = localList.filter((l) => l.id.startsWith("loan_"));
+    if (unsynced.length === 0) return 0;
+
+    for (const item of unsynced) {
+      const { data, error } = await supabase
+        .from(LOANS_TABLE)
+        .insert({
+          owner_id: user.id,
+          family_member_id: item.familyMemberId,
+          family_member_name: item.familyMemberName || "",
+          loan_title: item.loanTitle,
+          loan_type: item.loanType,
+          lender_name: item.lenderName,
+          principal_amount: item.principalAmount,
+          total_repayable_amount: item.totalRepayableAmount,
+          interest_rate: item.interestRate,
+          start_date: item.startDate,
+          target_end_date: item.targetEndDate,
+          monthly_emi_amount: item.monthlyEmiAmount,
+          repayments: item.repayments || [],
+          status: item.status || "ACTIVE",
+          notes: item.notes || "",
+        })
+        .select()
+        .single();
+
+      if (!error && data) {
+        synced++;
+        const currentList = getLocalLoans();
+        const updated = currentList.map((c) =>
+          c.id === item.id ? { ...c, id: data.id } : c,
+        );
+        saveLocalLoans(updated);
+      } else if (error) {
+        console.warn("Could not sync loan to Supabase:", error.message);
+        break;
+      }
+    }
+  } catch (err) {
+    console.warn("syncLocalLoansToRemote error:", err);
+  }
+  return synced;
+}
+
+export async function syncAllLocalExpenseData(): Promise<{ syncedExpenses: number; syncedLoans: number }> {
+  const syncedExpenses = await syncLocalExpensesToRemote();
+  const syncedLoans = await syncLocalLoansToRemote();
+  return { syncedExpenses, syncedLoans };
+}
+
 export async function listMemberLoans(familyMemberId?: string): Promise<MemberLoan[]> {
   const localList = getLocalLoans();
 
   try {
+    // Attempt auto-sync of any unsynced local loans
+    await syncLocalLoansToRemote();
+
     let query = supabase.from(LOANS_TABLE).select("*").order("created_at", { ascending: false });
     if (familyMemberId) {
       query = query.eq("family_member_id", familyMemberId);
     }
     const { data, error } = await query;
-    if (!error && data && data.length > 0) {
+    if (!error && data) {
       const remoteList: MemberLoan[] = data.map((row: any) => ({
         id: row.id,
         familyMemberId: row.family_member_id,
@@ -271,13 +397,16 @@ export async function listMemberLoans(familyMemberId?: string): Promise<MemberLo
       }));
 
       const remoteIds = new Set(remoteList.map((r) => r.id));
-      const filteredLocal = localList.filter((l) => !remoteIds.has(l.id));
+      const currentLocal = getLocalLoans();
+      const filteredLocal = currentLocal.filter((l) => !remoteIds.has(l.id));
       const merged = [...remoteList, ...filteredLocal];
       saveLocalLoans(merged);
 
       return familyMemberId ? merged.filter((l) => l.familyMemberId === familyMemberId) : merged;
     }
-  } catch {}
+  } catch (err) {
+    console.warn("listMemberLoans remote query failed, fallback to local:", err);
+  }
 
   return familyMemberId ? localList.filter((l) => l.familyMemberId === familyMemberId) : localList;
 }
@@ -323,9 +452,13 @@ export async function createMemberLoan(
 
       if (!error && data) {
         newLoan.id = data.id;
+      } else if (error) {
+        console.warn("createMemberLoan failed on Supabase, saving to local:", error.message);
       }
     }
-  } catch {}
+  } catch (err) {
+    console.warn("createMemberLoan caught exception, saving to local:", err);
+  }
 
   const updated = [newLoan, ...localList.filter((l) => l.id !== newLoan.id)];
   saveLocalLoans(updated);
@@ -364,15 +497,18 @@ export async function addLoanRepaymentSegment(
   localList[loanIndex] = updatedLoan;
   saveLocalLoans(localList);
 
-  try {
-    await supabase
-      .from(LOANS_TABLE)
-      .update({
-        repayments: updatedRepayments,
-        status: updatedLoan.status,
-      })
-      .eq("id", loanId);
-  } catch {}
+  if (!loanId.startsWith("loan_")) {
+    try {
+      await supabase
+        .from(LOANS_TABLE)
+        .update({
+          repayments: updatedRepayments,
+          status: updatedLoan.status,
+        })
+        .eq("id", loanId);
+    } catch {}
+  }
+
 
   if (syncToExpense) {
     try {
@@ -397,9 +533,11 @@ export async function deleteMemberLoan(id: string): Promise<void> {
   const localList = getLocalLoans();
   saveLocalLoans(localList.filter((l) => l.id !== id));
 
-  try {
-    await supabase.from(LOANS_TABLE).delete().eq("id", id);
-  } catch {}
+  if (!id.startsWith("loan_")) {
+    try {
+      await supabase.from(LOANS_TABLE).delete().eq("id", id);
+    } catch {}
+  }
 }
 
 export async function updateMemberLoan(
@@ -429,24 +567,26 @@ export async function updateMemberLoan(
   localList[index] = updatedLoan;
   saveLocalLoans(localList);
 
-  try {
-    const supabaseUpdates: Record<string, any> = {};
-    if (updates.loanTitle !== undefined) supabaseUpdates.loan_title = updates.loanTitle;
-    if (updates.loanType !== undefined) supabaseUpdates.loan_type = updates.loanType;
-    if (updates.lenderName !== undefined) supabaseUpdates.lender_name = updates.lenderName;
-    if (updates.principalAmount !== undefined) supabaseUpdates.principal_amount = updates.principalAmount;
-    if (updatedLoan.totalRepayableAmount !== undefined) supabaseUpdates.total_repayable_amount = updatedLoan.totalRepayableAmount;
-    if (updates.interestRate !== undefined) supabaseUpdates.interest_rate = updates.interestRate;
-    if (updates.startDate !== undefined) supabaseUpdates.start_date = updates.startDate;
-    if (updates.targetEndDate !== undefined) supabaseUpdates.target_end_date = updates.targetEndDate;
-    if (updates.monthlyEmiAmount !== undefined) supabaseUpdates.monthly_emi_amount = updates.monthlyEmiAmount;
-    if (updates.status !== undefined || updatedLoan.status !== existing.status) supabaseUpdates.status = updatedLoan.status;
-    if (updates.notes !== undefined) supabaseUpdates.notes = updates.notes;
+  if (!id.startsWith("loan_")) {
+    try {
+      const supabaseUpdates: Record<string, any> = {};
+      if (updates.loanTitle !== undefined) supabaseUpdates.loan_title = updates.loanTitle;
+      if (updates.loanType !== undefined) supabaseUpdates.loan_type = updates.loanType;
+      if (updates.lenderName !== undefined) supabaseUpdates.lender_name = updates.lenderName;
+      if (updates.principalAmount !== undefined) supabaseUpdates.principal_amount = updates.principalAmount;
+      if (updatedLoan.totalRepayableAmount !== undefined) supabaseUpdates.total_repayable_amount = updatedLoan.totalRepayableAmount;
+      if (updates.interestRate !== undefined) supabaseUpdates.interest_rate = updates.interestRate;
+      if (updates.startDate !== undefined) supabaseUpdates.start_date = updates.startDate;
+      if (updates.targetEndDate !== undefined) supabaseUpdates.target_end_date = updates.targetEndDate;
+      if (updates.monthlyEmiAmount !== undefined) supabaseUpdates.monthly_emi_amount = updates.monthlyEmiAmount;
+      if (updates.status !== undefined || updatedLoan.status !== existing.status) supabaseUpdates.status = updatedLoan.status;
+      if (updates.notes !== undefined) supabaseUpdates.notes = updates.notes;
 
-    if (Object.keys(supabaseUpdates).length > 0) {
-      await supabase.from(LOANS_TABLE).update(supabaseUpdates).eq("id", id);
-    }
-  } catch {}
+      if (Object.keys(supabaseUpdates).length > 0) {
+        await supabase.from(LOANS_TABLE).update(supabaseUpdates).eq("id", id);
+      }
+    } catch {}
+  }
 
   return updatedLoan;
 }
@@ -480,15 +620,17 @@ export async function updateLoanRepaymentSegment(
   localList[loanIndex] = updatedLoan;
   saveLocalLoans(localList);
 
-  try {
-    await supabase
-      .from(LOANS_TABLE)
-      .update({
-        repayments: updatedRepayments,
-        status: updatedLoan.status,
-      })
-      .eq("id", loanId);
-  } catch {}
+  if (!loanId.startsWith("loan_")) {
+    try {
+      await supabase
+        .from(LOANS_TABLE)
+        .update({
+          repayments: updatedRepayments,
+          status: updatedLoan.status,
+        })
+        .eq("id", loanId);
+    } catch {}
+  }
 
   return updatedLoan;
 }
@@ -515,15 +657,17 @@ export async function deleteLoanRepaymentSegment(
   localList[loanIndex] = updatedLoan;
   saveLocalLoans(localList);
 
-  try {
-    await supabase
-      .from(LOANS_TABLE)
-      .update({
-        repayments: updatedRepayments,
-        status: updatedLoan.status,
-      })
-      .eq("id", loanId);
-  } catch {}
+  if (!loanId.startsWith("loan_")) {
+    try {
+      await supabase
+        .from(LOANS_TABLE)
+        .update({
+          repayments: updatedRepayments,
+          status: updatedLoan.status,
+        })
+        .eq("id", loanId);
+    } catch {}
+  }
 
   return updatedLoan;
 }
