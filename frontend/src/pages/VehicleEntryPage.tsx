@@ -14,6 +14,8 @@ import {
   Layers,
   BarChart3,
   Filter,
+  List,
+  LayoutGrid,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { VehicleEntryForm } from "../components/common/VehicleEntryForm";
@@ -85,6 +87,9 @@ export function VehicleEntryPage({
   const [activeTab, setActiveTab] = useState<string>(filterType);
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"table" | "grid">(
+    typeof window !== "undefined" && window.innerWidth < 768 ? "grid" : "table"
+  );
 
   const activeFilterCount = activeTab !== "All" ? 1 : 0;
   const [loading, setLoading] = useState(true);
@@ -269,24 +274,24 @@ export function VehicleEntryPage({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-28 sm:pb-8">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
-        <div>
-          <h1 className="text-lg font-bold tracking-tight text-slate-900">
+      <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+        <div className="min-w-0">
+          <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
             {pageTitle}
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 mt-0.5 hidden sm:block">
             {pageSubtitle}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
           <Link
             to="/assets/vehicles/dashboard"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs"
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs"
           >
             <BarChart3 className="h-3.5 w-3.5 text-amber-600" />
-            <span>Fuel & Cost Summary</span>
+            <span>Summary</span>
           </Link>
           <button
             type="button"
@@ -294,16 +299,40 @@ export function VehicleEntryPage({
               setEditingVehicle(undefined);
               setFormOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
-            + Add {activeTab !== "All" ? activeTab : "Vehicle"}
+            <span>Add {activeTab !== "All" ? activeTab : "Vehicle"}</span>
           </button>
         </div>
       </div>
 
-      {/* Vehicle Summary Strip */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Mobile Compact Metric Strip (sm:hidden) */}
+      <div className="sm:hidden rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs">
+        <div className="grid grid-cols-4 divide-x divide-slate-100 text-center">
+          <div className="px-0.5">
+            <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Total</div>
+            <div className="mt-0.5 text-xs font-bold font-mono text-slate-900">{counts.total}</div>
+          </div>
+          <div className="px-0.5">
+            <div className="text-[9px] font-semibold uppercase tracking-wider text-blue-500">Cars</div>
+            <div className="mt-0.5 text-xs font-bold font-mono text-slate-900">{counts.cars}</div>
+          </div>
+          <div className="px-0.5">
+            <div className="text-[9px] font-semibold uppercase tracking-wider text-emerald-500">Bikes</div>
+            <div className="mt-0.5 text-xs font-bold font-mono text-slate-900">{counts.bikes + counts.scooters}</div>
+          </div>
+          <div className="px-0.5">
+            <div className="text-[9px] font-semibold uppercase tracking-wider text-amber-500">Other</div>
+            <div className="mt-0.5 text-xs font-bold font-mono text-slate-900">
+              {counts.commercial + counts.vans + counts.other + counts.bicycles}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop 4-Card Vehicle Summary Strip (hidden sm:grid) */}
+      <div className="hidden sm:grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-[11px] font-medium">Total Vehicles</span>
@@ -345,8 +374,8 @@ export function VehicleEntryPage({
 
       {/* Tabs and Search Bar */}
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-        {/* Search Input + Mobile Filter Button */}
-        <div className="flex items-center gap-2 w-full sm:w-auto order-1 sm:order-2">
+        {/* Search Input + Mobile Filter + View Switcher */}
+        <div className="flex items-center gap-1.5 w-full sm:w-auto order-1 sm:order-2">
           <div className="relative flex-1 sm:w-64">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <input
@@ -354,27 +383,55 @@ export function VehicleEntryPage({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by name, plate, model..."
-              className="w-full rounded-lg border border-slate-200/90 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200/90 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none shadow-2xs"
             />
           </div>
 
           <button
             type="button"
             onClick={() => setMobileFiltersOpen((prev) => !prev)}
-            className={`sm:hidden inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition shrink-0 ${
+            className={`sm:hidden inline-flex items-center gap-1 rounded-xl border px-2.5 py-1.5 text-xs font-semibold transition shrink-0 cursor-pointer ${
               mobileFiltersOpen || activeFilterCount > 0
-                ? "border-slate-900 bg-slate-900 text-white"
+                ? "border-blue-500 bg-blue-50 text-blue-700"
                 : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
             }`}
           >
             <Filter className="h-3.5 w-3.5" />
             <span>Filter</span>
             {activeFilterCount > 0 && (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-white text-[10px] font-bold text-slate-900 px-1">
+              <span className="flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white px-1">
                 {activeFilterCount}
               </span>
             )}
           </button>
+
+          {/* View Mode Toggle (Grid vs Table) */}
+          <div className="flex items-center p-0.5 rounded-xl border border-slate-200 bg-slate-100 shrink-0">
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={`p-1.5 rounded-lg transition cursor-pointer ${
+                viewMode === "table"
+                  ? "bg-white text-slate-900 shadow-2xs font-bold"
+                  : "text-slate-400 hover:text-slate-700"
+              }`}
+              title="Table view"
+            >
+              <List className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("grid")}
+              className={`p-1.5 rounded-lg transition cursor-pointer ${
+                viewMode === "grid"
+                  ? "bg-white text-slate-900 shadow-2xs font-bold"
+                  : "text-slate-400 hover:text-slate-700"
+              }`}
+              title="Grid view"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
 
         {/* Category Tabs - Collapsible on mobile, inline on sm */}
@@ -424,9 +481,9 @@ export function VehicleEntryPage({
         </div>
       )}
 
-      {/* Table of Vehicles */}
-      <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-2xs">
-        {filteredVehicles.length === 0 ? (
+      {/* Vehicles Grid / Table View */}
+      {filteredVehicles.length === 0 ? (
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xs">
           <div className="border border-dashed border-slate-200 bg-slate-50/50 p-10 text-center">
             <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400 mb-2">
               <Car className="h-5 w-5" />
@@ -451,7 +508,106 @@ export function VehicleEntryPage({
               Add {activeTab !== "All" ? activeTab : "Vehicle"}
             </button>
           </div>
-        ) : (
+        </div>
+      ) : viewMode === "grid" ? (
+        /* GRID CARDS VIEW */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filteredVehicles.map((vehicle) => (
+            <div
+              key={vehicle.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate(`/vehicles/${vehicle.id}`)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") navigate(`/vehicles/${vehicle.id}`);
+              }}
+              className="group rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs hover:shadow-md hover:border-slate-300 transition-all cursor-pointer flex flex-col justify-between"
+            >
+              <div>
+                {/* Header: Brand Logo, Name, Badges */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-800 group-hover:scale-105 transition-transform">
+                      <VehicleBrandLogo brand={vehicle.brand} type={vehicle.type} />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate group-hover:text-blue-600 transition-colors">
+                        {vehicle.name}
+                      </h3>
+                      <div className="text-[11px] text-slate-400 truncate">
+                        {vehicle.brand} {vehicle.model}
+                        {vehicle.color && <span> · {vehicle.color}</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span
+                      className={`rounded-md border px-1.5 py-0.2 text-[10px] font-semibold ${getVehicleTypeBadgeClass(
+                        vehicle.type,
+                      )}`}
+                    >
+                      {vehicle.type || "Vehicle"}
+                    </span>
+                    <span className="rounded bg-emerald-50 px-1.5 py-0.2 text-[9px] font-semibold text-emerald-700 border border-emerald-200/50">
+                      {vehicle.status}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Registration plate & Specs summary */}
+                <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+                  <div>
+                    {vehicle.registrationNumber ? (
+                      <span className="font-mono text-[11px] font-semibold text-slate-800 bg-slate-100/90 px-2 py-0.5 rounded border border-slate-200">
+                        {vehicle.registrationNumber}
+                      </span>
+                    ) : (
+                      <span className="font-mono text-[11px] text-slate-400">Unregistered</span>
+                    )}
+                  </div>
+                  <div className="font-mono text-[11px] text-slate-600 font-semibold">
+                    {vehicle.mileage.toLocaleString()} km
+                  </div>
+                </div>
+              </div>
+
+              {/* Card Footer: Year & Quick Action Buttons */}
+              <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                <span className="text-[11px] text-slate-400 font-mono">
+                  {vehicle.year ? `Year ${vehicle.year}` : "—"}
+                </span>
+
+                <div
+                  className="flex items-center gap-1"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => openEdit(vehicle)}
+                    className="p-1 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded transition cursor-pointer"
+                    title="Edit vehicle"
+                    aria-label={`Edit ${vehicle.name}`}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void removeVehicle(vehicle)}
+                    className="p-1 text-slate-300 hover:text-rose-600 hover:bg-slate-100 rounded transition cursor-pointer"
+                    title="Delete vehicle"
+                    aria-label={`Delete ${vehicle.name}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        /* TABLE VIEW */
+        <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-2xs">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-xs">
               <thead className="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-semibold text-slate-600">
@@ -566,8 +722,8 @@ export function VehicleEntryPage({
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {formOpen && (
         <div

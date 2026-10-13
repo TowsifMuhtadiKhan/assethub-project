@@ -265,25 +265,25 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
       {!embedMode ? (
         <>
           {/* Header */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3.5">
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900">
+          <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-xl font-bold tracking-tight text-slate-900 truncate">
                 Family Members
               </h1>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5 hidden sm:block">
                 Add your spouse, children, and parents, and choose what they can view.
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               {activeTab === "profiles" && (
                 <button
                   type="button"
                   onClick={openAddModal}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  <span>Add Family Member</span>
+                  <span>Add Member</span>
                 </button>
               )}
             </div>

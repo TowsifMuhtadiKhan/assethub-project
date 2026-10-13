@@ -13,11 +13,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Pin,
-  X,
-  Download,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
-import { downloadApkFromConfiguredDrive } from "../../services/appUpdateService";
 
 type MenuItem = {
   to: string;
@@ -84,7 +81,6 @@ export type SidebarProps = {
 export function Sidebar({
   isCollapsed = false,
   onToggleCollapse,
-  mobileOpen = false,
   onCloseMobile,
 }: SidebarProps) {
   const location = useLocation();
@@ -318,94 +314,7 @@ export function Sidebar({
 
   return (
     <>
-      {/* ===================================================================== */}
-      {/* 1. MOBILE BACKDROP & DRAWER (< lg screens)                            */}
-      {/* ===================================================================== */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-xs transition-opacity lg:hidden"
-          onClick={onCloseMobile}
-          aria-hidden="true"
-        />
-      )}
-
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-[#0f172a] text-slate-200 shadow-2xl transition-transform duration-300 ease-in-out lg:hidden safe-area-top safe-area-bottom ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-        aria-label="Mobile Navigation"
-      >
-        {/* Mobile Header */}
-        <div className="flex h-16 items-center justify-between border-b border-slate-800/80 px-4">
-          <div className="flex items-center gap-3">
-            <img
-              src="/logo.png"
-              alt="LifeNest"
-              className="h-9 w-9 rounded-xl object-contain shadow-md shadow-blue-500/20"
-            />
-            <div>
-              <div className="text-sm font-bold tracking-tight text-white leading-tight">
-                LifeNest OS
-              </div>
-              <div className="text-[10px] font-medium text-slate-400">
-                Personal & Fleet OS
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={onCloseMobile}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition cursor-pointer"
-            aria-label="Close navigation"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Mobile Navigation List */}
-        {renderFullNavigation(onCloseMobile)}
-
-        {/* Mobile APK Download Button */}
-        <div className="px-3 pb-2 pt-1">
-          <button
-            type="button"
-            onClick={() => {
-              onCloseMobile?.();
-              downloadApkFromConfiguredDrive();
-            }}
-            className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-emerald-950/80 to-slate-900 border border-emerald-500/30 px-3 py-2 text-xs text-white hover:border-emerald-400 transition cursor-pointer shadow-sm group"
-          >
-            <div className="flex items-center gap-2">
-              <Download className="h-4 w-4 text-emerald-400 group-hover:scale-110 transition-transform" />
-              <div className="text-left">
-                <div className="font-semibold text-emerald-200">Get Android App</div>
-                <div className="text-[10px] text-slate-400">Download APK directly</div>
-              </div>
-            </div>
-            <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-mono text-emerald-300">
-              APK
-            </span>
-          </button>
-        </div>
-
-        {/* Mobile Footer */}
-        <div className="border-t border-slate-800/80 p-3">
-          <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
-            <div className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-slate-300 font-medium">LifeNest API</span>
-            </div>
-            <span className="font-mono text-slate-500 text-[10px]">
-              v2.4 Online
-            </span>
-          </div>
-        </div>
-      </aside>
-
-      {/* ===================================================================== */}
-      {/* 2. DESKTOP SIDEBAR (>= lg screens) - Collapsible Rail / Full Sidebar  */}
-      {/* ===================================================================== */}
+      {/* DESKTOP SIDEBAR (>= lg screens only) */}
       <aside
         className={`hidden lg:fixed lg:left-0 lg:top-0 lg:flex lg:flex-col lg:h-screen transition-all duration-300 ease-in-out border-r border-slate-800/80 bg-[#0f172a] text-slate-200 z-30 select-none ${
           isCollapsed ? "w-[72px]" : "w-64"

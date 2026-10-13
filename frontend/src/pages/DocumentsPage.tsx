@@ -121,6 +121,9 @@ export function DocumentsPage() {
 
   // View mode
   const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      return "grid";
+    }
     try {
       return (localStorage.getItem("lifenest_documents_view_mode") as "grid" | "list") || "grid";
     } catch {
@@ -775,34 +778,34 @@ export function DocumentsPage() {
   return (
     <div className="space-y-4 w-full">
       {/* Top Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
-        <div>
-          <h1 className="text-lg font-bold tracking-tight text-slate-900 font-display">
-            Important Documents & Papers
+      <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+        <div className="min-w-0">
+          <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 font-display truncate">
+            Important Documents
           </h1>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 hidden sm:block">
             Passports, National IDs, certificates, and family papers organized in folders.
           </p>
         </div>
 
         {/* Action Buttons */}
         {canCreate && !isVaultLockedForUser && (
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
               onClick={() => setIsFolderOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
             >
-              <FolderPlus className="h-4 w-4 text-indigo-600" />
-              <span>New Folder</span>
+              <FolderPlus className="h-3.5 w-3.5 text-indigo-600" />
+              <span>Folder</span>
             </button>
             <button
               type="button"
               onClick={() => setIsAddOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer"
             >
-              <Plus className="h-4 w-4" />
-              <span>Upload Document</span>
+              <Plus className="h-3.5 w-3.5" />
+              <span>Upload</span>
             </button>
           </div>
         )}
@@ -828,40 +831,44 @@ export function DocumentsPage() {
         </div>
       ) : (
         <div className="space-y-4 min-h-[70vh]" onContextMenu={handleCanvasContextMenu}>
-          {/* Quick Filter Navigation Tabs (Google Drive style: Vault, Starred, Expiring) */}
+          {/* Quick Filter Navigation Tabs (Theme-matching segmented control) */}
           <div className="flex items-center justify-between border-b border-slate-200/80 pb-2 flex-wrap gap-2">
-            <div className="flex items-center gap-1.5">
+            <div className="p-1 bg-slate-100/90 rounded-xl border border-slate-200/70 inline-flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => {
                   setActiveTab("drive");
                   setCurrentFolderId(null);
                 }}
-                className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
                   activeTab === "drive"
-                    ? "bg-slate-900 text-white shadow-xs"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ? "bg-white text-blue-600 shadow-2xs font-bold"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <Folder className="h-3.5 w-3.5" />
+                <Folder className={`h-3.5 w-3.5 ${activeTab === "drive" ? "text-blue-600" : "text-slate-400"}`} />
                 <span>My Drive</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab("starred")}
-                className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
                   activeTab === "starred"
-                    ? "bg-amber-500 text-white shadow-xs"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ? "bg-white text-amber-600 shadow-2xs font-bold"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <Star className="h-3.5 w-3.5 fill-current" />
+                <Star
+                  className={`h-3.5 w-3.5 ${
+                    activeTab === "starred" ? "fill-amber-500 text-amber-500" : "text-slate-400"
+                  }`}
+                />
                 <span>Starred</span>
                 {starredCount > 0 && (
                   <span
-                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                      activeTab === "starred" ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-600"
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
+                      activeTab === "starred" ? "bg-amber-100 text-amber-800" : "bg-slate-200/70 text-slate-600"
                     }`}
                   >
                     {starredCount}
@@ -872,18 +879,18 @@ export function DocumentsPage() {
               <button
                 type="button"
                 onClick={() => setActiveTab("expiring")}
-                className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
                   activeTab === "expiring"
-                    ? "bg-rose-600 text-white shadow-xs"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ? "bg-white text-rose-600 shadow-2xs font-bold"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <Clock className="h-3.5 w-3.5" />
+                <Clock className={`h-3.5 w-3.5 ${activeTab === "expiring" ? "text-rose-500" : "text-slate-400"}`} />
                 <span>Expiring Soon</span>
                 {expiringCount > 0 && (
                   <span
-                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                      activeTab === "expiring" ? "bg-rose-700 text-white" : "bg-slate-100 text-slate-600"
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
+                      activeTab === "expiring" ? "bg-rose-100 text-rose-800" : "bg-slate-200/70 text-slate-600"
                     }`}
                   >
                     {expiringCount}

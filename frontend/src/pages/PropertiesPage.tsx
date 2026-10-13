@@ -2,15 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
+  ArrowLeft,
   BarChart3,
   Building2,
   CheckCircle2,
   FileCheck,
   FileText,
+  Filter,
   Grid2X2,
   Home,
   List,
   Mail,
+  MapPin,
   Phone,
   Plus,
   ReceiptText,
@@ -20,7 +23,6 @@ import {
   Upload,
   Users,
   Wrench,
-  Filter,
 } from "lucide-react";
 import type { PropertyUnit } from "../types";
 import type { RentalFile, RentalTenancy, RentSchedule } from "../types/rentals";
@@ -150,7 +152,12 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
   const [editor, setEditor] = useState<Editor | null>(null);
   const [tab, setTab] = useState("Flats & Tenants");
   const [month, setMonth] = useState(currentMonth());
-  const [propertyView, setPropertyView] = useState<"table" | "grid">("table");
+  const [propertyView, setPropertyView] = useState<"table" | "grid">(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      return "grid";
+    }
+    return "table";
+  });
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -552,44 +559,89 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
   }, [data, activeCategory, searchQuery]);
 
   return (
-    <div className="space-y-4">
-      {/* Top Header - Strict Parity with Vehicle Pattern */}
-      <div className="rental-no-print flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
-        <div>
-          <h1 className="text-lg font-bold tracking-tight text-slate-900">
-            {dashboard
-              ? "Property Dashboard & Reports"
-              : property?.name || "Properties & Rentals"}
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {dashboard
-              ? "Financial insights, profit/loss, occupancy rates, and collection reports."
-              : property
-              ? `Manage units, rental agreements, Bangladeshi documents, and maintenance for ${property.name}.`
-              : "Whole flats, multiple rooms, tenant records, rent ledgers, Bangladeshi legal records, and maintenance."}
-          </p>
-        </div>
+    <div className="space-y-4 pb-28 sm:pb-8">
+      {/* Top Header */}
+      {property ? (
+        <div className="rental-no-print flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => setParams({})}
+              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs cursor-pointer shrink-0"
+              title="Back to all properties"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Properties</span>
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
+                {property.name}
+              </h1>
+              {property.location && (
+                <p className="text-xs text-slate-500 truncate flex items-center gap-1 mt-0.5">
+                  <MapPin className="h-3 w-3 shrink-0 text-slate-400" />
+                  <span className="truncate">{property.location}</span>
+                </p>
+              )}
+            </div>
+          </div>
 
-        {/* Top-Right Action Buttons */}
-        <div className="flex items-center gap-2">
-          <Link
-            to={dashboard ? "/rentals/properties" : "/rentals/dashboard"}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs"
-          >
-            <BarChart3 className="h-3.5 w-3.5 text-indigo-600" />
-            <span>{dashboard ? "Manage properties" : "Property Dashboard & Reports"}</span>
-          </Link>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
-            onClick={() => setEditor({ type: "property" })}
-            disabled={!data}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            + Add property
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer"
+              onClick={() => setEditor({ type: "flat" })}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add flat</span>
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/60 p-1.5 sm:px-2.5 sm:py-2 text-xs font-semibold text-rose-600 hover:bg-rose-100 hover:border-rose-300 transition shadow-2xs cursor-pointer"
+              onClick={() => removeProperty(property.id, property.name)}
+              title={`Delete property "${property.name}"`}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Delete</span>
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="rental-no-print flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
+              {dashboard
+                ? "Property Dashboard"
+                : "Properties & Rentals"}
+            </h1>
+            <p className="text-xs text-slate-500 mt-0.5 hidden sm:block">
+              {dashboard
+                ? "Financial insights, profit/loss, occupancy rates, and collection reports."
+                : "Whole flats, multiple rooms, tenant records, rent ledgers, and maintenance."}
+            </p>
+          </div>
+
+          {/* Top-Right Action Buttons */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Link
+              to={dashboard ? "/rentals/properties" : "/rentals/dashboard"}
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs"
+            >
+              <BarChart3 className="h-3.5 w-3.5 text-indigo-600" />
+              <span>{dashboard ? "Manage" : "Reports"}</span>
+            </Link>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer"
+              onClick={() => setEditor({ type: "property" })}
+              disabled={!data}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add property</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div
@@ -647,8 +699,29 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
               {/* Main Property Overview & List View */}
               {!property ? (
                 <section className="space-y-4">
-                  {/* Property Fleet / Portfolio Metric Strip (Matching Vehicle Pattern) */}
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {/* Property Fleet / Portfolio Metric Strip */}
+                  <div className="grid grid-cols-4 gap-1.5 sm:hidden">
+                    <div className="rounded-xl border border-slate-200/90 bg-white px-2 py-1.5 text-center shadow-2xs">
+                      <div className="text-[10px] font-semibold text-slate-500">Properties</div>
+                      <div className="text-base font-bold text-slate-900">{metrics.totalProperties}</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200/90 bg-white px-2 py-1.5 text-center shadow-2xs">
+                      <div className="text-[10px] font-semibold text-indigo-600">Units</div>
+                      <div className="text-base font-bold text-indigo-700">{metrics.totalUnits}</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200/90 bg-white px-2 py-1.5 text-center shadow-2xs">
+                      <div className="text-[10px] font-semibold text-emerald-600">Rented</div>
+                      <div className="text-base font-bold text-emerald-700">{metrics.occupancyRate}%</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200/90 bg-white px-1 py-1.5 text-center shadow-2xs">
+                      <div className="text-[10px] font-semibold text-amber-600">Rent/Mo</div>
+                      <div className="text-xs font-bold text-slate-900 truncate">
+                        ৳{metrics.expectedMonthlyRent.toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="hidden sm:grid sm:grid-cols-4 gap-3">
                     <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xs">
                       <div className="flex items-center justify-between text-slate-500">
                         <span className="text-[11px] font-medium">Total Properties</span>
@@ -1070,80 +1143,38 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
               ) : (
                 /* Selected Property Detail Screen */
                 <>
-                  {/* Breadcrumb & Action Strip */}
-                  <div className="rental-no-print flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5">
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
-                        onClick={() => setParams({})}
-                      >
-                        ← All properties
-                      </button>
-                      <span className="text-xs font-bold text-slate-800">
-                        {property.name}
-                      </span>
-                      <span className="text-xs text-slate-400">·</span>
-                      <span className="text-xs text-slate-500">{property.location}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
-                        onClick={() => setEditor({ type: "flat" })}
-                      >
-                        <Plus className="h-3 w-3" />
-                        Add flat
-                      </button>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 hover:border-red-300 transition shadow-2xs cursor-pointer"
-                        onClick={() => removeProperty(property.id, property.name)}
-                        title={`Delete property "${property.name}"`}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                        Delete property
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Section Tabs */}
+                  {/* Section Tabs - Sleek horizontal scrolling segmented control */}
                   <nav
-                    className="rental-no-print border-b border-slate-200/80"
+                    className="rental-no-print"
                     aria-label="Property sections"
                   >
-                    <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                    <div className="p-1 bg-slate-100/90 rounded-xl flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth">
                       {propertyTabs.map(({ name, icon: TabIcon, count }) => {
-                        const isDocuments = name === "Property Documents";
-                        const isMaintenance = name === "Maintenance";
-                        const activeClass = isDocuments
-                          ? "border-indigo-600 text-indigo-700 font-bold"
-                          : "border-slate-900 text-slate-900";
-                        const iconClass = isDocuments
-                          ? "text-indigo-600"
-                          : isMaintenance
-                          ? "text-emerald-600"
-                          : "";
-                        const countClass = isDocuments
-                          ? "bg-indigo-50 text-indigo-700 border border-indigo-200/60"
-                          : "bg-slate-100 text-slate-600";
+                        const isSelected = tab === name;
                         return (
                           <button
                             key={name}
                             type="button"
                             onClick={() => setTab(name)}
-                            className={`inline-flex items-center gap-1.5 border-b-2 pb-2.5 pt-1 transition cursor-pointer ${
-                              tab === name
-                                ? activeClass
-                                : "border-transparent text-slate-500 hover:text-slate-800"
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer shrink-0 ${
+                              isSelected
+                                ? "bg-white text-slate-900 shadow-2xs font-bold"
+                                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                             }`}
                           >
-                            <TabIcon className={`h-3.5 w-3.5 ${iconClass}`} />
-                            <span>{name}</span>
+                            <TabIcon
+                              className={`h-3.5 w-3.5 shrink-0 ${
+                                isSelected ? "text-indigo-600" : "text-slate-500"
+                              }`}
+                            />
+                            <span>{name === "Property Documents" ? "Documents" : name}</span>
                             {count !== undefined && (
                               <span
                                 className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono ${
-                                  isDocuments ? "font-bold" : ""
-                                } ${countClass}`}
+                                  isSelected
+                                    ? "bg-indigo-50 text-indigo-700 font-bold"
+                                    : "bg-slate-200/70 text-slate-600"
+                                }`}
                               >
                                 {count}
                               </span>
@@ -1159,277 +1190,359 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                     <div className="space-y-4">
                       {units
                         .filter((u) => !u.parentUnitId)
-                        .map((flat) => (
-                          <section
-                            key={flat.id}
-                            className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs"
-                          >
-                            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                              <div>
-                                <h2 className="font-bold text-sm text-slate-900">
-                                  {flat.unitNumber}
-                                  <span className="ml-2 text-xs font-normal text-slate-500">
-                                    {flat.rentalMode === "rooms"
-                                      ? "Rooms rented separately"
-                                      : "Rented as a whole"}
-                                  </span>
-                                </h2>
-                                {(flat.sizeSqft > 0 || flat.floor) && (
-                                  <p className="text-[11px] text-slate-400 mt-0.5">
-                                    {flat.sizeSqft > 0 ? `${flat.sizeSqft} sqft` : ""}{" "}
-                                    {flat.floor ? `· Floor: ${flat.floor}` : ""}
-                                  </p>
-                                )}
-                              </div>
+                        .map((flat) => {
+                          const isRooms = flat.rentalMode === "rooms";
+                          const roomUnits = units.filter((u) => u.parentUnitId === flat.id);
 
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => removeUnit(flat.id, flat.unitNumber)}
-                                  className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50/70 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 hover:border-red-300 transition shadow-2xs cursor-pointer"
-                                  title={`Delete flat "${flat.unitNumber}"`}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                  <span>Delete Flat</span>
-                                </button>
-                              </div>
-                            </div>
+                          // For whole flat, flat is the unit itself
+                          const wholeUnitTenancies = tenancies
+                            .filter((t) => t.unit_id === flat.id)
+                            .sort((a, b) => b.start_month.localeCompare(a.start_month));
+                          const wholeActiveTenancy = wholeUnitTenancies.find(
+                            (t) =>
+                              t.start_month.slice(0, 7) <= currentMonth() &&
+                              (!t.end_month || t.end_month.slice(0, 7) >= currentMonth())
+                          );
 
-                            {(flat.rentalMode === "rooms"
-                              ? units.filter((u) => u.parentUnitId === flat.id)
-                              : [flat]
-                            ).map((unit) => {
-                              const unitTenancies = tenancies
-                                .filter((t) => t.unit_id === unit.id)
-                                .sort((a, b) =>
-                                  b.start_month.localeCompare(a.start_month)
-                                );
-                              const activeTenancy = unitTenancies.find(
-                                (t) =>
-                                  t.start_month.slice(0, 7) <= currentMonth() &&
-                                  (!t.end_month ||
-                                    t.end_month.slice(0, 7) >= currentMonth())
-                              );
+                          // Helper to render tenancies list & rent schedules
+                          const renderTenancySection = (targetUnit: PropertyUnit, tList: RentalTenancy[]) => {
+                            return (
+                              <div className="space-y-3">
+                                {tList.map((t) => {
+                                  const tenantSchedules = data.schedules
+                                    .filter((s) => s.tenancy_id === t.id)
+                                    .sort((a, b) => a.from_month.localeCompare(b.from_month));
 
-                              return (
-                                <div
-                                  key={unit.id}
-                                  className="mt-3 rounded-xl bg-slate-50/80 border border-slate-200/70 p-3.5"
-                                >
-                                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
-                                    <div className="flex items-center gap-2">
-                                      <h3 className="text-xs font-bold text-slate-900">
-                                        {unit.unitNumber}
-                                      </h3>
-                                      <span
-                                        className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold ${
-                                          activeTenancy
-                                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
-                                            : "bg-amber-50 text-amber-800 border border-amber-200/60"
-                                        }`}
-                                      >
-                                        {activeTenancy ? "Occupied" : "Vacant Space"}
-                                      </span>
+                                  return (
+                                    <div
+                                      key={t.id}
+                                      className="space-y-2.5 rounded-xl border border-slate-200/80 bg-slate-50/50 p-3"
+                                    >
+                                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                        <div className="space-y-0.5">
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-bold text-xs text-slate-900">
+                                              {t.tenant_name}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400 font-mono">
+                                              {t.start_month.slice(0, 7)} —{" "}
+                                              {t.end_month?.slice(0, 7) || "Ongoing"}
+                                            </span>
+                                          </div>
+                                          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
+                                            <span className="inline-flex items-center gap-1">
+                                              <Phone className="h-3 w-3 text-slate-400" />
+                                              {t.tenant_phone}
+                                            </span>
+                                            {targetUnit.tenantEmail && (
+                                              <span className="inline-flex items-center gap-1 text-slate-500">
+                                                <Mail className="h-3 w-3 text-slate-400" />
+                                                {targetUnit.tenantEmail}
+                                              </span>
+                                            )}
+                                            {t.tenant_nid && (
+                                              <details className="inline-block text-[11px] text-slate-500">
+                                                <summary className="cursor-pointer font-medium text-indigo-700">
+                                                  NID: {t.tenant_nid.slice(0, 4)}••••
+                                                </summary>
+                                                <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200 text-slate-800">
+                                                  {t.tenant_nid}
+                                                </span>
+                                              </details>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <button
+                                            type="button"
+                                            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs transition cursor-pointer"
+                                            onClick={() =>
+                                              setEditor({
+                                                type: "tenant",
+                                                unit: targetUnit,
+                                                tenancy: t,
+                                              })
+                                            }
+                                          >
+                                            Edit
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="rounded-lg border border-indigo-200 bg-indigo-50/80 px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 shadow-2xs transition cursor-pointer"
+                                            onClick={() =>
+                                              setEditor({ type: "rate", tenancy: t })
+                                            }
+                                          >
+                                            + Rent period
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => removeTenancy(t.id, t.tenant_name)}
+                                            className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                                            title={`Delete tenancy for ${t.tenant_name}`}
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      {/* Rent Breakdown Cards */}
+                                      <div className="space-y-1.5">
+                                        {tenantSchedules.map((s) => {
+                                          const total = sumMoney([
+                                            s.base_rent,
+                                            ...s.charges.map((c) => c.amount),
+                                          ]);
+                                          return (
+                                            <div
+                                              key={s.id}
+                                              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200/80 bg-white p-2.5 text-xs shadow-2xs"
+                                            >
+                                              <div className="space-y-1">
+                                                <div className="flex items-center gap-2">
+                                                  <span className="font-mono font-bold text-slate-900">
+                                                    {money(total)}/month
+                                                  </span>
+                                                  <span className="text-[10px] text-slate-400 font-mono">
+                                                    ({s.from_month.slice(0, 7)} —{" "}
+                                                    {s.to_month?.slice(0, 7) || "Ongoing"})
+                                                  </span>
+                                                </div>
+                                                <div className="flex flex-wrap gap-1.5 text-[11px] text-slate-600">
+                                                  <span className="rounded bg-slate-100 px-1.5 py-0.5">
+                                                    Base: {money(s.base_rent)}
+                                                  </span>
+                                                  {s.charges.map((c) => (
+                                                    <span
+                                                      key={c.label}
+                                                      className="rounded bg-indigo-50 text-indigo-700 px-1.5 py-0.5 border border-indigo-100"
+                                                    >
+                                                      {c.label}: {money(c.amount)}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              </div>
+
+                                              <div className="flex items-center gap-1.5">
+                                                <button
+                                                  type="button"
+                                                  className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
+                                                  onClick={() =>
+                                                    setEditor({
+                                                      type: "rate",
+                                                      tenancy: t,
+                                                      schedule: s,
+                                                    })
+                                                  }
+                                                >
+                                                  Edit period
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => removeSchedule(s.id)}
+                                                  className="p-1 text-slate-400 hover:text-red-600 rounded-lg border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 transition shadow-2xs cursor-pointer"
+                                                  title="Delete rate period"
+                                                >
+                                                  <Trash2 className="h-3 w-3" />
+                                                </button>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                        {!tenantSchedules.length && (
+                                          <p className="text-[11px] text-amber-800">
+                                            No rent period yet. Add a dated rate to calculate monthly rent & bills.
+                                          </p>
+                                        )}
+                                      </div>
                                     </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          };
 
-                                    <div className="flex items-center gap-2">
-                                      <button
-                                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-800 transition cursor-pointer"
-                                        onClick={() =>
-                                          setEditor({ type: "tenant", unit })
-                                        }
-                                      >
-                                        <Plus className="h-3 w-3" />
-                                        {activeTenancy ? "Add next tenancy" : "Add Tenant to this space"}
-                                      </button>
-                                      {flat.rentalMode === "rooms" && (
-                                        <button
-                                          type="button"
-                                          onClick={() => removeUnit(unit.id, unit.unitNumber)}
-                                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 hover:border-red-300 transition shadow-2xs cursor-pointer"
-                                          title={`Delete room "${unit.unitNumber}"`}
+                          if (!isRooms) {
+                            return (
+                              <section
+                                key={flat.id}
+                                className="rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-4 shadow-2xs space-y-3"
+                              >
+                                {/* Whole Flat Header */}
+                                <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="h-9 w-9 rounded-xl bg-indigo-50 border border-indigo-100/80 flex items-center justify-center text-indigo-700 font-bold text-xs shrink-0">
+                                      {flat.unitNumber}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <h2 className="font-bold text-sm text-slate-900 truncate">
+                                          Flat {flat.unitNumber}
+                                        </h2>
+                                        <span
+                                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                            wholeActiveTenancy
+                                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                                              : "bg-amber-50 text-amber-800 border border-amber-200/60"
+                                          }`}
                                         >
-                                          <Trash2 className="h-3 w-3" />
-                                          <span className="hidden sm:inline">Delete Room</span>
-                                        </button>
-                                      )}
+                                          {wholeActiveTenancy ? "Occupied" : "Vacant Space"}
+                                        </span>
+                                      </div>
+                                      <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                                        Rented as a whole {flat.floor ? `· Floor: ${flat.floor}` : ""}{" "}
+                                        {flat.sizeSqft > 0 ? `· ${flat.sizeSqft} sqft` : ""}
+                                      </p>
                                     </div>
                                   </div>
 
-                                  {!unitTenancies.length && (
-                                    <div className="mt-3 p-3 rounded-lg bg-white border border-dashed border-slate-300 text-xs text-slate-600 flex items-center justify-between">
-                                      <div>
-                                        <p className="font-semibold text-slate-800">Space currently vacant</p>
-                                        <p className="text-[11px] text-slate-400 mt-0.5">
-                                          {unit.tenantName
-                                            ? `Previous recorded tenant: ${unit.tenantName}. Click button to add tenancy dates and rent schedule.`
-                                            : "Click the blue button on the right to assign a tenant and set monthly rent rate."}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {unitTenancies.map((t) => {
-                                    const tenantSchedules = data.schedules
-                                      .filter((s) => s.tenancy_id === t.id)
-                                      .sort((a, b) =>
-                                        a.from_month.localeCompare(b.from_month)
-                                      );
-
-                                    return (
-                                      <div
-                                        key={t.id}
-                                        className="mt-3 space-y-2.5 border-t border-slate-200/60 pt-2.5"
-                                      >
-                                        <div className="flex flex-wrap items-start justify-between gap-3">
-                                          <div className="space-y-1">
-                                            <div className="flex items-center gap-2">
-                                              <span className="font-bold text-xs text-slate-900">
-                                                {t.tenant_name}
-                                              </span>
-                                              <span className="text-[10px] text-slate-400 font-mono">
-                                                {t.start_month.slice(0, 7)} —{" "}
-                                                {t.end_month?.slice(0, 7) || "Ongoing"}
-                                              </span>
-                                            </div>
-
-                                            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
-                                              <span className="inline-flex items-center gap-1">
-                                                <Phone className="h-3 w-3 text-slate-400" />
-                                                {t.tenant_phone}
-                                              </span>
-
-                                              {unit.tenantEmail && (
-                                                <span className="inline-flex items-center gap-1 text-slate-500">
-                                                  <Mail className="h-3 w-3 text-slate-400" />
-                                                  {unit.tenantEmail}
-                                                </span>
-                                              )}
-
-                                              {t.tenant_nid && (
-                                                <details className="inline-block text-[11px] text-slate-500">
-                                                  <summary className="cursor-pointer font-medium text-indigo-700">
-                                                    NID: {t.tenant_nid.slice(0, 4)}••••
-                                                  </summary>
-                                                  <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200 text-slate-800">
-                                                    {t.tenant_nid}
-                                                  </span>
-                                                </details>
-                                              )}
-                                            </div>
-                                          </div>
-
-                                          <div className="flex items-center gap-1.5">
-                                            <button
-                                              className={button}
-                                              onClick={() =>
-                                                setEditor({
-                                                  type: "tenant",
-                                                  unit,
-                                                  tenancy: t,
-                                                })
-                                              }
-                                            >
-                                              Edit / End tenancy
-                                            </button>
-                                            <button
-                                              className={button}
-                                              onClick={() =>
-                                                setEditor({ type: "rate", tenancy: t })
-                                              }
-                                            >
-                                              + Rent period
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => removeTenancy(t.id, t.tenant_name)}
-                                              className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 hover:border-red-300 transition shadow-2xs cursor-pointer"
-                                              title={`Delete tenancy for ${t.tenant_name}`}
-                                            >
-                                              <Trash2 className="h-3 w-3" />
-                                              <span className="hidden sm:inline">Delete Tenancy</span>
-                                            </button>
-                                          </div>
-                                        </div>
-
-                                        {/* Rent breakdown cards */}
-                                        <div className="space-y-1.5">
-                                          {tenantSchedules.map((s) => {
-                                            const total = sumMoney([
-                                              s.base_rent,
-                                              ...s.charges.map((c) => c.amount),
-                                            ]);
-                                            return (
-                                              <div
-                                                key={s.id}
-                                                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200/90 bg-white p-2.5 text-xs shadow-2xs"
-                                              >
-                                                <div className="space-y-1">
-                                                  <div className="flex items-center gap-2">
-                                                    <span className="font-mono font-bold text-slate-900">
-                                                      {money(total)}/month
-                                                    </span>
-                                                    <span className="text-[10px] text-slate-400">
-                                                      ({s.from_month.slice(0, 7)} —{" "}
-                                                      {s.to_month?.slice(0, 7) ||
-                                                        "Ongoing"}
-                                                      )
-                                                    </span>
-                                                  </div>
-                                                  <div className="flex flex-wrap gap-1.5 text-[11px] text-slate-600">
-                                                    <span className="rounded bg-slate-100 px-1.5 py-0.5">
-                                                      Base: {money(s.base_rent)}
-                                                    </span>
-                                                    {s.charges.map((c) => (
-                                                      <span
-                                                        key={c.label}
-                                                        className="rounded bg-indigo-50 text-indigo-700 px-1.5 py-0.5 border border-indigo-100"
-                                                      >
-                                                        {c.label}: {money(c.amount)}
-                                                      </span>
-                                                    ))}
-                                                  </div>
-                                                </div>
-
-                                                <div className="flex items-center gap-1.5">
-                                                  <button
-                                                    className={button}
-                                                    onClick={() =>
-                                                      setEditor({
-                                                        type: "rate",
-                                                        tenancy: t,
-                                                        schedule: s,
-                                                      })
-                                                    }
-                                                  >
-                                                    Edit period
-                                                  </button>
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => removeSchedule(s.id)}
-                                                    className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 transition shadow-2xs cursor-pointer"
-                                                    title="Delete rate period"
-                                                  >
-                                                    <Trash2 className="h-3 w-3" />
-                                                  </button>
-                                                </div>
-                                              </div>
-                                            );
-                                          })}
-                                          {!tenantSchedules.length && (
-                                            <p className="text-[11px] text-amber-800">
-                                              No rent period yet. Add a dated rate to calculate monthly rent & bills.
-                                            </p>
-                                          )}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <button
+                                      type="button"
+                                      className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 px-2.5 py-1.5 sm:px-3 sm:py-1.5 text-xs font-semibold text-white shadow-2xs hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer"
+                                      onClick={() => setEditor({ type: "tenant", unit: flat })}
+                                    >
+                                      <Plus className="h-3.5 w-3.5" />
+                                      <span>{wholeActiveTenancy ? "Add next tenancy" : "Add Tenant"}</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeUnit(flat.id, flat.unitNumber)}
+                                      className="p-1.5 rounded-xl border border-rose-200 bg-rose-50/50 text-rose-600 hover:bg-rose-100 transition shadow-2xs cursor-pointer"
+                                      title={`Delete flat "${flat.unitNumber}"`}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
                                 </div>
-                              );
-                            })}
-                          </section>
-                        ))}
+
+                                {/* Whole Flat Content */}
+                                {!wholeUnitTenancies.length && (
+                                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-3.5 text-xs text-slate-600 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                                    <div>
+                                      <p className="font-semibold text-slate-800">Space currently vacant</p>
+                                      <p className="text-[11px] text-slate-400 mt-0.5">
+                                        {flat.tenantName
+                                          ? `Previous recorded tenant: ${flat.tenantName}. Click "Add Tenant" to add dates and rent schedule.`
+                                          : "Assign a tenant and set monthly rent rate to start collecting rent."}
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {wholeUnitTenancies.length > 0 &&
+                                  renderTenancySection(flat, wholeUnitTenancies)}
+                              </section>
+                            );
+                          }
+
+                          // Rooms rented separately
+                          return (
+                            <section
+                              key={flat.id}
+                              className="rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-4 shadow-2xs space-y-3"
+                            >
+                              <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="h-9 w-9 rounded-xl bg-purple-50 border border-purple-100/80 flex items-center justify-center text-purple-700 font-bold text-xs shrink-0">
+                                    {flat.unitNumber}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <h2 className="font-bold text-sm text-slate-900 truncate">
+                                      Flat {flat.unitNumber}
+                                    </h2>
+                                    <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                                      Rooms rented separately {flat.floor ? `· Floor: ${flat.floor}` : ""}{" "}
+                                      {flat.sizeSqft > 0 ? `· ${flat.sizeSqft} sqft` : ""}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => removeUnit(flat.id, flat.unitNumber)}
+                                    className="p-1.5 rounded-xl border border-rose-200 bg-rose-50/50 text-rose-600 hover:bg-rose-100 transition shadow-2xs cursor-pointer"
+                                    title={`Delete flat "${flat.unitNumber}"`}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="space-y-3">
+                                {roomUnits.map((room) => {
+                                  const roomTenancies = tenancies
+                                    .filter((t) => t.unit_id === room.id)
+                                    .sort((a, b) => b.start_month.localeCompare(a.start_month));
+                                  const activeT = roomTenancies.find(
+                                    (t) =>
+                                      t.start_month.slice(0, 7) <= currentMonth() &&
+                                      (!t.end_month || t.end_month.slice(0, 7) >= currentMonth())
+                                  );
+
+                                  return (
+                                    <div
+                                      key={room.id}
+                                      className="rounded-xl bg-slate-50/80 border border-slate-200/70 p-3 space-y-2.5"
+                                    >
+                                      <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
+                                        <div className="flex items-center gap-2">
+                                          <h3 className="text-xs font-bold text-slate-900">
+                                            Room {room.unitNumber}
+                                          </h3>
+                                          <span
+                                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                              activeT
+                                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                                                : "bg-amber-50 text-amber-800 border border-amber-200/60"
+                                            }`}
+                                          >
+                                            {activeT ? "Occupied" : "Vacant"}
+                                          </span>
+                                        </div>
+
+                                        <div className="flex items-center gap-1.5">
+                                          <button
+                                            type="button"
+                                            className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-indigo-700 transition cursor-pointer"
+                                            onClick={() => setEditor({ type: "tenant", unit: room })}
+                                          >
+                                            <Plus className="h-3 w-3" />
+                                            <span>{activeT ? "Add next tenancy" : "Add Tenant"}</span>
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => removeUnit(room.id, room.unitNumber)}
+                                            className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                                            title={`Delete room "${room.unitNumber}"`}
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      {!roomTenancies.length && (
+                                        <p className="text-[11px] text-slate-400">
+                                          Room is currently vacant. Click "Add Tenant" to assign a tenant.
+                                        </p>
+                                      )}
+
+                                      {roomTenancies.length > 0 &&
+                                        renderTenancySection(room, roomTenancies)}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </section>
+                          );
+                        })}
+                      {!units.filter((u) => !u.parentUnitId).length && (
+                        <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-xs text-slate-500">
+                          No flats added yet. Click "+ Add flat" above to create your first unit.
+                        </div>
+                      )}
                     </div>
                   )}
 

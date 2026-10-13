@@ -1,6 +1,6 @@
 import { getGoogleDriveDirectDownloadUrl } from "../utils/googleDrive";
 
-export const CURRENT_APP_BUILD = "1.0.0";
+export const CURRENT_APP_BUILD = "1.0.1";
 export const APK_DRIVE_URL_STORAGE_KEY = "lifenest_android_apk_drive_url";
 export const APK_VERSION_STORAGE_KEY = "lifenest_android_apk_version";
 export const APK_RELEASE_NOTES_STORAGE_KEY = "lifenest_android_apk_release_notes";
@@ -8,9 +8,9 @@ export const INSTALLED_VERSION_STORAGE_KEY = "lifenest_installed_apk_version";
 export const DISMISSED_VERSION_STORAGE_KEY = "lifenest_dismissed_update_version";
 
 export const DEFAULT_APK_DRIVE_URL =
-  "https://drive.google.com/file/d/17nW-lR7bXoAYUVBzx3cfJ53V61J0cNhD/view";
+  "https://drive.google.com/file/d/1LpcVkbsBoitI8-wOWhol0V0YUYq337YT/view";
 export const DEFAULT_APK_DOWNLOAD_URL =
-  "https://drive.google.com/uc?export=download&id=17nW-lR7bXoAYUVBzx3cfJ53V61J0cNhD";
+  "https://drive.google.com/uc?export=download&id=1LpcVkbsBoitI8-wOWhol0V0YUYq337YT";
 
 export interface ApkUpdateConfig {
   driveUrl: string;

@@ -11,6 +11,8 @@ import {
   X,
   Trash2,
   Edit2,
+  Pencil,
+  ExternalLink,
   LayoutGrid,
   List,
   Clock,
@@ -32,7 +34,10 @@ import {
   verifyMemberPin,
   listMemberLoans,
   createMemberLoan,
+  updateMemberLoan,
   addLoanRepaymentSegment,
+  updateLoanRepaymentSegment,
+  deleteLoanRepaymentSegment,
   deleteMemberLoan,
 } from "../services/dailyExpenseService";
 import type {
@@ -92,7 +97,12 @@ export function DailyExpensesPage() {
   const [timeFilter, setTimeFilter] = useState<"today" | "week" | "month" | "all">("month");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+  const [viewMode, setViewMode] = useState<"table" | "grid">(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      return "grid";
+    }
+    return "table";
+  });
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const activeFilterCount =
@@ -146,6 +156,41 @@ export function DailyExpensesPage() {
 
   // Delete Loan Modal State
   const [loanToDelete, setLoanToDelete] = useState<MemberLoan | null>(null);
+
+  // Edit Loan Modal State
+  const [editingLoan, setEditingLoan] = useState<MemberLoan | null>(null);
+  const [editLoanTitle, setEditLoanTitle] = useState("");
+  const [editLenderName, setEditLenderName] = useState("");
+  const [editLoanType, setEditLoanType] = useState<MemberLoan["loanType"]>("Car Loan");
+  const [editTotalPrincipal, setEditTotalPrincipal] = useState<number | "">("");
+  const [editMonthlyEmiAmount, setEditMonthlyEmiAmount] = useState<number | "">("");
+  const [editInterestRatePercent, setEditInterestRatePercent] = useState<number | "">("");
+  const [editStartDate, setEditStartDate] = useState("");
+  const [editTargetEndDate, setEditTargetEndDate] = useState("");
+  const [editLoanStatus, setEditLoanStatus] = useState<MemberLoan["status"]>("ACTIVE");
+  const [editLoanNotes, setEditLoanNotes] = useState("");
+  const [savingEditLoan, setSavingEditLoan] = useState(false);
+
+  // Dedicated Separate Segments View Modal State
+  const [viewingLoanSegments, setViewingLoanSegments] = useState<MemberLoan | null>(null);
+
+  // Edit Segment Modal State
+  const [editingSegment, setEditingSegment] = useState<{
+    loanId: string;
+    segment: LoanRepaymentSegment;
+  } | null>(null);
+  const [editSegmentAmount, setEditSegmentAmount] = useState<number | "">("");
+  const [editSegmentDate, setEditSegmentDate] = useState("");
+  const [editSegmentMethod, setEditSegmentMethod] = useState<DailyExpensePaymentMethod>("Bank Card");
+  const [editSegmentNotes, setEditSegmentNotes] = useState("");
+  const [savingEditSegment, setSavingEditSegment] = useState(false);
+
+  // Delete Segment State
+  const [segmentToDelete, setSegmentToDelete] = useState<{
+    loanId: string;
+    segment: LoanRepaymentSegment;
+  } | null>(null);
+  const [deletingSegment, setDeletingSegment] = useState(false);
 
   useEffect(() => {
     loadInitialData();
@@ -238,6 +283,10 @@ export function DailyExpensesPage() {
     try {
       const data = await listMemberLoans(memberId);
       setLoans(data);
+      setViewingLoanSegments((prev) => {
+        if (!prev) return null;
+        return data.find((l) => l.id === prev.id) || null;
+      });
     } catch (err) {
       console.error(err);
     } finally {
@@ -250,6 +299,7 @@ export function DailyExpensesPage() {
       loadLoans(activeMemberId);
     } else {
       setLoans([]);
+      setViewingLoanSegments(null);
     }
   }, [activeMemberId]);
 
@@ -323,6 +373,53 @@ export function DailyExpensesPage() {
     }
   };
 
+  const openEditLoanModal = (loan: MemberLoan) => {
+    setEditingLoan(loan);
+    setEditLoanTitle(loan.loanTitle);
+    setEditLenderName(loan.lenderName);
+    setEditLoanType(loan.loanType);
+    setEditTotalPrincipal(loan.totalRepayableAmount || loan.principalAmount || "");
+    setEditMonthlyEmiAmount(loan.monthlyEmiAmount || "");
+    setEditInterestRatePercent(loan.interestRate || "");
+    setEditStartDate(loan.startDate || "");
+    setEditTargetEndDate(loan.targetEndDate || "");
+    setEditLoanStatus(loan.status || "ACTIVE");
+    setEditLoanNotes(loan.notes || "");
+  };
+
+  const handleSaveEditLoan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLoan || !editLoanTitle.trim() || !editLenderName.trim() || editTotalPrincipal === "" || Number(editTotalPrincipal) <= 0) return;
+    setSavingEditLoan(true);
+    try {
+      const updated = await updateMemberLoan(editingLoan.id, {
+        loanTitle: editLoanTitle.trim(),
+        lenderName: editLenderName.trim(),
+        loanType: editLoanType,
+        principalAmount: Number(editTotalPrincipal),
+        totalRepayableAmount: Number(editTotalPrincipal),
+        monthlyEmiAmount: editMonthlyEmiAmount !== "" ? Number(editMonthlyEmiAmount) : undefined,
+        interestRate: editInterestRatePercent !== "" ? Number(editInterestRatePercent) : undefined,
+        startDate: editStartDate,
+        targetEndDate: editTargetEndDate || undefined,
+        status: editLoanStatus,
+        notes: editLoanNotes.trim() || undefined,
+      });
+      if (activeMemberId) {
+        await loadLoans(activeMemberId);
+      }
+      if (viewingLoanSegments?.id === editingLoan.id) {
+        setViewingLoanSegments(updated);
+      }
+      setEditingLoan(null);
+      showToast("Loan details updated successfully!");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingEditLoan(false);
+    }
+  };
+
   const openPaySegmentModal = (loan: MemberLoan) => {
     setSelectedLoanForSegment(loan);
     setSegmentAmount(loan.monthlyEmiAmount || "");
@@ -338,7 +435,7 @@ export function DailyExpensesPage() {
     if (!selectedLoanForSegment || segmentAmount === "" || Number(segmentAmount) <= 0) return;
     setSavingSegment(true);
     try {
-      await addLoanRepaymentSegment(
+      const updatedLoan = await addLoanRepaymentSegment(
         selectedLoanForSegment.id,
         {
           loanId: selectedLoanForSegment.id,
@@ -354,6 +451,9 @@ export function DailyExpensesPage() {
         const allExpenses = await listDailyExpenses();
         setExpenses(allExpenses);
       }
+      if (viewingLoanSegments?.id === selectedLoanForSegment.id) {
+        setViewingLoanSegments(updatedLoan);
+      }
       setIsPaySegmentModalOpen(false);
       setSelectedLoanForSegment(null);
       showToast("Repayment segment recorded successfully!");
@@ -364,11 +464,75 @@ export function DailyExpensesPage() {
     }
   };
 
+  const openEditSegmentModal = (loanId: string, segment: LoanRepaymentSegment) => {
+    setEditingSegment({ loanId, segment });
+    setEditSegmentAmount(segment.amount);
+    setEditSegmentDate(segment.paymentDate);
+    setEditSegmentMethod(segment.paymentMethod);
+    setEditSegmentNotes(segment.notes || "");
+  };
+
+  const handleSaveEditSegment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSegment || editSegmentAmount === "" || Number(editSegmentAmount) <= 0) return;
+    setSavingEditSegment(true);
+    try {
+      const updated = await updateLoanRepaymentSegment(
+        editingSegment.loanId,
+        editingSegment.segment.id,
+        {
+          amount: Number(editSegmentAmount),
+          paymentDate: editSegmentDate,
+          paymentMethod: editSegmentMethod,
+          notes: editSegmentNotes.trim() || undefined,
+        }
+      );
+      if (activeMemberId) {
+        await loadLoans(activeMemberId);
+      }
+      if (viewingLoanSegments?.id === editingSegment.loanId) {
+        setViewingLoanSegments(updated);
+      }
+      setEditingSegment(null);
+      showToast("Repayment segment updated successfully!");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingEditSegment(false);
+    }
+  };
+
+  const handleConfirmDeleteSegment = async () => {
+    if (!segmentToDelete) return;
+    setDeletingSegment(true);
+    try {
+      const updated = await deleteLoanRepaymentSegment(
+        segmentToDelete.loanId,
+        segmentToDelete.segment.id
+      );
+      if (activeMemberId) {
+        await loadLoans(activeMemberId);
+      }
+      if (viewingLoanSegments?.id === segmentToDelete.loanId) {
+        setViewingLoanSegments(updated);
+      }
+      setSegmentToDelete(null);
+      showToast("Repayment segment removed.");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDeletingSegment(false);
+    }
+  };
+
   const handleConfirmDeleteLoan = async () => {
     if (!loanToDelete) return;
     try {
       await deleteMemberLoan(loanToDelete.id);
       if (activeMemberId) await loadLoans(activeMemberId);
+      if (viewingLoanSegments?.id === loanToDelete.id) {
+        setViewingLoanSegments(null);
+      }
       setLoanToDelete(null);
       showToast("Loan record removed successfully!");
     } catch (err) {
@@ -541,7 +705,7 @@ export function DailyExpensesPage() {
     <div className="space-y-6 w-full text-slate-800">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div className="fixed bottom-24 sm:bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold animate-in fade-in slide-in-from-bottom-2 duration-200">
           <Check className="h-4 w-4 text-emerald-400" />
           <span>{toastMessage}</span>
         </div>
@@ -550,19 +714,35 @@ export function DailyExpensesPage() {
       {/* ========================================================================= */}
       {/* 1. TOP HEADER & ACTIVE MEMBER STATUS                                     */}
       {/* ========================================================================= */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/90 pb-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+      <div className="flex items-center justify-between gap-2 border-b border-slate-200/90 pb-2.5">
+        <div className="min-w-0 flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 hidden sm:block truncate">
             Daily Expenses
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Log and track daily personal expenses, food, and transport with your PIN.
-          </p>
+          {/* On mobile: compact active profile capsule */}
+          {activeMember && (
+            <div className="flex sm:hidden items-center gap-1.5 bg-white border border-slate-200/90 rounded-xl px-2 py-1 shadow-2xs">
+              <div className="h-5.5 w-5.5 rounded-lg bg-blue-50 text-blue-700 font-bold text-[11px] flex items-center justify-center shrink-0">
+                {activeMember.fullName.charAt(0)}
+              </div>
+              <span className="text-xs font-bold text-slate-800 truncate max-w-[110px]">
+                {activeMember.fullName}
+              </span>
+              <button
+                type="button"
+                onClick={handleLockProfile}
+                className="p-0.5 text-slate-400 hover:text-slate-700 rounded transition cursor-pointer"
+                title="Lock / Switch profile"
+              >
+                <Lock className="h-3 w-3" />
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Unlocked Profile Capsule / Switcher */}
+        {/* Desktop profile switcher */}
         {activeMember ? (
-          <div className="flex items-center gap-2 bg-white border border-slate-200/90 rounded-2xl p-1.5 shadow-2xs">
+          <div className="hidden sm:flex items-center gap-2 bg-white border border-slate-200/90 rounded-2xl p-1.5 shadow-2xs">
             <div className="h-9 w-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center font-bold text-xs uppercase text-amber-700">
               {activeMember.fullName.charAt(0)}
             </div>
@@ -587,11 +767,23 @@ export function DailyExpensesPage() {
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <div className="rounded-xl bg-amber-50 border border-amber-200/80 px-3 py-1.5 text-xs text-amber-800 font-medium flex items-center gap-1.5">
+            <div className="rounded-xl bg-amber-50 border border-amber-200/80 px-2.5 py-1 text-xs text-amber-800 font-medium flex items-center gap-1.5">
               <Lock className="h-3.5 w-3.5" />
-              <span>Choose your family profile below to unlock</span>
+              <span>Select profile below to unlock</span>
             </div>
           </div>
+        )}
+
+        {/* Mobile Header Right Add Button */}
+        {activeMember && (
+          <button
+            type="button"
+            onClick={activeTab === "expenses" ? openCreateModal : openAddLoanModal}
+            className="sm:hidden inline-flex items-center gap-1 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs active:scale-95 transition cursor-pointer"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>{activeTab === "expenses" ? "Log Expense" : "Add Loan"}</span>
+          </button>
         )}
       </div>
 
@@ -701,23 +893,25 @@ export function DailyExpensesPage() {
         /* ========================================================================= */
         /* 3. ACTIVE MEMBER'S EXPENSE DASHBOARD                                      */
         /* ========================================================================= */
-        <div className="space-y-6">
+        <div className="space-y-3 sm:space-y-6">
           {/* Sub Navigation: Daily Expenses vs Loans & Segment Repayments */}
-          <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+          <div className="p-0.5 sm:p-1 bg-slate-100/90 rounded-xl grid grid-cols-2 gap-1 border border-slate-200/60 max-w-xs sm:max-w-sm">
             <button
               type="button"
               onClick={() => setActiveTab("expenses")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 py-1 sm:py-1.5 px-2 sm:px-3 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
                 activeTab === "expenses"
-                  ? "bg-slate-900 text-white shadow-xs"
-                  : "bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
+                  ? "bg-white text-slate-900 font-bold shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900 font-medium"
               }`}
             >
-              <Wallet className="h-4 w-4" />
-              <span>Daily Expenses</span>
+              <Wallet className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+              <span>
+                <span className="hidden sm:inline">Daily </span>Expenses
+              </span>
               <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-md ${
-                  activeTab === "expenses" ? "bg-slate-800 text-slate-200" : "bg-slate-200 text-slate-700"
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
+                  activeTab === "expenses" ? "bg-slate-100 text-slate-800" : "bg-slate-200/70 text-slate-600"
                 }`}
               >
                 {memberExpenses.length}
@@ -727,26 +921,29 @@ export function DailyExpensesPage() {
             <button
               type="button"
               onClick={() => setActiveTab("loans")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 py-1 sm:py-1.5 px-2 sm:px-3 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
                 activeTab === "loans"
-                  ? "bg-amber-600 text-white shadow-xs"
-                  : "bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200/60"
+                  ? "bg-white text-slate-900 font-bold shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900 font-medium"
               }`}
             >
-              <CreditCard className="h-4 w-4" />
-              <span>Loans & Borrowed Money</span>
+              <CreditCard className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+              <span>
+                Loans<span className="hidden sm:inline"> & Debts</span>
+              </span>
               {loanStats.activeCount > 0 ? (
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-md ${
-                    activeTab === "loans" ? "bg-amber-700 text-white" : "bg-amber-200 text-amber-900"
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
+                    activeTab === "loans" ? "bg-amber-100 text-amber-800" : "bg-amber-100/60 text-amber-800"
                   }`}
                 >
-                  {loanStats.activeCount} Active
+                  {loanStats.activeCount}
+                  <span className="hidden sm:inline ml-0.5 font-semibold">Active</span>
                 </span>
               ) : (
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-md ${
-                    activeTab === "loans" ? "bg-amber-700 text-white" : "bg-amber-200 text-amber-900"
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
+                    activeTab === "loans" ? "bg-slate-100 text-slate-800" : "bg-slate-200/70 text-slate-600"
                   }`}
                 >
                   {loans.length}
@@ -756,169 +953,130 @@ export function DailyExpensesPage() {
           </div>
 
           {activeTab === "expenses" ? (
-            <div className="space-y-6">
-              {/* Top Metric Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Today's Spent
+            <div className="space-y-3 sm:space-y-6">
+              {/* Mobile Compact Stats Strip (sm:hidden) */}
+              <div className="sm:hidden rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs">
+                <div className="grid grid-cols-3 divide-x divide-slate-100 text-center">
+                  <div className="px-1">
+                    <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                      Today
+                    </div>
+                    <div className="mt-0.5 text-xs font-bold font-mono text-slate-900 truncate">
+                      ৳{stats.todayTotal.toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="px-1">
+                    <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                      This Month
+                    </div>
+                    <div className="mt-0.5 text-xs font-bold font-mono text-blue-600 truncate">
+                      ৳{stats.monthTotal.toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="px-1">
+                    <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                      Daily Avg
+                    </div>
+                    <div className="mt-0.5 text-xs font-bold font-mono text-slate-700 truncate">
+                      ৳{stats.dailyAvg.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-slate-900">
-                ৳{stats.todayTotal.toLocaleString()}
-              </div>
-              <div className="mt-1 text-[11px] text-slate-400 flex items-center gap-1">
-                <Clock className="h-3 w-3 text-amber-500" />
-                <span>{new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-              </div>
-            </div>
 
-            <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                This Month's Total
-              </div>
-              <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-amber-600">
-                ৳{stats.monthTotal.toLocaleString()}
-              </div>
-              <div className="mt-1 text-[11px] text-slate-400">
-                {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-              </div>
-            </div>
+              {/* Desktop 4-Card Metric Grid (hidden sm:grid) */}
+              <div className="hidden sm:grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Today's Spent
+                  </div>
+                  <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-slate-900">
+                    ৳{stats.todayTotal.toLocaleString()}
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-400 flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-amber-500" />
+                    <span>{new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                  </div>
+                </div>
 
-            <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Daily Average
-              </div>
-              <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-slate-900">
-                ৳{stats.dailyAvg.toLocaleString()}
-                <span className="text-xs font-normal text-slate-400">/day</span>
-              </div>
-              <div className="mt-1 text-[11px] text-slate-400">Based on past {new Date().getDate()} days</div>
-            </div>
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    This Month's Total
+                  </div>
+                  <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-amber-600">
+                    ৳{stats.monthTotal.toLocaleString()}
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-400">
+                    {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                  </div>
+                </div>
 
-            <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Top Expense
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Daily Average
+                  </div>
+                  <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-slate-900">
+                    ৳{stats.dailyAvg.toLocaleString()}
+                    <span className="text-xs font-normal text-slate-400">/day</span>
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-400">Based on past {new Date().getDate()} days</div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Top Expense
+                  </div>
+                  <div className="mt-1 text-sm sm:text-base font-bold text-slate-900 truncate">
+                    {stats.topCat}
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-400">
+                    {stats.categoryTotals[stats.topCat]
+                      ? `৳${stats.categoryTotals[stats.topCat].toLocaleString()} this month`
+                      : "No entries yet"}
+                  </div>
+                </div>
               </div>
-              <div className="mt-1 text-sm sm:text-base font-bold text-slate-900 truncate">
-                {stats.topCat}
-              </div>
-              <div className="mt-1 text-[11px] text-slate-400">
-                {stats.categoryTotals[stats.topCat]
-                  ? `৳${stats.categoryTotals[stats.topCat].toLocaleString()} this month`
-                  : "No entries yet"}
-              </div>
-            </div>
-          </div>
 
           {/* Filter Bar & Quick Add */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
-              {/* Search Box + Mobile Filter Button */}
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <div className="relative flex-1 sm:w-52">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search item, merchant..."
-                    className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-800 shadow-2xs"
-                  />
-                </div>
-
-                {/* Mobile Filter Toggle Button */}
-                <button
-                  type="button"
-                  onClick={() => setMobileFiltersOpen((prev) => !prev)}
-                  className={`lg:hidden inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition shrink-0 ${
-                    mobileFiltersOpen || activeFilterCount > 0
-                      ? "border-indigo-400 bg-indigo-50 text-indigo-700"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
-                  }`}
-                >
-                  <Filter className="h-4 w-4" />
-                  <span>Filter</span>
-                  {activeFilterCount > 0 && (
-                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white">
-                      {activeFilterCount}
-                    </span>
-                  )}
-                </button>
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 w-full">
+              {/* Search Box */}
+              <div className="relative flex-1 min-w-0">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search item, merchant..."
+                  className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-800 shadow-2xs"
+                />
               </div>
 
-              {/* Time Range & Category Filters - Collapsible on mobile, inline on lg */}
-              <div className={`w-full sm:w-auto flex-wrap items-center gap-2 ${mobileFiltersOpen ? "flex" : "hidden lg:flex"}`}>
-                {/* Time Range Pills */}
-                <div className="inline-flex flex-wrap items-center p-0.5 rounded-xl border border-slate-200 bg-slate-100/90 text-xs w-full sm:w-auto justify-between sm:justify-start">
-                  <button
-                    type="button"
-                    onClick={() => setTimeFilter("today")}
-                    className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-center ${
-                      timeFilter === "today"
-                        ? "bg-white text-slate-900 shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Today
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTimeFilter("week")}
-                    className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-center ${
-                      timeFilter === "week"
-                        ? "bg-white text-slate-900 shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    This Week
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTimeFilter("month")}
-                    className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-center ${
-                      timeFilter === "month"
-                        ? "bg-white text-slate-900 shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    This Month
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTimeFilter("all")}
-                    className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-center ${
-                      timeFilter === "all"
-                        ? "bg-white text-slate-900 shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    All Time
-                  </button>
-                </div>
+              {/* Filter Button */}
+              <button
+                type="button"
+                onClick={() => setMobileFiltersOpen((prev) => !prev)}
+                className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-1.5 text-xs font-semibold transition shrink-0 cursor-pointer ${
+                  mobileFiltersOpen || activeFilterCount > 0
+                    ? "border-blue-400 bg-blue-50 text-blue-700"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <Filter className="h-3.5 w-3.5" />
+                <span className="text-xs">Filter</span>
+                {activeFilterCount > 0 && (
+                  <span className="flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-blue-600 px-1 text-[9px] font-bold text-white">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
 
-                {/* Category Dropdown */}
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-slate-800 shadow-2xs font-medium w-full sm:w-auto"
-                >
-                  <option value="all">All Categories</option>
-                  {CATEGORIES.map((c) => (
-                    <option key={c.label} value={c.label}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 justify-between sm:justify-end">
               {/* View mode toggle */}
-              <div className="flex items-center p-0.5 rounded-xl border border-slate-200 bg-slate-100">
+              <div className="flex items-center p-0.5 rounded-xl border border-slate-200 bg-slate-100 shrink-0">
                 <button
                   type="button"
                   onClick={() => setViewMode("table")}
-                  className={`p-1.5 rounded-lg transition ${
+                  className={`p-1.5 rounded-lg transition cursor-pointer ${
                     viewMode === "table" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-400"
                   }`}
                   title="Table view"
@@ -928,7 +1086,7 @@ export function DailyExpensesPage() {
                 <button
                   type="button"
                   onClick={() => setViewMode("grid")}
-                  className={`p-1.5 rounded-lg transition ${
+                  className={`p-1.5 rounded-lg transition cursor-pointer ${
                     viewMode === "grid" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-400"
                   }`}
                   title="Grid view"
@@ -937,32 +1095,97 @@ export function DailyExpensesPage() {
                 </button>
               </div>
 
-              {/* Add Expense Button */}
+              {/* Desktop Add Expense Button (Mobile has it in header) */}
               <button
                 type="button"
                 onClick={openCreateModal}
-                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer flex-1 sm:flex-initial"
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 transition cursor-pointer shrink-0"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>Log Expense</span>
               </button>
             </div>
+
+            {/* Time Range & Category Filters - Collapsible on mobile, inline on lg */}
+            <div className={`w-full flex-wrap items-center gap-2 pt-1 ${mobileFiltersOpen ? "flex" : "hidden lg:flex"}`}>
+              {/* Time Range Pills */}
+              <div className="inline-flex flex-wrap items-center p-0.5 rounded-xl border border-slate-200 bg-slate-100 text-xs w-full sm:w-auto justify-between sm:justify-start">
+                <button
+                  type="button"
+                  onClick={() => setTimeFilter("today")}
+                  className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-center ${
+                    timeFilter === "today"
+                      ? "bg-white text-slate-900 shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTimeFilter("week")}
+                  className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-center ${
+                    timeFilter === "week"
+                      ? "bg-white text-slate-900 shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  This Week
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTimeFilter("month")}
+                  className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-center ${
+                    timeFilter === "month"
+                      ? "bg-white text-slate-900 shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  This Month
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTimeFilter("all")}
+                  className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-center ${
+                    timeFilter === "all"
+                      ? "bg-white text-slate-900 shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  All Time
+                </button>
+              </div>
+
+              {/* Category Dropdown */}
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-slate-800 shadow-2xs font-medium w-full sm:w-auto"
+              >
+                <option value="all">All Categories</option>
+                {CATEGORIES.map((c) => (
+                  <option key={c.label} value={c.label}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Expense Entries Table / Grid */}
           <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs">
-            <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                  {activeMember.fullName}'s Expenses History
+            <div className="p-2.5 sm:p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="text-xs font-bold text-slate-900 truncate">
+                  Expenses History
                 </h3>
-                <p className="text-[11px] text-slate-500">
-                  {filteredExpenses.length} entries found
+                <p className="text-[10px] text-slate-400">
+                  {filteredExpenses.length} entries
                 </p>
               </div>
 
-              <div className="text-xs font-bold font-mono text-slate-900">
-                Total: ৳{filteredExpenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()}
+              <div className="text-xs font-bold font-mono text-slate-900 shrink-0">
+                Total: <span className="text-emerald-600">৳{filteredExpenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()}</span>
               </div>
             </div>
 
@@ -1115,8 +1338,38 @@ export function DailyExpensesPage() {
           ) : (
             /* LOANS & SEGMENT REPAYMENTS VIEW */
             <div className="space-y-6">
-              {/* Top Loan Metric Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {/* Mobile Compact Loan Stats Strip (sm:hidden) */}
+              <div className="sm:hidden rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs">
+                <div className="grid grid-cols-3 divide-x divide-slate-100 text-center">
+                  <div className="px-1">
+                    <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                      Borrowed
+                    </div>
+                    <div className="mt-0.5 text-xs font-bold font-mono text-slate-900 truncate">
+                      ৳{loanStats.totalBorrowed.toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="px-1">
+                    <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                      Remaining
+                    </div>
+                    <div className="mt-0.5 text-xs font-bold font-mono text-amber-700 truncate">
+                      ৳{loanStats.totalRemaining.toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="px-1">
+                    <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                      Cleared
+                    </div>
+                    <div className="mt-0.5 text-xs font-bold font-mono text-emerald-600 truncate">
+                      {loanStats.overallRepaidPct}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Top Loan Metric Cards (hidden sm:grid) */}
+              <div className="hidden sm:grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Total Borrowed
@@ -1172,20 +1425,20 @@ export function DailyExpensesPage() {
               </div>
 
               {/* Action Bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/90 p-4 rounded-2xl shadow-2xs">
+              <div className="flex items-center justify-between gap-3 bg-white border border-slate-200/90 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl shadow-2xs">
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-amber-600" />
+                  <h2 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600" />
                     <span>Loans & Flexible Segment Repayments</span>
                   </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-[11px] text-slate-500 mt-0.5 hidden sm:block">
                     Manage car loans, bank borrowings, or private debts with partial segment repayments at different dates.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={openAddLoanModal}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer self-start sm:self-auto"
+                  className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   <span>Add Loan / Borrowing</span>
@@ -1275,7 +1528,7 @@ export function DailyExpensesPage() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 self-start sm:self-center">
+                          <div className="flex items-center gap-2 self-start sm:self-center flex-wrap">
                             {!isFullyPaid && (
                               <button
                                 type="button"
@@ -1287,12 +1540,24 @@ export function DailyExpensesPage() {
                               </button>
                             )}
 
+                            {/* View Segments in Separate Dedicated Window */}
+                            <button
+                              type="button"
+                              onClick={() => setViewingLoanSegments(loan)}
+                              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition cursor-pointer"
+                              title="Open dedicated separate view to see and manage all segments"
+                            >
+                              <span>Segments ({loan.repayments?.length || 0})</span>
+                              <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
+                            </button>
+
+                            {/* Quick Inline Accordion Toggle */}
                             <button
                               type="button"
                               onClick={() => toggleLoanExpanded(loan.id)}
-                              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition cursor-pointer"
+                              className="rounded-xl border border-slate-200 p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition cursor-pointer"
+                              title={isExpanded ? "Collapse inline preview" : "Expand inline preview"}
                             >
-                              <span>Segments ({loan.repayments?.length || 0})</span>
                               {isExpanded ? (
                                 <ChevronUp className="h-3.5 w-3.5" />
                               ) : (
@@ -1300,6 +1565,17 @@ export function DailyExpensesPage() {
                               )}
                             </button>
 
+                            {/* Edit Loan Details */}
+                            <button
+                              type="button"
+                              onClick={() => openEditLoanModal(loan)}
+                              className="rounded-xl border border-slate-200 p-1.5 text-slate-500 hover:text-amber-700 hover:bg-amber-50 transition cursor-pointer"
+                              title="Edit Loan Details"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+
+                            {/* Delete Loan */}
                             <button
                               type="button"
                               onClick={() => setLoanToDelete(loan)}
@@ -1388,15 +1664,28 @@ export function DailyExpensesPage() {
                               <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                                 Segment Repayment Records
                               </h4>
-                              {!isFullyPaid && (
+                              <div className="flex items-center gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => openPaySegmentModal(loan)}
-                                  className="text-xs text-amber-700 font-bold hover:underline cursor-pointer"
+                                  onClick={() => setViewingLoanSegments(loan)}
+                                  className="text-xs text-slate-600 font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
                                 >
-                                  + Record Another Repayment
+                                  <span>Open in Separate View</span>
+                                  <ExternalLink className="h-3 w-3" />
                                 </button>
-                              )}
+                                {!isFullyPaid && (
+                                  <>
+                                    <span className="text-slate-300">·</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => openPaySegmentModal(loan)}
+                                      className="text-xs text-amber-700 font-bold hover:underline cursor-pointer"
+                                    >
+                                      + Record Repayment
+                                    </button>
+                                  </>
+                                )}
+                              </div>
                             </div>
 
                             {!loan.repayments || loan.repayments.length === 0 ? (
@@ -1412,12 +1701,16 @@ export function DailyExpensesPage() {
                                       <th className="px-3.5 py-2 font-mono">Amount Repaid</th>
                                       <th className="px-3.5 py-2">Method</th>
                                       <th className="px-3.5 py-2">Notes / Details</th>
-                                      <th className="px-3.5 py-2 text-right">Logged At</th>
+                                      <th className="px-3.5 py-2 text-right">Actions</th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-100 bg-white">
                                     {loan.repayments.map((segment: LoanRepaymentSegment, idx: number) => (
-                                      <tr key={segment.id || idx} className="hover:bg-slate-50/60">
+                                      <tr
+                                        key={segment.id || idx}
+                                        onClick={() => openEditSegmentModal(loan.id, segment)}
+                                        className="hover:bg-slate-50/80 cursor-pointer transition group"
+                                      >
                                         <td className="px-3.5 py-2 font-medium text-slate-900">
                                           {segment.paymentDate}
                                         </td>
@@ -1432,10 +1725,31 @@ export function DailyExpensesPage() {
                                         <td className="px-3.5 py-2 text-slate-600">
                                           {segment.notes || `Installment #${idx + 1}`}
                                         </td>
-                                        <td className="px-3.5 py-2 text-right text-[11px] text-slate-400 font-mono">
-                                          {segment.createdAt
-                                            ? new Date(segment.createdAt).toLocaleDateString()
-                                            : "—"}
+                                        <td className="px-3.5 py-2 text-right">
+                                          <div className="flex items-center justify-end gap-1">
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                openEditSegmentModal(loan.id, segment);
+                                              }}
+                                              className="p-1 text-slate-400 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition cursor-pointer"
+                                              title="Edit Segment"
+                                            >
+                                              <Pencil className="h-3.5 w-3.5" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSegmentToDelete({ loanId: loan.id, segment });
+                                              }}
+                                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                                              title="Delete Segment"
+                                            >
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            </button>
+                                          </div>
                                         </td>
                                       </tr>
                                     ))}
@@ -2134,16 +2448,595 @@ export function DailyExpensesPage() {
               <button
                 type="button"
                 onClick={() => setLoanToDelete(null)}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleConfirmDeleteLoan}
-                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700"
+                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 cursor-pointer shadow-xs"
               >
                 Delete Loan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 10. MODAL: DEDICATED SEPARATE LOAN SEGMENTS BREAKDOWN & MANAGEMENT       */}
+      {/* ========================================================================= */}
+      {viewingLoanSegments && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 text-slate-800 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-9 w-9 shrink-0 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 font-bold">
+                  <CreditCard className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base font-bold text-slate-900 truncate">
+                      {viewingLoanSegments.loanTitle}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                      {viewingLoanSegments.loanType}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        viewingLoanSegments.status === "PAID_OFF"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-amber-50 text-amber-700 border border-amber-200"
+                      }`}
+                    >
+                      {viewingLoanSegments.status === "PAID_OFF" ? "Fully Repaid" : "Active Repayment"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5 truncate">
+                    Lender: <strong className="text-slate-700">{viewingLoanSegments.lenderName}</strong>
+                    {" · "}Started: {viewingLoanSegments.startDate}
+                    {viewingLoanSegments.targetEndDate && ` · Target: ${viewingLoanSegments.targetEndDate}`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => openEditLoanModal(viewingLoanSegments)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:text-amber-700 hover:bg-amber-50 transition cursor-pointer"
+                  title="Edit Loan Info"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewingLoanSegments(null)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Loan Financial Summary Bar */}
+            {(() => {
+              const totalP =
+                viewingLoanSegments.totalRepayableAmount || viewingLoanSegments.principalAmount || 0;
+              const repaid = (viewingLoanSegments.repayments || []).reduce(
+                (sum, r) => sum + r.amount,
+                0
+              );
+              const remaining = Math.max(0, totalP - repaid);
+              const pct = totalP > 0 ? Math.min(100, Math.round((repaid / totalP) * 100)) : 0;
+              return (
+                <div className="space-y-3 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80 shrink-0">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                        Total Principal
+                      </span>
+                      <span className="font-mono text-sm font-bold text-slate-900 mt-0.5 block">
+                        ৳{totalP.toLocaleString()}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                        Total Repaid
+                      </span>
+                      <span className="font-mono text-sm font-bold text-emerald-600 mt-0.5 block">
+                        ৳{repaid.toLocaleString()}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                        Remaining Balance
+                      </span>
+                      <span className="font-mono text-sm font-bold text-amber-700 mt-0.5 block">
+                        ৳{remaining.toLocaleString()}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                        Monthly Installment
+                      </span>
+                      <span className="text-xs font-semibold text-slate-800 mt-0.5 block">
+                        {viewingLoanSegments.monthlyEmiAmount
+                          ? `৳${viewingLoanSegments.monthlyEmiAmount.toLocaleString()}/mo`
+                          : "Flexible"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-semibold text-slate-600">Repayment Progress</span>
+                      <span className="font-mono font-bold text-slate-900">
+                        {pct}% ({viewingLoanSegments.repayments?.length || 0} segments)
+                      </span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-slate-200/70 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-amber-500 to-emerald-500 rounded-full transition-all duration-300"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Segments Header & Pay Button */}
+            <div className="flex items-center justify-between pt-1 shrink-0">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Repayment Segments ({viewingLoanSegments.repayments?.length || 0})
+              </h4>
+              <button
+                type="button"
+                onClick={() => openPaySegmentModal(viewingLoanSegments)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 transition shadow-xs cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Pay Another Segment</span>
+              </button>
+            </div>
+
+            {/* Segments List (Scrollable) */}
+            <div className="overflow-y-auto flex-1 border border-slate-200 rounded-xl divide-y divide-slate-100 min-h-[140px]">
+              {!viewingLoanSegments.repayments || viewingLoanSegments.repayments.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-400 space-y-2">
+                  <p>No repayment segments logged yet for this loan.</p>
+                  <button
+                    type="button"
+                    onClick={() => openPaySegmentModal(viewingLoanSegments)}
+                    className="text-amber-700 font-bold hover:underline cursor-pointer"
+                  >
+                    + Record First Repayment Segment
+                  </button>
+                </div>
+              ) : (
+                viewingLoanSegments.repayments.map((segment: LoanRepaymentSegment, idx: number) => (
+                  <div
+                    key={segment.id || idx}
+                    onClick={() => openEditSegmentModal(viewingLoanSegments.id, segment)}
+                    className="p-3.5 hover:bg-slate-50/80 transition flex items-center justify-between gap-3 cursor-pointer group"
+                  >
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-sm font-bold text-emerald-600">
+                          ৳{segment.amount.toLocaleString()}
+                        </span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">
+                          {segment.paymentMethod}
+                        </span>
+                        <span className="text-xs text-slate-400">·</span>
+                        <span className="text-xs font-medium text-slate-700">
+                          {segment.paymentDate}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 truncate">
+                        {segment.notes || `Installment #${idx + 1}`}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditSegmentModal(viewingLoanSegments.id, segment);
+                        }}
+                        className="rounded-lg p-1.5 text-slate-400 hover:text-amber-700 hover:bg-amber-50 transition cursor-pointer"
+                        title="Edit Segment"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSegmentToDelete({ loanId: viewingLoanSegments.id, segment });
+                        }}
+                        className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                        title="Delete Segment"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 shrink-0">
+              <span className="text-[11px] text-slate-400">
+                Click on any segment to edit or adjust details.
+              </span>
+              <button
+                type="button"
+                onClick={() => setViewingLoanSegments(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 11. MODAL: EDIT LOAN / BORROWING                                         */}
+      {/* ========================================================================= */}
+      {editingLoan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 font-bold">
+                  <Pencil className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Edit Loan / Borrowing Portfolio
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Editing <span className="font-semibold">{editingLoan.loanTitle}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingLoan(null)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditLoan} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Loan / Debt Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editLoanTitle}
+                  onChange={(e) => setEditLoanTitle(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Lender / Bank Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editLenderName}
+                    onChange={(e) => setEditLenderName(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Loan Type *
+                  </label>
+                  <select
+                    value={editLoanType}
+                    onChange={(e) => setEditLoanType(e.target.value as MemberLoan["loanType"])}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  >
+                    <option value="Car Loan">Car Loan</option>
+                    <option value="Home Loan">Home Loan</option>
+                    <option value="Personal Loan">Personal Loan</option>
+                    <option value="Business Loan">Business Loan</option>
+                    <option value="Borrowed from Family/Friend">Borrowed from Family/Friend</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Total Principal Borrowed (৳) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    value={editTotalPrincipal}
+                    onChange={(e) => setEditTotalPrincipal(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs font-bold font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Status *
+                  </label>
+                  <select
+                    value={editLoanStatus}
+                    onChange={(e) => setEditLoanStatus(e.target.value as MemberLoan["status"])}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white font-medium"
+                  >
+                    <option value="ACTIVE">Active Repayment</option>
+                    <option value="PAID_OFF">Fully Repaid</option>
+                    <option value="DEFAULTED">Defaulted / Written Off</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Monthly EMI / Installment (৳)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 25000"
+                    value={editMonthlyEmiAmount}
+                    onChange={(e) => setEditMonthlyEmiAmount(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Interest Rate % (Optional)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={editInterestRatePercent}
+                    onChange={(e) => setEditInterestRatePercent(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Start / Borrow Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editStartDate}
+                    onChange={(e) => setEditStartDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Target Payoff Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editTargetEndDate}
+                    onChange={(e) => setEditTargetEndDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Notes / Terms (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={editLoanNotes}
+                  onChange={(e) => setEditLoanNotes(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingLoan(null)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEditLoan}
+                  className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition shadow-xs cursor-pointer"
+                >
+                  {savingEditLoan ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 12. MODAL: EDIT REPAYMENT SEGMENT                                         */}
+      {/* ========================================================================= */}
+      {editingSegment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 font-bold">
+                  <Pencil className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Edit Repayment Segment
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Update installment record
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingSegment(null)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditSegment} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Repayment Amount (৳ BDT) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-base text-slate-400 font-mono">
+                    ৳
+                  </span>
+                  <input
+                    type="number"
+                    required
+                    autoFocus
+                    min="1"
+                    value={editSegmentAmount}
+                    onChange={(e) => setEditSegmentAmount(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-8 pr-4 py-2.5 text-base font-bold font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Payment Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editSegmentDate}
+                    onChange={(e) => setEditSegmentDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Payment Method
+                  </label>
+                  <select
+                    value={editSegmentMethod}
+                    onChange={(e) => setEditSegmentMethod(e.target.value as DailyExpensePaymentMethod)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  >
+                    {PAYMENT_METHODS.map((method) => (
+                      <option key={method} value={method}>
+                        {method}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Segment Notes / Details
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Installment #3, Paid via mobile banking"
+                  value={editSegmentNotes}
+                  onChange={(e) => setEditSegmentNotes(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingSegment(null)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEditSegment}
+                  className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition shadow-xs cursor-pointer"
+                >
+                  {savingEditSegment ? "Saving..." : "Update Segment"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 13. MODAL: DELETE REPAYMENT SEGMENT CONFIRMATION                          */}
+      {/* ========================================================================= */}
+      {segmentToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="text-center space-y-2">
+              <div className="mx-auto h-12 w-12 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center">
+                <Trash2 className="h-6 w-6" />
+              </div>
+              <h3 className="text-base font-bold text-slate-900">
+                Delete Repayment Segment?
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Are you sure you want to delete this payment of{" "}
+                <strong className="text-slate-900 font-mono">
+                  ৳{segmentToDelete.segment.amount.toLocaleString()}
+                </strong>{" "}
+                from {segmentToDelete.segment.paymentDate}? The remaining loan balance will be recalculated.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setSegmentToDelete(null)}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingSegment}
+                onClick={handleConfirmDeleteSegment}
+                className="flex-1 rounded-xl bg-rose-600 py-2.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50 transition shadow-xs cursor-pointer"
+              >
+                {deletingSegment ? "Deleting..." : "Delete Segment"}
               </button>
             </div>
           </div>

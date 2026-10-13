@@ -318,6 +318,10 @@ export function VehicleDetailsPage() {
   const [serviceToDelete, setServiceToDelete] = useState<VehicleService | null>(null);
   const [isDeletingService, setIsDeletingService] = useState(false);
 
+  // Mobile sub-view toggles (History vs Log New)
+  const [mobileFuelView, setMobileFuelView] = useState<"history" | "form">("history");
+  const [mobileMaintView, setMobileMaintView] = useState<"history" | "form">("history");
+
   useEffect(() => {
     setLoading(true);
     Promise.all([
@@ -732,6 +736,7 @@ export function VehicleDetailsPage() {
       setFuelPricePerLiter(BD_FUEL_RATES[fuelType] || "");
       setFuelLiters("");
       setFuelNotes("");
+      setMobileFuelView("history");
     } catch (saveErr) {
       setError(saveErr instanceof Error ? saveErr.message : "Could not save fuel expense.");
     } finally {
@@ -1008,6 +1013,7 @@ export function VehicleDetailsPage() {
       setMaintenanceNextDate("");
       setMaintenanceFile(null);
       setScannedExtraction(null);
+      setMobileMaintView("history");
     } catch (saveErr) {
       setError(saveErr instanceof Error ? saveErr.message : "Could not save maintenance record.");
     } finally {
@@ -1299,28 +1305,30 @@ export function VehicleDetailsPage() {
   const VehicleIcon = getVehicleIcon(vehicle.type);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-28 sm:pb-8">
       {/* Top Header & Navigation */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             type="button"
             onClick={() => navigate("/assets/vehicles")}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 cursor-pointer"
+            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-2 sm:px-2.5 sm:py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 cursor-pointer shrink-0"
+            title="Back to vehicles"
           >
-            <ArrowLeft className="h-3.5 w-3.5" /> All Vehicles
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">All Vehicles</span>
           </button>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-800">
               <VehicleBrandLogo brand={vehicle.brand} type={vehicle.type} />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold tracking-tight text-slate-900">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h1 className="text-sm sm:text-base font-bold tracking-tight text-slate-900 truncate">
                   {vehicle.name}
                 </h1>
                 <span
-                  className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold ${getVehicleTypeBadgeClass(
+                  className={`rounded-md border px-1.5 py-0.2 text-[10px] font-semibold ${getVehicleTypeBadgeClass(
                     vehicle.type,
                   )}`}
                 >
@@ -1330,7 +1338,7 @@ export function VehicleDetailsPage() {
                   {vehicle.status}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 font-mono mt-0.5">
+              <p className="text-[11px] sm:text-xs text-slate-500 font-mono mt-0.5 truncate">
                 {vehicle.brand} {vehicle.model} · {vehicle.registrationNumber || "Unregistered"} · {vehicle.year}
               </p>
             </div>
@@ -1338,7 +1346,7 @@ export function VehicleDetailsPage() {
         </div>
 
         {/* Quick Action Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             type="button"
             onClick={() => {
@@ -1346,16 +1354,18 @@ export function VehicleDetailsPage() {
               setExtractedSpecs(null); setSpecExtractionError(""); setSpecsConfirmed(false);
               setDocModalOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50/80 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition cursor-pointer"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl border border-indigo-200/80 bg-indigo-50/70 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition cursor-pointer"
           >
-            <FileText className="h-3.5 w-3.5" /> Add Document
+            <FileText className="h-3.5 w-3.5" />
+            <span>Add Document</span>
           </button>
           <button
             type="button"
             onClick={() => setWarrantyModalOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition cursor-pointer"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-200/80 bg-amber-50/70 px-2.5 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition cursor-pointer"
           >
-            <ShieldCheck className="h-3.5 w-3.5" /> Warranty & Claim
+            <ShieldCheck className="h-3.5 w-3.5" />
+            <span>Warranty & Claim</span>
           </button>
         </div>
       </div>
@@ -1365,42 +1375,64 @@ export function VehicleDetailsPage() {
 
       {/* Critical Alert Banners (Highlighted Claims / Expiring Tax Token & Fitness) */}
       {claimsInProgress.length > 0 && (
-        <div className="rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 p-3.5 shadow-2xs text-amber-900 flex items-start gap-3">
-          <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-          <div className="flex-1 text-xs">
-            <span className="font-bold">Active Warranty Claim Highlighted:</span>{" "}
-            You have {claimsInProgress.length} component claim(s) in progress (
+        <div className="rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 p-3 shadow-2xs text-amber-900 flex items-start gap-2.5 text-xs">
+          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <span className="font-bold">Active Claim:</span> {claimsInProgress.length} component claim(s) in progress (
             {claimsInProgress.map((c) => c.productName).join(", ")}).
           </div>
           <button
             type="button"
             onClick={() => setActiveTab("warranties")}
-            className="shrink-0 text-xs font-bold text-amber-800 underline hover:text-amber-950 cursor-pointer"
+            className="shrink-0 font-bold text-amber-800 underline hover:text-amber-950 cursor-pointer"
           >
-            View Claim
+            View
           </button>
         </div>
       )}
 
       {expiringDocs.length > 0 && (
-        <div className="rounded-xl border border-rose-300 bg-rose-50 p-3 shadow-2xs text-rose-900 flex items-start gap-2.5">
+        <div className="rounded-xl border border-rose-300 bg-rose-50 p-3 shadow-2xs text-rose-900 flex items-start gap-2.5 text-xs">
           <Clock className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
-          <div className="flex-1 text-xs">
-            <span className="font-bold">BRTA Document Attention:</span>{" "}
-            {expiringDocs.map((d) => `${d.name} (${getDaysRemaining(d.expiryDate).label})`).join(", ")}.
+          <div className="flex-1">
+            <span className="font-bold">BRTA Expiry:</span> {expiringDocs.map((d) => `${d.name} (${getDaysRemaining(d.expiryDate).label})`).join(", ")}.
           </div>
           <button
             type="button"
             onClick={() => setActiveTab("documents")}
-            className="shrink-0 text-xs font-bold text-rose-800 underline hover:text-rose-950 cursor-pointer"
+            className="shrink-0 font-bold text-rose-800 underline hover:text-rose-950 cursor-pointer"
           >
-            View Documents
+            View
           </button>
         </div>
       )}
 
-      {/* Highlighted Cost & Compliance Metric Bar */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Mobile Compact Metric Strip (sm:hidden) */}
+      <div className="sm:hidden rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs">
+        <div className="grid grid-cols-3 divide-x divide-slate-100 text-center">
+          <div className="px-1">
+            <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Fuel</div>
+            <div className="mt-0.5 text-xs font-bold font-mono text-slate-900 truncate">
+              {formatMoney(totalFuelCost)}
+            </div>
+          </div>
+          <div className="px-1">
+            <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Maintenance</div>
+            <div className="mt-0.5 text-xs font-bold font-mono text-slate-900 truncate">
+              {formatMoney(totalMaintenanceCost)}
+            </div>
+          </div>
+          <div className="px-1">
+            <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Total Cost</div>
+            <div className="mt-0.5 text-xs font-bold font-mono text-indigo-600 truncate">
+              {formatMoney(totalCombinedExpense)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop 4-Card Metric Grid (hidden sm:grid) */}
+      <div className="hidden sm:grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-[11px] font-medium uppercase tracking-wider">Total Fuel Expense</span>
@@ -1454,346 +1486,480 @@ export function VehicleDetailsPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-slate-200/80">
-        <div className="flex flex-wrap gap-2 text-xs font-semibold">
-          <button
-            type="button"
-            onClick={() => setActiveTab("fuel")}
-            className={`inline-flex items-center gap-1.5 pb-2.5 pt-1 border-b-2 transition cursor-pointer ${
-              activeTab === "fuel"
-                ? "border-slate-900 text-slate-900"
-                : "border-transparent text-slate-500 hover:text-slate-800"
+      {/* Tabs - Modern Segmented Control with horizontal scroll */}
+      <div className="p-1 bg-slate-100/90 rounded-xl border border-slate-200/70 flex items-center gap-1 overflow-x-auto no-scrollbar">
+        <button
+          type="button"
+          onClick={() => setActiveTab("fuel")}
+          className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer shrink-0 ${
+            activeTab === "fuel"
+              ? "bg-white text-blue-600 shadow-2xs font-bold"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Fuel className={`h-3.5 w-3.5 ${activeTab === "fuel" ? "text-blue-600" : "text-slate-400"}`} />
+          <span>Fuel & Gas</span>
+          <span
+            className={`rounded-full px-1.5 py-0.5 text-[10px] font-mono font-bold leading-none ${
+              activeTab === "fuel" ? "bg-blue-100 text-blue-800" : "bg-slate-200/70 text-slate-600"
             }`}
           >
-            <Fuel className="h-3.5 w-3.5" />
-            <span>Fuel & Gas</span>
-            <span className="rounded-full bg-slate-100 px-1.5 py-0.2 text-[10px] font-mono text-slate-600">
-              {fuelExpenses.length}
-            </span>
-          </button>
+            {fuelExpenses.length}
+          </span>
+        </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("maintenance")}
-            className={`inline-flex items-center gap-1.5 pb-2.5 pt-1 border-b-2 transition cursor-pointer ${
-              activeTab === "maintenance"
-                ? "border-slate-900 text-slate-900"
-                : "border-transparent text-slate-500 hover:text-slate-800"
+        <button
+          type="button"
+          onClick={() => setActiveTab("maintenance")}
+          className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer shrink-0 ${
+            activeTab === "maintenance"
+              ? "bg-white text-emerald-600 shadow-2xs font-bold"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Wrench className={`h-3.5 w-3.5 ${activeTab === "maintenance" ? "text-emerald-600" : "text-slate-400"}`} />
+          <span>Repairs & Service</span>
+          <span
+            className={`rounded-full px-1.5 py-0.5 text-[10px] font-mono font-bold leading-none ${
+              activeTab === "maintenance" ? "bg-emerald-100 text-emerald-800" : "bg-slate-200/70 text-slate-600"
             }`}
           >
-            <Wrench className="h-3.5 w-3.5" />
-            <span>Repairs & Servicing</span>
-            <span className="rounded-full bg-slate-100 px-1.5 py-0.2 text-[10px] font-mono text-slate-600">
-              {services.length}
-            </span>
-          </button>
+            {services.length}
+          </span>
+        </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("documents")}
-            className={`inline-flex items-center gap-1.5 pb-2.5 pt-1 border-b-2 transition cursor-pointer ${
-              activeTab === "documents"
-                ? "border-indigo-600 text-indigo-700 font-bold"
-                : "border-transparent text-slate-500 hover:text-slate-800"
+        <button
+          type="button"
+          onClick={() => setActiveTab("documents")}
+          className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer shrink-0 ${
+            activeTab === "documents"
+              ? "bg-white text-indigo-600 shadow-2xs font-bold"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <FileText className={`h-3.5 w-3.5 ${activeTab === "documents" ? "text-indigo-600" : "text-slate-400"}`} />
+          <span>Papers (BRTA)</span>
+          <span
+            className={`rounded-full px-1.5 py-0.5 text-[10px] font-mono font-bold leading-none ${
+              activeTab === "documents" ? "bg-indigo-100 text-indigo-800" : "bg-slate-200/70 text-slate-600"
             }`}
           >
-            <FileText className="h-3.5 w-3.5 text-indigo-600" />
-            <span>Vehicle Papers (BRTA)</span>
-            <span className="rounded-full bg-indigo-50 px-1.5 py-0.2 text-[10px] font-mono font-bold text-indigo-700 border border-indigo-200/60">
-              {documents.length}
-            </span>
-          </button>
+            {documents.length}
+          </span>
+        </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("warranties")}
-            className={`inline-flex items-center gap-1.5 pb-2.5 pt-1 border-b-2 transition cursor-pointer ${
-              activeTab === "warranties"
-                ? "border-amber-600 text-amber-800 font-bold"
-                : "border-transparent text-slate-500 hover:text-slate-800"
+        <button
+          type="button"
+          onClick={() => setActiveTab("warranties")}
+          className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer shrink-0 ${
+            activeTab === "warranties"
+              ? "bg-white text-amber-600 shadow-2xs font-bold"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <ShieldCheck className={`h-3.5 w-3.5 ${activeTab === "warranties" ? "text-amber-600" : "text-slate-400"}`} />
+          <span>Warranties</span>
+          <span
+            className={`rounded-full px-1.5 py-0.5 text-[10px] font-mono font-bold leading-none ${
+              activeTab === "warranties" ? "bg-amber-100 text-amber-800" : "bg-slate-200/70 text-slate-600"
             }`}
           >
-            <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
-            <span>Warranty Cards</span>
-            <span
-              className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono font-bold ${
-                claimsInProgress.length > 0
-                  ? "bg-amber-100 text-amber-900 animate-pulse border border-amber-300"
-                  : "bg-slate-100 text-slate-600"
-              }`}
-            >
-              {warranties.length}
-            </span>
-          </button>
+            {warranties.length}
+          </span>
+        </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("overview")}
-            className={`inline-flex items-center gap-1.5 pb-2.5 pt-1 border-b-2 transition cursor-pointer ${
-              activeTab === "overview"
-                ? "border-slate-900 text-slate-900"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <VehicleIcon className="h-3.5 w-3.5" />
-            <span>Vehicle Details & Specs</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setActiveTab("overview")}
+          className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer shrink-0 ${
+            activeTab === "overview"
+              ? "bg-white text-slate-900 shadow-2xs font-bold"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <VehicleIcon className={`h-3.5 w-3.5 ${activeTab === "overview" ? "text-slate-900" : "text-slate-400"}`} />
+          <span>Specs & Details</span>
+        </button>
       </div>
 
       {/* ========================================================================= */}
       {/* TAB 1: FUEL CONSUMPTION                                                   */}
       {/* ========================================================================= */}
       {activeTab === "fuel" && (
-        <div className="grid gap-4 lg:grid-cols-3">
-          {/* Fuel Entry Form */}
-          <div className="lg:col-span-1 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3">
-            <div className="border-b border-slate-100 pb-2">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                Record Fuel Purchase
-              </h2>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Track date, odometer mileage, and amount spent.
-              </p>
+        <div className="space-y-3">
+          {/* Mobile Sub-Switcher (History vs Log Fuel) */}
+          <div className="lg:hidden flex items-center justify-between gap-2 bg-white border border-slate-200/80 p-1.5 rounded-xl shadow-2xs">
+            <div className="p-0.5 bg-slate-100 rounded-lg inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setMobileFuelView("history")}
+                className={`px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                  mobileFuelView === "history"
+                    ? "bg-white text-slate-900 shadow-2xs font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                History ({fuelExpenses.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileFuelView("form")}
+                className={`px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                  mobileFuelView === "form"
+                    ? "bg-white text-blue-600 shadow-2xs font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                + Log Fuel
+              </button>
             </div>
+            <span className="text-xs font-mono font-bold text-slate-900 pr-2">
+              {formatMoney(totalFuelCost)}
+            </span>
+          </div>
 
-            <form onSubmit={handleSaveFuel} className="space-y-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Purchase Date *
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={fuelDate}
-                  onChange={(e) => setFuelDate(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                />
+          <div className="grid gap-4 lg:grid-cols-3">
+            {/* Fuel Entry Form */}
+            <div
+              className={`lg:col-span-1 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 ${
+                mobileFuelView === "form" ? "block" : "hidden lg:block"
+              }`}
+            >
+              <div className="border-b border-slate-100 pb-2 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                    Record Fuel Purchase
+                  </h2>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Track date, odometer mileage, and amount spent.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMobileFuelView("history")}
+                  className="lg:hidden text-xs text-blue-600 font-semibold hover:underline"
+                >
+                  View History
+                </button>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Odometer Mileage (km) *
-                </label>
-                <input
-                  type="number"
-                  required
-                  placeholder="e.g. 45200"
-                  value={fuelMileage}
-                  onChange={(e) => setFuelMileage(e.target.value ? Number(e.target.value) : "")}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
+              <form onSubmit={handleSaveFuel} className="space-y-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Amount Paid (৳) *
+                    Purchase Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={fuelDate}
+                    onChange={(e) => setFuelDate(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Odometer Mileage (km) *
                   </label>
                   <input
                     type="number"
                     required
-                    placeholder="e.g. 5000"
-                    value={fuelAmount}
-                    onChange={(e) => handleAmountChange(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-mono font-semibold text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
+                    placeholder="e.g. 45200"
+                    value={fuelMileage}
+                    onChange={(e) => setFuelMileage(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
                   />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Amount Paid (৳) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      placeholder="e.g. 5000"
+                      value={fuelAmount}
+                      onChange={(e) => handleAmountChange(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-mono font-semibold text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-semibold text-slate-700">
+                        Per Liter Price (৳)
+                      </label>
+                      {BD_FUEL_RATES[fuelType] && (
+                        <button
+                          type="button"
+                          onClick={() => applyPresetRate(BD_FUEL_RATES[fuelType])}
+                          className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer underline decoration-dotted"
+                          title={`Apply standard BD ${fuelType} rate (৳${BD_FUEL_RATES[fuelType]}/L)`}
+                        >
+                          ৳{BD_FUEL_RATES[fuelType]} BD
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder={`e.g. ${BD_FUEL_RATES[fuelType] || 125}`}
+                      value={fuelPricePerLiter}
+                      onChange={(e) => handlePricePerLiterChange(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-[11px] font-semibold text-slate-700">
-                      Per Liter Price (৳)
+                      Liters (Auto-Calculated)
                     </label>
-                    {BD_FUEL_RATES[fuelType] && (
-                      <button
-                        type="button"
-                        onClick={() => applyPresetRate(BD_FUEL_RATES[fuelType])}
-                        className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer underline decoration-dotted"
-                        title={`Apply standard BD ${fuelType} rate (৳${BD_FUEL_RATES[fuelType]}/L)`}
-                      >
-                        ৳{BD_FUEL_RATES[fuelType]} BD
-                      </button>
+                    {fuelAmount && fuelPricePerLiter && (
+                      <span className="text-[10px] font-mono text-emerald-700 font-medium bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-100">
+                        ৳{fuelAmount} ÷ ৳{fuelPricePerLiter} = {fuelLiters || 0} L
+                      </span>
                     )}
                   </div>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder={`e.g. ${BD_FUEL_RATES[fuelType] || 125}`}
-                    value={fuelPricePerLiter}
-                    onChange={(e) => handlePricePerLiterChange(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[11px] font-semibold text-slate-700">
-                    Liters (Auto-Calculated)
-                  </label>
-                  {fuelAmount && fuelPricePerLiter && (
-                    <span className="text-[10px] font-mono text-emerald-700 font-medium bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-100">
-                      ৳{fuelAmount} ÷ ৳{fuelPricePerLiter} = {fuelLiters || 0} L
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="e.g. 40.00"
+                      value={fuelLiters}
+                      onChange={(e) => handleLitersChange(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-slate-800 focus:bg-white pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-slate-400 pointer-events-none">
+                      L
                     </span>
-                  )}
+                  </div>
                 </div>
-                <div className="relative">
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Fuel Type
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {FUEL_TYPES.map((ft) => (
+                      <button
+                        key={ft}
+                        type="button"
+                        onClick={() => handleFuelTypeSelect(ft)}
+                        className={`rounded-md px-2 py-1 text-[11px] font-medium transition cursor-pointer ${
+                          fuelType === ft
+                            ? "bg-slate-900 text-white font-semibold shadow-xs"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                      >
+                        {ft}
+                        {BD_FUEL_RATES[ft] && (
+                          <span className="ml-1 text-[9px] opacity-75 font-mono">
+                            ৳{BD_FUEL_RATES[ft]}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Fuel Station / Note
+                  </label>
                   <input
-                    type="number"
-                    step="0.01"
-                    placeholder="e.g. 40.00"
-                    value={fuelLiters}
-                    onChange={(e) => handleLitersChange(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-slate-800 focus:bg-white pr-8"
+                    type="text"
+                    placeholder="e.g. Padma Oil, Banani Pump"
+                    value={fuelNotes}
+                    onChange={(e) => setFuelNotes(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-slate-400 pointer-events-none">
-                    L
-                  </span>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Fuel Type
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {FUEL_TYPES.map((ft) => (
-                    <button
-                      key={ft}
-                      type="button"
-                      onClick={() => handleFuelTypeSelect(ft)}
-                      className={`rounded-md px-2 py-1 text-[11px] font-medium transition cursor-pointer ${
-                        fuelType === ft
-                          ? "bg-slate-900 text-white font-semibold shadow-xs"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      {ft}
-                      {BD_FUEL_RATES[ft] && (
-                        <span className="ml-1 text-[9px] opacity-75 font-mono">
-                          ৳{BD_FUEL_RATES[ft]}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Fuel Station / Note
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Padma Oil, Banani Pump"
-                  value={fuelNotes}
-                  onChange={(e) => setFuelNotes(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={saving}
-                className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer disabled:opacity-50"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                {saving ? "Saving..." : "Add Fuel Entry"}
-              </button>
-            </form>
-          </div>
-
-          {/* Fuel History Table */}
-          <div className="lg:col-span-2 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
-              <div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                  Fuel Purchase History
-                </h2>
-                <p className="text-[11px] text-slate-500">
-                  Logged receipts, odometer readings, and consumption.
-                </p>
-              </div>
-              <span className="text-xs font-bold font-mono text-slate-900">
-                {formatMoney(totalFuelCost)}
-              </span>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer disabled:opacity-50 shadow-xs"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {saving ? "Saving..." : "Add Fuel Entry"}
+                </button>
+              </form>
             </div>
 
-            {fuelExpenses.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-xs text-slate-500">
-                <Fuel className="h-6 w-6 text-slate-400 mx-auto mb-2" />
-                No fuel purchases logged yet. Fill out the form on the left to add your first fuel entry.
+            {/* Fuel History Table & Mobile Cards */}
+            <div
+              className={`lg:col-span-2 rounded-xl border border-slate-200/90 bg-white p-3.5 sm:p-4 shadow-2xs ${
+                mobileFuelView === "history" ? "block" : "hidden lg:block"
+              }`}
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+                <div>
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                    Fuel Purchase History
+                  </h2>
+                  <p className="text-[11px] text-slate-500">
+                    Logged receipts, odometer readings, and consumption.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold font-mono text-slate-900">
+                    {formatMoney(totalFuelCost)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setMobileFuelView("form")}
+                    className="lg:hidden inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white shadow-2xs"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>Log</span>
+                  </button>
+                </div>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-xs">
-                  <thead className="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-semibold text-slate-600">
-                    <tr>
-                      <th className="px-3 py-2">Date</th>
-                      <th className="px-3 py-2">Odometer</th>
-                      <th className="px-3 py-2">Details / Pump</th>
-                      <th className="px-3 py-2 font-mono">Liters</th>
-                      <th className="px-3 py-2 font-mono text-right">Amount</th>
-                      <th className="px-3 py-2 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
+
+              {fuelExpenses.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-xs text-slate-500 space-y-2">
+                  <Fuel className="h-6 w-6 text-slate-400 mx-auto" />
+                  <p>No fuel purchases logged yet.</p>
+                  <button
+                    type="button"
+                    onClick={() => setMobileFuelView("form")}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Record Fuel Entry
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Mobile Clean Card View (sm:hidden) */}
+                  <div className="space-y-2 sm:hidden">
                     {fuelExpenses.map((fuel) => (
-                      <tr key={fuel.id} className="hover:bg-slate-50/70">
-                        <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-600">
-                          {fuel.date}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-800">
-                          {fuel.mileage.toLocaleString()} km
-                        </td>
-                        <td className="px-3 py-2 text-slate-700">
-                          {fuel.description || "Fuel fill-up"}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-600">
-                          {fuel.fuelLiters ? (
-                            <div>
-                              <span>{fuel.fuelLiters} L</span>
-                              {fuel.amount > 0 && fuel.fuelLiters > 0 && (
-                                <span className="block text-[10px] text-slate-400">
-                                  ৳{(fuel.amount / fuel.fuelLiters).toFixed(1)}/L
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2 font-mono font-bold text-slate-900 text-right">
-                          {formatMoney(fuel.amount)}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right">
-                          <div className="inline-flex items-center gap-1 justify-end">
+                      <div
+                        key={fuel.id}
+                        className="rounded-xl border border-slate-200/90 bg-slate-50/40 p-2.5 shadow-2xs space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <Fuel className="h-3.5 w-3.5 text-blue-600" />
+                            <span className="font-mono text-xs font-bold text-slate-900">{fuel.date}</span>
+                          </div>
+                          <span className="font-mono text-xs font-bold text-slate-900">
+                            {formatMoney(fuel.amount)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1 border-t border-slate-100">
+                          <div>
+                            <span className="font-mono font-medium text-slate-800">{fuel.mileage.toLocaleString()} km</span>
+                            {fuel.fuelLiters && (
+                              <span className="text-slate-400 ml-1.5 font-mono">
+                                · {fuel.fuelLiters} L
+                                {fuel.amount > 0 && fuel.fuelLiters > 0 && (
+                                  <span> (৳{(fuel.amount / fuel.fuelLiters).toFixed(0)}/L)</span>
+                                )}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
                             <button
                               type="button"
                               onClick={() => openEditFuelModal(fuel)}
-                              className="rounded p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition cursor-pointer"
+                              className="p-1 text-slate-400 hover:text-indigo-600 rounded"
                               title="Edit fuel entry"
                             >
-                              <Edit2 className="h-3.5 w-3.5" />
+                              <Edit2 className="h-3 w-3" />
                             </button>
                             <button
                               type="button"
                               onClick={() => setFuelToDelete(fuel)}
-                              className="rounded p-1 text-slate-300 hover:text-rose-600 hover:bg-slate-100 transition cursor-pointer"
+                              className="p-1 text-slate-300 hover:text-rose-600 rounded"
                               title="Delete fuel entry"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-3 w-3" />
                             </button>
                           </div>
-                        </td>
-                      </tr>
+                        </div>
+                        {fuel.description && (
+                          <div className="text-[10px] text-slate-500 truncate">
+                            {fuel.description}
+                          </div>
+                        )}
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  </div>
+
+                  {/* Desktop / Tablet Table View (hidden sm:block) */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="min-w-full text-left text-xs">
+                      <thead className="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-semibold text-slate-600">
+                        <tr>
+                          <th className="px-3 py-2">Date</th>
+                          <th className="px-3 py-2">Odometer</th>
+                          <th className="px-3 py-2">Details / Pump</th>
+                          <th className="px-3 py-2 font-mono">Liters</th>
+                          <th className="px-3 py-2 font-mono text-right">Amount</th>
+                          <th className="px-3 py-2 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {fuelExpenses.map((fuel) => (
+                          <tr key={fuel.id} className="hover:bg-slate-50/70">
+                            <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-600">
+                              {fuel.date}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-800">
+                              {fuel.mileage.toLocaleString()} km
+                            </td>
+                            <td className="px-3 py-2 text-slate-700">
+                              {fuel.description || "Fuel fill-up"}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-600">
+                              {fuel.fuelLiters ? (
+                                <div>
+                                  <span>{fuel.fuelLiters} L</span>
+                                  {fuel.amount > 0 && fuel.fuelLiters > 0 && (
+                                    <span className="block text-[10px] text-slate-400">
+                                      ৳{(fuel.amount / fuel.fuelLiters).toFixed(1)}/L
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 font-mono font-bold text-slate-900 text-right">
+                              {formatMoney(fuel.amount)}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 text-right">
+                              <div className="inline-flex items-center gap-1 justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => openEditFuelModal(fuel)}
+                                  className="rounded p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition cursor-pointer"
+                                  title="Edit fuel entry"
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setFuelToDelete(fuel)}
+                                  className="rounded p-1 text-slate-300 hover:text-rose-600 hover:bg-slate-100 transition cursor-pointer"
+                                  title="Delete fuel entry"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1802,342 +1968,493 @@ export function VehicleDetailsPage() {
       {/* TAB 2: MAINTENANCE & SERVICING (WITH AUTO-EXTRACT FROM RECEIPT)          */}
       {/* ========================================================================= */}
       {activeTab === "maintenance" && (
-        <div className="grid gap-4 lg:grid-cols-3">
-          {/* Maintenance Entry Form */}
-          <div className="lg:col-span-1 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3">
-            <div className="border-b border-slate-100 pb-2">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                Log Maintenance / Servicing
-              </h2>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Attach receipt or bill to automatically extract workshop details & cost.
-              </p>
+        <div className="space-y-3">
+          {/* Mobile Sub-Switcher (History vs Log Service) */}
+          <div className="lg:hidden flex items-center justify-between gap-2 bg-white border border-slate-200/80 p-1.5 rounded-xl shadow-2xs">
+            <div className="p-0.5 bg-slate-100 rounded-lg inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setMobileMaintView("history")}
+                className={`px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                  mobileMaintView === "history"
+                    ? "bg-white text-slate-900 shadow-2xs font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                History ({services.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileMaintView("form")}
+                className={`px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                  mobileMaintView === "form"
+                    ? "bg-white text-emerald-600 shadow-2xs font-bold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                + Log Service
+              </button>
             </div>
+            <span className="text-xs font-mono font-bold text-slate-900 pr-2">
+              {formatMoney(totalMaintenanceCost)}
+            </span>
+          </div>
 
-            {/* Smart Bill / Document Upload & Extraction */}
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] font-bold text-indigo-900 flex items-center gap-1">
-                  <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
-                  Bill / Memo Scanner
-                </span>
-                <span className="text-[10px] text-indigo-600 font-medium">Auto-Extracts Details</span>
-              </div>
-              <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-indigo-200 bg-white p-3 hover:bg-indigo-50/50 transition">
-                <Upload className="h-4 w-4 text-indigo-500 mb-1" />
-                <span className="text-[11px] font-semibold text-slate-700">
-                  {maintenanceFile ? maintenanceFile.name : "Upload Receipt / Invoice (Image or PDF)"}
-                </span>
-                <span className="text-[10px] text-slate-400">
-                  Scans Mobil change, brake pads, workshop name & cost
-                </span>
-                <input
-                  type="file"
-                  accept="image/*,.pdf,.txt"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void handleMaintenanceReceiptChange(f);
-                  }}
-                />
-              </label>
-
-              {scannedExtraction && (
-                <div className="mt-2 rounded-lg bg-emerald-50 border border-emerald-200 p-2 text-[11px] text-emerald-800">
-                  <div className="font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Details Extracted from Bill:
-                  </div>
-                  <div className="mt-0.5 text-[10px] text-emerald-700">
-                    {scannedExtraction.detectedServiceType} · {scannedExtraction.workshopName} · {scannedExtraction.cost ? `৳${scannedExtraction.cost}` : "Amount detected"}
-                  </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            {/* Maintenance Entry Form */}
+            <div
+              className={`lg:col-span-1 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 ${
+                mobileMaintView === "form" ? "block" : "hidden lg:block"
+              }`}
+            >
+              <div className="border-b border-slate-100 pb-2 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                    Log Maintenance / Servicing
+                  </h2>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Attach receipt or bill to automatically extract workshop details & cost.
+                  </p>
                 </div>
-              )}
-            </div>
-
-            <form onSubmit={handleSaveMaintenance} className="space-y-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Service / Maintenance Type *
-                </label>
-                <select
-                  value={maintenanceServiceType}
-                  onChange={(e) => setMaintenanceServiceType(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
+                <button
+                  type="button"
+                  onClick={() => setMobileMaintView("history")}
+                  className="lg:hidden text-xs text-emerald-600 font-semibold hover:underline"
                 >
-                  {MAINTENANCE_PRESETS.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
+                  View History
+                </button>
               </div>
 
-              {(maintenanceServiceType === "Others" || maintenanceServiceType === "Other") && (
-                <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/50 p-3 space-y-2.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950">
-                    <Wrench className="h-3.5 w-3.5 text-indigo-600" />
-                    <span>Other Service Details</span>
+              {/* Smart Bill / Document Upload & Extraction */}
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] font-bold text-indigo-900 flex items-center gap-1">
+                    <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+                    Bill / Memo Scanner
+                  </span>
+                  <span className="text-[10px] text-indigo-600 font-medium">Auto-Extracts Details</span>
+                </div>
+                <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-indigo-200 bg-white p-3 hover:bg-indigo-50/50 transition">
+                  <Upload className="h-4 w-4 text-indigo-500 mb-1" />
+                  <span className="text-[11px] font-semibold text-slate-700">
+                    {maintenanceFile ? maintenanceFile.name : "Upload Receipt / Invoice (Image or PDF)"}
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    Scans Mobil change, brake pads, workshop name & cost
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*,.pdf,.txt"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void handleMaintenanceReceiptChange(f);
+                    }}
+                  />
+                </label>
+
+                {scannedExtraction && (
+                  <div className="mt-2 rounded-lg bg-emerald-50 border border-emerald-200 p-2 text-[11px] text-emerald-800">
+                    <div className="font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Details Extracted from Bill:
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-emerald-700">
+                      {scannedExtraction.detectedServiceType} · {scannedExtraction.workshopName} · {scannedExtraction.cost ? `৳${scannedExtraction.cost}` : "Amount detected"}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <form onSubmit={handleSaveMaintenance} className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Service / Maintenance Type *
+                  </label>
+                  <select
+                    value={maintenanceServiceType}
+                    onChange={(e) => setMaintenanceServiceType(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
+                  >
+                    {MAINTENANCE_PRESETS.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {(maintenanceServiceType === "Others" || maintenanceServiceType === "Other") && (
+                  <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/50 p-3 space-y-2.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950">
+                      <Wrench className="h-3.5 w-3.5 text-indigo-600" />
+                      <span>Other Service Details</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Service Title / Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Chain sprocket change, Fuel pump repair, Radiator flush"
+                        value={maintenanceCustomType}
+                        onChange={(e) => setMaintenanceCustomType(e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Service Details / Work Done *
+                      </label>
+                      <textarea
+                        rows={2}
+                        required
+                        placeholder="e.g. Replaced worn sprocket, adjusted chain tension, lubricated with high-grade chain wax"
+                        value={maintenanceDescription}
+                        onChange={(e) => setMaintenanceDescription(e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Date *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={maintenanceDate}
+                      onChange={(e) => setMaintenanceDate(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
+                    />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      Service Title / Name *
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Mileage (km) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      placeholder="e.g. 45200"
+                      value={maintenanceMileage}
+                      onChange={(e) =>
+                        setMaintenanceMileage(e.target.value ? Number(e.target.value) : "")
+                      }
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Total Cost (৳) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      placeholder="e.g. 4500"
+                      value={maintenanceCost}
+                      onChange={(e) =>
+                        setMaintenanceCost(e.target.value ? Number(e.target.value) : "")
+                      }
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-mono font-semibold text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Workshop / Garage
                     </label>
                     <input
                       type="text"
-                      required
-                      placeholder="e.g. Chain sprocket change, Fuel pump repair, Radiator flush"
-                      value={maintenanceCustomType}
-                      onChange={(e) => setMaintenanceCustomType(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                      placeholder="e.g. Navana, Rahimafrooz"
+                      value={maintenanceWorkshop}
+                      onChange={(e) => setMaintenanceWorkshop(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
                     />
                   </div>
+                </div>
 
+                {maintenanceServiceType !== "Others" && maintenanceServiceType !== "Other" && (
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      Service Details / Work Done *
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Work Done / Replaced Parts (Optional)
                     </label>
                     <textarea
                       rows={2}
-                      required
-                      placeholder="e.g. Replaced worn sprocket, adjusted chain tension, lubricated with high-grade chain wax"
+                      placeholder="e.g. 4L Mobil 1 5W-30 + OEM Oil filter replaced"
                       value={maintenanceDescription}
                       onChange={(e) => setMaintenanceDescription(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
                     />
                   </div>
-                </div>
-              )}
+                )}
 
-              <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Date *
+                    Next Service Due (Optional)
                   </label>
                   <input
                     type="date"
-                    required
-                    value={maintenanceDate}
-                    onChange={(e) => setMaintenanceDate(e.target.value)}
+                    value={maintenanceNextDate}
+                    onChange={(e) => setMaintenanceNextDate(e.target.value)}
                     className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Mileage (km) *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="e.g. 45200"
-                    value={maintenanceMileage}
-                    onChange={(e) =>
-                      setMaintenanceMileage(e.target.value ? Number(e.target.value) : "")
-                    }
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Total Cost (৳) *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="e.g. 4500"
-                    value={maintenanceCost}
-                    onChange={(e) =>
-                      setMaintenanceCost(e.target.value ? Number(e.target.value) : "")
-                    }
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-mono font-semibold text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Workshop / Garage
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Navana, Rahimafrooz"
-                    value={maintenanceWorkshop}
-                    onChange={(e) => setMaintenanceWorkshop(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                  />
-                </div>
-              </div>
-
-              {maintenanceServiceType !== "Others" && maintenanceServiceType !== "Other" && (
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Work Done / Replaced Parts (Optional)
-                  </label>
-                  <textarea
-                    rows={2}
-                    placeholder="e.g. 4L Mobil 1 5W-30 + OEM Oil filter replaced"
-                    value={maintenanceDescription}
-                    onChange={(e) => setMaintenanceDescription(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  Next Service Due (Optional)
-                </label>
-                <input
-                  type="date"
-                  value={maintenanceNextDate}
-                  onChange={(e) => setMaintenanceNextDate(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={saving}
-                className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer disabled:opacity-50"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                {saving ? "Saving..." : "Save Maintenance Record"}
-              </button>
-            </form>
-          </div>
-
-          {/* Maintenance Records List */}
-          <div className="lg:col-span-2 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
-              <div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                  Maintenance History
-                </h2>
-                <p className="text-[11px] text-slate-500">
-                  Track all periodic servicing, oil changes, parts replacements, and attached bills.
-                </p>
-              </div>
-              <span className="text-xs font-bold font-mono text-slate-900">
-                {formatMoney(totalMaintenanceCost)}
-              </span>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer disabled:opacity-50 shadow-xs"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {saving ? "Saving..." : "Save Maintenance Record"}
+                </button>
+              </form>
             </div>
 
-            {services.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-xs text-slate-500">
-                <Wrench className="h-6 w-6 text-slate-400 mx-auto mb-2" />
-                No maintenance records yet. Attach a bill or log your first Mobil/service entry on the left.
+            {/* Maintenance Records List & Mobile Cards */}
+            <div
+              className={`lg:col-span-2 rounded-xl border border-slate-200/90 bg-white p-3.5 sm:p-4 shadow-2xs ${
+                mobileMaintView === "history" ? "block" : "hidden lg:block"
+              }`}
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+                <div>
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                    Maintenance History
+                  </h2>
+                  <p className="text-[11px] text-slate-500">
+                    Track all periodic servicing, oil changes, parts replacements, and attached bills.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold font-mono text-slate-900">
+                    {formatMoney(totalMaintenanceCost)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setMobileMaintView("form")}
+                    className="lg:hidden inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white shadow-2xs"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>Log</span>
+                  </button>
+                </div>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-xs">
-                  <thead className="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-semibold text-slate-600">
-                    <tr>
-                      <th className="px-3 py-2.5">Date & Mileage</th>
-                      <th className="px-3 py-2.5">Service Type</th>
-                      <th className="px-3 py-2.5">Workshop</th>
-                      <th className="px-3 py-2.5">Work Done / Next Due</th>
-                      <th className="px-3 py-2.5 font-mono text-right">Cost</th>
-                      <th className="px-3 py-2.5 text-center">Bill</th>
-                      <th className="px-3 py-2.5 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
+
+              {services.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-xs text-slate-500 space-y-2">
+                  <Wrench className="h-6 w-6 text-slate-400 mx-auto" />
+                  <p>No maintenance records yet.</p>
+                  <button
+                    type="button"
+                    onClick={() => setMobileMaintView("form")}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Log First Service
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Mobile Clean Card View (sm:hidden) */}
+                  <div className="space-y-2.5 sm:hidden">
                     {services.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="whitespace-nowrap px-3 py-2.5">
-                          <div className="font-mono text-[11px] font-semibold text-slate-800">
-                            {item.serviceDate}
-                          </div>
-                          <div className="font-mono text-[10px] text-slate-500">
-                            {item.mileageAtService.toLocaleString()} km
-                          </div>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <span className="inline-block rounded-md bg-emerald-100/80 px-2 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200/60 whitespace-nowrap">
+                      <div
+                        key={item.id}
+                        className="rounded-xl border border-slate-200/90 bg-slate-50/40 p-2.5 shadow-2xs space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="inline-block rounded-md bg-emerald-100/90 px-2 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200/60">
                             {item.serviceType}
                           </span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <div className="font-semibold text-slate-800 text-[11px]">
+                          <span className="font-mono text-xs font-bold text-slate-900">
+                            {formatMoney(item.cost)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-slate-600">
+                          <div>
+                            <span className="font-mono font-semibold text-slate-800">{item.serviceDate}</span>
+                            <span className="text-slate-400 font-mono ml-1.5">· {item.mileageAtService.toLocaleString()} km</span>
+                          </div>
+                          <span className="text-slate-700 font-medium truncate max-w-[120px]">
                             {item.workshopName || "Workshop"}
+                          </span>
+                        </div>
+
+                        {item.description && (
+                          <div className="text-[11px] text-slate-600 bg-white/70 rounded-lg p-2 border border-slate-100">
+                            {item.description}
                           </div>
-                          {(item.mechanicName || item.workshopLocation) && (
-                            <div className="text-[10px] text-slate-500 truncate max-w-[140px]">
-                              {[item.mechanicName, item.workshopLocation].filter(Boolean).join(" • ")}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-3 py-2.5 max-w-[220px]">
-                          <div className="text-slate-700 text-[11px] line-clamp-2">
-                            {item.description || "Service completed"}
-                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[10px]">
                           {item.nextServiceDate ? (
-                            <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-amber-700 font-medium bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
+                            <span className="inline-flex items-center gap-1 text-amber-700 font-medium bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
                               <Clock className="h-2.5 w-2.5 text-amber-600" />
                               <span>Next: {item.nextServiceDate}</span>
-                            </div>
+                            </span>
                           ) : (
-                            <div className="text-[10px] text-slate-400">Regular servicing</div>
+                            <span className="text-slate-400">Regular servicing</span>
                           )}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2.5 font-mono font-bold text-slate-900 text-right">
-                          {formatMoney(item.cost)}
-                          {item.partsCost > 0 || item.laborCost > 0 ? (
-                            <div className="text-[10px] text-slate-400 font-normal">
-                              P: {formatMoney(item.partsCost)} | L: {formatMoney(item.laborCost)}
-                            </div>
-                          ) : null}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2.5 text-center">
-                          {item.receiptUrl ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setViewingDoc({
-                                  name: `${item.serviceType || "Maintenance"} Bill`,
-                                  fileUrl: item.receiptUrl,
-                                  fileType: "pdf",
-                                  category: "Maintenance Receipt",
-                                })
-                              }
-                              className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition cursor-pointer"
-                              title="View Attached Bill"
-                            >
-                              <FileText className="h-3 w-3" /> Bill
-                            </button>
-                          ) : (
-                            <span className="text-slate-300 text-[11px]">—</span>
-                          )}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2.5 text-right">
-                          <div className="inline-flex items-center gap-1 justify-end">
+
+                          <div className="flex items-center gap-1.5">
+                            {item.receiptUrl && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setViewingDoc({
+                                    name: `${item.serviceType || "Maintenance"} Bill`,
+                                    fileUrl: item.receiptUrl,
+                                    fileType: "pdf",
+                                    category: "Maintenance Receipt",
+                                  })
+                                }
+                                className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 border border-indigo-200"
+                              >
+                                <FileText className="h-3 w-3" /> Bill
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => openEditServiceModal(item)}
-                              className="rounded p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition cursor-pointer"
+                              className="p-1 text-slate-400 hover:text-indigo-600 rounded"
                               title="Edit service entry"
                             >
-                              <Edit2 className="h-3.5 w-3.5" />
+                              <Edit2 className="h-3 w-3" />
                             </button>
                             <button
                               type="button"
                               onClick={() => setServiceToDelete(item)}
-                              className="rounded p-1 text-slate-300 hover:text-rose-600 hover:bg-slate-100 transition cursor-pointer"
+                              className="p-1 text-slate-300 hover:text-rose-600 rounded"
                               title="Delete service entry"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-3 w-3" />
                             </button>
                           </div>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  </div>
+
+                  {/* Desktop / Tablet Table View (hidden sm:block) */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="min-w-full text-left text-xs">
+                      <thead className="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-semibold text-slate-600">
+                        <tr>
+                          <th className="px-3 py-2.5">Date & Mileage</th>
+                          <th className="px-3 py-2.5">Service Type</th>
+                          <th className="px-3 py-2.5">Workshop</th>
+                          <th className="px-3 py-2.5">Work Done / Next Due</th>
+                          <th className="px-3 py-2.5 font-mono text-right">Cost</th>
+                          <th className="px-3 py-2.5 text-center">Bill</th>
+                          <th className="px-3 py-2.5 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {services.map((item) => (
+                          <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="whitespace-nowrap px-3 py-2.5">
+                              <div className="font-mono text-[11px] font-semibold text-slate-800">
+                                {item.serviceDate}
+                              </div>
+                              <div className="font-mono text-[10px] text-slate-500">
+                                {item.mileageAtService.toLocaleString()} km
+                              </div>
+                            </td>
+                            <td className="px-3 py-2.5">
+                              <span className="inline-block rounded-md bg-emerald-100/80 px-2 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200/60 whitespace-nowrap">
+                                {item.serviceType}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5">
+                              <div className="font-semibold text-slate-800 text-[11px]">
+                                {item.workshopName || "Workshop"}
+                              </div>
+                              {(item.mechanicName || item.workshopLocation) && (
+                                <div className="text-[10px] text-slate-500 truncate max-w-[140px]">
+                                  {[item.mechanicName, item.workshopLocation].filter(Boolean).join(" • ")}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 max-w-[220px]">
+                              <div className="text-slate-700 text-[11px] line-clamp-2">
+                                {item.description || "Service completed"}
+                              </div>
+                              {item.nextServiceDate ? (
+                                <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-amber-700 font-medium bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
+                                  <Clock className="h-2.5 w-2.5 text-amber-600" />
+                                  <span>Next: {item.nextServiceDate}</span>
+                                </div>
+                              ) : (
+                                <div className="text-[10px] text-slate-400">Regular servicing</div>
+                              )}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2.5 font-mono font-bold text-slate-900 text-right">
+                              {formatMoney(item.cost)}
+                              {item.partsCost > 0 || item.laborCost > 0 ? (
+                                <div className="text-[10px] text-slate-400 font-normal">
+                                  P: {formatMoney(item.partsCost)} | L: {formatMoney(item.laborCost)}
+                                </div>
+                              ) : null}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2.5 text-center">
+                              {item.receiptUrl ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setViewingDoc({
+                                      name: `${item.serviceType || "Maintenance"} Bill`,
+                                      fileUrl: item.receiptUrl,
+                                      fileType: "pdf",
+                                      category: "Maintenance Receipt",
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition cursor-pointer"
+                                  title="View Attached Bill"
+                                >
+                                  <FileText className="h-3 w-3" /> Bill
+                                </button>
+                              ) : (
+                                <span className="text-slate-300 text-[11px]">—</span>
+                              )}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                              <div className="inline-flex items-center gap-1 justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => openEditServiceModal(item)}
+                                  className="rounded p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition cursor-pointer"
+                                  title="Edit service entry"
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setServiceToDelete(item)}
+                                  className="rounded p-1 text-slate-300 hover:text-rose-600 hover:bg-slate-100 transition cursor-pointer"
+                                  title="Delete service entry"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

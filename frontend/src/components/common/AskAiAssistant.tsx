@@ -73,6 +73,113 @@ export function AskAiAssistant() {
     } catch {}
   }, [messages]);
 
+  // Global listener to trigger AI assistant from bottom nav or header
+  useEffect(() => {
+    const handleOpenAi = () => setIsOpen(true);
+    window.addEventListener("lifenest:open-ai", handleOpenAi);
+    return () => window.removeEventListener("lifenest:open-ai", handleOpenAi);
+  }, []);
+
+  // Draggable FAB State & Handlers
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef<{
+    startX: number;
+    startY: number;
+    initialX: number;
+    initialY: number;
+    moved: boolean;
+  }>({ startX: 0, startY: 0, initialX: 0, initialY: 0, moved: false });
+
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(() => {
+    try {
+      const saved = sessionStorage.getItem("lifenest_ai_fab_pos");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.x === "number" && typeof parsed.y === "number") {
+          return parsed;
+        }
+      }
+    } catch {}
+    return null;
+  });
+
+  // Keep clamped to viewport on screen resize or rotation
+  useEffect(() => {
+    const handleResize = () => {
+      setPosition((prev) => {
+        if (!prev) return null;
+        const size = 48;
+        const maxX = Math.max(8, window.innerWidth - size - 8);
+        const maxY = Math.max(8, window.innerHeight - size - 8);
+        return {
+          x: Math.min(Math.max(8, prev.x), maxX),
+          y: Math.min(Math.max(8, prev.y), maxY),
+        };
+      });
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    isDraggingRef.current = true;
+    dragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialX: rect.left,
+      initialY: rect.top,
+      moved: false,
+    };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!isDraggingRef.current) return;
+    const dx = e.clientX - dragStartRef.current.startX;
+    const dy = e.clientY - dragStartRef.current.startY;
+    if (!dragStartRef.current.moved && Math.hypot(dx, dy) > 5) {
+      dragStartRef.current.moved = true;
+    }
+    if (dragStartRef.current.moved) {
+      const size = 48;
+      const maxX = Math.max(8, window.innerWidth - size - 8);
+      const maxY = Math.max(8, window.innerHeight - size - 8);
+      const newX = Math.min(Math.max(8, dragStartRef.current.initialX + dx), maxX);
+      const newY = Math.min(Math.max(8, dragStartRef.current.initialY + dy), maxY);
+      setPosition({ x: newX, y: newY });
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+
+    if (dragStartRef.current.moved) {
+      setPosition((curr) => {
+        if (curr) {
+          try {
+            sessionStorage.setItem("lifenest_ai_fab_pos", JSON.stringify(curr));
+          } catch {}
+        }
+        return curr;
+      });
+    } else {
+      // Normal click / tap -> open AI assistant
+      setIsOpen(true);
+    }
+  };
+
+  const handlePointerCancel = () => {
+    isDraggingRef.current = false;
+  };
+
   // Global event & keyboard shortcut (Ctrl+J or Cmd+J)
   useEffect(() => {
     const handleOpen = () => setIsOpen(true);
@@ -215,16 +322,28 @@ export function AskAiAssistant() {
 
   return (
     <>
-      {/* 1. Floating Sparkly "Ask AI" Trigger Button (Compact Round Circle FAB) */}
+      {/* 1. Floating Sparkly "Ask AI" Trigger Button (Draggable Round Circle FAB) */}
       {!isOpen && (
         <button
           type="button"
-          onClick={() => setIsOpen(true)}
-          title="Ask LifeNest AI (Ctrl+J)"
-          aria-label="Ask LifeNest AI (Ctrl+J)"
-          className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] right-3.5 sm:right-5 z-40 flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-700 to-purple-600 text-white shadow-md shadow-indigo-600/35 hover:scale-105 hover:shadow-xl hover:shadow-indigo-600/45 transition-all duration-150 cursor-pointer group active:scale-95 ring-1.5 ring-white/50"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+          style={
+            position
+              ? { left: `${position.x}px`, top: `${position.y}px`, right: "auto", bottom: "auto" }
+              : undefined
+          }
+          title="Drag to reposition, tap to Ask LifeNest AI"
+          aria-label="Ask LifeNest AI (Draggable)"
+          className={`fixed z-50 hidden lg:flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-700 to-purple-600 text-white shadow-xl shadow-indigo-600/40 hover:scale-105 active:scale-95 transition-transform duration-100 cursor-grab active:cursor-grabbing group ring-2 ring-white/60 touch-none select-none ${
+            position
+              ? ""
+              : "bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-3.5 sm:bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] sm:right-5"
+          }`}
         >
-          <Sparkles className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-amber-300 group-hover:rotate-12 transition-transform duration-150" />
+          <Sparkles className="h-5 w-5 text-amber-300 group-hover:rotate-12 transition-transform duration-150 pointer-events-none" />
         </button>
       )}
 

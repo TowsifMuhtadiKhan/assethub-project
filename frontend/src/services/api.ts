@@ -38,9 +38,13 @@ export async function login(email: string, password: string) {
 }
 
 export async function register(email: string, password: string) {
+  const emailRedirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      emailRedirectTo,
+    },
   });
   if (error) throw error;
   if (data.session) {

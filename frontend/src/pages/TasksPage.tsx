@@ -188,6 +188,7 @@ export function TasksPage() {
   const [filterAssignee, setFilterAssignee] = useState<string>("All");
   const [onlyUrgent, setOnlyUrgent] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [mobileStatusTab, setMobileStatusTab] = useState<TaskStatus>("Pending");
 
   const activeFilterCount =
     (filterPriority !== "All" ? 1 : 0) +
@@ -630,25 +631,25 @@ export function TasksPage() {
   return (
     <div className="space-y-4 w-full">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3.5">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 font-display">
+      <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+        <div className="min-w-0">
+          <h1 className="text-base sm:text-xl font-bold tracking-tight text-slate-900 font-display truncate">
             To-Do List & Tasks
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 mt-0.5 hidden sm:block">
             Write down your daily tasks, bills to pay, and reminders.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Primary Create Button */}
           <button
             type="button"
             onClick={() => openAddWithStatus("Pending")}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
-            <span>Add New Task</span>
+            <span>Add Task</span>
           </button>
         </div>
       </div>
@@ -795,261 +796,319 @@ export function TasksPage() {
         </div>
       </div>
 
-      {/* 4-COLUMN KANBAN BOARD WITH DRAG & DROP */}
+      {/* 4-COLUMN KANBAN BOARD WITH DRAG & DROP (Segmented Tabs on Mobile, Full Grid on Desktop) */}
       {loading ? (
         <div className="py-20 text-center text-xs text-slate-400">Loading tasks...</div>
       ) : (
-        <div className="flex overflow-x-auto snap-x snap-mandatory pb-4 gap-3.5 scrollbar-thin md:grid md:grid-cols-2 xl:grid-cols-4 md:overflow-visible items-start">
-          {/* COLUMN 1: TO DO */}
-          <div
-            onDragOver={(e) => handleDragOver(e, "Pending")}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, "Pending")}
-            className={`flex flex-col min-w-[280px] sm:min-w-[300px] flex-1 snap-start rounded-2xl border transition-all p-3 shadow-2xs min-h-[580px] ${
-              dragOverColumn === "Pending"
-                ? "border-indigo-400 bg-indigo-50/60 ring-2 ring-indigo-300"
-                : "border-slate-200/90 bg-slate-100/70"
-            }`}
-          >
-            {/* Column Header */}
-            <div className="flex items-center justify-between pb-3 px-1">
-              <div className="flex items-center gap-2">
-                <span className="flex h-2.5 w-2.5 rounded-full bg-slate-400" />
-                <h2 className="text-xs font-semibold text-slate-700">
-                  To Do
-                </h2>
-                <span className="rounded-full bg-slate-200/80 px-2 py-0.5 text-[11px] font-bold text-slate-700">
-                  {todoTasks.length}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => openAddWithStatus("Pending")}
-                className="rounded-lg p-1 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition cursor-pointer"
-                title="Add task to To Do"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Column Cards */}
-            <div className="space-y-2.5 flex-1">
-              {todoTasks.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center text-xs text-slate-400 border border-dashed border-slate-300/80 rounded-xl bg-white/40">
-                  <Circle className="h-6 w-6 text-slate-300 mb-1" />
-                  <span>No to-do tasks</span>
-                  <span className="text-[10px] text-slate-400/80 mt-0.5">Drag tasks here</span>
-                </div>
-              ) : (
-                todoTasks.map((task, idx) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    index={idx}
-                    onStatusChange={handleStatusChange}
-                    onDelete={handleDelete}
-                    onSelect={openTaskDetails}
-                    onSendWhatsApp={handleSendTaskWhatsApp}
-                    isSendingWA={sendingTaskId === task.id}
-                    wasSentWA={sendSuccessId === task.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, task.id)}
-                    onDragEnd={handleDragEnd}
-                    isDragging={draggingTaskId === task.id}
-                  />
-                ))
-              )}
-            </div>
+        <div className="w-full">
+          {/* Mobile Status Segmented Tabs */}
+          <div className="md:hidden flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/80 mb-3 overflow-x-auto no-scrollbar">
+            <button
+              type="button"
+              onClick={() => setMobileStatusTab("Pending")}
+              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition text-center whitespace-nowrap cursor-pointer ${
+                mobileStatusTab === "Pending"
+                  ? "bg-white text-slate-900 shadow-2xs font-bold"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              To Do ({todoTasks.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileStatusTab("In Progress")}
+              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition text-center whitespace-nowrap cursor-pointer ${
+                mobileStatusTab === "In Progress"
+                  ? "bg-white text-indigo-700 shadow-2xs font-bold"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              In Progress ({inProgressTasks.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileStatusTab("Completed")}
+              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition text-center whitespace-nowrap cursor-pointer ${
+                mobileStatusTab === "Completed"
+                  ? "bg-white text-emerald-700 shadow-2xs font-bold"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              Done ({doneTasks.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileStatusTab("Cancelled")}
+              className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition text-center whitespace-nowrap cursor-pointer ${
+                mobileStatusTab === "Cancelled"
+                  ? "bg-white text-rose-700 shadow-2xs font-bold"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              Cancelled ({cancelledTasks.length})
+            </button>
           </div>
 
-          {/* COLUMN 2: IN PROGRESS */}
-          <div
-            onDragOver={(e) => handleDragOver(e, "In Progress")}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, "In Progress")}
-            className={`flex flex-col min-w-[280px] sm:min-w-[300px] flex-1 snap-start rounded-2xl border transition-all p-3 shadow-2xs min-h-[580px] ${
-              dragOverColumn === "In Progress"
-                ? "border-indigo-500 bg-indigo-100/70 ring-2 ring-indigo-400"
-                : "border-indigo-200/90 bg-indigo-50/40"
-            }`}
-          >
-            {/* Column Header */}
-            <div className="flex items-center justify-between pb-3 px-1">
-              <div className="flex items-center gap-2">
-                <span className="flex h-2.5 w-2.5 rounded-full bg-indigo-500 animate-pulse" />
-                <h2 className="text-xs font-semibold text-indigo-900">
-                  In Progress
-                </h2>
-                <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-800">
-                  {inProgressTasks.length}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => openAddWithStatus("In Progress")}
-                className="rounded-lg p-1 text-indigo-600 hover:bg-indigo-100 transition cursor-pointer"
-                title="Add task to In Progress"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Column Cards */}
-            <div className="space-y-2.5 flex-1">
-              {inProgressTasks.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center text-xs text-indigo-400/80 border border-dashed border-indigo-200 rounded-xl bg-white/40">
-                  <Clock className="h-6 w-6 text-indigo-300 mb-1" />
-                  <span>No tasks in progress</span>
-                  <span className="text-[10px] text-indigo-400/70 mt-0.5">Drag tasks here</span>
-                </div>
-              ) : (
-                inProgressTasks.map((task, idx) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    index={idx}
-                    onStatusChange={handleStatusChange}
-                    onDelete={handleDelete}
-                    onSelect={openTaskDetails}
-                    onSendWhatsApp={handleSendTaskWhatsApp}
-                    isSendingWA={sendingTaskId === task.id}
-                    wasSentWA={sendSuccessId === task.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, task.id)}
-                    onDragEnd={handleDragEnd}
-                    isDragging={draggingTaskId === task.id}
-                  />
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* COLUMN 3: COMPLETED */}
-          <div
-            onDragOver={(e) => handleDragOver(e, "Completed")}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, "Completed")}
-            className={`flex flex-col min-w-[280px] sm:min-w-[300px] flex-1 snap-start rounded-2xl border transition-all p-3 shadow-2xs min-h-[580px] ${
-              dragOverColumn === "Completed"
-                ? "border-emerald-500 bg-emerald-100/70 ring-2 ring-emerald-400"
-                : "border-emerald-200/90 bg-emerald-50/40"
-            }`}
-          >
-            {/* Column Header */}
-            <div className="flex items-center justify-between pb-3 px-1">
-              <div className="flex items-center gap-2">
-                <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                <h2 className="text-xs font-semibold text-emerald-900">
-                  Done
-                </h2>
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
-                  {doneTasks.length}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => openAddWithStatus("Completed")}
-                className="rounded-lg p-1 text-emerald-600 hover:bg-emerald-100 transition cursor-pointer"
-                title="Add task to Done"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Column Cards */}
-            <div className="space-y-2.5 flex-1">
-              {doneTasks.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center text-xs text-emerald-400/80 border border-dashed border-emerald-200 rounded-xl bg-white/40">
-                  <CheckCircle2 className="h-6 w-6 text-emerald-300 mb-1" />
-                  <span>No completed tasks yet</span>
-                  <span className="text-[10px] text-emerald-400/70 mt-0.5">Drag finished tasks here</span>
-                </div>
-              ) : (
-                doneTasks.map((task, idx) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    index={idx}
-                    onStatusChange={handleStatusChange}
-                    onDelete={handleDelete}
-                    onSelect={openTaskDetails}
-                    onSendWhatsApp={handleSendTaskWhatsApp}
-                    isSendingWA={sendingTaskId === task.id}
-                    wasSentWA={sendSuccessId === task.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, task.id)}
-                    onDragEnd={handleDragEnd}
-                    isDragging={draggingTaskId === task.id}
-                  />
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* COLUMN 4: CANCELLED (Auto-deletes in 3 days) */}
-          <div
-            onDragOver={(e) => handleDragOver(e, "Cancelled")}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, "Cancelled")}
-            className={`flex flex-col min-w-[280px] sm:min-w-[300px] flex-1 snap-start rounded-2xl border transition-all p-3 shadow-2xs min-h-[580px] ${
-              dragOverColumn === "Cancelled"
-                ? "border-rose-400 bg-rose-100/70 ring-2 ring-rose-400"
-                : "border-rose-200/80 bg-rose-50/30"
-            }`}
-          >
-            {/* Column Header */}
-            <div className="flex items-center justify-between pb-3 px-1">
-              <div>
+          <div className="flex flex-col md:grid md:grid-cols-2 xl:grid-cols-4 gap-3.5 items-start">
+            {/* COLUMN 1: TO DO */}
+            <div
+              onDragOver={(e) => handleDragOver(e, "Pending")}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, "Pending")}
+              className={`${
+                mobileStatusTab === "Pending" ? "flex" : "hidden md:flex"
+              } flex-col w-full rounded-2xl border transition-all p-3 shadow-2xs min-h-[350px] md:min-h-[580px] ${
+                dragOverColumn === "Pending"
+                  ? "border-indigo-400 bg-indigo-50/60 ring-2 ring-indigo-300"
+                  : "border-slate-200/90 bg-slate-100/70"
+              }`}
+            >
+              {/* Column Header */}
+              <div className="flex items-center justify-between pb-3 px-1">
                 <div className="flex items-center gap-2">
-                  <span className="flex h-2.5 w-2.5 rounded-full bg-rose-500" />
-                  <h2 className="text-xs font-semibold text-rose-900">
-                    Cancelled
+                  <span className="flex h-2.5 w-2.5 rounded-full bg-slate-400" />
+                  <h2 className="text-xs font-semibold text-slate-700">
+                    To Do
                   </h2>
-                  <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-800">
-                    {cancelledTasks.length}
+                  <span className="rounded-full bg-slate-200/80 px-2 py-0.5 text-[11px] font-bold text-slate-700">
+                    {todoTasks.length}
                   </span>
                 </div>
-                <p className="text-[10px] text-rose-600/80 font-medium mt-0.5">
-                  Auto-purges after 3 days
-                </p>
+                <button
+                  type="button"
+                  onClick={() => openAddWithStatus("Pending")}
+                  className="rounded-lg p-1 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition cursor-pointer"
+                  title="Add task to To Do"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => openAddWithStatus("Cancelled")}
-                className="rounded-lg p-1 text-rose-600 hover:bg-rose-100 transition cursor-pointer"
-                title="Add task directly to Cancelled"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
+
+              {/* Column Cards */}
+              <div className="space-y-2.5 flex-1">
+                {todoTasks.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center text-xs text-slate-400 border border-dashed border-slate-300/80 rounded-xl bg-white/40">
+                    <Circle className="h-6 w-6 text-slate-300 mb-1" />
+                    <span>No to-do tasks</span>
+                    <span className="text-[10px] text-slate-400/80 mt-0.5">Click + to add a task</span>
+                  </div>
+                ) : (
+                  todoTasks.map((task, idx) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      index={idx}
+                      onStatusChange={handleStatusChange}
+                      onDelete={handleDelete}
+                      onSelect={openTaskDetails}
+                      onSendWhatsApp={handleSendTaskWhatsApp}
+                      isSendingWA={sendingTaskId === task.id}
+                      wasSentWA={sendSuccessId === task.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, task.id)}
+                      onDragEnd={handleDragEnd}
+                      isDragging={draggingTaskId === task.id}
+                    />
+                  ))
+                )}
+              </div>
             </div>
 
-            {/* Column Cards */}
-            <div className="space-y-2.5 flex-1">
-              {cancelledTasks.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center text-xs text-rose-400/80 border border-dashed border-rose-200 rounded-xl bg-white/40">
-                  <XCircle className="h-6 w-6 text-rose-300 mb-1" />
-                  <span>No cancelled tasks</span>
-                  <span className="text-[10px] text-rose-400/70 mt-0.5">Drop here to cancel (3-day auto delete)</span>
+            {/* COLUMN 2: IN PROGRESS */}
+            <div
+              onDragOver={(e) => handleDragOver(e, "In Progress")}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, "In Progress")}
+              className={`${
+                mobileStatusTab === "In Progress" ? "flex" : "hidden md:flex"
+              } flex-col w-full rounded-2xl border transition-all p-3 shadow-2xs min-h-[350px] md:min-h-[580px] ${
+                dragOverColumn === "In Progress"
+                  ? "border-indigo-500 bg-indigo-100/70 ring-2 ring-indigo-400"
+                  : "border-indigo-200/90 bg-indigo-50/40"
+              }`}
+            >
+              {/* Column Header */}
+              <div className="flex items-center justify-between pb-3 px-1">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-2.5 w-2.5 rounded-full bg-indigo-500 animate-pulse" />
+                  <h2 className="text-xs font-semibold text-indigo-900">
+                    In Progress
+                  </h2>
+                  <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-800">
+                    {inProgressTasks.length}
+                  </span>
                 </div>
-              ) : (
-                cancelledTasks.map((task, idx) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    index={idx}
-                    onStatusChange={handleStatusChange}
-                    onDelete={handleDelete}
-                    onSelect={openTaskDetails}
-                    onSendWhatsApp={handleSendTaskWhatsApp}
-                    isSendingWA={sendingTaskId === task.id}
-                    wasSentWA={sendSuccessId === task.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, task.id)}
-                    onDragEnd={handleDragEnd}
-                    isDragging={draggingTaskId === task.id}
-                  />
-                ))
-              )}
+                <button
+                  type="button"
+                  onClick={() => openAddWithStatus("In Progress")}
+                  className="rounded-lg p-1 text-indigo-600 hover:bg-indigo-100 transition cursor-pointer"
+                  title="Add task to In Progress"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Column Cards */}
+              <div className="space-y-2.5 flex-1">
+                {inProgressTasks.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center text-xs text-indigo-400/80 border border-dashed border-indigo-200 rounded-xl bg-white/40">
+                    <Clock className="h-6 w-6 text-indigo-300 mb-1" />
+                    <span>No tasks in progress</span>
+                    <span className="text-[10px] text-indigo-400/70 mt-0.5">Tasks currently being worked on</span>
+                  </div>
+                ) : (
+                  inProgressTasks.map((task, idx) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      index={idx}
+                      onStatusChange={handleStatusChange}
+                      onDelete={handleDelete}
+                      onSelect={openTaskDetails}
+                      onSendWhatsApp={handleSendTaskWhatsApp}
+                      isSendingWA={sendingTaskId === task.id}
+                      wasSentWA={sendSuccessId === task.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, task.id)}
+                      onDragEnd={handleDragEnd}
+                      isDragging={draggingTaskId === task.id}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* COLUMN 3: DONE */}
+            <div
+              onDragOver={(e) => handleDragOver(e, "Completed")}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, "Completed")}
+              className={`${
+                mobileStatusTab === "Completed" ? "flex" : "hidden md:flex"
+              } flex-col w-full rounded-2xl border transition-all p-3 shadow-2xs min-h-[350px] md:min-h-[580px] ${
+                dragOverColumn === "Completed"
+                  ? "border-emerald-400 bg-emerald-100/70 ring-2 ring-emerald-300"
+                  : "border-emerald-200/90 bg-emerald-50/40"
+              }`}
+            >
+              {/* Column Header */}
+              <div className="flex items-center justify-between pb-3 px-1">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  <h2 className="text-xs font-semibold text-emerald-900">
+                    Done
+                  </h2>
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
+                    {doneTasks.length}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openAddWithStatus("Completed")}
+                  className="rounded-lg p-1 text-emerald-600 hover:bg-emerald-100 transition cursor-pointer"
+                  title="Add task to Done"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Column Cards */}
+              <div className="space-y-2.5 flex-1">
+                {doneTasks.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center text-xs text-emerald-400/80 border border-dashed border-emerald-200 rounded-xl bg-white/40">
+                    <CheckCircle2 className="h-6 w-6 text-emerald-300 mb-1" />
+                    <span>No completed tasks yet</span>
+                    <span className="text-[10px] text-emerald-400/70 mt-0.5">Finished tasks appear here</span>
+                  </div>
+                ) : (
+                  doneTasks.map((task, idx) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      index={idx}
+                      onStatusChange={handleStatusChange}
+                      onDelete={handleDelete}
+                      onSelect={openTaskDetails}
+                      onSendWhatsApp={handleSendTaskWhatsApp}
+                      isSendingWA={sendingTaskId === task.id}
+                      wasSentWA={sendSuccessId === task.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, task.id)}
+                      onDragEnd={handleDragEnd}
+                      isDragging={draggingTaskId === task.id}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* COLUMN 4: CANCELLED */}
+            <div
+              onDragOver={(e) => handleDragOver(e, "Cancelled")}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, "Cancelled")}
+              className={`${
+                mobileStatusTab === "Cancelled" ? "flex" : "hidden md:flex"
+              } flex-col w-full rounded-2xl border transition-all p-3 shadow-2xs min-h-[350px] md:min-h-[580px] ${
+                dragOverColumn === "Cancelled"
+                  ? "border-rose-400 bg-rose-100/70 ring-2 ring-rose-400"
+                  : "border-rose-200/80 bg-rose-50/30"
+              }`}
+            >
+              {/* Column Header */}
+              <div className="flex items-center justify-between pb-3 px-1">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-2.5 w-2.5 rounded-full bg-rose-500" />
+                    <h2 className="text-xs font-semibold text-rose-900">
+                      Cancelled
+                    </h2>
+                    <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-800">
+                      {cancelledTasks.length}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-rose-600/80 font-medium mt-0.5">
+                    Auto-purges after 3 days
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openAddWithStatus("Cancelled")}
+                  className="rounded-lg p-1 text-rose-600 hover:bg-rose-100 transition cursor-pointer"
+                  title="Add task directly to Cancelled"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Column Cards */}
+              <div className="space-y-2.5 flex-1">
+                {cancelledTasks.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center text-xs text-rose-400/80 border border-dashed border-rose-200 rounded-xl bg-white/40">
+                    <XCircle className="h-6 w-6 text-rose-300 mb-1" />
+                    <span>No cancelled tasks</span>
+                    <span className="text-[10px] text-rose-400/70 mt-0.5">Cancelled tasks appear here</span>
+                  </div>
+                ) : (
+                  cancelledTasks.map((task, idx) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      index={idx}
+                      onStatusChange={handleStatusChange}
+                      onDelete={handleDelete}
+                      onSelect={openTaskDetails}
+                      onSendWhatsApp={handleSendTaskWhatsApp}
+                      isSendingWA={sendingTaskId === task.id}
+                      wasSentWA={sendSuccessId === task.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, task.id)}
+                      onDragEnd={handleDragEnd}
+                      isDragging={draggingTaskId === task.id}
+                    />
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>

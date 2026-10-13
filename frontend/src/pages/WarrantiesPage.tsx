@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ShieldCheck, Plus, Search, FileText, Trash2, LayoutGrid, List } from "lucide-react";
 import {
   listWarranties,
@@ -19,6 +19,9 @@ export function WarrantiesPage() {
   const [error, setError] = useState("");
   const [warrantyRecipients, setWarrantyRecipients] = useState<string[]>(["Personal"]);
   const [viewMode, setViewMode] = useState<"grid" | "table">(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      return "grid";
+    }
     try {
       return (localStorage.getItem("lifenest_warranties_view_mode") as "grid" | "table") || "grid";
     } catch {
@@ -105,6 +108,20 @@ export function WarrantiesPage() {
     }
   };
 
+  const metrics = useMemo(() => {
+    const total = warranties.length;
+    const now = new Date();
+    const active = warranties.filter(
+      (w) => !w.expiryDate || new Date(w.expiryDate) >= now
+    ).length;
+    const expired = total - active;
+    const totalValue = warranties.reduce(
+      (sum, w) => sum + (w.purchasePrice || 0),
+      0
+    );
+    return { total, active, expired, totalValue };
+  }, [warranties]);
+
   const filtered = warranties.filter(
     (w) =>
       w.productName.toLowerCase().includes(search.toLowerCase()) ||
@@ -113,24 +130,82 @@ export function WarrantiesPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 pb-28 sm:pb-8">
       {/* Compact Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
-        <div>
-          <h1 className="text-lg font-bold tracking-tight text-slate-900">
-            Warranty Cards & Receipts
+      <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+        <div className="min-w-0">
+          <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
+            Warranty Cards
           </h1>
-          <p className="text-xs text-slate-500">
-            Save purchase bills, receipts, and warranty guarantee cards with expiry dates.
+          <p className="text-xs text-slate-500 hidden sm:block">
+            Save purchase bills, receipts, and warranty cards with expiry dates.
           </p>
         </div>
         <button
           type="button"
           onClick={() => setIsAddOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-slate-800"
+          className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer"
         >
-          <Plus className="h-3.5 w-3.5" /> Add Warranty Card
+          <Plus className="h-3.5 w-3.5" />
+          <span>Add Warranty</span>
         </button>
+      </div>
+
+      {/* Metrics Row - Mobile 4-Column Compact Strip vs Desktop 4 Cards */}
+      <div className="grid grid-cols-4 gap-1.5 sm:hidden">
+        <div className="rounded-xl border border-slate-200/90 bg-white px-2 py-1.5 text-center shadow-2xs">
+          <div className="text-[10px] font-semibold text-slate-500">Total</div>
+          <div className="text-base font-bold text-slate-900">{metrics.total}</div>
+        </div>
+        <div className="rounded-xl border border-slate-200/90 bg-white px-2 py-1.5 text-center shadow-2xs">
+          <div className="text-[10px] font-semibold text-emerald-600">Active</div>
+          <div className="text-base font-bold text-emerald-700">{metrics.active}</div>
+        </div>
+        <div className="rounded-xl border border-slate-200/90 bg-white px-2 py-1.5 text-center shadow-2xs">
+          <div className="text-[10px] font-semibold text-rose-600">Expired</div>
+          <div className="text-base font-bold text-rose-700">{metrics.expired}</div>
+        </div>
+        <div className="rounded-xl border border-slate-200/90 bg-white px-1 py-1.5 text-center shadow-2xs">
+          <div className="text-[10px] font-semibold text-slate-500">Value</div>
+          <div className="text-xs font-bold text-slate-900 truncate">
+            ৳{metrics.totalValue.toLocaleString()}
+          </div>
+        </div>
+      </div>
+
+      <div className="hidden sm:grid sm:grid-cols-4 gap-3">
+        <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xs">
+          <div className="flex items-center justify-between text-slate-500">
+            <span className="text-[11px] font-medium">Total Warranties</span>
+            <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
+          </div>
+          <div className="mt-1 text-lg font-bold text-slate-900">{metrics.total}</div>
+          <div className="text-[10px] text-slate-400">Recorded products</div>
+        </div>
+        <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xs">
+          <div className="flex items-center justify-between text-emerald-600">
+            <span className="text-[11px] font-medium text-slate-500">Active Coverage</span>
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+          </div>
+          <div className="mt-1 text-lg font-bold text-emerald-700">{metrics.active}</div>
+          <div className="text-[10px] text-slate-400">Within warranty window</div>
+        </div>
+        <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xs">
+          <div className="flex items-center justify-between text-rose-600">
+            <span className="text-[11px] font-medium text-slate-500">Expired</span>
+            <ShieldCheck className="h-3.5 w-3.5 text-rose-400" />
+          </div>
+          <div className="mt-1 text-lg font-bold text-rose-700">{metrics.expired}</div>
+          <div className="text-[10px] text-slate-400">Past warranty date</div>
+        </div>
+        <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xs">
+          <div className="flex items-center justify-between text-indigo-600">
+            <span className="text-[11px] font-medium text-slate-500">Protected Value</span>
+            <ShieldCheck className="h-3.5 w-3.5 text-indigo-600" />
+          </div>
+          <div className="mt-1 text-lg font-bold text-slate-900">৳{metrics.totalValue.toLocaleString()}</div>
+          <div className="text-[10px] text-slate-400">Purchase cost tracked</div>
+        </div>
       </div>
 
       {error && (
@@ -407,7 +482,7 @@ export function WarrantiesPage() {
             onMouseDown={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-slate-50/50">
               <h2 className="text-base font-bold tracking-tight text-slate-900">
                 New Warranty & Purchase Record
               </h2>
@@ -421,7 +496,7 @@ export function WarrantiesPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="p-6 space-y-3.5">
+            <form onSubmit={handleCreate} className="p-4 sm:p-6 space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Product / Item Name <span className="text-rose-500">*</span>
@@ -434,7 +509,7 @@ export function WarrantiesPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">Category</label>
                   <input
@@ -454,7 +529,7 @@ export function WarrantiesPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">Purchase Date *</label>
                   <input
@@ -465,27 +540,29 @@ export function WarrantiesPage() {
                     className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Warranty (Mos)</label>
-                  <input
-                    name="warrantyDurationMonths"
-                    type="number"
-                    defaultValue={12}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Price (৳)</label>
-                  <input
-                    name="purchasePrice"
-                    type="number"
-                    placeholder="0"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
-                  />
+                <div className="grid grid-cols-2 gap-2.5 col-span-1 sm:col-span-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Warranty (Mos)</label>
+                    <input
+                      name="warrantyDurationMonths"
+                      type="number"
+                      defaultValue={12}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Price (৳)</label>
+                    <input
+                      name="purchasePrice"
+                      type="number"
+                      placeholder="0"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">Serial Number</label>
                   <input

@@ -25,6 +25,7 @@ import type {
   WarrantyItem,
   FamilyMember,
 } from "../types";
+import { MobileHomePage } from "../components/mobile/MobileHomePage";
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -202,7 +203,14 @@ export function DashboardPage() {
   };
 
   return (
-    <div className="space-y-4 w-full">
+    <>
+      {/* 1. Dedicated Mobile Home Page (Mobile Screen) */}
+      <div className="block lg:hidden">
+        <MobileHomePage />
+      </div>
+
+      {/* 2. Desktop Workspace Dashboard (Desktop Screens) */}
+      <div className="hidden lg:block space-y-4 w-full">
       {/* Top Bar Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
         <div>
@@ -315,9 +323,10 @@ export function DashboardPage() {
           <div className="text-[11px] text-indigo-600/80 mt-0.5">members added</div>
         </div>
       </div>
+    </div>
 
-      {/* Main Dual Panels */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* Main Dual Panels (Things to Do checklist & Deadlines Timeline - Active on both Mobile and Desktop) */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 mt-4">
         {/* Panel 1: Active To-Do Checklist */}
         <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-2xs">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -522,6 +531,6 @@ export function DashboardPage() {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

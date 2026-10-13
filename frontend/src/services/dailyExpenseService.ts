@@ -401,3 +401,130 @@ export async function deleteMemberLoan(id: string): Promise<void> {
     await supabase.from(LOANS_TABLE).delete().eq("id", id);
   } catch {}
 }
+
+export async function updateMemberLoan(
+  id: string,
+  updates: Partial<Omit<MemberLoan, "id" | "repayments" | "createdAt">>
+): Promise<MemberLoan> {
+  const localList = getLocalLoans();
+  const index = localList.findIndex((l) => l.id === id);
+  if (index < 0) throw new Error("Loan not found");
+
+  const existing = localList[index];
+  const updatedLoan: MemberLoan = {
+    ...existing,
+    ...updates,
+    totalRepayableAmount:
+      updates.totalRepayableAmount ??
+      updates.principalAmount ??
+      existing.totalRepayableAmount ??
+      existing.principalAmount,
+  };
+
+  const totalRepaid = (updatedLoan.repayments || []).reduce((sum, r) => sum + r.amount, 0);
+  if (!updates.status) {
+    updatedLoan.status = totalRepaid >= updatedLoan.totalRepayableAmount ? "PAID_OFF" : "ACTIVE";
+  }
+
+  localList[index] = updatedLoan;
+  saveLocalLoans(localList);
+
+  try {
+    const supabaseUpdates: Record<string, any> = {};
+    if (updates.loanTitle !== undefined) supabaseUpdates.loan_title = updates.loanTitle;
+    if (updates.loanType !== undefined) supabaseUpdates.loan_type = updates.loanType;
+    if (updates.lenderName !== undefined) supabaseUpdates.lender_name = updates.lenderName;
+    if (updates.principalAmount !== undefined) supabaseUpdates.principal_amount = updates.principalAmount;
+    if (updatedLoan.totalRepayableAmount !== undefined) supabaseUpdates.total_repayable_amount = updatedLoan.totalRepayableAmount;
+    if (updates.interestRate !== undefined) supabaseUpdates.interest_rate = updates.interestRate;
+    if (updates.startDate !== undefined) supabaseUpdates.start_date = updates.startDate;
+    if (updates.targetEndDate !== undefined) supabaseUpdates.target_end_date = updates.targetEndDate;
+    if (updates.monthlyEmiAmount !== undefined) supabaseUpdates.monthly_emi_amount = updates.monthlyEmiAmount;
+    if (updates.status !== undefined || updatedLoan.status !== existing.status) supabaseUpdates.status = updatedLoan.status;
+    if (updates.notes !== undefined) supabaseUpdates.notes = updates.notes;
+
+    if (Object.keys(supabaseUpdates).length > 0) {
+      await supabase.from(LOANS_TABLE).update(supabaseUpdates).eq("id", id);
+    }
+  } catch {}
+
+  return updatedLoan;
+}
+
+export async function updateLoanRepaymentSegment(
+  loanId: string,
+  segmentId: string,
+  updates: Partial<Omit<LoanRepaymentSegment, "id" | "loanId" | "createdAt">>
+): Promise<MemberLoan> {
+  const localList = getLocalLoans();
+  const loanIndex = localList.findIndex((l) => l.id === loanId);
+  if (loanIndex < 0) throw new Error("Loan not found");
+
+  const loan = localList[loanIndex];
+  const updatedRepayments = (loan.repayments || []).map((seg) => {
+    if (seg.id === segmentId) {
+      return { ...seg, ...updates };
+    }
+    return seg;
+  });
+
+  const totalRepaid = updatedRepayments.reduce((sum, r) => sum + r.amount, 0);
+  const isPaidOff = totalRepaid >= loan.totalRepayableAmount;
+
+  const updatedLoan: MemberLoan = {
+    ...loan,
+    repayments: updatedRepayments,
+    status: isPaidOff ? "PAID_OFF" : "ACTIVE",
+  };
+
+  localList[loanIndex] = updatedLoan;
+  saveLocalLoans(localList);
+
+  try {
+    await supabase
+      .from(LOANS_TABLE)
+      .update({
+        repayments: updatedRepayments,
+        status: updatedLoan.status,
+      })
+      .eq("id", loanId);
+  } catch {}
+
+  return updatedLoan;
+}
+
+export async function deleteLoanRepaymentSegment(
+  loanId: string,
+  segmentId: string
+): Promise<MemberLoan> {
+  const localList = getLocalLoans();
+  const loanIndex = localList.findIndex((l) => l.id === loanId);
+  if (loanIndex < 0) throw new Error("Loan not found");
+
+  const loan = localList[loanIndex];
+  const updatedRepayments = (loan.repayments || []).filter((seg) => seg.id !== segmentId);
+  const totalRepaid = updatedRepayments.reduce((sum, r) => sum + r.amount, 0);
+  const isPaidOff = totalRepaid >= loan.totalRepayableAmount && loan.totalRepayableAmount > 0;
+
+  const updatedLoan: MemberLoan = {
+    ...loan,
+    repayments: updatedRepayments,
+    status: isPaidOff ? "PAID_OFF" : "ACTIVE",
+  };
+
+  localList[loanIndex] = updatedLoan;
+  saveLocalLoans(localList);
+
+  try {
+    await supabase
+      .from(LOANS_TABLE)
+      .update({
+        repayments: updatedRepayments,
+        status: updatedLoan.status,
+      })
+      .eq("id", loanId);
+  } catch {}
+
+  return updatedLoan;
+}
+

@@ -160,8 +160,8 @@ async function uploadApk() {
   const viewUrl = fileData.webViewLink || `https://drive.google.com/file/d/${fileData.id}/view`;
 
   const apkInfo = {
-    version: "1.0.0",
-    buildNumber: 1,
+    version: "1.0.1",
+    buildNumber: 2,
     fileName: fileName,
     fileId: fileData.id,
     fileSizeMb: (stats.size / (1024 * 1024)).toFixed(2),
