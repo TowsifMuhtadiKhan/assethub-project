@@ -36,38 +36,38 @@ type MenuGroup = {
 const MENU_GROUPS: MenuGroup[] = [
   {
     id: "my-life",
-    title: "My Life",
+    title: "Daily Life",
     icon: CheckSquare,
     iconColor: "text-amber-500",
     items: [
-      { to: "/my-life/tasks", label: "Tasks", icon: CheckSquare },
+      { to: "/my-life/tasks", label: "To-Do List", icon: CheckSquare },
       { to: "/my-life/expenses", label: "Daily Expenses", icon: Wallet },
     ],
   },
   {
     id: "vault",
-    title: "Vault",
+    title: "Important Papers",
     icon: FolderLock,
     iconColor: "text-sky-500",
     items: [
-      { to: "/documents/vault", label: "Document Vault", icon: FileText },
+      { to: "/documents/vault", label: "All Documents", icon: FileText },
     ],
   },
   {
     id: "assets",
-    title: "Assets & Fleet",
+    title: "Vehicles & Houses",
     icon: Car,
     iconColor: "text-emerald-500",
     items: [
-      { to: "/assets/vehicles", label: "Vehicles & Fuel", icon: Car },
+      { to: "/assets/vehicles", label: "Cars & Bikes", icon: Car },
       {
         to: "/rentals/properties",
-        label: "Properties & Rent",
+        label: "Houses, Flats & Rent",
         icon: Building2,
       },
       {
         to: "/assets/warranties",
-        label: "Warranties & Claims",
+        label: "Warranty Cards",
         icon: ShieldCheck,
       },
     ],
@@ -439,10 +439,10 @@ export function Sidebar({
                 />
                 <div>
                   <div className="text-sm font-bold tracking-tight text-white leading-tight">
-                    LifeNest OS
+                    LifeNest
                   </div>
                   <div className="text-[10px] font-medium text-slate-400">
-                    Personal & Fleet OS
+                    Family & Daily Records
                   </div>
                 </div>
               </div>

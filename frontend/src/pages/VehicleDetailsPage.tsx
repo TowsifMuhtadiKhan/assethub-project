@@ -1429,27 +1429,27 @@ export function VehicleDetailsPage() {
 
         <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[11px] font-medium uppercase tracking-wider">Total Vehicle Expense</span>
+            <span className="text-[11px] font-medium uppercase tracking-wider">Total Vehicle Cost</span>
             <Layers className="h-4 w-4 text-indigo-500" />
           </div>
           <div className="mt-1 text-xl font-bold font-mono text-slate-900">
             {formatMoney(totalCombinedExpense)}
           </div>
           <div className="text-[10px] text-slate-400 mt-0.5">
-            All expenses + service costs
+            Fuel + repairs + all bills
           </div>
         </div>
 
         <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[11px] font-medium uppercase tracking-wider">BRTA Documents & Claims</span>
+            <span className="text-[11px] font-medium uppercase tracking-wider">BRTA Papers & Warranties</span>
             <ShieldCheck className="h-4 w-4 text-amber-500" />
           </div>
           <div className="mt-1 text-xl font-bold font-mono text-slate-900">
-            {documents.length} Docs · {activeWarrantiesCount} Warranties
+            {documents.length} Papers · {activeWarrantiesCount} Warranties
           </div>
           <div className="text-[10px] text-slate-400 mt-0.5">
-            {claimsInProgress.length > 0 ? `${claimsInProgress.length} active claims` : "Compliant & Protected"}
+            {claimsInProgress.length > 0 ? `${claimsInProgress.length} active claims` : "All papers up to date"}
           </div>
         </div>
       </div>
@@ -1467,7 +1467,7 @@ export function VehicleDetailsPage() {
             }`}
           >
             <Fuel className="h-3.5 w-3.5" />
-            <span>Fuel Consumption</span>
+            <span>Fuel & Gas</span>
             <span className="rounded-full bg-slate-100 px-1.5 py-0.2 text-[10px] font-mono text-slate-600">
               {fuelExpenses.length}
             </span>
@@ -1483,7 +1483,7 @@ export function VehicleDetailsPage() {
             }`}
           >
             <Wrench className="h-3.5 w-3.5" />
-            <span>Maintenance & Servicing</span>
+            <span>Repairs & Servicing</span>
             <span className="rounded-full bg-slate-100 px-1.5 py-0.2 text-[10px] font-mono text-slate-600">
               {services.length}
             </span>
@@ -1499,7 +1499,7 @@ export function VehicleDetailsPage() {
             }`}
           >
             <FileText className="h-3.5 w-3.5 text-indigo-600" />
-            <span>Bangladesh Documents</span>
+            <span>Vehicle Papers (BRTA)</span>
             <span className="rounded-full bg-indigo-50 px-1.5 py-0.2 text-[10px] font-mono font-bold text-indigo-700 border border-indigo-200/60">
               {documents.length}
             </span>
@@ -1515,7 +1515,7 @@ export function VehicleDetailsPage() {
             }`}
           >
             <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
-            <span>Warranties & Claims</span>
+            <span>Warranty Cards</span>
             <span
               className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono font-bold ${
                 claimsInProgress.length > 0
@@ -1537,7 +1537,7 @@ export function VehicleDetailsPage() {
             }`}
           >
             <VehicleIcon className="h-3.5 w-3.5" />
-            <span>Specs & Overview</span>
+            <span>Vehicle Details & Specs</span>
           </button>
         </div>
       </div>
@@ -2153,10 +2153,10 @@ export function VehicleDetailsPage() {
               <div>
                 <h2 className="text-xs font-bold text-indigo-950 uppercase tracking-wider flex items-center gap-1.5">
                   <FileCheck className="h-4 w-4 text-indigo-600" />
-                  Bangladesh BRTA & Legal Compliance Documents
+                  Car Papers & BRTA Documents
                 </h2>
                 <p className="text-[11px] text-indigo-700/80 mt-0.5">
-                  Quickly upload and track Tax Tokens, Smart Registration Cards, Driving Licenses, and Fitness certificates.
+                  Save your Tax Token, Smart Registration Card, Driving License, and Fitness Certificate.
                 </p>
               </div>
               <button
@@ -2168,7 +2168,7 @@ export function VehicleDetailsPage() {
                 }}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-800 transition cursor-pointer"
               >
-                <Plus className="h-3.5 w-3.5" /> Custom Named Document
+                <Plus className="h-3.5 w-3.5" /> + Upload Other Document
               </button>
             </div>
 
@@ -2222,16 +2222,16 @@ export function VehicleDetailsPage() {
           <div>
             <div className="flex items-center justify-between mb-2.5">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                Vehicle Document Vault ({documents.length} recorded)
+                Saved Vehicle Papers ({documents.length} files)
               </h3>
             </div>
 
             {documents.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-10 text-center">
                 <FileText className="h-8 w-8 text-slate-400 mx-auto mb-2" />
-                <p className="text-xs font-bold text-slate-800">No documents uploaded for this vehicle</p>
+                <p className="text-xs font-bold text-slate-800">No documents uploaded for this vehicle yet</p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Click on any required document above or "Custom Named Document" to store your Tax token, Smart Card, or Driving License.
+                  Click on any paper above or "+ Upload Other Document" to save your Tax Token, Smart Card, or Driving License.
                 </p>
               </div>
             ) : (

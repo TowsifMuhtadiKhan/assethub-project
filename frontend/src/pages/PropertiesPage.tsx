@@ -676,7 +676,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                     <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xs">
                       <div className="flex items-center justify-between text-emerald-600">
                         <span className="text-[11px] font-medium text-slate-500">
-                          Occupancy Rate
+                          Units Rented Out
                         </span>
                         <Users className="h-3.5 w-3.5" />
                       </div>
@@ -684,14 +684,14 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                         {metrics.occupancyRate}%
                       </div>
                       <div className="text-[10px] text-slate-400">
-                        {metrics.occupiedUnits} active tenancies
+                        {metrics.occupiedUnits} rented flats/rooms
                       </div>
                     </div>
 
                     <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xs">
                       <div className="flex items-center justify-between text-amber-600">
                         <span className="text-[11px] font-medium text-slate-500">
-                          Monthly Rent Revenue
+                          Total Monthly Rent
                         </span>
                         <ReceiptText className="h-3.5 w-3.5" />
                       </div>

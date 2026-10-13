@@ -708,7 +708,7 @@ export function DailyExpensesPage() {
               }`}
             >
               <Wallet className="h-4 w-4" />
-              <span>Daily Expenses Ledger</span>
+              <span>Daily Expenses</span>
               <span
                 className={`text-[10px] px-1.5 py-0.2 rounded-md ${
                   activeTab === "expenses" ? "bg-slate-800 text-slate-200" : "bg-slate-200 text-slate-700"
@@ -728,7 +728,7 @@ export function DailyExpensesPage() {
               }`}
             >
               <CreditCard className="h-4 w-4" />
-              <span>Loans & Segment Repayments</span>
+              <span>Loans & Borrowed Money</span>
               {loanStats.activeCount > 0 ? (
                 <span
                   className={`text-[10px] px-1.5 py-0.2 rounded-md ${

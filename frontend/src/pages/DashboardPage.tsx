@@ -207,10 +207,10 @@ export function DashboardPage() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
         <div>
           <h1 className="text-lg font-bold tracking-tight text-slate-900">
-            Executive Summary
+            Overview
           </h1>
           <p className="text-xs text-slate-500">
-            Unified status for family records, vehicles, real estate, and upcoming tasks.
+            Summary of your papers, cars & bikes, houses, and pending tasks.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -218,13 +218,13 @@ export function DashboardPage() {
             onClick={() => navigate("/my-life/tasks")}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-2xs"
           >
-            <Plus className="h-3.5 w-3.5" /> Task
+            <Plus className="h-3.5 w-3.5" /> + Task
           </button>
           <button
             onClick={() => navigate("/documents/vault")}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-2xs"
           >
-            <FileText className="h-3.5 w-3.5" /> Document
+            <FileText className="h-3.5 w-3.5" /> + Document
           </button>
         </div>
       </div>
@@ -236,13 +236,13 @@ export function DashboardPage() {
           className="group cursor-pointer rounded-xl border border-slate-200/90 bg-white p-3 hover:border-indigo-300 hover:shadow-xs transition-all"
         >
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-indigo-600 transition-colors">
-            Open Tasks
+            Tasks to Do
           </div>
           <div className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
             {pendingTasks.length}
           </div>
           <div className="text-[11px] text-slate-500 mt-0.5">
-            {tasks.length - pendingTasks.length} completed
+            {tasks.length - pendingTasks.length} finished
           </div>
         </div>
 
@@ -251,7 +251,7 @@ export function DashboardPage() {
           className="group cursor-pointer rounded-xl border border-slate-200/90 bg-white p-3 hover:border-amber-300 hover:shadow-xs transition-all"
         >
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-amber-600 transition-colors">
-            Expiring Docs
+            Expiring Papers
           </div>
           <div className={`mt-1 text-2xl font-bold tracking-tight ${expiringDocs.length > 0 ? "text-amber-600" : "text-slate-900"}`}>
             {expiringDocs.length}
@@ -264,7 +264,7 @@ export function DashboardPage() {
           className="group cursor-pointer rounded-xl border border-slate-200/90 bg-white p-3 hover:border-blue-300 hover:shadow-xs transition-all"
         >
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-blue-600 transition-colors">
-            Vehicles
+            Cars & Bikes
           </div>
           <div className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
             {vehicles.length}
@@ -277,13 +277,13 @@ export function DashboardPage() {
           className="group cursor-pointer rounded-xl border border-slate-200/90 bg-white p-3 hover:border-purple-300 hover:shadow-xs transition-all"
         >
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-purple-600 transition-colors">
-            Properties
+            Houses & Flats
           </div>
           <div className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
             {properties.length}
           </div>
           <div className="text-[11px] text-slate-500 mt-0.5">
-            {properties.reduce((a, b) => a + (b.unitsCount || 0), 0)} rental units
+            {properties.reduce((a, b) => a + (b.unitsCount || 0), 0)} rented units
           </div>
         </div>
 
@@ -292,7 +292,7 @@ export function DashboardPage() {
           className="group cursor-pointer rounded-xl border border-slate-200/90 bg-white p-3 hover:border-teal-300 hover:shadow-xs transition-all"
         >
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-teal-600 transition-colors">
-            Warranties
+            Warranty Cards
           </div>
           <div className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
             {warranties.length}
@@ -312,7 +312,7 @@ export function DashboardPage() {
           <div className="mt-1 text-2xl font-bold tracking-tight text-indigo-950">
             {familyMembers.length}
           </div>
-          <div className="text-[11px] text-indigo-600/80 mt-0.5">registered profiles</div>
+          <div className="text-[11px] text-indigo-600/80 mt-0.5">members added</div>
         </div>
       </div>
 
@@ -323,7 +323,7 @@ export function DashboardPage() {
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-                Active Tasks ({pendingTasks.length})
+                Things to Do ({pendingTasks.length})
               </span>
             </div>
             <button
@@ -337,7 +337,7 @@ export function DashboardPage() {
           <div className="mt-2 divide-y divide-slate-100">
             {pendingTasks.length === 0 ? (
               <div className="py-8 text-center text-xs text-slate-400">
-                No pending tasks. Use "+ Task" to schedule an item.
+                No pending tasks. Click "+ Task" to add a reminder.
               </div>
             ) : (
               pendingTasks.slice(0, 6).map((task) => (

@@ -37,7 +37,7 @@ export function AskAiAssistant() {
       {
         id: "welcome-1",
         sender: "ai",
-        text: "👋 **Hello! I'm your LifeNest AI Assistant.**\n\nI have real-time access to your personal and family records — including **tasks, vehicle fitness, vault documents, family members, rental properties, and warranties**.\n\nWhat would you like to know today?",
+        text: "👋 **Hello! I'm your LifeNest Assistant.**\n\nI can help you find your **to-do tasks, car & bike papers, passports/NIDs, family details, and house rent** in simple words.\n\nAsk me anything!",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       },
     ];
@@ -380,7 +380,7 @@ export function AskAiAssistant() {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask about bike chassis, car fitness, family, tasks..."
+                  placeholder="Ask anything (car papers, tasks, family, rent)..."
                   disabled={loading}
                   className="flex-1 bg-transparent text-xs text-slate-900 placeholder:text-slate-400 outline-none"
                 />

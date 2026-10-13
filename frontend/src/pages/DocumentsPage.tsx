@@ -774,10 +774,10 @@ export function DocumentsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
         <div>
           <h1 className="text-lg font-bold tracking-tight text-slate-900 font-display">
-            Document Vault
+            Important Documents & Papers
           </h1>
           <p className="text-xs text-slate-500">
-            Personal & family records, certificates, and ID documents structured in folders.
+            Passports, National IDs, certificates, and family papers organized in folders.
           </p>
         </div>
 
@@ -790,7 +790,7 @@ export function DocumentsPage() {
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
             >
               <FolderPlus className="h-4 w-4 text-indigo-600" />
-              <span>New Folder</span>
+              <span>+ New Folder</span>
             </button>
             <button
               type="button"
@@ -798,7 +798,7 @@ export function DocumentsPage() {
               className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition cursor-pointer"
             >
               <Plus className="h-4 w-4" />
-              <span>Upload Document</span>
+              <span>+ Upload Document</span>
             </button>
           </div>
         )}
@@ -817,9 +817,9 @@ export function DocumentsPage() {
           <div className="h-14 w-14 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto">
             <FolderLock className="h-7 w-7" />
           </div>
-          <h2 className="text-base font-bold text-slate-900">Document Vault Access Restricted</h2>
+          <h2 className="text-base font-bold text-slate-900">Documents Locked</h2>
           <p className="text-xs text-slate-500 max-w-md mx-auto">
-            Your family member profile does not have permission to view or manage confidential Document Vault files. Please contact your Family Admin to request access.
+            You do not have permission to view these family documents. Please ask your Family Head for access.
           </p>
         </div>
       ) : (

@@ -231,29 +231,29 @@ export function VehicleEntryPage({
 
   const pageTitle =
     activeTab === "All"
-      ? "All Vehicles & Fleet"
+      ? "My Vehicles (Cars & Bikes)"
       : activeTab === "Car"
-      ? "Cars & Four-Wheelers"
+      ? "Cars"
       : activeTab === "Bike"
-      ? "Motorcycles & Two-Wheelers"
+      ? "Motorcycles & Bikes"
       : activeTab === "Scooter"
-      ? "Scooters & Mopeds"
+      ? "Scooters"
       : activeTab === "Commercial"
-      ? "Commercial Trucks & Pickups"
+      ? "Pickups & Trucks"
       : activeTab === "Van"
-      ? "Vans & Microbuses"
+      ? "Microbuses & Vans"
       : activeTab === "Bicycle"
-      ? "Bicycles & Cycles"
+      ? "Bicycles"
       : `${activeTab} Vehicles`;
 
   const pageSubtitle =
     activeTab === "All"
-      ? "Manage all cars, bikes, scooters, commercial and private vehicles, registrations, fuel, and BRTA fitness records."
+      ? "Keep track of your cars and bikes, registration number plates, petrol/gas, and BRTA papers."
       : activeTab === "Car"
-      ? "Manage specs, registration numbers, mileage, fuel logs, and BRTA fitness records."
+      ? "Car details, registration number plate, fuel costs, and BRTA papers."
       : activeTab === "Bike"
-      ? "Manage specs, registration numbers, mileage, fuel logs, and bike servicing."
-      : "Manage vehicle specs, registration numbers, mileage, and maintenance logs.";
+      ? "Bike details, registration number plate, fuel costs, and servicing."
+      : "Vehicle details, registration number plate, fuel costs, and maintenance.";
 
   if (loading) {
     return (
@@ -282,7 +282,7 @@ export function VehicleEntryPage({
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs"
           >
             <BarChart3 className="h-3.5 w-3.5 text-amber-600" />
-            <span>Vehicle Dashboard & Fuel</span>
+            <span>Fuel & Cost Summary</span>
           </Link>
           <button
             type="button"
@@ -293,12 +293,12 @@ export function VehicleEntryPage({
             className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
-            Add {activeTab !== "All" ? activeTab : "Vehicle"}
+            + Add {activeTab !== "All" ? activeTab : "Vehicle"}
           </button>
         </div>
       </div>
 
-      {/* Fleet Metric Strip */}
+      {/* Vehicle Summary Strip */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500">
@@ -306,7 +306,7 @@ export function VehicleEntryPage({
             <Layers className="h-3.5 w-3.5 text-slate-400" />
           </div>
           <div className="mt-1 text-lg font-bold text-slate-900">{counts.total}</div>
-          <div className="text-[10px] text-slate-400">Cars, bikes, and fleet</div>
+          <div className="text-[10px] text-slate-400">Cars, bikes, and other vehicles</div>
         </div>
 
         <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xs">

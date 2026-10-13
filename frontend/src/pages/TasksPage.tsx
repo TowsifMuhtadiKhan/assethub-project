@@ -626,10 +626,10 @@ export function TasksPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3.5">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900 font-display">
-            Tasks
+            To-Do List & Tasks
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Organize personal to-dos, maintenance items, and responsibilities.
+            Write down your daily tasks, bills to pay, and reminders.
           </p>
         </div>
 
@@ -641,7 +641,7 @@ export function TasksPage() {
             className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
-            <span>Create Task</span>
+            <span>+ Add New Task</span>
           </button>
         </div>
       </div>

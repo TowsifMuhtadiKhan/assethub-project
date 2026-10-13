@@ -118,10 +118,10 @@ export function WarrantiesPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
         <div>
           <h1 className="text-lg font-bold tracking-tight text-slate-900">
-            Purchases, Receipts & Warranties
+            Warranty Cards & Receipts
           </h1>
           <p className="text-xs text-slate-500">
-            Keep serial numbers, purchase proofs, and warranty expiry dates tracked.
+            Save purchase bills, receipts, and warranty guarantee cards with expiry dates.
           </p>
         </div>
         <button
@@ -129,7 +129,7 @@ export function WarrantiesPage() {
           onClick={() => setIsAddOpen(true)}
           className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-slate-800"
         >
-          <Plus className="h-3.5 w-3.5" /> Add Warranty
+          <Plus className="h-3.5 w-3.5" /> + Add Warranty Card
         </button>
       </div>
 

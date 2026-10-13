@@ -268,10 +268,10 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3.5">
             <div>
               <h1 className="text-xl font-bold tracking-tight text-slate-900">
-                Family & Access
+                Family Members
               </h1>
               <p className="text-xs text-slate-500 mt-0.5">
-                Manage family directory profiles, logins, and access permissions.
+                Add your spouse, children, and parents, and choose what they can view.
               </p>
             </div>
 
@@ -283,7 +283,7 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                   className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  <span>Add Family Member</span>
+                  <span>+ Add Family Member</span>
                 </button>
               )}
             </div>
@@ -302,7 +302,7 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                 }`}
               >
                 <Users className="h-4 w-4" />
-                <span>Family Profiles</span>
+                <span>Family Members</span>
                 <span className="rounded-full bg-slate-100 px-1.5 py-0.2 text-[10px] font-mono text-slate-600 border border-slate-200">
                   {members.length}
                 </span>
@@ -318,7 +318,7 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                 }`}
               >
                 <KeyRound className="h-4 w-4" />
-                <span>Access Control & Permissions</span>
+                <span>Permissions & Access</span>
               </button>
             </div>
           </div>

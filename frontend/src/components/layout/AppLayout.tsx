@@ -138,7 +138,7 @@ export function AppLayout() {
                 <Search className="h-3.5 w-3.5 text-slate-400" />
                 <input
                   className="w-56 lg:w-72 border-0 bg-transparent text-xs text-slate-700 outline-none placeholder:text-slate-400"
-                  placeholder="Search docs, tasks, assets... (Ctrl+K)"
+                  placeholder="Search documents, cars, bills... (Ctrl+K)"
                 />
               </div>
             </div>
@@ -154,7 +154,7 @@ export function AppLayout() {
                   className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Create</span>
+                  <span className="hidden sm:inline">Add New</span>
                 </button>
 
                 {quickAddOpen && (
@@ -165,50 +165,50 @@ export function AppLayout() {
                     />
                     <div className="absolute right-0 top-11 z-40 w-72 rounded-2xl border border-slate-200/90 bg-white p-2 shadow-2xl ring-1 ring-slate-950/5 animate-in fade-in zoom-in-95 duration-100">
                       <div className="px-3 py-2 border-b border-slate-100 mb-1">
-                        <div className="text-xs font-bold text-slate-900">Quick Create</div>
-                        <div className="text-[11px] text-slate-500">Record a new item in your personal hub</div>
+                        <div className="text-xs font-bold text-slate-900">Add Something New</div>
+                        <div className="text-[11px] text-slate-500">Quickly save a task, paper, car, or house</div>
                       </div>
 
                       <div className="space-y-0.5">
                         {[
                           {
                             label: "New Task",
-                            description: "Action items, priorities & vehicle tasks",
+                            description: "To-do list and reminders",
                             path: "/my-life/tasks",
                             icon: CheckSquare,
                             color: "text-emerald-600 bg-emerald-50 border-emerald-100",
                           },
                           {
                             label: "Upload Document",
-                            description: "Passports, NIDs, certificates",
+                            description: "National ID, Passport, Certificates",
                             path: "/documents/vault",
                             icon: FileText,
                             color: "text-indigo-600 bg-indigo-50 border-indigo-100",
                           },
                           {
                             label: "Add Vehicle",
-                            description: "Cars, bikes, fleet, fuel & servicing",
+                            description: "Car, bike, petrol/gas & repairs",
                             path: "/assets/vehicles",
                             icon: Car,
                             color: "text-amber-600 bg-amber-50 border-amber-100",
                           },
                           {
-                            label: "Property & Rental",
-                            description: "Deeds, units & tenant rents",
+                            label: "House & Rent",
+                            description: "Flats, shops, deeds & tenant rent",
                             path: "/rentals/properties",
                             icon: Building,
                             color: "text-purple-600 bg-purple-50 border-purple-100",
                           },
                           {
                             label: "Warranty & Receipt",
-                            description: "Product warranty & claim dates",
+                            description: "Warranty card & purchase bill",
                             path: "/assets/warranties",
                             icon: ShieldAlert,
                             color: "text-cyan-600 bg-cyan-50 border-cyan-100",
                           },
                           {
-                            label: "Family Profile",
-                            description: "Family member directory & folders",
+                            label: "Family Member",
+                            description: "Add spouse, children, parents",
                             path: "/family/profiles",
                             icon: Users,
                             color: "text-rose-600 bg-rose-50 border-rose-100",
@@ -267,7 +267,7 @@ export function AppLayout() {
                       {displayName}
                     </div>
                     <div className="text-[10px] font-medium text-slate-400 leading-none">
-                      Family Admin
+                      Family Head
                     </div>
                   </div>
 
@@ -285,7 +285,7 @@ export function AppLayout() {
                       onClick={() => setProfileOpen(false)}
                     />
                     <div className="absolute right-0 top-12 z-40 w-72 rounded-2xl border border-slate-200/90 bg-white p-2 shadow-2xl ring-1 ring-slate-950/5 animate-in fade-in zoom-in-95 duration-100">
-                      {/* Executive Profile Card Header */}
+                      {/* Profile Card Header */}
                       <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50/80 border border-slate-100 mb-1.5">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-slate-900 to-indigo-950 text-white font-bold text-sm shadow-xs ring-1 ring-slate-200">
                           {getInitials(userProfile.fullName, userProfile.email)}
@@ -296,7 +296,7 @@ export function AppLayout() {
                               {displayName}
                             </span>
                             <span className="rounded bg-emerald-50 px-1 py-0.2 text-[9px] font-bold text-emerald-700 border border-emerald-200">
-                              ADMIN
+                              HEAD
                             </span>
                           </div>
                           <div className="truncate text-[11px] text-slate-500 font-mono">
@@ -316,7 +316,7 @@ export function AppLayout() {
                           className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
                         >
                           <CircleUserRound className="h-4 w-4 text-slate-400" />
-                          <span>Profile & Account</span>
+                          <span>My Profile & Details</span>
                         </button>
                         <button
                           type="button"
@@ -338,7 +338,7 @@ export function AppLayout() {
                           className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
                         >
                           <Smartphone className="h-4 w-4 text-slate-400" />
-                          <span>Install App (Home Screen)</span>
+                          <span>Install App on Phone</span>
                         </button>
                         <button
                           type="button"
@@ -350,9 +350,9 @@ export function AppLayout() {
                         >
                           <Download className="h-4 w-4 text-emerald-600" />
                           <div className="flex-1 min-w-0">
-                            <div>Download Android APK</div>
+                            <div>Download Android App (APK)</div>
                             <div className="text-[10px] font-normal text-emerald-600/80 truncate">
-                              Direct Google Drive (LifeNest.apk)
+                              Direct download for your phone
                             </div>
                           </div>
                         </button>
@@ -365,7 +365,7 @@ export function AppLayout() {
                           className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
                         >
                           <Smartphone className="h-4 w-4 text-slate-400" />
-                          <span>Check for APK Updates</span>
+                          <span>Check for App Update</span>
                         </button>
                       </div>
 
