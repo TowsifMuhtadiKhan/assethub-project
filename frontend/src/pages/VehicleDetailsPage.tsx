@@ -2168,7 +2168,7 @@ export function VehicleDetailsPage() {
                 }}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-800 transition cursor-pointer"
               >
-                <Plus className="h-3.5 w-3.5" /> + Upload Other Document
+                <Plus className="h-3.5 w-3.5" /> Upload Other Document
               </button>
             </div>
 

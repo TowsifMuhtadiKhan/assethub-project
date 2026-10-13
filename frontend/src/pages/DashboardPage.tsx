@@ -218,13 +218,13 @@ export function DashboardPage() {
             onClick={() => navigate("/my-life/tasks")}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-2xs"
           >
-            <Plus className="h-3.5 w-3.5" /> + Task
+            <Plus className="h-3.5 w-3.5" /> Task
           </button>
           <button
             onClick={() => navigate("/documents/vault")}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-2xs"
           >
-            <FileText className="h-3.5 w-3.5" /> + Document
+            <FileText className="h-3.5 w-3.5" /> Document
           </button>
         </div>
       </div>

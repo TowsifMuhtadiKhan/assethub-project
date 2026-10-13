@@ -794,7 +794,7 @@ export function DocumentsPage() {
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
             >
               <FolderPlus className="h-4 w-4 text-indigo-600" />
-              <span>+ New Folder</span>
+              <span>New Folder</span>
             </button>
             <button
               type="button"
@@ -802,7 +802,7 @@ export function DocumentsPage() {
               className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition cursor-pointer"
             >
               <Plus className="h-4 w-4" />
-              <span>+ Upload Document</span>
+              <span>Upload Document</span>
             </button>
           </div>
         )}
