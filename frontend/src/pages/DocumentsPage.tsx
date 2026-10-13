@@ -24,6 +24,7 @@ import {
   Edit2,
   Palette,
   Check,
+  Filter,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import {
@@ -111,6 +112,9 @@ export function DocumentsPage() {
   const [search, setSearch] = useState("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("All");
   const [activeTab, setActiveTab] = useState<"drive" | "starred" | "expiring">("drive");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  const activeFilterCount = selectedCategoryFilter !== "All" ? 1 : 0;
 
   // Google Drive current folder navigation (null = Root "Vault")
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -1062,67 +1066,90 @@ export function DocumentsPage() {
 
             {/* Search and Category Filter */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 lg:max-w-md w-full">
-              <div className="flex-1 min-w-0">
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search files, ID numbers, or authorities..."
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Search className="h-4 w-4 text-slate-400" />
-                        </InputAdornment>
-                      ),
-                      endAdornment: search ? (
-                        <InputAdornment position="end">
-                          <button
-                            type="button"
-                            onClick={() => setSearch("")}
-                            className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </InputAdornment>
-                      ) : null,
-                      sx: {
-                        fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
-                        borderRadius: "0.75rem",
-                        backgroundColor: "#f8fafc",
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="flex-1 min-w-0">
+                  <TextField
+                    fullWidth
+                    size="small"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search files, ID numbers, or authorities..."
+                    slotProps={{
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Search className="h-4 w-4 text-slate-400" />
+                          </InputAdornment>
+                        ),
+                        endAdornment: search ? (
+                          <InputAdornment position="end">
+                            <button
+                              type="button"
+                              onClick={() => setSearch("")}
+                              className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </InputAdornment>
+                        ) : null,
+                        sx: {
+                          fontSize: "0.75rem",
+                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          borderRadius: "0.75rem",
+                          backgroundColor: "#f8fafc",
+                        },
                       },
-                    },
-                  }}
-                />
+                    }}
+                  />
+                </div>
+
+                {/* Mobile Filter Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => setMobileFiltersOpen((prev) => !prev)}
+                  className={`sm:hidden inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition shrink-0 ${
+                    mobileFiltersOpen || activeFilterCount > 0
+                      ? "border-indigo-400 bg-indigo-50 text-indigo-700"
+                      : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  <Filter className="h-4 w-4" />
+                  <span>Filter</span>
+                  {activeFilterCount > 0 && (
+                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
               </div>
 
-              <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 130 } }}>
-                <Select
-                  value={selectedCategoryFilter}
-                  onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-                  sx={{
-                    fontSize: "0.75rem",
-                    fontFamily: '"Plus Jakarta Sans", sans-serif',
-                    borderRadius: "0.75rem",
-                    backgroundColor: "#f8fafc",
-                    "& .MuiSelect-select": {
+              <div className={`w-full sm:w-auto ${mobileFiltersOpen ? "block" : "hidden sm:block"}`}>
+                <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 130 } }}>
+                  <Select
+                    value={selectedCategoryFilter}
+                    onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                    sx={{
                       fontSize: "0.75rem",
-                      py: "8px",
-                    },
-                  }}
-                >
-                  <MenuItem value="All" sx={{ fontSize: "0.75rem" }}>
-                    All Categories
-                  </MenuItem>
-                  {categories.map((c) => (
-                    <MenuItem key={c} value={c} sx={{ fontSize: "0.75rem" }}>
-                      {c}
+                      fontFamily: '"Plus Jakarta Sans", sans-serif',
+                      borderRadius: "0.75rem",
+                      backgroundColor: "#f8fafc",
+                      "& .MuiSelect-select": {
+                        fontSize: "0.75rem",
+                        py: "8px",
+                      },
+                    }}
+                  >
+                    <MenuItem value="All" sx={{ fontSize: "0.75rem" }}>
+                      All Categories
                     </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                    {categories.map((c) => (
+                      <MenuItem key={c} value={c} sx={{ fontSize: "0.75rem" }}>
+                        {c}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </div>
             </div>
           </div>
 

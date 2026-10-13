@@ -18,6 +18,7 @@ import {
   Edit2,
   X,
   XCircle,
+  Filter,
 } from "lucide-react";
 import {
   FormControl,
@@ -186,6 +187,12 @@ export function TasksPage() {
   const [filterPriority, setFilterPriority] = useState<string>("All");
   const [filterAssignee, setFilterAssignee] = useState<string>("All");
   const [onlyUrgent, setOnlyUrgent] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  const activeFilterCount =
+    (filterPriority !== "All" ? 1 : 0) +
+    (filterAssignee !== "All" ? 1 : 0) +
+    (onlyUrgent ? 1 : 0);
 
   // Modals & form
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -654,95 +661,119 @@ export function TasksPage() {
 
       {/* Jira Control & Filter Bar */}
       <div className="flex flex-col lg:flex-row items-center justify-between gap-3 rounded-2xl border border-slate-200/90 bg-white p-3 shadow-2xs">
-        <div className="flex flex-1 flex-wrap items-center gap-2.5 w-full">
-          {/* Quick Search */}
-          <div className="w-full sm:w-64">
-            <TextField
-              fullWidth
-              size="small"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search tasks, bills, tags..."
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search className="h-4 w-4 text-slate-400" />
-                    </InputAdornment>
-                  ),
-                  sx: {
-                    fontSize: "0.75rem",
-                    fontFamily: '"Plus Jakarta Sans", sans-serif',
-                    borderRadius: "0.75rem",
-                    backgroundColor: "#f8fafc",
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 w-full lg:w-auto flex-1">
+          {/* Quick Search + Mobile Filter Toggle Button */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex-1 sm:w-64">
+              <TextField
+                fullWidth
+                size="small"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search tasks, bills, tags..."
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search className="h-4 w-4 text-slate-400" />
+                      </InputAdornment>
+                    ),
+                    sx: {
+                      fontSize: "0.75rem",
+                      fontFamily: '"Plus Jakarta Sans", sans-serif',
+                      borderRadius: "0.75rem",
+                      backgroundColor: "#f8fafc",
+                    },
                   },
-                },
-              }}
-            />
+                }}
+              />
+            </div>
+
+            {/* Mobile Filter Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setMobileFiltersOpen((prev) => !prev)}
+              className={`sm:hidden inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition shrink-0 ${
+                mobileFiltersOpen || activeFilterCount > 0
+                  ? "border-indigo-400 bg-indigo-50 text-indigo-700"
+                  : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <Filter className="h-4 w-4" />
+              <span>Filter</span>
+              {activeFilterCount > 0 && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
           </div>
 
-          {/* Priority Filter */}
-          <FormControl size="small" sx={{ minWidth: 130 }}>
-            <Select
-              value={filterPriority}
-              onChange={(e) => setFilterPriority(e.target.value)}
-              sx={{
-                fontSize: "0.75rem",
-                fontFamily: '"Plus Jakarta Sans", sans-serif',
-                borderRadius: "0.75rem",
-                backgroundColor: "#f8fafc",
-                "& .MuiSelect-select": {
+          {/* Filter Options - Collapsible on Mobile, always inline on Desktop */}
+          <div className={`w-full sm:w-auto flex-wrap items-center gap-2.5 ${mobileFiltersOpen ? "flex" : "hidden sm:flex"}`}>
+            {/* Priority Filter */}
+            <FormControl size="small" sx={{ minWidth: 130 }} className="w-full sm:w-auto">
+              <Select
+                value={filterPriority}
+                onChange={(e) => setFilterPriority(e.target.value)}
+                sx={{
                   fontSize: "0.75rem",
-                  py: "8px",
-                },
-              }}
-            >
-              <MenuItem value="All" sx={{ fontSize: "0.75rem" }}>All Priorities</MenuItem>
-              {priorities.map((p) => (
-                <MenuItem key={p} value={p} sx={{ fontSize: "0.75rem" }}>{p}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+                  fontFamily: '"Plus Jakarta Sans", sans-serif',
+                  borderRadius: "0.75rem",
+                  backgroundColor: "#f8fafc",
+                  "& .MuiSelect-select": {
+                    fontSize: "0.75rem",
+                    py: "8px",
+                  },
+                }}
+              >
+                <MenuItem value="All" sx={{ fontSize: "0.75rem" }}>All Priorities</MenuItem>
+                {priorities.map((p) => (
+                  <MenuItem key={p} value={p} sx={{ fontSize: "0.75rem" }}>{p}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
-          {/* Assignee Filter */}
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <Select
-              value={filterAssignee}
-              onChange={(e) => setFilterAssignee(e.target.value)}
-              sx={{
-                fontSize: "0.75rem",
-                fontFamily: '"Plus Jakarta Sans", sans-serif',
-                borderRadius: "0.75rem",
-                backgroundColor: "#f8fafc",
-                "& .MuiSelect-select": {
+            {/* Assignee Filter */}
+            <FormControl size="small" sx={{ minWidth: 150 }} className="w-full sm:w-auto">
+              <Select
+                value={filterAssignee}
+                onChange={(e) => setFilterAssignee(e.target.value)}
+                sx={{
                   fontSize: "0.75rem",
-                  py: "8px",
-                },
-              }}
-            >
-              <MenuItem value="All" sx={{ fontSize: "0.75rem" }}>All Assignees</MenuItem>
-              <MenuItem value="Personal" sx={{ fontSize: "0.75rem" }}>👤 Personal / Self</MenuItem>
-              {members.map((m) => (
-                <MenuItem key={m.id} value={m.id} sx={{ fontSize: "0.75rem" }}>
-                  👤 {m.fullName}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+                  fontFamily: '"Plus Jakarta Sans", sans-serif',
+                  borderRadius: "0.75rem",
+                  backgroundColor: "#f8fafc",
+                  "& .MuiSelect-select": {
+                    fontSize: "0.75rem",
+                    py: "8px",
+                  },
+                }}
+              >
+                <MenuItem value="All" sx={{ fontSize: "0.75rem" }}>All Assignees</MenuItem>
+                <MenuItem value="Personal" sx={{ fontSize: "0.75rem" }}>👤 Personal / Self</MenuItem>
+                {members.map((m) => (
+                  <MenuItem key={m.id} value={m.id} sx={{ fontSize: "0.75rem" }}>
+                    👤 {m.fullName}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
-          {/* Quick Filter: Urgent Only */}
-          <button
-            type="button"
-            onClick={() => setOnlyUrgent((prev) => !prev)}
-            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
-              onlyUrgent
-                ? "border-rose-400 bg-rose-50 text-rose-700 shadow-2xs"
-                : "border-slate-200 bg-slate-50/70 text-slate-600 hover:bg-slate-100"
-            }`}
-          >
-            <AlertTriangle className="h-3.5 w-3.5 text-rose-500" />
-            <span>Urgent & High</span>
-          </button>
+            {/* Quick Filter: Urgent Only */}
+            <button
+              type="button"
+              onClick={() => setOnlyUrgent((prev) => !prev)}
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                onlyUrgent
+                  ? "border-rose-400 bg-rose-50 text-rose-700 shadow-2xs"
+                  : "border-slate-200 bg-slate-50/70 text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              <AlertTriangle className="h-3.5 w-3.5 text-rose-500" />
+              <span>Urgent & High</span>
+            </button>
+          </div>
         </div>
 
         {/* Sprint Completion Progress Pill */}

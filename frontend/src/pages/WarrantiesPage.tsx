@@ -140,7 +140,7 @@ export function WarrantiesPage() {
       )}
 
       {/* Search & View Mode Switcher */}
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
           <input
@@ -152,7 +152,7 @@ export function WarrantiesPage() {
         </div>
 
         {/* View Switcher: Grid vs Table */}
-        <div className="flex items-center gap-1 rounded-lg border border-slate-200/90 bg-slate-100/80 p-0.5 shrink-0 self-end sm:self-auto">
+        <div className="flex items-center gap-1 rounded-lg border border-slate-200/90 bg-slate-100/80 p-0.5 shrink-0">
           <button
             type="button"
             onClick={() => {

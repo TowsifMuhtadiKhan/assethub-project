@@ -20,6 +20,7 @@ import {
   Upload,
   Users,
   Wrench,
+  Filter,
 } from "lucide-react";
 import type { PropertyUnit } from "../types";
 import type { RentalFile, RentalTenancy, RentSchedule } from "../types/rentals";
@@ -152,6 +153,9 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
   const [propertyView, setPropertyView] = useState<"table" | "grid">("table");
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  const activeFilterCount = activeCategory !== "All" ? 1 : 0;
 
   // Inline Maintenance Logger States (Vehicle Style)
   const [mCategory, setMCategory] = useState(PROPERTY_MAINTENANCE_PRESETS[0]);
@@ -706,7 +710,8 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
 
                   {/* Filter Pills, Search Bar & View Switcher */}
                   <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex flex-wrap items-center gap-1.5">
+                    {/* Collapsible Category Pills on mobile, inline on sm */}
+                    <div className={`w-full sm:w-auto flex-wrap items-center gap-1.5 ${mobileFiltersOpen ? "flex" : "hidden sm:flex"}`}>
                       {[
                         { id: "All", label: "All Properties", count: metrics.totalProperties },
                         { id: "Residential", label: "Residential", count: metrics.residentialCount },
@@ -737,7 +742,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                       ))}
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
                       <div className="relative flex-1 sm:w-60">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                         <input
@@ -749,8 +754,27 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                         />
                       </div>
 
+                      {/* Mobile Filter Toggle Button */}
+                      <button
+                        type="button"
+                        onClick={() => setMobileFiltersOpen((prev) => !prev)}
+                        className={`sm:hidden inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition shrink-0 ${
+                          mobileFiltersOpen || activeFilterCount > 0
+                            ? "border-slate-900 bg-slate-900 text-white"
+                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <Filter className="h-3.5 w-3.5" />
+                        <span>Filter</span>
+                        {activeFilterCount > 0 && (
+                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-white text-[10px] font-bold text-slate-900 px-1">
+                            {activeFilterCount}
+                          </span>
+                        )}
+                      </button>
+
                       <div
-                        className="flex rounded-lg border border-slate-200 bg-white p-0.5"
+                        className="flex rounded-lg border border-slate-200 bg-white p-0.5 shrink-0"
                         role="group"
                         aria-label="Property view"
                       >

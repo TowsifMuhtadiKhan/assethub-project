@@ -13,6 +13,7 @@ import {
   Search,
   Layers,
   BarChart3,
+  Filter,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { VehicleEntryForm } from "../components/common/VehicleEntryForm";
@@ -83,6 +84,9 @@ export function VehicleEntryPage({
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [activeTab, setActiveTab] = useState<string>(filterType);
   const [searchQuery, setSearchQuery] = useState("");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  const activeFilterCount = activeTab !== "All" ? 1 : 0;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [formOpen, setFormOpen] = useState(false);
@@ -341,8 +345,40 @@ export function VehicleEntryPage({
 
       {/* Tabs and Search Bar */}
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-        {/* Category Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        {/* Search Input + Mobile Filter Button */}
+        <div className="flex items-center gap-2 w-full sm:w-auto order-1 sm:order-2">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name, plate, model..."
+              className="w-full rounded-lg border border-slate-200/90 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setMobileFiltersOpen((prev) => !prev)}
+            className={`sm:hidden inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition shrink-0 ${
+              mobileFiltersOpen || activeFilterCount > 0
+                ? "border-slate-900 bg-slate-900 text-white"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            <Filter className="h-3.5 w-3.5" />
+            <span>Filter</span>
+            {activeFilterCount > 0 && (
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-white text-[10px] font-bold text-slate-900 px-1">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Category Tabs - Collapsible on mobile, inline on sm */}
+        <div className={`w-full sm:w-auto flex-wrap items-center gap-1.5 order-2 sm:order-1 ${mobileFiltersOpen ? "flex" : "hidden sm:flex"}`}>
           {[
             { id: "All", label: "All Vehicles", count: counts.total },
             { id: "Car", label: "Cars", count: counts.cars },
@@ -376,18 +412,6 @@ export function VehicleEntryPage({
               </button>
             );
           })}
-        </div>
-
-        {/* Search Input */}
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, plate, model..."
-            className="w-full rounded-lg border border-slate-200/90 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none"
-          />
         </div>
       </div>
 
