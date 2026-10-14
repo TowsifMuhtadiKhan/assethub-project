@@ -1118,29 +1118,30 @@ export function DailyExpensesPage() {
                 </div>
               </div>
 
-          {/* Filter Bar & Quick Add */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5 w-full">
+          {/* Filter Bar & Quick Add - Unified in one line */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 bg-white p-2 sm:p-2.5 rounded-2xl border border-slate-200/90 shadow-2xs">
+            {/* Left Cluster: Search + Time Range Pills + Category Dropdown */}
+            <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
               {/* Search Box */}
-              <div className="relative flex-1 min-w-0">
+              <div className="relative flex-1 sm:flex-initial sm:w-48 lg:w-60 min-w-[140px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search item, merchant..."
-                  className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-800 shadow-2xs"
+                  className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50/60 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-800 focus:bg-white transition"
                 />
               </div>
 
-              {/* Filter Button */}
+              {/* Mobile Filter Toggle Button (< md only) */}
               <button
                 type="button"
                 onClick={() => setMobileFiltersOpen((prev) => !prev)}
-                className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-1.5 text-xs font-semibold transition shrink-0 cursor-pointer ${
+                className={`md:hidden inline-flex items-center gap-1 rounded-xl border px-2.5 py-1.5 text-xs font-semibold transition shrink-0 cursor-pointer ${
                   mobileFiltersOpen || activeFilterCount > 0
                     ? "border-blue-400 bg-blue-50 text-blue-700"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                    : "border-slate-200 bg-slate-50 text-slate-700"
                 }`}
               >
                 <Filter className="h-3.5 w-3.5" />
@@ -1152,13 +1153,81 @@ export function DailyExpensesPage() {
                 )}
               </button>
 
+              {/* Time Range Pills & Category Dropdown (inline on md+, toggle on mobile) */}
+              <div className={`items-center gap-2 ${mobileFiltersOpen ? "flex flex-wrap w-full md:w-auto pt-1 md:pt-0" : "hidden md:inline-flex"}`}>
+                {/* Time Range Pills */}
+                <div className="inline-flex items-center p-0.5 rounded-xl border border-slate-200 bg-slate-100 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setTimeFilter("today")}
+                    className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer text-center text-xs ${
+                      timeFilter === "today"
+                        ? "bg-white text-slate-900 shadow-2xs font-bold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTimeFilter("week")}
+                    className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer text-center text-xs ${
+                      timeFilter === "week"
+                        ? "bg-white text-slate-900 shadow-2xs font-bold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    This Week
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTimeFilter("month")}
+                    className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer text-center text-xs ${
+                      timeFilter === "month"
+                        ? "bg-white text-slate-900 shadow-2xs font-bold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    This Month
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTimeFilter("all")}
+                    className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer text-center text-xs ${
+                      timeFilter === "all"
+                        ? "bg-white text-slate-900 shadow-2xs font-bold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    All Time
+                  </button>
+                </div>
+
+                {/* Category Dropdown */}
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="rounded-xl border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-slate-800 focus:bg-white font-medium cursor-pointer"
+                >
+                  <option value="all">All Categories</option>
+                  {CATEGORIES.map((c) => (
+                    <option key={c.label} value={c.label}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Right Cluster: View Mode Toggle + Log Expense Button */}
+            <div className="flex items-center gap-1.5 shrink-0 self-end md:self-auto">
               {/* View mode toggle */}
               <div className="flex items-center p-0.5 rounded-xl border border-slate-200 bg-slate-100 shrink-0">
                 <button
                   type="button"
                   onClick={() => setViewMode("table")}
                   className={`p-1.5 rounded-lg transition cursor-pointer ${
-                    viewMode === "table" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-400"
+                    viewMode === "table" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-400 hover:text-slate-600"
                   }`}
                   title="Table view"
                 >
@@ -1168,7 +1237,7 @@ export function DailyExpensesPage() {
                   type="button"
                   onClick={() => setViewMode("grid")}
                   className={`p-1.5 rounded-lg transition cursor-pointer ${
-                    viewMode === "grid" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-400"
+                    viewMode === "grid" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-400 hover:text-slate-600"
                   }`}
                   title="Grid view"
                 >
@@ -1176,80 +1245,15 @@ export function DailyExpensesPage() {
                 </button>
               </div>
 
-              {/* Desktop Add Expense Button (Mobile has it in header) */}
+              {/* Desktop Add Expense Button */}
               <button
                 type="button"
                 onClick={openCreateModal}
-                className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 transition cursor-pointer shrink-0"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 transition cursor-pointer shrink-0"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>Log Expense</span>
               </button>
-            </div>
-
-            {/* Time Range & Category Filters - Collapsible on mobile, inline on lg */}
-            <div className={`w-full flex-wrap items-center gap-2 pt-1 ${mobileFiltersOpen ? "flex" : "hidden lg:flex"}`}>
-              {/* Time Range Pills */}
-              <div className="inline-flex flex-wrap items-center p-0.5 rounded-xl border border-slate-200 bg-slate-100 text-xs w-full sm:w-auto justify-between sm:justify-start">
-                <button
-                  type="button"
-                  onClick={() => setTimeFilter("today")}
-                  className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-center ${
-                    timeFilter === "today"
-                      ? "bg-white text-slate-900 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  Today
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTimeFilter("week")}
-                  className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-center ${
-                    timeFilter === "week"
-                      ? "bg-white text-slate-900 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  This Week
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTimeFilter("month")}
-                  className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-center ${
-                    timeFilter === "month"
-                      ? "bg-white text-slate-900 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  This Month
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTimeFilter("all")}
-                  className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg font-semibold transition cursor-pointer text-center ${
-                    timeFilter === "all"
-                      ? "bg-white text-slate-900 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  All Time
-                </button>
-              </div>
-
-              {/* Category Dropdown */}
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-slate-800 shadow-2xs font-medium w-full sm:w-auto"
-              >
-                <option value="all">All Categories</option>
-                {CATEGORIES.map((c) => (
-                  <option key={c.label} value={c.label}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
             </div>
           </div>
 
