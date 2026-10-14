@@ -1400,7 +1400,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-2 flex-wrap">
                                         <h2 className="font-bold text-sm text-slate-900 truncate">
-                                          Flat {flat.unitNumber}
+                                          {flat.unitNumber.toLowerCase().startsWith("flat") ? flat.unitNumber : `Flat ${flat.unitNumber}`}
                                         </h2>
                                         <span
                                           className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -1426,7 +1426,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                       onClick={() => setEditor({ type: "tenant", unit: flat })}
                                     >
                                       <Plus className="h-3.5 w-3.5" />
-                                      <span>{wholeActiveTenancy ? "Add next tenancy" : "Add Tenant"}</span>
+                                      <span>{wholeActiveTenancy ? "Add Next Renter" : "Add Renter"}</span>
                                     </button>
                                     <button
                                       type="button"
@@ -1446,8 +1446,8 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                       <p className="font-semibold text-slate-800">Space currently vacant</p>
                                       <p className="text-[11px] text-slate-400 mt-0.5">
                                         {flat.tenantName
-                                          ? `Previous recorded tenant: ${flat.tenantName}. Click "Add Tenant" to add dates and rent schedule.`
-                                          : "Assign a tenant and set monthly rent rate to start collecting rent."}
+                                          ? `Previous recorded renter: ${flat.tenantName}. Click "Add Renter" to add dates and rent schedule.`
+                                          : "Assign a renter and set monthly rent rate to start collecting rent."}
                                       </p>
                                     </div>
                                   </div>
@@ -1472,7 +1472,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                   </div>
                                   <div className="min-w-0">
                                     <h2 className="font-bold text-sm text-slate-900 truncate">
-                                      Flat {flat.unitNumber}
+                                      {flat.unitNumber.toLowerCase().startsWith("flat") ? flat.unitNumber : `Flat ${flat.unitNumber}`}
                                     </h2>
                                     <p className="text-[11px] text-slate-400 mt-0.5 truncate">
                                       Rooms rented separately {flat.floor ? `· Floor: ${flat.floor}` : ""}{" "}
@@ -1532,7 +1532,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                             onClick={() => setEditor({ type: "tenant", unit: room })}
                                           >
                                             <Plus className="h-3 w-3" />
-                                            <span>{activeT ? "Add next tenancy" : "Add Tenant"}</span>
+                                            <span>{activeT ? "Add Next Renter" : "Add Renter"}</span>
                                           </button>
                                           <button
                                             type="button"
@@ -1547,7 +1547,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
 
                                       {!roomTenancies.length && (
                                         <p className="text-[11px] text-slate-400">
-                                          Room is currently vacant. Click "Add Tenant" to assign a tenant.
+                                          Room is currently vacant. Click "Add Renter" to assign a renter.
                                         </p>
                                       )}
 
@@ -1699,7 +1699,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                         }
                                       >
                                         <Plus className="h-3 w-3" />
-                                        Add Tenant & Rent (৳)
+                                        Add Renter & Rent (৳)
                                       </button>
                                     )}
                                   </div>

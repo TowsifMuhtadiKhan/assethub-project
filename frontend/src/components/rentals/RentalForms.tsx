@@ -78,7 +78,7 @@ export function TenancyForm({
 
   return (
     <Modal
-      title={`${tenancy ? "Edit tenancy" : "Add tenant & monthly rent"} · ${unit.unitNumber}`}
+      title={`${tenancy ? "Edit Renter Details" : "Add Renter & Monthly Rent"} · ${unit.unitNumber.toLowerCase().startsWith("flat") ? unit.unitNumber : `Flat ${unit.unitNumber}`}`}
       close={() => !busy && close()}
     >
       <form
@@ -128,7 +128,7 @@ export function TenancyForm({
       >
         <FormError error={error} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Label title="Tenant name *">
+          <Label title="Renter name *">
             <input
               name="name"
               required
@@ -250,7 +250,7 @@ export function TenancyForm({
         </div>
 
         <button disabled={busy} className={primary}>
-          {busy ? "Saving…" : "Save Tenant & Rent Rate"}
+          {busy ? "Saving…" : "Save Renter & Rent Rate"}
         </button>
       </form>
     </Modal>

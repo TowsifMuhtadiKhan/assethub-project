@@ -17,7 +17,6 @@ import {
   FileCheck,
   AlertTriangle,
   Sparkles,
-  Layers,
   Send,
   Edit2,
   Bell,
@@ -363,10 +362,6 @@ export function VehicleDetailsPage() {
     () => sumMoney(fuelExpenses.map(item => Number(item.amount))),
     [fuelExpenses],
   );
-  const totalFuelLiters = useMemo(
-    () => fuelExpenses.reduce((sum, item) => sum + (Number(item.fuelLiters) || 0), 0),
-    [fuelExpenses],
-  );
   const totalMaintenanceCost = useMemo(
     () => sumMoney(services.map(item => Number(item.cost))),
     [services],
@@ -374,10 +369,6 @@ export function VehicleDetailsPage() {
   const totalCombinedExpense = sumMoney([...expenses.map(item => Number(item.amount)), totalMaintenanceCost]);
 
   // Active Warranties & Claims Highlight stats
-  const activeWarrantiesCount = useMemo(
-    () => warranties.filter((w) => w.status === "ACTIVE").length,
-    [warranties],
-  );
   const claimsInProgress = useMemo(
     () =>
       warranties.filter(
@@ -1307,16 +1298,16 @@ export function VehicleDetailsPage() {
   return (
     <div className="space-y-4 pb-28 sm:pb-8">
       {/* Top Header & Navigation */}
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
-        <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex items-center justify-between border-b border-slate-200/80 pb-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             type="button"
             onClick={() => navigate("/assets/vehicles")}
-            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-2 sm:px-2.5 sm:py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 cursor-pointer shrink-0"
-            title="Back to vehicles"
+            className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer shrink-0"
+            title="Back"
+            aria-label="Back"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">All Vehicles</span>
           </button>
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-800">
@@ -1338,35 +1329,11 @@ export function VehicleDetailsPage() {
                   {vehicle.status}
                 </span>
               </div>
-              <p className="text-[11px] sm:text-xs text-slate-500 font-mono mt-0.5 truncate">
-                {vehicle.brand} {vehicle.model} · {vehicle.registrationNumber || "Unregistered"} · {vehicle.year}
+              <p className="text-[11px] sm:text-xs text-slate-500 font-mono font-medium mt-0.5 truncate">
+                {vehicle.registrationNumber || "Unregistered"}
               </p>
             </div>
           </div>
-        </div>
-
-        {/* Quick Action Buttons */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setDocPresetSelected({ name: "", category: "Custom Document" });
-              setExtractedSpecs(null); setSpecExtractionError(""); setSpecsConfirmed(false);
-              setDocModalOpen(true);
-            }}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl border border-indigo-200/80 bg-indigo-50/70 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition cursor-pointer"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            <span>Add Document</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setWarrantyModalOpen(true)}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-200/80 bg-amber-50/70 px-2.5 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition cursor-pointer"
-          >
-            <ShieldCheck className="h-3.5 w-3.5" />
-            <span>Warranty & Claim</span>
-          </button>
         </div>
       </div>
 
@@ -1406,85 +1373,6 @@ export function VehicleDetailsPage() {
           </button>
         </div>
       )}
-
-      {/* Mobile Compact Metric Strip (sm:hidden) */}
-      <div className="sm:hidden rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs">
-        <div className="grid grid-cols-3 divide-x divide-slate-100 text-center">
-          <div className="px-1">
-            <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Fuel</div>
-            <div className="mt-0.5 text-xs font-bold font-mono text-slate-900 truncate">
-              {formatMoney(totalFuelCost)}
-            </div>
-          </div>
-          <div className="px-1">
-            <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Maintenance</div>
-            <div className="mt-0.5 text-xs font-bold font-mono text-slate-900 truncate">
-              {formatMoney(totalMaintenanceCost)}
-            </div>
-          </div>
-          <div className="px-1">
-            <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Total Cost</div>
-            <div className="mt-0.5 text-xs font-bold font-mono text-indigo-600 truncate">
-              {formatMoney(totalCombinedExpense)}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Desktop 4-Card Metric Grid (hidden sm:grid) */}
-      <div className="hidden sm:grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[11px] font-medium uppercase tracking-wider">Total Fuel Expense</span>
-            <Fuel className="h-4 w-4 text-blue-500" />
-          </div>
-          <div className="mt-1 text-xl font-bold font-mono text-slate-900">
-            {formatMoney(totalFuelCost)}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">
-            {totalFuelLiters > 0 ? `${totalFuelLiters.toFixed(1)} L recorded` : `${fuelExpenses.length} fill-ups`}
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[11px] font-medium uppercase tracking-wider">Total Maintenance</span>
-            <Wrench className="h-4 w-4 text-emerald-500" />
-          </div>
-          <div className="mt-1 text-xl font-bold font-mono text-slate-900">
-            {formatMoney(totalMaintenanceCost)}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">
-            {services.length} servicing / repair records
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[11px] font-medium uppercase tracking-wider">Total Vehicle Cost</span>
-            <Layers className="h-4 w-4 text-indigo-500" />
-          </div>
-          <div className="mt-1 text-xl font-bold font-mono text-slate-900">
-            {formatMoney(totalCombinedExpense)}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">
-            Fuel + repairs + all bills
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[11px] font-medium uppercase tracking-wider">BRTA Papers & Warranties</span>
-            <ShieldCheck className="h-4 w-4 text-amber-500" />
-          </div>
-          <div className="mt-1 text-xl font-bold font-mono text-slate-900">
-            {documents.length} Papers · {activeWarrantiesCount} Warranties
-          </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">
-            {claimsInProgress.length > 0 ? `${claimsInProgress.length} active claims` : "All papers up to date"}
-          </div>
-        </div>
-      </div>
 
       {/* Tabs - Modern Segmented Control with horizontal scroll */}
       <div className="p-1 bg-slate-100/90 rounded-xl border border-slate-200/70 flex items-center gap-1 overflow-x-auto no-scrollbar">
