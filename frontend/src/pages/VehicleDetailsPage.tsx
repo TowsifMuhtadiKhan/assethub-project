@@ -1321,9 +1321,6 @@ export function VehicleDetailsPage() {
                 >
                   {vehicle.type}
                 </span>
-                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200/50">
-                  {vehicle.status}
-                </span>
               </div>
               <p className="text-[11px] sm:text-xs text-slate-500 font-mono font-medium mt-0.5 truncate">
                 {vehicle.registrationNumber || "Unregistered"}

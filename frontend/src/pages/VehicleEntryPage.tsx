@@ -567,9 +567,6 @@ export function VehicleEntryPage({
                     >
                       {vehicle.type || "Vehicle"}
                     </span>
-                    <span className="rounded bg-emerald-50 px-1.5 py-0.2 text-[9px] font-semibold text-emerald-700 border border-emerald-200/50">
-                      {vehicle.status}
-                    </span>
                   </div>
                 </div>
 
@@ -631,12 +628,9 @@ export function VehicleEntryPage({
               <thead className="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-semibold text-slate-600">
                 <tr>
                   <th className="px-3.5 py-2.5">Vehicle</th>
-                  <th className="px-3.5 py-2.5 font-semibold">Type</th>
                   <th className="px-3.5 py-2.5 font-semibold">Brand / Model</th>
                   <th className="px-3.5 py-2.5 font-semibold">Year</th>
                   <th className="px-3.5 py-2.5 font-semibold">Registration</th>
-                  <th className="px-3.5 py-2.5 font-semibold">Mileage</th>
-                  <th className="px-3.5 py-2.5 font-semibold">Status</th>
                   <th className="px-3.5 py-2.5 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
@@ -673,16 +667,6 @@ export function VehicleEntryPage({
                         </div>
                       </td>
 
-                      <td className="whitespace-nowrap px-3.5 py-2.5">
-                        <span
-                          className={`inline-block rounded-md border px-2 py-0.5 text-[10px] font-semibold ${getVehicleTypeBadgeClass(
-                            vehicle.type,
-                          )}`}
-                        >
-                          {vehicle.type || "Vehicle"}
-                        </span>
-                      </td>
-
                       <td className="whitespace-nowrap px-3.5 py-2.5 text-slate-600">
                         {vehicle.brand} {vehicle.model}
                       </td>
@@ -699,16 +683,6 @@ export function VehicleEntryPage({
                         ) : (
                           <span className="font-mono text-[11px] text-slate-400">—</span>
                         )}
-                      </td>
-
-                      <td className="whitespace-nowrap px-3.5 py-2.5 font-mono text-[11px] text-slate-600">
-                        {vehicle.mileage.toLocaleString()} km
-                      </td>
-
-                      <td className="px-3.5 py-2.5">
-                        <span className="rounded bg-emerald-50 px-1.5 py-0.2 text-[10px] font-semibold text-emerald-700 border border-emerald-200/50">
-                          {vehicle.status}
-                        </span>
                       </td>
 
                       <td className="px-3.5 py-2.5 text-right">
