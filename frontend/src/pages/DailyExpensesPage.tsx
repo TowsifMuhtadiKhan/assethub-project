@@ -3283,17 +3283,19 @@ export function DailyExpensesPage() {
       {/* ========================================================================= */}
       {/* 14. MODAL: CATEGORY TREND GRAPH & LAST MONTH DIFFERENTIATION             */}
       {/* ========================================================================= */}
-      <CategoryTrendModal
-        isOpen={trendModalOpen}
-        onClose={() => setTrendModalOpen(false)}
-        initialCategory={trendModalCategory}
-        allExpenses={memberExpenses}
-        availableCategories={
-          allCategoryOptions.length > 0
-            ? [...CATEGORIES.map((c) => c.label), ...allCategoryOptions]
-            : CATEGORIES.map((c) => c.label)
-        }
-      />
+      {trendModalOpen && (
+        <CategoryTrendModal
+          isOpen={trendModalOpen}
+          onClose={() => setTrendModalOpen(false)}
+          initialCategory={trendModalCategory}
+          allExpenses={memberExpenses}
+          availableCategories={
+            allCategoryOptions.length > 0
+              ? [...CATEGORIES.map((c) => c.label), ...allCategoryOptions]
+              : CATEGORIES.map((c) => c.label)
+          }
+        />
+      )}
     </div>
   );
 }

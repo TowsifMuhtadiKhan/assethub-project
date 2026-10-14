@@ -72,8 +72,6 @@ export function CategoryTrendModal({
     }
   }, [initialCategory]);
 
-  if (!isOpen) return null;
-
   // Month navigation
   const handlePrevMonth = () => {
     if (viewMonth === 0) {
@@ -214,6 +212,8 @@ export function CategoryTrendModal({
 
   const categoryTitle = selectedCategory === "all" ? "All Expenses" : selectedCategory;
   const categoryEmoji = selectedCategory === "all" ? "📊" : getCategoryEmoji(selectedCategory);
+
+  if (!isOpen) return null;
 
   return (
     <div

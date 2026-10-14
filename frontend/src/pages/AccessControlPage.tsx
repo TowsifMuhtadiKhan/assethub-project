@@ -8,7 +8,6 @@ import {
   X,
   Fuel,
   Wrench,
-  FileText,
   DollarSign,
   Share2,
   Copy,
@@ -93,6 +92,28 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
   // Document Vault folders and selection state
   const [vaultFolders, setVaultFolders] = useState<DocumentFolder[]>([]);
   const [openFolderPickerMemberId, setOpenFolderPickerMemberId] = useState<string | null>(null);
+
+  // Warranties categories and selection state
+  const [openWarrantyPickerMemberId, setOpenWarrantyPickerMemberId] = useState<string | null>(null);
+  const DEFAULT_WARRANTY_CATEGORIES = useMemo(
+    () => [
+      "Electronics & Gadgets",
+      "Home Appliances",
+      "Vehicles & Batteries",
+      "Furniture & Fixtures",
+      "Mobile & Computers",
+      "Tools & Hardware",
+    ],
+    []
+  );
+
+  // Vehicles fleet selection state
+  const [openVehiclePickerMemberId, setOpenVehiclePickerMemberId] = useState<string | null>(null);
+  const [vehicleViewMode, setVehicleViewMode] = useState<"members" | "vehicles">("members");
+
+  // Properties selection state
+  const [openPropertyPickerMemberId, setOpenPropertyPickerMemberId] = useState<string | null>(null);
+  const [propertyViewMode, setPropertyViewMode] = useState<"members" | "properties">("members");
 
   // Invite modal states
   const [inviteMember, setInviteMember] = useState<FamilyMember | null>(null);
@@ -340,6 +361,263 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
     }
   };
 
+  // Warranties scope & CRUD
+  const setWarrantyScope = async (member: FamilyMember, scope: "all" | "specific") => {
+    const currentAcc: FamilyMemberAccess = member.access
+      ? { ...member.access }
+      : getDefaultMemberAccess();
+
+    const updatedAccess: FamilyMemberAccess = {
+      ...currentAcc,
+      assignedWarrantyScope: scope,
+      assignedWarrantyCategories:
+        scope === "all"
+          ? []
+          : currentAcc.assignedWarrantyCategories && currentAcc.assignedWarrantyCategories.length > 0
+          ? currentAcc.assignedWarrantyCategories
+          : [DEFAULT_WARRANTY_CATEGORIES[0]],
+    };
+
+    setMembers((prev) =>
+      prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
+    );
+    setSavingId(member.id);
+
+    try {
+      await updateFamilyMember(member.id, { access: updatedAccess });
+      showToast(`Updated warranty scope for ${member.fullName}`);
+    } catch {
+      showToast("Failed to save warranty scope");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const toggleWarrantyCategoryAccess = async (member: FamilyMember, catName: string) => {
+    const currentAcc: FamilyMemberAccess = member.access
+      ? { ...member.access }
+      : getDefaultMemberAccess();
+
+    let currentAssigned = currentAcc.assignedWarrantyCategories || [];
+    if (currentAcc.assignedWarrantyScope !== "specific") {
+      currentAssigned = [...DEFAULT_WARRANTY_CATEGORIES];
+    }
+
+    let newAssigned: string[];
+    if (currentAssigned.includes(catName)) {
+      newAssigned = currentAssigned.filter((c) => c !== catName);
+    } else {
+      newAssigned = [...currentAssigned, catName];
+    }
+
+    const updatedAccess: FamilyMemberAccess = {
+      ...currentAcc,
+      assignedWarrantyScope: "specific",
+      assignedWarrantyCategories: newAssigned,
+    };
+
+    setMembers((prev) =>
+      prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
+    );
+    setSavingId(member.id);
+
+    try {
+      await updateFamilyMember(member.id, { access: updatedAccess });
+    } catch {
+      showToast("Failed to update category access");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const selectAllWarrantyCategories = async (member: FamilyMember, selectAll: boolean) => {
+    const currentAcc: FamilyMemberAccess = member.access
+      ? { ...member.access }
+      : getDefaultMemberAccess();
+
+    const updatedAccess: FamilyMemberAccess = {
+      ...currentAcc,
+      assignedWarrantyScope: "specific",
+      assignedWarrantyCategories: selectAll ? [...DEFAULT_WARRANTY_CATEGORIES] : [],
+    };
+
+    setMembers((prev) =>
+      prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
+    );
+    setSavingId(member.id);
+
+    try {
+      await updateFamilyMember(member.id, { access: updatedAccess });
+      showToast(selectAll ? `All warranty categories granted` : `All warranty categories cleared`);
+    } catch {
+      showToast("Failed to update categories");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  // Generic Domain CRUD Toggle
+  const toggleDomainCrud = async (
+    member: FamilyMember,
+    domain: "warranties" | "tasks" | "expenses" | "vehicles" | "properties",
+    action: "C" | "R" | "U" | "D"
+  ) => {
+    const currentAcc: FamilyMemberAccess = member.access
+      ? { ...member.access }
+      : getDefaultMemberAccess();
+
+    const updatedAccess: FamilyMemberAccess = { ...currentAcc };
+
+    if (domain === "warranties") {
+      if (action === "C") updatedAccess.canCreateWarranties = !(currentAcc.canCreateWarranties ?? currentAcc.loginRole === "Admin");
+      else if (action === "R") updatedAccess.canReadWarranties = !(currentAcc.canReadWarranties ?? true);
+      else if (action === "U") updatedAccess.canUpdateWarranties = !(currentAcc.canUpdateWarranties ?? currentAcc.loginRole === "Admin");
+      else if (action === "D") updatedAccess.canDeleteWarranties = !(currentAcc.canDeleteWarranties ?? currentAcc.loginRole === "Admin");
+    } else if (domain === "tasks") {
+      if (action === "C") updatedAccess.canCreateTasks = !(currentAcc.canCreateTasks ?? true);
+      else if (action === "R") updatedAccess.canReadTasks = !(currentAcc.canReadTasks ?? true);
+      else if (action === "U") updatedAccess.canUpdateTasks = !(currentAcc.canUpdateTasks ?? true);
+      else if (action === "D") updatedAccess.canDeleteTasks = !(currentAcc.canDeleteTasks ?? currentAcc.loginRole === "Admin");
+    } else if (domain === "expenses") {
+      if (action === "C") updatedAccess.canCreateExpenses = !(currentAcc.canCreateExpenses ?? true);
+      else if (action === "R") updatedAccess.canReadExpenses = !(currentAcc.canReadExpenses ?? true);
+      else if (action === "U") updatedAccess.canUpdateExpenses = !(currentAcc.canUpdateExpenses ?? true);
+      else if (action === "D") updatedAccess.canDeleteExpenses = !(currentAcc.canDeleteExpenses ?? currentAcc.loginRole === "Admin");
+    } else if (domain === "vehicles") {
+      if (action === "C") {
+        const next = !currentAcc.canWriteFuel;
+        updatedAccess.canWriteFuel = next;
+        updatedAccess.canCreateVehicles = next;
+      } else if (action === "R") {
+        updatedAccess.canReadVehicles = !(currentAcc.canReadVehicles ?? true);
+      } else if (action === "U") {
+        const next = !currentAcc.canWriteMaintenance;
+        updatedAccess.canWriteMaintenance = next;
+        updatedAccess.canUpdateVehicles = next;
+      } else if (action === "D") {
+        updatedAccess.canDeleteVehicles = !(currentAcc.canDeleteVehicles ?? currentAcc.loginRole === "Admin");
+      }
+    } else if (domain === "properties") {
+      if (action === "C") {
+        const next = !currentAcc.canWriteRent;
+        updatedAccess.canWriteRent = next;
+        updatedAccess.canCreateProperties = next;
+      } else if (action === "R") {
+        updatedAccess.canReadProperties = !(currentAcc.canReadProperties ?? true);
+      } else if (action === "U") {
+        const next = !currentAcc.canWritePropertyMaintenance;
+        updatedAccess.canWritePropertyMaintenance = next;
+        updatedAccess.canUpdateProperties = next;
+      } else if (action === "D") {
+        updatedAccess.canDeleteProperties = !(currentAcc.canDeleteProperties ?? currentAcc.loginRole === "Admin");
+      }
+    }
+
+    setMembers((prev) =>
+      prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
+    );
+    setSavingId(member.id);
+
+    try {
+      await updateFamilyMember(member.id, { access: updatedAccess });
+      showToast(`Updated ${domain} permissions for ${member.fullName}`);
+    } catch {
+      showToast("Failed to update CRUD permission");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  // Generic Domain Preset Setter
+  const setDomainPreset = async (
+    member: FamilyMember,
+    domain: "warranties" | "tasks" | "expenses" | "vehicles" | "properties",
+    preset: "full" | "contributor" | "readonly"
+  ) => {
+    const currentAcc: FamilyMemberAccess = member.access
+      ? { ...member.access }
+      : getDefaultMemberAccess();
+
+    const updatedAccess: FamilyMemberAccess = { ...currentAcc };
+    const isFull = preset === "full";
+    const isContributor = preset === "contributor";
+
+    if (domain === "warranties") {
+      updatedAccess.canCreateWarranties = isFull || isContributor;
+      updatedAccess.canReadWarranties = true;
+      updatedAccess.canUpdateWarranties = isFull;
+      updatedAccess.canDeleteWarranties = isFull;
+    } else if (domain === "tasks") {
+      updatedAccess.canCreateTasks = isFull || isContributor;
+      updatedAccess.canReadTasks = true;
+      updatedAccess.canUpdateTasks = isFull || isContributor;
+      updatedAccess.canDeleteTasks = isFull;
+    } else if (domain === "expenses") {
+      updatedAccess.canCreateExpenses = isFull || isContributor;
+      updatedAccess.canReadExpenses = true;
+      updatedAccess.canUpdateExpenses = isFull || isContributor;
+      updatedAccess.canDeleteExpenses = isFull;
+    } else if (domain === "vehicles") {
+      updatedAccess.canWriteFuel = isFull || isContributor;
+      updatedAccess.canCreateVehicles = isFull;
+      updatedAccess.canReadVehicles = true;
+      updatedAccess.canWriteMaintenance = isFull || isContributor;
+      updatedAccess.canUpdateVehicles = isFull;
+      updatedAccess.canDeleteVehicles = isFull;
+    } else if (domain === "properties") {
+      updatedAccess.canWriteRent = isFull || isContributor;
+      updatedAccess.canCreateProperties = isFull;
+      updatedAccess.canReadProperties = true;
+      updatedAccess.canWritePropertyMaintenance = isFull || isContributor;
+      updatedAccess.canUpdateProperties = isFull;
+      updatedAccess.canDeleteProperties = isFull;
+    }
+
+    setMembers((prev) =>
+      prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
+    );
+    setSavingId(member.id);
+
+    try {
+      await updateFamilyMember(member.id, { access: updatedAccess });
+      showToast(`Applied ${preset} preset for ${member.fullName}`);
+    } catch {
+      showToast("Failed to apply preset");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  // Scope toggles for Tasks, Expenses, Vehicles, Properties
+  const setMemberSimpleScope = async (
+    member: FamilyMember,
+    field: "assignedTaskScope" | "assignedExpenseScope" | "assignedVehicleScope" | "assignedPropertyScope",
+    val: "all" | "specific"
+  ) => {
+    const currentAcc: FamilyMemberAccess = member.access
+      ? { ...member.access }
+      : getDefaultMemberAccess();
+
+    const updatedAccess: FamilyMemberAccess = {
+      ...currentAcc,
+      [field]: val,
+    };
+
+    setMembers((prev) =>
+      prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
+    );
+    setSavingId(member.id);
+
+    try {
+      await updateFamilyMember(member.id, { access: updatedAccess });
+      showToast(`Updated scope for ${member.fullName}`);
+    } catch {
+      showToast("Failed to update scope");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   // Helper to test if a member has access to a specific vehicle
   const memberHasVehicleAccess = (member: FamilyMember, vehicleId: string) => {
     const acc = member.access;
@@ -354,6 +632,202 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
     if (!acc || !acc.canAccessProperties) return false;
     if (!acc.assignedPropertyIds || acc.assignedPropertyIds.length === 0) return true;
     return acc.assignedPropertyIds.includes(propertyId);
+  };
+
+  // Vehicle Scope & Item Handlers
+  const setVehicleScope = async (member: FamilyMember, scope: "all" | "specific") => {
+    const currentAcc: FamilyMemberAccess = member.access
+      ? { ...member.access }
+      : getDefaultMemberAccess();
+
+    const allVehicleIds = vehicles.map((v) => v.id);
+    const updatedAccess: FamilyMemberAccess = {
+      ...currentAcc,
+      assignedVehicleScope: scope,
+      assignedVehicleIds:
+        scope === "specific"
+          ? currentAcc.assignedVehicleIds && currentAcc.assignedVehicleIds.length > 0
+            ? currentAcc.assignedVehicleIds
+            : allVehicleIds
+          : [],
+    };
+
+    setMembers((prev) =>
+      prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
+    );
+    setSavingId(member.id);
+
+    try {
+      await updateFamilyMember(member.id, { access: updatedAccess });
+      showToast(`Updated vehicle scope for ${member.fullName}`);
+    } catch {
+      showToast("Failed to save vehicle scope");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const toggleVehicleItemAccess = async (member: FamilyMember, vehicleId: string) => {
+    const currentAcc: FamilyMemberAccess = member.access
+      ? { ...member.access }
+      : getDefaultMemberAccess();
+
+    const allVehicleIds = vehicles.map((v) => v.id);
+    let currentAssigned = currentAcc.assignedVehicleIds || [];
+    if (currentAcc.assignedVehicleScope !== "specific") {
+      currentAssigned = [...allVehicleIds];
+    }
+
+    let newAssigned: string[];
+    if (currentAssigned.includes(vehicleId)) {
+      newAssigned = currentAssigned.filter((id) => id !== vehicleId);
+    } else {
+      newAssigned = [...currentAssigned, vehicleId];
+    }
+
+    const updatedAccess: FamilyMemberAccess = {
+      ...currentAcc,
+      assignedVehicleScope: "specific",
+      assignedVehicleIds: newAssigned,
+    };
+
+    setMembers((prev) =>
+      prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
+    );
+    setSavingId(member.id);
+
+    try {
+      await updateFamilyMember(member.id, { access: updatedAccess });
+    } catch {
+      showToast("Failed to update vehicle access");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const selectAllVehiclesForMember = async (member: FamilyMember, selectAll: boolean) => {
+    const currentAcc: FamilyMemberAccess = member.access
+      ? { ...member.access }
+      : getDefaultMemberAccess();
+
+    const allVehicleIds = vehicles.map((v) => v.id);
+    const updatedAccess: FamilyMemberAccess = {
+      ...currentAcc,
+      assignedVehicleScope: "specific",
+      assignedVehicleIds: selectAll ? [...allVehicleIds] : [],
+    };
+
+    setMembers((prev) =>
+      prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
+    );
+    setSavingId(member.id);
+
+    try {
+      await updateFamilyMember(member.id, { access: updatedAccess });
+      showToast(selectAll ? "All vehicles granted" : "All vehicles cleared");
+    } catch {
+      showToast("Failed to update vehicles");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  // Property Scope & Item Handlers
+  const setPropertyScope = async (member: FamilyMember, scope: "all" | "specific") => {
+    const currentAcc: FamilyMemberAccess = member.access
+      ? { ...member.access }
+      : getDefaultMemberAccess();
+
+    const allPropertyIds = properties.map((p) => p.id);
+    const updatedAccess: FamilyMemberAccess = {
+      ...currentAcc,
+      assignedPropertyScope: scope,
+      assignedPropertyIds:
+        scope === "specific"
+          ? currentAcc.assignedPropertyIds && currentAcc.assignedPropertyIds.length > 0
+            ? currentAcc.assignedPropertyIds
+            : allPropertyIds
+          : [],
+    };
+
+    setMembers((prev) =>
+      prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
+    );
+    setSavingId(member.id);
+
+    try {
+      await updateFamilyMember(member.id, { access: updatedAccess });
+      showToast(`Updated property scope for ${member.fullName}`);
+    } catch {
+      showToast("Failed to save property scope");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const togglePropertyItemAccess = async (member: FamilyMember, propertyId: string) => {
+    const currentAcc: FamilyMemberAccess = member.access
+      ? { ...member.access }
+      : getDefaultMemberAccess();
+
+    const allPropertyIds = properties.map((p) => p.id);
+    let currentAssigned = currentAcc.assignedPropertyIds || [];
+    if (currentAcc.assignedPropertyScope !== "specific") {
+      currentAssigned = [...allPropertyIds];
+    }
+
+    let newAssigned: string[];
+    if (currentAssigned.includes(propertyId)) {
+      newAssigned = currentAssigned.filter((id) => id !== propertyId);
+    } else {
+      newAssigned = [...currentAssigned, propertyId];
+    }
+
+    const updatedAccess: FamilyMemberAccess = {
+      ...currentAcc,
+      assignedPropertyScope: "specific",
+      assignedPropertyIds: newAssigned,
+    };
+
+    setMembers((prev) =>
+      prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
+    );
+    setSavingId(member.id);
+
+    try {
+      await updateFamilyMember(member.id, { access: updatedAccess });
+    } catch {
+      showToast("Failed to update property access");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const selectAllPropertiesForMember = async (member: FamilyMember, selectAll: boolean) => {
+    const currentAcc: FamilyMemberAccess = member.access
+      ? { ...member.access }
+      : getDefaultMemberAccess();
+
+    const allPropertyIds = properties.map((p) => p.id);
+    const updatedAccess: FamilyMemberAccess = {
+      ...currentAcc,
+      assignedPropertyScope: "specific",
+      assignedPropertyIds: selectAll ? [...allPropertyIds] : [],
+    };
+
+    setMembers((prev) =>
+      prev.map((m) => (m.id === member.id ? { ...m, access: updatedAccess } : m))
+    );
+    setSavingId(member.id);
+
+    try {
+      await updateFamilyMember(member.id, { access: updatedAccess });
+      showToast(selectAll ? "All properties granted" : "All properties cleared");
+    } catch {
+      showToast("Failed to update properties");
+    } finally {
+      setSavingId(null);
+    }
   };
 
   // Toggle vehicle access for a specific member
@@ -949,391 +1423,962 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
       )}
 
       {/* ========================================================================= */}
-      {/* TAB: VEHICLE-WISE ACCESS (LIGHT THEME)                                    */}
+      {/* TAB 1: VEHICLES ACCESS & CRUD PERMISSIONS                                 */}
       {/* ========================================================================= */}
       {!loading && activeTab === "vehicles" && (
         <div className="space-y-4">
-          {filteredVehicles.length === 0 ? (
-            <div className="p-12 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
-              <Car className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-              <h3 className="text-sm font-semibold text-slate-800">No vehicles found</h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Add vehicles in the Vehicles section first to manage permissions.
-              </p>
+          <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs">
+            <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Car className="h-4 w-4 text-emerald-600" />
+                  <span>Cars & Bikes Fleet Access, CRUD & Scope Permissions</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Control Fuel logging, Read vehicle telemetry, Service maintenance updates, and Delete permissions per member, plus grant access to specific vehicles
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold flex items-center gap-1.5">
+                  <Car className="h-3.5 w-3.5" />
+                  <span>{vehicles.length} Vehicles in Fleet</span>
+                </span>
+                <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100/70 p-0.5 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setVehicleViewMode("members")}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                      vehicleViewMode === "members"
+                        ? "bg-white text-slate-900 shadow-2xs font-bold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    By Member
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVehicleViewMode("vehicles")}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                      vehicleViewMode === "vehicles"
+                        ? "bg-white text-slate-900 shadow-2xs font-bold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    By Vehicle
+                  </button>
+                </div>
+              </div>
             </div>
-          ) : (
-            filteredVehicles.map((v) => {
-              const authorizedCount = members.filter((m) =>
-                memberHasVehicleAccess(m, v.id)
-              ).length;
 
-              return (
-                <div
-                  key={v.id}
-                  className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs"
-                >
-                  {/* Card Header */}
-                  <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-600">
-                        <Car className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                          <span>{v.name}</span>
-                          <span className="text-xs font-normal text-slate-500">
-                            ({v.brand} {v.model} {v.year})
-                          </span>
-                        </div>
-                        <div className="text-xs font-mono text-slate-500">
-                          {v.registrationNumber || "No Plate Number"}
-                        </div>
-                      </div>
-                    </div>
+            {vehicleViewMode === "members" ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50/80 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-100">
+                    <tr>
+                      <th className="py-2.5 px-4 sm:px-6">Member</th>
+                      <th className="py-2.5 px-4">Master Fleet</th>
+                      <th className="py-2.5 px-4">Fleet Scope & Permitted Vehicles</th>
+                      <th className="py-2.5 px-4">CRUD Permissions</th>
+                      <th className="py-2.5 px-4 text-right pr-6">Quick Presets</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredMembers.map((m) => {
+                      const acc = m.access || getDefaultMemberAccess();
+                      const isUnlocked = acc.canAccessVehicles;
+                      const isScopeSpecific = acc.assignedVehicleScope === "specific";
+                      const permittedVehicleIds = isScopeSpecific
+                        ? acc.assignedVehicleIds || []
+                        : vehicles.map((v) => v.id);
+                      const permittedVehicles = vehicles.filter((v) =>
+                        permittedVehicleIds.includes(v.id)
+                      );
 
-                    <div className="flex items-center gap-2.5 self-end sm:self-auto">
-                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold">
-                        {authorizedCount} of {members.length} Members Authorized
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => batchVehicleAccess(v.id, true)}
-                        className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition cursor-pointer shadow-2xs"
-                      >
-                        Grant All
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => batchVehicleAccess(v.id, false)}
-                        className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-rose-600 text-xs font-medium transition cursor-pointer shadow-2xs"
-                      >
-                        Restrict All
-                      </button>
-                    </div>
-                  </div>
+                      const canC = Boolean(acc.canWriteFuel || acc.canCreateVehicles);
+                      const canR = Boolean(acc.canReadVehicles ?? true);
+                      const canU = Boolean(acc.canWriteMaintenance || acc.canUpdateVehicles);
+                      const canD = Boolean(acc.canDeleteVehicles ?? acc.loginRole === "Admin");
 
-                  {/* Table */}
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50/80 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-100">
-                        <tr>
-                          <th className="py-2.5 px-4 sm:px-6">Family Member</th>
-                          <th className="py-2.5 px-4">Vehicle Access</th>
-                          <th className="py-2.5 px-4">Fuel Logging</th>
-                          <th className="py-2.5 px-4">Maintenance</th>
-                          <th className="py-2.5 px-4">Vehicle Docs</th>
-                          <th className="py-2.5 px-4 text-right pr-6">Quick Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {members.map((member) => {
-                          const hasAccess = memberHasVehicleAccess(member, v.id);
-                          const acc = member.access || getDefaultMemberAccess();
-                          const isSaving = savingId === member.id;
+                      return (
+                        <tr
+                          key={m.id}
+                          className={`hover:bg-slate-50/60 transition-colors ${
+                            savingId === m.id ? "opacity-60 bg-amber-50/20" : ""
+                          }`}
+                        >
+                          {/* Column 1: Member info */}
+                          <td className="py-3.5 px-4 sm:px-6 font-semibold text-slate-900 align-top">
+                            <div className="flex items-center gap-2">
+                              <span>{m.fullName}</span>
+                              {!isUnlocked && (
+                                <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-50 text-rose-600 border border-rose-200 font-bold">
+                                  Restricted
+                                </span>
+                              )}
+                            </div>
+                            <span className="block text-[11px] text-slate-400 font-normal mt-0.5">
+                              {m.relationship} • {m.email || m.phone || "No login"}
+                            </span>
+                          </td>
 
-                          return (
-                            <tr key={member.id} className="hover:bg-slate-50/60 transition-colors">
-                              <td className="py-3 px-4 sm:px-6">
-                                <div className="flex items-center gap-3">
-                                  <div
-                                    className={`h-8 w-8 rounded-full flex items-center justify-center font-bold text-xs uppercase border ${
-                                      hasAccess
-                                        ? "bg-orange-50 border-orange-200 text-orange-600"
-                                        : "bg-slate-100 border-slate-200 text-slate-400"
+                          {/* Column 2: Master Fleet Access Toggle */}
+                          <td className="py-3.5 px-4 align-top">
+                            <label className="inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={isUnlocked}
+                                onChange={() => toggleMemberFlag(m, "canAccessVehicles")}
+                                className="sr-only peer"
+                              />
+                              <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                              <span
+                                className={`ms-2 text-xs font-semibold ${
+                                  isUnlocked ? "text-emerald-700" : "text-slate-400"
+                                }`}
+                              >
+                                {isUnlocked ? "Authorized" : "Blocked"}
+                              </span>
+                            </label>
+                          </td>
+
+                          {/* Column 3: Fleet Scope & Specific Vehicle Selection */}
+                          <td className="py-3.5 px-4 align-top">
+                            {!isUnlocked ? (
+                              <span className="text-xs text-slate-400 italic">
+                                Fleet access must be enabled first
+                              </span>
+                            ) : (
+                              <div className="space-y-2">
+                                <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100/70 p-0.5 shadow-2xs">
+                                  <button
+                                    type="button"
+                                    onClick={() => setVehicleScope(m, "all")}
+                                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                                      !isScopeSpecific
+                                        ? "bg-white text-emerald-800 shadow-2xs"
+                                        : "text-slate-600 hover:text-slate-900"
                                     }`}
                                   >
-                                    {member.fullName.charAt(0)}
-                                  </div>
-                                  <div>
-                                    <div className="font-semibold text-slate-900">{member.fullName}</div>
-                                    <div className="text-[11px] text-slate-400">
-                                      {member.relationship} • {member.email || member.phone || "No login"}
-                                    </div>
-                                  </div>
+                                    All Vehicles ({vehicles.length})
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setVehicleScope(m, "specific");
+                                      setOpenVehiclePickerMemberId((prev) =>
+                                        prev === m.id ? null : m.id
+                                      );
+                                    }}
+                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                                      isScopeSpecific
+                                        ? "bg-white text-amber-800 shadow-2xs"
+                                        : "text-slate-600 hover:text-slate-900"
+                                    }`}
+                                  >
+                                    <span>Specific Vehicles</span>
+                                    {isScopeSpecific && (
+                                      <span className="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-200">
+                                        {permittedVehicleIds.length}
+                                      </span>
+                                    )}
+                                  </button>
                                 </div>
-                              </td>
 
-                              <td className="py-3 px-4">
-                                <label className="inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={hasAccess}
-                                    onChange={(e) =>
-                                      toggleVehicleAccess(member, v.id, e.target.checked)
-                                    }
-                                    disabled={isSaving}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
-                                  <span
-                                    className={`ms-2 text-xs font-semibold ${
-                                      hasAccess ? "text-emerald-700" : "text-slate-400"
+                                {isScopeSpecific && (
+                                  <div className="space-y-1.5">
+                                    <div className="flex flex-wrap items-center gap-1 max-w-sm">
+                                      {permittedVehicles.length === 0 ? (
+                                        <span className="text-[11px] text-rose-600 font-medium">
+                                          No vehicles selected (member sees nothing)
+                                        </span>
+                                      ) : (
+                                        permittedVehicles.slice(0, 3).map((v) => (
+                                          <span
+                                            key={v.id}
+                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 text-[10px] font-semibold border border-emerald-200"
+                                          >
+                                            <Car className="h-2.5 w-2.5 text-emerald-600" />
+                                            <span>{v.name}</span>
+                                          </span>
+                                        ))
+                                      )}
+                                      {permittedVehicles.length > 3 && (
+                                        <span className="text-[10px] text-slate-500 font-bold">
+                                          +{permittedVehicles.length - 3} more
+                                        </span>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setOpenVehiclePickerMemberId((prev) =>
+                                            prev === m.id ? null : m.id
+                                          )
+                                        }
+                                        className="text-[11px] font-bold text-emerald-600 hover:text-emerald-800 ml-1 cursor-pointer flex items-center gap-0.5"
+                                      >
+                                        <span>
+                                          {openVehiclePickerMemberId === m.id
+                                            ? "Done"
+                                            : "Edit Vehicles"}
+                                        </span>
+                                        {openVehiclePickerMemberId === m.id ? (
+                                          <ChevronUp className="h-3 w-3" />
+                                        ) : (
+                                          <ChevronDown className="h-3 w-3" />
+                                        )}
+                                      </button>
+                                    </div>
+
+                                    {openVehiclePickerMemberId === m.id && (
+                                      <div className="mt-2 p-3 bg-slate-50 rounded-xl border border-slate-200/90 shadow-2xs max-w-md space-y-2">
+                                        <div className="flex items-center justify-between text-xs border-b border-slate-200/80 pb-1.5">
+                                          <span className="font-bold text-slate-800">
+                                            Select Permitted Vehicles:
+                                          </span>
+                                          <div className="flex items-center gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() => selectAllVehiclesForMember(m, true)}
+                                              className="text-[11px] font-bold text-emerald-600 hover:underline cursor-pointer"
+                                            >
+                                              Select All
+                                            </button>
+                                            <span className="text-slate-300">•</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => selectAllVehiclesForMember(m, false)}
+                                              className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
+                                            >
+                                              Clear All
+                                            </button>
+                                          </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                                          {vehicles.map((v) => {
+                                            const isChecked = permittedVehicleIds.includes(v.id);
+                                            return (
+                                              <label
+                                                key={v.id}
+                                                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer transition select-none ${
+                                                  isChecked
+                                                    ? "bg-white border-emerald-300 text-emerald-900 font-semibold shadow-2xs"
+                                                    : "bg-slate-100/60 border-slate-200 text-slate-600 hover:bg-white"
+                                                }`}
+                                              >
+                                                <input
+                                                  type="checkbox"
+                                                  checked={isChecked}
+                                                  onChange={() => toggleVehicleItemAccess(m, v.id)}
+                                                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 h-3.5 w-3.5"
+                                                />
+                                                <Car
+                                                  className={`h-3.5 w-3.5 shrink-0 ${
+                                                    isChecked ? "text-emerald-600" : "text-slate-400"
+                                                  }`}
+                                                />
+                                                <div className="truncate">
+                                                  <div className="truncate font-semibold">{v.name}</div>
+                                                  <div className="text-[10px] text-slate-400 font-mono truncate">
+                                                    {v.registrationNumber || v.model}
+                                                  </div>
+                                                </div>
+                                              </label>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Column 4: CRUD Controls */}
+                          <td className="py-3.5 px-4 align-top">
+                            {!isUnlocked ? (
+                              <span className="text-xs text-slate-400 italic">No permissions</span>
+                            ) : (
+                              <div className="space-y-1.5">
+                                <div className="flex flex-wrap items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleDomainCrud(m, "vehicles", "C")}
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                      canC
+                                        ? "bg-amber-50 border-amber-300 text-amber-800 shadow-2xs"
+                                        : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
                                     }`}
+                                    title={
+                                      canC
+                                        ? "Can Log Fuel & Add Vehicles (Click to revoke)"
+                                        : "Cannot Log Fuel (Click to grant)"
+                                    }
                                   >
-                                    {hasAccess ? "Authorized" : "Blocked"}
-                                  </span>
-                                </label>
-                              </td>
+                                    <Fuel className="h-3 w-3" />
+                                    <span>+ Fuel/Add</span>
+                                  </button>
 
-                              <td className="py-3 px-4">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleDomainCrud(m, "vehicles", "R")}
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                      canR
+                                        ? "bg-emerald-50 border-emerald-300 text-emerald-800 shadow-2xs"
+                                        : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                    }`}
+                                    title="Can View Vehicles & Service Telemetry"
+                                  >
+                                    <Eye className="h-3 w-3" />
+                                    <span>Read</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleDomainCrud(m, "vehicles", "U")}
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                      canU
+                                        ? "bg-sky-50 border-sky-300 text-sky-800 shadow-2xs"
+                                        : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                    }`}
+                                    title="Can Log Service & Edit Details"
+                                  >
+                                    <Wrench className="h-3 w-3" />
+                                    <span>Service</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleDomainCrud(m, "vehicles", "D")}
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                      canD
+                                        ? "bg-rose-50 border-rose-300 text-rose-800 shadow-2xs"
+                                        : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                    }`}
+                                    title="Can Delete Vehicles & Service Records"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                    <span>Delete</span>
+                                  </button>
+                                </div>
+
+                                <div className="text-[10px] text-slate-400 font-mono">
+                                  ACTIVE: {[canC && "Fuel/Add", canR && "Read", canU && "Service", canD && "Delete"].filter(Boolean).join(" • ") || "None"}
+                                </div>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Column 5: Presets & Invite */}
+                          <td className="py-3.5 px-4 text-right pr-6 align-top">
+                            {isUnlocked ? (
+                              <div className="flex flex-col items-end gap-1.5">
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => setDomainPreset(m, "vehicles", "full")}
+                                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+                                    title="Full Driver & Fleet Manager"
+                                  >
+                                    Full Driver
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDomainPreset(m, "vehicles", "contributor")}
+                                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+                                    title="Allow Fuel Logging & Viewing"
+                                  >
+                                    Fuel + Read
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDomainPreset(m, "vehicles", "readonly")}
+                                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+                                    title="View Only"
+                                  >
+                                    View Only
+                                  </button>
+                                </div>
                                 <button
                                   type="button"
-                                  disabled={!hasAccess || isSaving}
-                                  onClick={() => toggleMemberFlag(member, "canWriteFuel")}
-                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
-                                    !hasAccess
-                                      ? "opacity-40 cursor-not-allowed bg-slate-100 text-slate-400"
-                                      : acc.canWriteFuel
-                                      ? "bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100"
-                                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                                  }`}
+                                  onClick={() => setInviteMember(m)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-semibold"
                                 >
-                                  <Fuel className="h-3.5 w-3.5 text-amber-600" />
-                                  <span>{acc.canWriteFuel ? "Can Log Fuel" : "View Only"}</span>
-                                </button>
-                              </td>
-
-                              <td className="py-3 px-4">
-                                <button
-                                  type="button"
-                                  disabled={!hasAccess || isSaving}
-                                  onClick={() => toggleMemberFlag(member, "canWriteMaintenance")}
-                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
-                                    !hasAccess
-                                      ? "opacity-40 cursor-not-allowed bg-slate-100 text-slate-400"
-                                      : acc.canWriteMaintenance
-                                      ? "bg-sky-50 border border-sky-200 text-sky-800 hover:bg-sky-100"
-                                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                                  }`}
-                                >
-                                  <Wrench className="h-3.5 w-3.5 text-sky-600" />
-                                  <span>{acc.canWriteMaintenance ? "Can Log Service" : "View Only"}</span>
-                                </button>
-                              </td>
-
-                              <td className="py-3 px-4">
-                                <button
-                                  type="button"
-                                  disabled={!hasAccess || isSaving}
-                                  onClick={() => toggleMemberFlag(member, "canWriteDocuments")}
-                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
-                                    !hasAccess
-                                      ? "opacity-40 cursor-not-allowed bg-slate-100 text-slate-400"
-                                      : acc.canWriteDocuments
-                                      ? "bg-purple-50 border border-purple-200 text-purple-800 hover:bg-purple-100"
-                                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                                  }`}
-                                >
-                                  <FileText className="h-3.5 w-3.5 text-purple-600" />
-                                  <span>{acc.canWriteDocuments ? "Can Upload" : "View Only"}</span>
-                                </button>
-                              </td>
-
-                              <td className="py-3 px-4 text-right pr-6">
-                                <button
-                                  type="button"
-                                  onClick={() => setInviteMember(member)}
-                                  className="inline-flex items-center gap-1 px-2 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-[11px] font-semibold"
-                                >
-                                  <Share2 className="h-3.5 w-3.5 text-slate-400" />
+                                  <Share2 className="h-3 w-3 text-slate-400" />
                                   <span>Invite</span>
                                 </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              );
-            })
-          )}
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setInviteMember(m)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-semibold"
+                              >
+                                <Share2 className="h-3 w-3 text-slate-400" />
+                                <span>Invite</span>
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              /* By Vehicle Per-Card Mode */
+              <div className="p-4 space-y-4">
+                {filteredVehicles.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400">No vehicles found</div>
+                ) : (
+                  filteredVehicles.map((v) => {
+                    const authorizedCount = members.filter((m) =>
+                      memberHasVehicleAccess(m, v.id)
+                    ).length;
+
+                    return (
+                      <div
+                        key={v.id}
+                        className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs"
+                      >
+                        <div className="p-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Car className="h-4 w-4 text-orange-600" />
+                            <span className="font-bold text-slate-900">{v.name}</span>
+                            <span className="text-xs text-slate-400 font-mono">
+                              ({v.registrationNumber || v.model})
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200">
+                              {authorizedCount} of {members.length} Authorized
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => batchVehicleAccess(v.id, true)}
+                              className="px-2 py-0.5 rounded text-[11px] font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer shadow-2xs"
+                            >
+                              Grant All
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => batchVehicleAccess(v.id, false)}
+                              className="px-2 py-0.5 rounded text-[11px] font-semibold bg-white border border-slate-200 text-rose-600 hover:bg-slate-100 cursor-pointer shadow-2xs"
+                            >
+                              Restrict All
+                            </button>
+                          </div>
+                        </div>
+                        <div className="p-3">
+                          <div className="flex flex-wrap gap-2">
+                            {members.map((m) => {
+                              const hasAccess = memberHasVehicleAccess(m, v.id);
+                              return (
+                                <button
+                                  key={m.id}
+                                  type="button"
+                                  onClick={() => toggleVehicleItemAccess(m, v.id)}
+                                  className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition cursor-pointer flex items-center gap-1.5 ${
+                                    hasAccess
+                                      ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+                                      : "bg-slate-50 border-slate-200 text-slate-400"
+                                  }`}
+                                >
+                                  <span>{m.fullName}</span>
+                                  {hasAccess && <Check className="h-3 w-3 text-emerald-600" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 2: PROPERTY-WISE ACCESS (LIGHT THEME)                                */}
+      {/* TAB 2: PROPERTY ACCESS & CRUD PERMISSIONS                                 */}
       {/* ========================================================================= */}
       {!loading && activeTab === "properties" && (
         <div className="space-y-4">
-          {filteredProperties.length === 0 ? (
-            <div className="p-12 text-center border border-dashed border-slate-200 rounded-2xl bg-white">
-              <Building2 className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-              <h3 className="text-sm font-semibold text-slate-800">No properties found</h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Add properties in the Real Estate section first to manage permissions.
-              </p>
+          <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs">
+            <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-indigo-600" />
+                  <span>Real Estate, Rental Assets & Scope Permissions</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Control Rent collection, Read property details, Expense logging, and Delete permissions per member, plus grant access to specific properties
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 font-semibold flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" />
+                  <span>{properties.length} Properties in Portfolio</span>
+                </span>
+                <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100/70 p-0.5 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setPropertyViewMode("members")}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                      propertyViewMode === "members"
+                        ? "bg-white text-slate-900 shadow-2xs font-bold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    By Member
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPropertyViewMode("properties")}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                      propertyViewMode === "properties"
+                        ? "bg-white text-slate-900 shadow-2xs font-bold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    By Property
+                  </button>
+                </div>
+              </div>
             </div>
-          ) : (
-            filteredProperties.map((p) => {
-              const authorizedCount = members.filter((m) =>
-                memberHasPropertyAccess(m, p.id)
-              ).length;
 
-              return (
-                <div
-                  key={p.id}
-                  className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs"
-                >
-                  <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-600">
-                        <Building2 className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                          <span>{p.name}</span>
-                          <span className="text-xs font-normal text-slate-500">
-                            ({p.type || "Rental Asset"})
-                          </span>
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {p.location} • {p.unitsCount} Units
-                        </div>
-                      </div>
-                    </div>
+            {propertyViewMode === "members" ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50/80 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-100">
+                    <tr>
+                      <th className="py-2.5 px-4 sm:px-6">Member</th>
+                      <th className="py-2.5 px-4">Master Properties</th>
+                      <th className="py-2.5 px-4">Property Scope & Permitted Units</th>
+                      <th className="py-2.5 px-4">CRUD Permissions</th>
+                      <th className="py-2.5 px-4 text-right pr-6">Quick Presets</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredMembers.map((m) => {
+                      const acc = m.access || getDefaultMemberAccess();
+                      const isUnlocked = acc.canAccessProperties;
+                      const isScopeSpecific = acc.assignedPropertyScope === "specific";
+                      const permittedPropertyIds = isScopeSpecific
+                        ? acc.assignedPropertyIds || []
+                        : properties.map((p) => p.id);
+                      const permittedProps = properties.filter((p) =>
+                        permittedPropertyIds.includes(p.id)
+                      );
 
-                    <div className="flex items-center gap-2.5 self-end sm:self-auto">
-                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold">
-                        {authorizedCount} of {members.length} Members Authorized
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => batchPropertyAccess(p.id, true)}
-                        className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition cursor-pointer shadow-2xs"
-                      >
-                        Grant All
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => batchPropertyAccess(p.id, false)}
-                        className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-rose-600 text-xs font-medium transition cursor-pointer shadow-2xs"
-                      >
-                        Restrict All
-                      </button>
-                    </div>
-                  </div>
+                      const canC = Boolean(acc.canWriteRent || acc.canCreateProperties);
+                      const canR = Boolean(acc.canReadProperties ?? true);
+                      const canU = Boolean(acc.canWritePropertyMaintenance || acc.canUpdateProperties);
+                      const canD = Boolean(acc.canDeleteProperties ?? acc.loginRole === "Admin");
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50/80 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-100">
-                        <tr>
-                          <th className="py-2.5 px-4 sm:px-6">Family Member</th>
-                          <th className="py-2.5 px-4">Property Access</th>
-                          <th className="py-2.5 px-4">Rent Collection</th>
-                          <th className="py-2.5 px-4">Maintenance & Expenses</th>
-                          <th className="py-2.5 px-4 text-right pr-6">Quick Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {members.map((member) => {
-                          const hasAccess = memberHasPropertyAccess(member, p.id);
-                          const acc = member.access || getDefaultMemberAccess();
-                          const isSaving = savingId === member.id;
+                      return (
+                        <tr
+                          key={m.id}
+                          className={`hover:bg-slate-50/60 transition-colors ${
+                            savingId === m.id ? "opacity-60 bg-amber-50/20" : ""
+                          }`}
+                        >
+                          {/* Column 1: Member info */}
+                          <td className="py-3.5 px-4 sm:px-6 font-semibold text-slate-900 align-top">
+                            <div className="flex items-center gap-2">
+                              <span>{m.fullName}</span>
+                              {!isUnlocked && (
+                                <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-50 text-rose-600 border border-rose-200 font-bold">
+                                  Restricted
+                                </span>
+                              )}
+                            </div>
+                            <span className="block text-[11px] text-slate-400 font-normal mt-0.5">
+                              {m.relationship} • {m.email || m.phone || "No login"}
+                            </span>
+                          </td>
 
-                          return (
-                            <tr key={member.id} className="hover:bg-slate-50/60 transition-colors">
-                              <td className="py-3 px-4 sm:px-6">
-                                <div className="flex items-center gap-3">
-                                  <div
-                                    className={`h-8 w-8 rounded-full flex items-center justify-center font-bold text-xs uppercase border ${
-                                      hasAccess
-                                        ? "bg-indigo-50 border-indigo-200 text-indigo-600"
-                                        : "bg-slate-100 border-slate-200 text-slate-400"
+                          {/* Column 2: Master Properties Access Toggle */}
+                          <td className="py-3.5 px-4 align-top">
+                            <label className="inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={isUnlocked}
+                                onChange={() => toggleMemberFlag(m, "canAccessProperties")}
+                                className="sr-only peer"
+                              />
+                              <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                              <span
+                                className={`ms-2 text-xs font-semibold ${
+                                  isUnlocked ? "text-indigo-700" : "text-slate-400"
+                                }`}
+                              >
+                                {isUnlocked ? "Authorized" : "Blocked"}
+                              </span>
+                            </label>
+                          </td>
+
+                          {/* Column 3: Property Scope & Specific Property Selection */}
+                          <td className="py-3.5 px-4 align-top">
+                            {!isUnlocked ? (
+                              <span className="text-xs text-slate-400 italic">
+                                Property access must be enabled first
+                              </span>
+                            ) : (
+                              <div className="space-y-2">
+                                <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100/70 p-0.5 shadow-2xs">
+                                  <button
+                                    type="button"
+                                    onClick={() => setPropertyScope(m, "all")}
+                                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                                      !isScopeSpecific
+                                        ? "bg-white text-indigo-800 shadow-2xs"
+                                        : "text-slate-600 hover:text-slate-900"
                                     }`}
                                   >
-                                    {member.fullName.charAt(0)}
-                                  </div>
-                                  <div>
-                                    <div className="font-semibold text-slate-900">{member.fullName}</div>
-                                    <div className="text-[11px] text-slate-400">
-                                      {member.relationship} • {member.email || member.phone || "No login"}
-                                    </div>
-                                  </div>
+                                    All Properties ({properties.length})
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPropertyScope(m, "specific");
+                                      setOpenPropertyPickerMemberId((prev) =>
+                                        prev === m.id ? null : m.id
+                                      );
+                                    }}
+                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                                      isScopeSpecific
+                                        ? "bg-white text-amber-800 shadow-2xs"
+                                        : "text-slate-600 hover:text-slate-900"
+                                    }`}
+                                  >
+                                    <span>Specific Properties</span>
+                                    {isScopeSpecific && (
+                                      <span className="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-200">
+                                        {permittedPropertyIds.length}
+                                      </span>
+                                    )}
+                                  </button>
                                 </div>
-                              </td>
 
-                              <td className="py-3 px-4">
-                                <label className="inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={hasAccess}
-                                    onChange={(e) =>
-                                      togglePropertyAccess(member, p.id, e.target.checked)
-                                    }
-                                    disabled={isSaving}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
-                                  <span
-                                    className={`ms-2 text-xs font-semibold ${
-                                      hasAccess ? "text-emerald-700" : "text-slate-400"
+                                {isScopeSpecific && (
+                                  <div className="space-y-1.5">
+                                    <div className="flex flex-wrap items-center gap-1 max-w-sm">
+                                      {permittedProps.length === 0 ? (
+                                        <span className="text-[11px] text-rose-600 font-medium">
+                                          No properties selected (member sees nothing)
+                                        </span>
+                                      ) : (
+                                        permittedProps.slice(0, 3).map((p) => (
+                                          <span
+                                            key={p.id}
+                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 text-[10px] font-semibold border border-indigo-200"
+                                          >
+                                            <Building2 className="h-2.5 w-2.5 text-indigo-600" />
+                                            <span>{p.name}</span>
+                                          </span>
+                                        ))
+                                      )}
+                                      {permittedProps.length > 3 && (
+                                        <span className="text-[10px] text-slate-500 font-bold">
+                                          +{permittedProps.length - 3} more
+                                        </span>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setOpenPropertyPickerMemberId((prev) =>
+                                            prev === m.id ? null : m.id
+                                          )
+                                        }
+                                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 ml-1 cursor-pointer flex items-center gap-0.5"
+                                      >
+                                        <span>
+                                          {openPropertyPickerMemberId === m.id
+                                            ? "Done"
+                                            : "Edit Properties"}
+                                        </span>
+                                        {openPropertyPickerMemberId === m.id ? (
+                                          <ChevronUp className="h-3 w-3" />
+                                        ) : (
+                                          <ChevronDown className="h-3 w-3" />
+                                        )}
+                                      </button>
+                                    </div>
+
+                                    {openPropertyPickerMemberId === m.id && (
+                                      <div className="mt-2 p-3 bg-slate-50 rounded-xl border border-slate-200/90 shadow-2xs max-w-md space-y-2">
+                                        <div className="flex items-center justify-between text-xs border-b border-slate-200/80 pb-1.5">
+                                          <span className="font-bold text-slate-800">
+                                            Select Permitted Properties:
+                                          </span>
+                                          <div className="flex items-center gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() => selectAllPropertiesForMember(m, true)}
+                                              className="text-[11px] font-bold text-indigo-600 hover:underline cursor-pointer"
+                                            >
+                                              Select All
+                                            </button>
+                                            <span className="text-slate-300">•</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => selectAllPropertiesForMember(m, false)}
+                                              className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
+                                            >
+                                              Clear All
+                                            </button>
+                                          </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                                          {properties.map((p) => {
+                                            const isChecked = permittedPropertyIds.includes(p.id);
+                                            return (
+                                              <label
+                                                key={p.id}
+                                                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer transition select-none ${
+                                                  isChecked
+                                                    ? "bg-white border-indigo-300 text-indigo-900 font-semibold shadow-2xs"
+                                                    : "bg-slate-100/60 border-slate-200 text-slate-600 hover:bg-white"
+                                                }`}
+                                              >
+                                                <input
+                                                  type="checkbox"
+                                                  checked={isChecked}
+                                                  onChange={() => togglePropertyItemAccess(m, p.id)}
+                                                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
+                                                />
+                                                <Building2
+                                                  className={`h-3.5 w-3.5 shrink-0 ${
+                                                    isChecked ? "text-indigo-600" : "text-slate-400"
+                                                  }`}
+                                                />
+                                                <div className="truncate">
+                                                  <div className="truncate font-semibold">{p.name}</div>
+                                                  <div className="text-[10px] text-slate-400 truncate">
+                                                    {p.location}
+                                                  </div>
+                                                </div>
+                                              </label>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Column 4: CRUD Controls */}
+                          <td className="py-3.5 px-4 align-top">
+                            {!isUnlocked ? (
+                              <span className="text-xs text-slate-400 italic">No permissions</span>
+                            ) : (
+                              <div className="space-y-1.5">
+                                <div className="flex flex-wrap items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleDomainCrud(m, "properties", "C")}
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                      canC
+                                        ? "bg-emerald-50 border-emerald-300 text-emerald-800 shadow-2xs"
+                                        : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
                                     }`}
+                                    title={
+                                      canC
+                                        ? "Can Collect Rent & Add Properties (Click to revoke)"
+                                        : "Cannot Collect Rent (Click to grant)"
+                                    }
                                   >
-                                    {hasAccess ? "Authorized" : "Blocked"}
-                                  </span>
-                                </label>
-                              </td>
+                                    <DollarSign className="h-3 w-3" />
+                                    <span>+ Rent/Add</span>
+                                  </button>
 
-                              <td className="py-3 px-4">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleDomainCrud(m, "properties", "R")}
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                      canR
+                                        ? "bg-emerald-50 border-emerald-300 text-emerald-800 shadow-2xs"
+                                        : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                    }`}
+                                    title="Can View Property Details & Tenants"
+                                  >
+                                    <Eye className="h-3 w-3" />
+                                    <span>Read</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleDomainCrud(m, "properties", "U")}
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                      canU
+                                        ? "bg-amber-50 border-amber-300 text-amber-800 shadow-2xs"
+                                        : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                    }`}
+                                    title="Can Log Expenses & Edit Details"
+                                  >
+                                    <Wrench className="h-3 w-3" />
+                                    <span>Expenses</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleDomainCrud(m, "properties", "D")}
+                                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                      canD
+                                        ? "bg-rose-50 border-rose-300 text-rose-800 shadow-2xs"
+                                        : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                    }`}
+                                    title="Can Delete Properties & Units"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                    <span>Delete</span>
+                                  </button>
+                                </div>
+
+                                <div className="text-[10px] text-slate-400 font-mono">
+                                  ACTIVE: {[canC && "Rent/Add", canR && "Read", canU && "Expenses", canD && "Delete"].filter(Boolean).join(" • ") || "None"}
+                                </div>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Column 5: Presets & Invite */}
+                          <td className="py-3.5 px-4 text-right pr-6 align-top">
+                            {isUnlocked ? (
+                              <div className="flex flex-col items-end gap-1.5">
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => setDomainPreset(m, "properties", "full")}
+                                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+                                    title="Full Estate Manager"
+                                  >
+                                    Full Manager
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDomainPreset(m, "properties", "contributor")}
+                                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+                                    title="Allow Rent Collection & Reading"
+                                  >
+                                    Rent Collector
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDomainPreset(m, "properties", "readonly")}
+                                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+                                    title="View Only"
+                                  >
+                                    View Only
+                                  </button>
+                                </div>
                                 <button
                                   type="button"
-                                  disabled={!hasAccess || isSaving}
-                                  onClick={() => toggleMemberFlag(member, "canWriteRent")}
-                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
-                                    !hasAccess
-                                      ? "opacity-40 cursor-not-allowed bg-slate-100 text-slate-400"
-                                      : acc.canWriteRent
-                                      ? "bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100"
-                                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                                  }`}
+                                  onClick={() => setInviteMember(m)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-semibold"
                                 >
-                                  <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
-                                  <span>{acc.canWriteRent ? "Can Collect Rent" : "View Only"}</span>
-                                </button>
-                              </td>
-
-                              <td className="py-3 px-4">
-                                <button
-                                  type="button"
-                                  disabled={!hasAccess || isSaving}
-                                  onClick={() =>
-                                    toggleMemberFlag(member, "canWritePropertyMaintenance")
-                                  }
-                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition cursor-pointer ${
-                                    !hasAccess
-                                      ? "opacity-40 cursor-not-allowed bg-slate-100 text-slate-400"
-                                      : acc.canWritePropertyMaintenance
-                                      ? "bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100"
-                                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                                  }`}
-                                >
-                                  <Wrench className="h-3.5 w-3.5 text-amber-600" />
-                                  <span>{acc.canWritePropertyMaintenance ? "Can Log Expenses" : "View Only"}</span>
-                                </button>
-                              </td>
-
-                              <td className="py-3 px-4 text-right pr-6">
-                                <button
-                                  type="button"
-                                  onClick={() => setInviteMember(member)}
-                                  className="inline-flex items-center gap-1 px-2 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-[11px] font-semibold"
-                                >
-                                  <Share2 className="h-3.5 w-3.5 text-slate-400" />
+                                  <Share2 className="h-3 w-3 text-slate-400" />
                                   <span>Invite</span>
                                 </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              );
-            })
-          )}
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setInviteMember(m)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-semibold"
+                              >
+                                <Share2 className="h-3 w-3 text-slate-400" />
+                                <span>Invite</span>
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              /* By Property Per-Card Mode */
+              <div className="p-4 space-y-4">
+                {filteredProperties.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400">No properties found</div>
+                ) : (
+                  filteredProperties.map((p) => {
+                    const authorizedCount = members.filter((m) =>
+                      memberHasPropertyAccess(m, p.id)
+                    ).length;
+
+                    return (
+                      <div
+                        key={p.id}
+                        className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-2xs"
+                      >
+                        <div className="p-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-4 w-4 text-indigo-600" />
+                            <span className="font-bold text-slate-900">{p.name}</span>
+                            <span className="text-xs text-slate-400">
+                              ({p.location} • {p.unitsCount} Units)
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200">
+                              {authorizedCount} of {members.length} Authorized
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => batchPropertyAccess(p.id, true)}
+                              className="px-2 py-0.5 rounded text-[11px] font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer shadow-2xs"
+                            >
+                              Grant All
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => batchPropertyAccess(p.id, false)}
+                              className="px-2 py-0.5 rounded text-[11px] font-semibold bg-white border border-slate-200 text-rose-600 hover:bg-slate-100 cursor-pointer shadow-2xs"
+                            >
+                              Restrict All
+                            </button>
+                          </div>
+                        </div>
+                        <div className="p-3">
+                          <div className="flex flex-wrap gap-2">
+                            {members.map((m) => {
+                              const hasAccess = memberHasPropertyAccess(m, p.id);
+                              return (
+                                <button
+                                  key={m.id}
+                                  type="button"
+                                  onClick={() => togglePropertyItemAccess(m, p.id)}
+                                  className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition cursor-pointer flex items-center gap-1.5 ${
+                                    hasAccess
+                                      ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+                                      : "bg-slate-50 border-slate-200 text-slate-400"
+                                  }`}
+                                >
+                                  <span>{m.fullName}</span>
+                                  {hasAccess && <Check className="h-3 w-3 text-emerald-600" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1736,15 +2781,21 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
       {/* ========================================================================= */}
       {!loading && activeTab === "warranties" && (
         <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs">
-          <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                <span>Purchases, Warranties & Receipts Access</span>
+                <ShieldCheck className="h-4 w-4 text-teal-600" />
+                <span>Purchases, Warranties & Receipts Access, CRUD & Category Permissions</span>
               </h3>
-              <p className="text-xs text-slate-500">
-                Control access to electronics, vehicle batteries, appliances, and warranty receipts
+              <p className="text-xs text-slate-500 mt-0.5">
+                Control Create (add purchases), Read (view receipts), Update (edit warranty details), and Delete permissions per member, plus grant access to specific warranty categories
               </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-700 font-semibold flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                <span>{DEFAULT_WARRANTY_CATEGORIES.length} Categories Available</span>
+              </span>
             </div>
           </div>
 
@@ -1753,50 +2804,343 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
               <thead className="bg-slate-50/80 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-100">
                 <tr>
                   <th className="py-2.5 px-4 sm:px-6">Member</th>
-                  <th className="py-2.5 px-4">Warranties Access</th>
-                  <th className="py-2.5 px-4 text-right pr-6">Invite</th>
+                  <th className="py-2.5 px-4">Master Warranties</th>
+                  <th className="py-2.5 px-4">Category Scope & Permitted Categories</th>
+                  <th className="py-2.5 px-4">CRUD Permissions</th>
+                  <th className="py-2.5 px-4 text-right pr-6">Quick Presets</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredMembers.map((m) => {
                   const acc = m.access || getDefaultMemberAccess();
+                  const isUnlocked = acc.canAccessWarranties;
+                  const isScopeSpecific = acc.assignedWarrantyScope === "specific";
+                  const permittedCategories = isScopeSpecific
+                    ? acc.assignedWarrantyCategories || []
+                    : DEFAULT_WARRANTY_CATEGORIES;
+
+                  const canC = Boolean(acc.canCreateWarranties ?? acc.loginRole === "Admin");
+                  const canR = Boolean(acc.canReadWarranties ?? true);
+                  const canU = Boolean(acc.canUpdateWarranties ?? acc.loginRole === "Admin");
+                  const canD = Boolean(acc.canDeleteWarranties ?? acc.loginRole === "Admin");
+
                   return (
-                    <tr key={m.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3 px-4 sm:px-6 font-semibold text-slate-900">
-                        {m.fullName}
-                        <span className="block text-[11px] text-slate-400 font-normal">
+                    <tr
+                      key={m.id}
+                      className={`hover:bg-slate-50/60 transition-colors ${
+                        savingId === m.id ? "opacity-60 bg-amber-50/20" : ""
+                      }`}
+                    >
+                      {/* Column 1: Member info */}
+                      <td className="py-3.5 px-4 sm:px-6 font-semibold text-slate-900 align-top">
+                        <div className="flex items-center gap-2">
+                          <span>{m.fullName}</span>
+                          {!isUnlocked && (
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-50 text-rose-600 border border-rose-200 font-bold">
+                              Restricted
+                            </span>
+                          )}
+                        </div>
+                        <span className="block text-[11px] text-slate-400 font-normal mt-0.5">
                           {m.relationship} • {m.email || m.phone || "No login"}
                         </span>
                       </td>
 
-                      <td className="py-3 px-4">
+                      {/* Column 2: Master Access Toggle */}
+                      <td className="py-3.5 px-4 align-top">
                         <label className="inline-flex items-center cursor-pointer">
                           <input
                             type="checkbox"
-                            checked={acc.canAccessWarranties}
+                            checked={isUnlocked}
                             onChange={() => toggleMemberFlag(m, "canAccessWarranties")}
                             className="sr-only peer"
                           />
-                          <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                          <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-600"></div>
                           <span
                             className={`ms-2 text-xs font-semibold ${
-                              acc.canAccessWarranties ? "text-emerald-700" : "text-slate-400"
+                              isUnlocked ? "text-teal-700" : "text-slate-400"
                             }`}
                           >
-                            {acc.canAccessWarranties ? "Authorized" : "Restricted"}
+                            {isUnlocked ? "Authorized" : "Blocked"}
                           </span>
                         </label>
                       </td>
 
-                      <td className="py-3 px-4 text-right pr-6">
-                        <button
-                          type="button"
-                          onClick={() => setInviteMember(m)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-medium"
-                        >
-                          <Share2 className="h-3.5 w-3.5" />
-                          <span>Invite</span>
-                        </button>
+                      {/* Column 3: Category Scope & Specific Category Selection */}
+                      <td className="py-3.5 px-4 align-top">
+                        {!isUnlocked ? (
+                          <span className="text-xs text-slate-400 italic">
+                            Warranties access must be enabled first
+                          </span>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100/70 p-0.5 shadow-2xs">
+                              <button
+                                type="button"
+                                onClick={() => setWarrantyScope(m, "all")}
+                                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                                  !isScopeSpecific
+                                    ? "bg-white text-teal-800 shadow-2xs"
+                                    : "text-slate-600 hover:text-slate-900"
+                                }`}
+                              >
+                                All Categories ({DEFAULT_WARRANTY_CATEGORIES.length})
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setWarrantyScope(m, "specific");
+                                  setOpenWarrantyPickerMemberId((prev) =>
+                                    prev === m.id ? null : m.id
+                                  );
+                                }}
+                                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                                  isScopeSpecific
+                                    ? "bg-white text-amber-800 shadow-2xs"
+                                    : "text-slate-600 hover:text-slate-900"
+                                }`}
+                              >
+                                <span>Specific Categories</span>
+                                {isScopeSpecific && (
+                                  <span className="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-200">
+                                    {permittedCategories.length}
+                                  </span>
+                                )}
+                              </button>
+                            </div>
+
+                            {isScopeSpecific && (
+                              <div className="space-y-1.5">
+                                <div className="flex flex-wrap items-center gap-1 max-w-sm">
+                                  {permittedCategories.length === 0 ? (
+                                    <span className="text-[11px] text-rose-600 font-medium">
+                                      No categories selected (member sees nothing)
+                                    </span>
+                                  ) : (
+                                    permittedCategories.slice(0, 3).map((cName) => (
+                                      <span
+                                        key={cName}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 text-[10px] font-semibold border border-teal-200"
+                                      >
+                                        <ShieldCheck className="h-2.5 w-2.5 text-teal-600" />
+                                        <span>{cName}</span>
+                                      </span>
+                                    ))
+                                  )}
+                                  {permittedCategories.length > 3 && (
+                                    <span className="text-[10px] text-slate-500 font-bold">
+                                      +{permittedCategories.length - 3} more
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setOpenWarrantyPickerMemberId((prev) =>
+                                        prev === m.id ? null : m.id
+                                      )
+                                    }
+                                    className="text-[11px] font-bold text-teal-600 hover:text-teal-800 ml-1 cursor-pointer flex items-center gap-0.5"
+                                  >
+                                    <span>
+                                      {openWarrantyPickerMemberId === m.id
+                                        ? "Done"
+                                        : "Edit Categories"}
+                                    </span>
+                                    {openWarrantyPickerMemberId === m.id ? (
+                                      <ChevronUp className="h-3 w-3" />
+                                    ) : (
+                                      <ChevronDown className="h-3 w-3" />
+                                    )}
+                                  </button>
+                                </div>
+
+                                {openWarrantyPickerMemberId === m.id && (
+                                  <div className="mt-2 p-3 bg-slate-50 rounded-xl border border-slate-200/90 shadow-2xs max-w-md space-y-2">
+                                    <div className="flex items-center justify-between text-xs border-b border-slate-200/80 pb-1.5">
+                                      <span className="font-bold text-slate-800">
+                                        Select Permitted Categories:
+                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => selectAllWarrantyCategories(m, true)}
+                                          className="text-[11px] font-bold text-teal-600 hover:underline cursor-pointer"
+                                        >
+                                          Select All
+                                        </button>
+                                        <span className="text-slate-300">•</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => selectAllWarrantyCategories(m, false)}
+                                          className="text-[11px] font-bold text-rose-600 hover:underline cursor-pointer"
+                                        >
+                                          Clear All
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                                      {DEFAULT_WARRANTY_CATEGORIES.map((catName) => {
+                                        const isChecked = permittedCategories.includes(catName);
+                                        return (
+                                          <label
+                                            key={catName}
+                                            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer transition select-none ${
+                                              isChecked
+                                                ? "bg-white border-teal-300 text-teal-900 font-semibold shadow-2xs"
+                                                : "bg-slate-100/60 border-slate-200 text-slate-600 hover:bg-white"
+                                            }`}
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={isChecked}
+                                              onChange={() =>
+                                                toggleWarrantyCategoryAccess(m, catName)
+                                              }
+                                              className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 h-3.5 w-3.5"
+                                            />
+                                            <ShieldCheck
+                                              className={`h-3.5 w-3.5 shrink-0 ${
+                                                isChecked ? "text-teal-600" : "text-slate-400"
+                                              }`}
+                                            />
+                                            <span className="truncate">{catName}</span>
+                                          </label>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Column 4: CRUD Controls */}
+                      <td className="py-3.5 px-4 align-top">
+                        {!isUnlocked ? (
+                          <span className="text-xs text-slate-400 italic">No permissions</span>
+                        ) : (
+                          <div className="space-y-1.5">
+                            <div className="flex flex-wrap items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => toggleDomainCrud(m, "warranties", "C")}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                  canC
+                                    ? "bg-teal-50 border-teal-300 text-teal-800 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                }`}
+                                title={
+                                  canC
+                                    ? "Can Add Warranties & Receipts (Click to revoke)"
+                                    : "Cannot Add Warranties (Click to grant)"
+                                }
+                              >
+                                <Plus className="h-3 w-3" />
+                                <span>Create</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => toggleDomainCrud(m, "warranties", "R")}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                  canR
+                                    ? "bg-emerald-50 border-emerald-300 text-emerald-800 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                }`}
+                                title="Can View Warranties & Receipt Proofs"
+                              >
+                                <Eye className="h-3 w-3" />
+                                <span>Read</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => toggleDomainCrud(m, "warranties", "U")}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                  canU
+                                    ? "bg-amber-50 border-amber-300 text-amber-800 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                }`}
+                                title="Can Edit Warranty Dates & Serial Numbers"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                                <span>Update</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => toggleDomainCrud(m, "warranties", "D")}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                  canD
+                                    ? "bg-rose-50 border-rose-300 text-rose-800 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                }`}
+                                title="Can Delete Warranty Records"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                <span>Delete</span>
+                              </button>
+                            </div>
+
+                            <div className="text-[10px] text-slate-400 font-mono">
+                              ACTIVE: {[canC && "Create", canR && "Read", canU && "Update", canD && "Delete"].filter(Boolean).join(" • ") || "None"}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Column 5: Presets & Invite */}
+                      <td className="py-3.5 px-4 text-right pr-6 align-top">
+                        {isUnlocked ? (
+                          <div className="flex flex-col items-end gap-1.5">
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setDomainPreset(m, "warranties", "full")}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+                                title="Full CRUD Warranty Access"
+                              >
+                                Full CRUD
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDomainPreset(m, "warranties", "contributor")}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+                                title="Add + Read Receipts"
+                              >
+                                Add + Read
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDomainPreset(m, "warranties", "readonly")}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+                                title="View Receipts Only"
+                              >
+                                View Only
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setInviteMember(m)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-semibold"
+                            >
+                              <Share2 className="h-3 w-3 text-slate-400" />
+                              <span>Invite</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setInviteMember(m)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-semibold"
+                          >
+                            <Share2 className="h-3 w-3 text-slate-400" />
+                            <span>Invite</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -1812,15 +3156,21 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
       {/* ========================================================================= */}
       {!loading && activeTab === "tasks" && (
         <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs">
-          <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <CheckSquare className="h-4 w-4 text-amber-600" />
-                <span>Tasks & Calendar Schedule Access</span>
+                <span>Tasks, To-Do List & Schedule Access, CRUD & Visibility Permissions</span>
               </h3>
-              <p className="text-xs text-slate-500">
-                Control access to family reminders, daily to-dos, and calendar events
+              <p className="text-xs text-slate-500 mt-0.5">
+                Control Create, Read, Update, and Delete permissions per member, plus configure whether members manage all family tasks or only assigned tasks
               </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 font-semibold flex items-center gap-1.5">
+                <CheckSquare className="h-3.5 w-3.5" />
+                <span>To-Do & Schedule</span>
+              </span>
             </div>
           </div>
 
@@ -1829,70 +3179,231 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
               <thead className="bg-slate-50/80 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-100">
                 <tr>
                   <th className="py-2.5 px-4 sm:px-6">Member</th>
-                  <th className="py-2.5 px-4">Tasks & Reminders</th>
-                  <th className="py-2.5 px-4">Schedule / Calendar</th>
-                  <th className="py-2.5 px-4 text-right pr-6">Invite</th>
+                  <th className="py-2.5 px-4">Master Tasks</th>
+                  <th className="py-2.5 px-4">Visibility & Task Scope</th>
+                  <th className="py-2.5 px-4">CRUD Permissions</th>
+                  <th className="py-2.5 px-4 text-right pr-6">Quick Presets</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredMembers.map((m) => {
                   const acc = m.access || getDefaultMemberAccess();
+                  const isUnlocked = acc.canAccessTasks !== false;
+                  const isScopeSpecific = acc.assignedTaskScope === "specific";
+
+                  const canC = Boolean(acc.canCreateTasks ?? true);
+                  const canR = Boolean(acc.canReadTasks ?? true);
+                  const canU = Boolean(acc.canUpdateTasks ?? true);
+                  const canD = Boolean(acc.canDeleteTasks ?? acc.loginRole === "Admin");
+
                   return (
-                    <tr key={m.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3 px-4 sm:px-6 font-semibold text-slate-900">
-                        {m.fullName}
-                        <span className="block text-[11px] text-slate-400 font-normal">
+                    <tr
+                      key={m.id}
+                      className={`hover:bg-slate-50/60 transition-colors ${
+                        savingId === m.id ? "opacity-60 bg-amber-50/20" : ""
+                      }`}
+                    >
+                      {/* Column 1: Member info */}
+                      <td className="py-3.5 px-4 sm:px-6 font-semibold text-slate-900 align-top">
+                        <div className="flex items-center gap-2">
+                          <span>{m.fullName}</span>
+                          {!isUnlocked && (
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-50 text-rose-600 border border-rose-200 font-bold">
+                              Restricted
+                            </span>
+                          )}
+                        </div>
+                        <span className="block text-[11px] text-slate-400 font-normal mt-0.5">
                           {m.relationship} • {m.email || m.phone || "No login"}
                         </span>
                       </td>
 
-                      <td className="py-3 px-4">
+                      {/* Column 2: Master Access Toggle */}
+                      <td className="py-3.5 px-4 align-top">
                         <label className="inline-flex items-center cursor-pointer">
                           <input
                             type="checkbox"
-                            checked={acc.canAccessTasks !== false}
+                            checked={isUnlocked}
                             onChange={() => toggleMemberFlag(m, "canAccessTasks")}
                             className="sr-only peer"
                           />
                           <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
                           <span
                             className={`ms-2 text-xs font-semibold ${
-                              acc.canAccessTasks !== false ? "text-amber-700" : "text-slate-400"
+                              isUnlocked ? "text-amber-700" : "text-slate-400"
                             }`}
                           >
-                            {acc.canAccessTasks !== false ? "Enabled" : "Restricted"}
+                            {isUnlocked ? "Authorized" : "Blocked"}
                           </span>
                         </label>
                       </td>
 
-                      <td className="py-3 px-4">
-                        <label className="inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={acc.canAccessSchedule !== false}
-                            onChange={() => toggleMemberFlag(m, "canAccessSchedule")}
-                            className="sr-only peer"
-                          />
-                          <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
-                          <span
-                            className={`ms-2 text-xs font-semibold ${
-                              acc.canAccessSchedule !== false ? "text-amber-700" : "text-slate-400"
-                            }`}
-                          >
-                            {acc.canAccessSchedule !== false ? "Enabled" : "Restricted"}
+                      {/* Column 3: Task Scope (All Family vs Assigned Only) */}
+                      <td className="py-3.5 px-4 align-top">
+                        {!isUnlocked ? (
+                          <span className="text-xs text-slate-400 italic">
+                            Tasks access must be enabled first
                           </span>
-                        </label>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100/70 p-0.5 shadow-2xs">
+                              <button
+                                type="button"
+                                onClick={() => setMemberSimpleScope(m, "assignedTaskScope", "all")}
+                                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                                  !isScopeSpecific
+                                    ? "bg-white text-amber-800 shadow-2xs"
+                                    : "text-slate-600 hover:text-slate-900"
+                                }`}
+                              >
+                                All Family Tasks
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setMemberSimpleScope(m, "assignedTaskScope", "specific")}
+                                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                                  isScopeSpecific
+                                    ? "bg-white text-amber-800 shadow-2xs"
+                                    : "text-slate-600 hover:text-slate-900"
+                                }`}
+                              >
+                                <span>Assigned Only</span>
+                              </button>
+                            </div>
+
+                            <p className="text-[11px] text-slate-500">
+                              {isScopeSpecific
+                                ? "Member only sees tasks and calendar events directly assigned to them"
+                                : "Member can view and interact with all shared family tasks & events"}
+                            </p>
+                          </div>
+                        )}
                       </td>
 
-                      <td className="py-3 px-4 text-right pr-6">
-                        <button
-                          type="button"
-                          onClick={() => setInviteMember(m)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-medium"
-                        >
-                          <Share2 className="h-3.5 w-3.5" />
-                          <span>Invite</span>
-                        </button>
+                      {/* Column 4: CRUD Controls */}
+                      <td className="py-3.5 px-4 align-top">
+                        {!isUnlocked ? (
+                          <span className="text-xs text-slate-400 italic">No permissions</span>
+                        ) : (
+                          <div className="space-y-1.5">
+                            <div className="flex flex-wrap items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => toggleDomainCrud(m, "tasks", "C")}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                  canC
+                                    ? "bg-amber-50 border-amber-300 text-amber-800 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                }`}
+                                title={
+                                  canC
+                                    ? "Can Create New Tasks (Click to revoke)"
+                                    : "Cannot Create Tasks (Click to grant)"
+                                }
+                              >
+                                <Plus className="h-3 w-3" />
+                                <span>Create</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => toggleDomainCrud(m, "tasks", "R")}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                  canR
+                                    ? "bg-emerald-50 border-emerald-300 text-emerald-800 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                }`}
+                                title="Can View Tasks & Schedule"
+                              >
+                                <Eye className="h-3 w-3" />
+                                <span>Read</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => toggleDomainCrud(m, "tasks", "U")}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                  canU
+                                    ? "bg-sky-50 border-sky-300 text-sky-800 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                }`}
+                                title="Can Edit & Complete Tasks"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                                <span>Update</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => toggleDomainCrud(m, "tasks", "D")}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                  canD
+                                    ? "bg-rose-50 border-rose-300 text-rose-800 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                }`}
+                                title="Can Delete Tasks"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                <span>Delete</span>
+                              </button>
+                            </div>
+
+                            <div className="text-[10px] text-slate-400 font-mono">
+                              ACTIVE: {[canC && "Create", canR && "Read", canU && "Update", canD && "Delete"].filter(Boolean).join(" • ") || "None"}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Column 5: Presets & Invite */}
+                      <td className="py-3.5 px-4 text-right pr-6 align-top">
+                        {isUnlocked ? (
+                          <div className="flex flex-col items-end gap-1.5">
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setDomainPreset(m, "tasks", "full")}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+                                title="Full CRUD Task Manager"
+                              >
+                                Full CRUD
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDomainPreset(m, "tasks", "contributor")}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+                                title="Create, Complete & Edit"
+                              >
+                                Contributor
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDomainPreset(m, "tasks", "readonly")}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+                                title="View Tasks Only"
+                              >
+                                View Only
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setInviteMember(m)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-semibold"
+                            >
+                              <Share2 className="h-3 w-3 text-slate-400" />
+                              <span>Invite</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setInviteMember(m)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-semibold"
+                          >
+                            <Share2 className="h-3 w-3 text-slate-400" />
+                            <span>Invite</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -1908,15 +3419,21 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
       {/* ========================================================================= */}
       {!loading && activeTab === "expenses" && (
         <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs">
-          <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <Wallet className="h-4 w-4 text-rose-600" />
-                <span>Daily Expenses & Money Tracker Access</span>
+                <span>Daily Expenses & Money Tracker Access, CRUD & Scope Permissions</span>
               </h3>
-              <p className="text-xs text-slate-500">
-                Control which family members can access and maintain their PIN-protected personal spending ledger
+              <p className="text-xs text-slate-500 mt-0.5">
+                Control Create (log costs), Read (view records), Update (edit details), and Delete permissions per member, plus configure family shared ledger vs private personal ledger scope
               </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs px-2.5 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 font-semibold flex items-center gap-1.5">
+                <Wallet className="h-3.5 w-3.5" />
+                <span>PIN-Protected Ledgers</span>
+              </span>
             </div>
           </div>
 
@@ -1925,50 +3442,231 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
               <thead className="bg-slate-50/80 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-100">
                 <tr>
                   <th className="py-2.5 px-4 sm:px-6">Member</th>
-                  <th className="py-2.5 px-4">Daily Expenses Access</th>
-                  <th className="py-2.5 px-4 text-right pr-6">Invite</th>
+                  <th className="py-2.5 px-4">Master Expenses</th>
+                  <th className="py-2.5 px-4">Ledger Scope & Visibility</th>
+                  <th className="py-2.5 px-4">CRUD Permissions</th>
+                  <th className="py-2.5 px-4 text-right pr-6">Quick Presets</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredMembers.map((m) => {
                   const acc = m.access || getDefaultMemberAccess();
+                  const isUnlocked = acc.canAccessDailyExpenses !== false;
+                  const isScopeSpecific = acc.assignedExpenseScope === "specific";
+
+                  const canC = Boolean(acc.canCreateExpenses ?? true);
+                  const canR = Boolean(acc.canReadExpenses ?? true);
+                  const canU = Boolean(acc.canUpdateExpenses ?? true);
+                  const canD = Boolean(acc.canDeleteExpenses ?? acc.loginRole === "Admin");
+
                   return (
-                    <tr key={m.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3 px-4 sm:px-6 font-semibold text-slate-900">
-                        {m.fullName}
-                        <span className="block text-[11px] text-slate-400 font-normal">
+                    <tr
+                      key={m.id}
+                      className={`hover:bg-slate-50/60 transition-colors ${
+                        savingId === m.id ? "opacity-60 bg-amber-50/20" : ""
+                      }`}
+                    >
+                      {/* Column 1: Member info */}
+                      <td className="py-3.5 px-4 sm:px-6 font-semibold text-slate-900 align-top">
+                        <div className="flex items-center gap-2">
+                          <span>{m.fullName}</span>
+                          {!isUnlocked && (
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-50 text-rose-600 border border-rose-200 font-bold">
+                              Restricted
+                            </span>
+                          )}
+                        </div>
+                        <span className="block text-[11px] text-slate-400 font-normal mt-0.5">
                           {m.relationship} • {m.email || m.phone || "No login"}
                         </span>
                       </td>
 
-                      <td className="py-3 px-4">
+                      {/* Column 2: Master Access Toggle */}
+                      <td className="py-3.5 px-4 align-top">
                         <label className="inline-flex items-center cursor-pointer">
                           <input
                             type="checkbox"
-                            checked={acc.canAccessDailyExpenses !== false}
+                            checked={isUnlocked}
                             onChange={() => toggleMemberFlag(m, "canAccessDailyExpenses")}
                             className="sr-only peer"
                           />
                           <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
                           <span
                             className={`ms-2 text-xs font-semibold ${
-                              acc.canAccessDailyExpenses !== false ? "text-rose-700" : "text-slate-400"
+                              isUnlocked ? "text-rose-700" : "text-slate-400"
                             }`}
                           >
-                            {acc.canAccessDailyExpenses !== false ? "Authorized" : "Restricted"}
+                            {isUnlocked ? "Authorized" : "Blocked"}
                           </span>
                         </label>
                       </td>
 
-                      <td className="py-3 px-4 text-right pr-6">
-                        <button
-                          type="button"
-                          onClick={() => setInviteMember(m)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-medium"
-                        >
-                          <Share2 className="h-3.5 w-3.5" />
-                          <span>Invite</span>
-                        </button>
+                      {/* Column 3: Ledger Scope (Family Full vs Personal Only) */}
+                      <td className="py-3.5 px-4 align-top">
+                        {!isUnlocked ? (
+                          <span className="text-xs text-slate-400 italic">
+                            Expenses access must be enabled first
+                          </span>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100/70 p-0.5 shadow-2xs">
+                              <button
+                                type="button"
+                                onClick={() => setMemberSimpleScope(m, "assignedExpenseScope", "all")}
+                                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                                  !isScopeSpecific
+                                    ? "bg-white text-rose-800 shadow-2xs"
+                                    : "text-slate-600 hover:text-slate-900"
+                                }`}
+                              >
+                                Family Full Ledger
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setMemberSimpleScope(m, "assignedExpenseScope", "specific")}
+                                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
+                                  isScopeSpecific
+                                    ? "bg-white text-amber-800 shadow-2xs"
+                                    : "text-slate-600 hover:text-slate-900"
+                                }`}
+                              >
+                                <span>Personal Ledger Only</span>
+                              </button>
+                            </div>
+
+                            <p className="text-[11px] text-slate-500">
+                              {isScopeSpecific
+                                ? "Restricted to member's own spending records and private PIN ledger"
+                                : "Can view combined family expenses, monthly differentiation graphs & category trends"}
+                            </p>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Column 4: CRUD Controls */}
+                      <td className="py-3.5 px-4 align-top">
+                        {!isUnlocked ? (
+                          <span className="text-xs text-slate-400 italic">No permissions</span>
+                        ) : (
+                          <div className="space-y-1.5">
+                            <div className="flex flex-wrap items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => toggleDomainCrud(m, "expenses", "C")}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                  canC
+                                    ? "bg-rose-50 border-rose-300 text-rose-800 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                }`}
+                                title={
+                                  canC
+                                    ? "Can Log Costs (Click to revoke)"
+                                    : "Cannot Log Costs (Click to grant)"
+                                }
+                              >
+                                <Plus className="h-3 w-3" />
+                                <span>+ Log Cost</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => toggleDomainCrud(m, "expenses", "R")}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                  canR
+                                    ? "bg-emerald-50 border-emerald-300 text-emerald-800 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                }`}
+                                title="Can View Expense Records & Trend Graphs"
+                              >
+                                <Eye className="h-3 w-3" />
+                                <span>Read</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => toggleDomainCrud(m, "expenses", "U")}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                  canU
+                                    ? "bg-amber-50 border-amber-300 text-amber-800 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                }`}
+                                title="Can Edit Cost Records & Custom Categories"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                                <span>Update</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => toggleDomainCrud(m, "expenses", "D")}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border ${
+                                  canD
+                                    ? "bg-rose-50 border-rose-300 text-rose-800 shadow-2xs"
+                                    : "bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                                }`}
+                                title="Can Delete Expense Records"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                <span>Delete</span>
+                              </button>
+                            </div>
+
+                            <div className="text-[10px] text-slate-400 font-mono">
+                              ACTIVE: {[canC && "Log Cost", canR && "Read", canU && "Update", canD && "Delete"].filter(Boolean).join(" • ") || "None"}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Column 5: Presets & Invite */}
+                      <td className="py-3.5 px-4 text-right pr-6 align-top">
+                        {isUnlocked ? (
+                          <div className="flex flex-col items-end gap-1.5">
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setDomainPreset(m, "expenses", "full")}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+                                title="Full CRUD Expense Access"
+                              >
+                                Full CRUD
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDomainPreset(m, "expenses", "contributor")}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+                                title="Log & View Records"
+                              >
+                                Log + Read
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDomainPreset(m, "expenses", "readonly")}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200"
+                                title="View Only"
+                              >
+                                View Only
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setInviteMember(m)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-semibold"
+                            >
+                              <Share2 className="h-3 w-3 text-slate-400" />
+                              <span>Invite</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setInviteMember(m)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-semibold"
+                          >
+                            <Share2 className="h-3 w-3 text-slate-400" />
+                            <span>Invite</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

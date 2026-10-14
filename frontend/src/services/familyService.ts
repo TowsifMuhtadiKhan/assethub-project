@@ -25,12 +25,43 @@ export function getDefaultMemberAccess(role: FamilyMemberAccess["loginRole"] = "
     canDeleteDocuments: role === "Admin",
     canAccessProperties: role === "Admin",
     assignedPropertyIds: [], // empty means all properties, or list of property IDs
+    assignedPropertyScope: "all",
+    canCreateProperties: role === "Admin",
+    canReadProperties: true,
+    canUpdateProperties: role === "Admin",
+    canDeleteProperties: role === "Admin",
     canWriteRent: role === "Admin",
     canWritePropertyMaintenance: role === "Admin",
+
     canAccessWarranties: true,
+    canCreateWarranties: role === "Admin",
+    canReadWarranties: true,
+    canUpdateWarranties: role === "Admin",
+    canDeleteWarranties: role === "Admin",
+    assignedWarrantyScope: "all",
+    assignedWarrantyCategories: [],
+
     canAccessTasks: true,
+    canCreateTasks: true,
+    canReadTasks: true,
+    canUpdateTasks: true,
+    canDeleteTasks: role === "Admin",
+    assignedTaskScope: "all",
+
     canAccessSchedule: true,
+
     canAccessDailyExpenses: true,
+    canCreateExpenses: true,
+    canReadExpenses: true,
+    canUpdateExpenses: true,
+    canDeleteExpenses: role === "Admin",
+    assignedExpenseScope: "all",
+
+    assignedVehicleScope: "all",
+    canCreateVehicles: role === "Admin",
+    canReadVehicles: true,
+    canUpdateVehicles: role === "Admin" || role === "Vehicle_Manager",
+    canDeleteVehicles: role === "Admin",
   };
 }
 

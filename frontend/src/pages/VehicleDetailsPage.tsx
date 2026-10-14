@@ -23,6 +23,7 @@ import {
   X,
   Copy,
   Check,
+  TrendingUp,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -33,6 +34,7 @@ import {
 import { SqlSetupBanner } from "../components/common/SqlSetupBanner";
 import { DetailPageSkeleton } from "../components/common/LoadingStates";
 import { DocumentViewerModal, type ViewableDocument } from "../components/common/DocumentViewerModal";
+import { FuelTrendModal } from "../components/vehicles/FuelTrendModal";
 import {
   createVehicleExpense,
   createVehicleService,
@@ -282,6 +284,8 @@ export function VehicleDetailsPage() {
   const [maintenanceFile, setMaintenanceFile] = useState<File | null>(null);
 
   // Fuel form state
+  const [fuelModalOpen, setFuelModalOpen] = useState(false);
+  const [fuelTrendModalOpen, setFuelTrendModalOpen] = useState(false);
   const [fuelDate, setFuelDate] = useState(new Date().toISOString().split("T")[0]);
   const [fuelMileage, setFuelMileage] = useState<number | "">("");
   const [fuelAmount, setFuelAmount] = useState<number | "">("");
@@ -319,8 +323,7 @@ export function VehicleDetailsPage() {
   const [serviceToDelete, setServiceToDelete] = useState<VehicleService | null>(null);
   const [isDeletingService, setIsDeletingService] = useState(false);
 
-  // Mobile sub-view toggles (History vs Log New)
-  const [mobileFuelView, setMobileFuelView] = useState<"history" | "form">("history");
+
 
   useEffect(() => {
     setLoading(true);
@@ -728,7 +731,7 @@ export function VehicleDetailsPage() {
       setFuelPricePerLiter(BD_FUEL_RATES[fuelType] || "");
       setFuelLiters("");
       setFuelNotes("");
-      setMobileFuelView("history");
+      setFuelModalOpen(false);
     } catch (saveErr) {
       setError(saveErr instanceof Error ? saveErr.message : "Could not save fuel expense.");
     } finally {
@@ -1468,379 +1471,180 @@ export function VehicleDetailsPage() {
       {/* ========================================================================= */}
       {activeTab === "fuel" && (
         <div className="space-y-3">
-          {/* Mobile Sub-Switcher (History vs Log Fuel) */}
-          <div className="lg:hidden flex items-center justify-between gap-2 bg-white border border-slate-200/80 p-1.5 rounded-xl shadow-2xs">
-            <div className="p-0.5 bg-slate-100 rounded-lg inline-flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setMobileFuelView("history")}
-                className={`px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
-                  mobileFuelView === "history"
-                    ? "bg-white text-slate-900 shadow-2xs font-bold"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                History ({fuelExpenses.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setMobileFuelView("form")}
-                className={`px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
-                  mobileFuelView === "form"
-                    ? "bg-white text-blue-600 shadow-2xs font-bold"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                + Log Fuel
-              </button>
-            </div>
-            <span className="text-xs font-mono font-bold text-slate-900 pr-2">
-              {formatMoney(totalFuelCost)}
-            </span>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-3">
-            {/* Fuel Entry Form */}
-            <div
-              className={`lg:col-span-1 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 ${
-                mobileFuelView === "form" ? "block" : "hidden lg:block"
-              }`}
-            >
-              <div className="border-b border-slate-100 pb-2 flex items-center justify-between">
-                <div>
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                    Record Fuel Purchase
-                  </h2>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Track date, odometer mileage, and amount spent.
-                  </p>
-                </div>
+          {/* Fuel History Table & Mobile Cards */}
+          <div className="w-full rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-5 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3 mb-3">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                  Fuel Purchase History
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Logged receipts, odometer readings, and fuel consumption trends.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                <span className="text-xs font-bold font-mono text-slate-900 bg-slate-100 border border-slate-200/60 px-2.5 py-1 rounded-full">
+                  {formatMoney(totalFuelCost)}
+                </span>
                 <button
                   type="button"
-                  onClick={() => setMobileFuelView("history")}
-                  className="lg:hidden text-xs text-blue-600 font-semibold hover:underline"
+                  onClick={() => setFuelTrendModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 px-3.5 py-1.5 text-xs font-semibold shadow-2xs transition cursor-pointer"
+                  title="View Fuel Spending & Consumption Trends"
                 >
-                  View History
+                  <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>Trend Graph</span>
                 </button>
-              </div>
-
-              <form onSubmit={handleSaveFuel} className="space-y-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Purchase Date *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={fuelDate}
-                    onChange={(e) => setFuelDate(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Odometer Mileage (km) *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="e.g. 45200"
-                    value={fuelMileage}
-                    onChange={(e) => setFuelMileage(e.target.value ? Number(e.target.value) : "")}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Amount Paid (৳) *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      placeholder="e.g. 5000"
-                      value={fuelAmount}
-                      onChange={(e) => handleAmountChange(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-mono font-semibold text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[11px] font-semibold text-slate-700">
-                        Per Liter Price (৳)
-                      </label>
-                      {BD_FUEL_RATES[fuelType] && (
-                        <button
-                          type="button"
-                          onClick={() => applyPresetRate(BD_FUEL_RATES[fuelType])}
-                          className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer underline decoration-dotted"
-                          title={`Apply standard BD ${fuelType} rate (৳${BD_FUEL_RATES[fuelType]}/L)`}
-                        >
-                          ৳{BD_FUEL_RATES[fuelType]} BD
-                        </button>
-                      )}
-                    </div>
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder={`e.g. ${BD_FUEL_RATES[fuelType] || 125}`}
-                      value={fuelPricePerLiter}
-                      onChange={(e) => handlePricePerLiterChange(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[11px] font-semibold text-slate-700">
-                      Liters (Auto-Calculated)
-                    </label>
-                    {fuelAmount && fuelPricePerLiter && (
-                      <span className="text-[10px] font-mono text-emerald-700 font-medium bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-100">
-                        ৳{fuelAmount} ÷ ৳{fuelPricePerLiter} = {fuelLiters || 0} L
-                      </span>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="e.g. 40.00"
-                      value={fuelLiters}
-                      onChange={(e) => handleLitersChange(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-slate-800 focus:bg-white pr-8"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-slate-400 pointer-events-none">
-                      L
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Fuel Type
-                  </label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {FUEL_TYPES.map((ft) => (
-                      <button
-                        key={ft}
-                        type="button"
-                        onClick={() => handleFuelTypeSelect(ft)}
-                        className={`rounded-md px-2 py-1 text-[11px] font-medium transition cursor-pointer ${
-                          fuelType === ft
-                            ? "bg-slate-900 text-white font-semibold shadow-xs"
-                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        }`}
-                      >
-                        {ft}
-                        {BD_FUEL_RATES[ft] && (
-                          <span className="ml-1 text-[9px] opacity-75 font-mono">
-                            ৳{BD_FUEL_RATES[ft]}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Fuel Station / Note
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Padma Oil, Banani Pump"
-                    value={fuelNotes}
-                    onChange={(e) => setFuelNotes(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                  />
-                </div>
-
                 <button
-                  type="submit"
-                  disabled={saving}
-                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer disabled:opacity-50 shadow-xs"
+                  type="button"
+                  onClick={() => setFuelModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-slate-800 transition cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  {saving ? "Saving..." : "Add Fuel Entry"}
+                  <span>Record Fuel Purchase</span>
                 </button>
-              </form>
-            </div>
-
-            {/* Fuel History Table & Mobile Cards */}
-            <div
-              className={`lg:col-span-2 rounded-xl border border-slate-200/90 bg-white p-3.5 sm:p-4 shadow-2xs ${
-                mobileFuelView === "history" ? "block" : "hidden lg:block"
-              }`}
-            >
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
-                <div>
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                    Fuel Purchase History
-                  </h2>
-                  <p className="text-[11px] text-slate-500">
-                    Logged receipts, odometer readings, and consumption.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold font-mono text-slate-900">
-                    {formatMoney(totalFuelCost)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setMobileFuelView("form")}
-                    className="lg:hidden inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white shadow-2xs"
-                  >
-                    <Plus className="h-3 w-3" />
-                    <span>Log</span>
-                  </button>
-                </div>
               </div>
-
-              {fuelExpenses.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-xs text-slate-500 space-y-2">
-                  <Fuel className="h-6 w-6 text-slate-400 mx-auto" />
-                  <p>No fuel purchases logged yet.</p>
-                  <button
-                    type="button"
-                    onClick={() => setMobileFuelView("form")}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Record Fuel Entry
-                  </button>
-                </div>
-              ) : (
-                <>
-                  {/* Mobile Clean Card View (sm:hidden) */}
-                  <div className="space-y-2 sm:hidden">
-                    {fuelExpenses.map((fuel) => (
-                      <div
-                        key={fuel.id}
-                        className="rounded-xl border border-slate-200/90 bg-slate-50/40 p-2.5 shadow-2xs space-y-1.5"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <Fuel className="h-3.5 w-3.5 text-blue-600" />
-                            <span className="font-mono text-xs font-bold text-slate-900">{fuel.date}</span>
-                          </div>
-                          <span className="font-mono text-xs font-bold text-slate-900">
-                            {formatMoney(fuel.amount)}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1 border-t border-slate-100">
-                          <div>
-                            <span className="font-mono font-medium text-slate-800">{fuel.mileage.toLocaleString()} km</span>
-                            {fuel.fuelLiters && (
-                              <span className="text-slate-400 ml-1.5 font-mono">
-                                · {fuel.fuelLiters} L
-                                {fuel.amount > 0 && fuel.fuelLiters > 0 && (
-                                  <span> (৳{(fuel.amount / fuel.fuelLiters).toFixed(0)}/L)</span>
-                                )}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => openEditFuelModal(fuel)}
-                              className="p-1 text-slate-400 hover:text-indigo-600 rounded"
-                              title="Edit fuel entry"
-                            >
-                              <Edit2 className="h-3 w-3" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setFuelToDelete(fuel)}
-                              className="p-1 text-slate-300 hover:text-rose-600 rounded"
-                              title="Delete fuel entry"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </div>
-                        {fuel.description && (
-                          <div className="text-[10px] text-slate-500 truncate">
-                            {fuel.description}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Desktop / Tablet Table View (hidden sm:block) */}
-                  <div className="hidden sm:block overflow-x-auto">
-                    <table className="min-w-full text-left text-xs">
-                      <thead className="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-semibold text-slate-600">
-                        <tr>
-                          <th className="px-3 py-2">Date</th>
-                          <th className="px-3 py-2">Odometer</th>
-                          <th className="px-3 py-2">Details / Pump</th>
-                          <th className="px-3 py-2 font-mono">Liters</th>
-                          <th className="px-3 py-2 font-mono text-right">Amount</th>
-                          <th className="px-3 py-2 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {fuelExpenses.map((fuel) => (
-                          <tr key={fuel.id} className="hover:bg-slate-50/70">
-                            <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-600">
-                              {fuel.date}
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-800">
-                              {fuel.mileage.toLocaleString()} km
-                            </td>
-                            <td className="px-3 py-2 text-slate-700">
-                              {fuel.description || "Fuel fill-up"}
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-600">
-                              {fuel.fuelLiters ? (
-                                <div>
-                                  <span>{fuel.fuelLiters} L</span>
-                                  {fuel.amount > 0 && fuel.fuelLiters > 0 && (
-                                    <span className="block text-[10px] text-slate-400">
-                                      ৳{(fuel.amount / fuel.fuelLiters).toFixed(1)}/L
-                                    </span>
-                                  )}
-                                </div>
-                              ) : (
-                                "—"
-                              )}
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-2 font-mono font-bold text-slate-900 text-right">
-                              {formatMoney(fuel.amount)}
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-2 text-right">
-                              <div className="inline-flex items-center gap-1 justify-end">
-                                <button
-                                  type="button"
-                                  onClick={() => openEditFuelModal(fuel)}
-                                  className="rounded p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition cursor-pointer"
-                                  title="Edit fuel entry"
-                                >
-                                  <Edit2 className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setFuelToDelete(fuel)}
-                                  className="rounded p-1 text-slate-300 hover:text-rose-600 hover:bg-slate-100 transition cursor-pointer"
-                                  title="Delete fuel entry"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
             </div>
+
+            {fuelExpenses.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-xs text-slate-500 space-y-2">
+                <Fuel className="h-6 w-6 text-slate-400 mx-auto" />
+                <p>No fuel purchases logged yet.</p>
+                <button
+                  type="button"
+                  onClick={() => setFuelModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Record Fuel Entry
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Mobile Clean Card View (sm:hidden) */}
+                <div className="space-y-2 sm:hidden">
+                  {fuelExpenses.map((fuel) => (
+                    <div
+                      key={fuel.id}
+                      className="rounded-xl border border-slate-200/90 bg-slate-50/40 p-2.5 shadow-2xs space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Fuel className="h-3.5 w-3.5 text-blue-600" />
+                          <span className="font-mono text-xs font-bold text-slate-900">{fuel.date}</span>
+                        </div>
+                        <span className="font-mono text-xs font-bold text-slate-900">
+                          {formatMoney(fuel.amount)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1 border-t border-slate-100">
+                        <div>
+                          <span className="font-mono font-medium text-slate-800">{fuel.mileage.toLocaleString()} km</span>
+                          {fuel.fuelLiters && (
+                            <span className="text-slate-400 ml-1.5 font-mono">
+                              · {fuel.fuelLiters} L
+                              {fuel.amount > 0 && fuel.fuelLiters > 0 && (
+                                <span> (৳{(fuel.amount / fuel.fuelLiters).toFixed(0)}/L)</span>
+                              )}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openEditFuelModal(fuel)}
+                            className="p-1 text-slate-400 hover:text-indigo-600 rounded"
+                            title="Edit fuel entry"
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFuelToDelete(fuel)}
+                            className="p-1 text-slate-300 hover:text-rose-600 rounded"
+                            title="Delete fuel entry"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                      {fuel.description && (
+                        <div className="text-[10px] text-slate-500 truncate">
+                          {fuel.description}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop / Tablet Table View (hidden sm:block) */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="min-w-full text-left text-xs">
+                    <thead className="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-semibold text-slate-600">
+                      <tr>
+                        <th className="px-3 py-2">Date</th>
+                        <th className="px-3 py-2">Odometer</th>
+                        <th className="px-3 py-2">Details / Pump</th>
+                        <th className="px-3 py-2 font-mono">Liters</th>
+                        <th className="px-3 py-2 font-mono text-right">Amount</th>
+                        <th className="px-3 py-2 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {fuelExpenses.map((fuel) => (
+                        <tr key={fuel.id} className="hover:bg-slate-50/70">
+                          <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-600">
+                            {fuel.date}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-800">
+                            {fuel.mileage.toLocaleString()} km
+                          </td>
+                          <td className="px-3 py-2 text-slate-700">
+                            {fuel.description || "Fuel fill-up"}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-600">
+                            {fuel.fuelLiters ? (
+                              <div>
+                                <span>{fuel.fuelLiters} L</span>
+                                {fuel.amount > 0 && fuel.fuelLiters > 0 && (
+                                  <span className="block text-[10px] text-slate-400">
+                                    ৳{(fuel.amount / fuel.fuelLiters).toFixed(1)}/L
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2 font-mono font-bold text-slate-900 text-right">
+                            {formatMoney(fuel.amount)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2 text-right">
+                            <div className="inline-flex items-center gap-1 justify-end">
+                              <button
+                                type="button"
+                                onClick={() => openEditFuelModal(fuel)}
+                                className="rounded p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition cursor-pointer"
+                                title="Edit fuel entry"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setFuelToDelete(fuel)}
+                                className="rounded p-1 text-slate-300 hover:text-rose-600 hover:bg-slate-100 transition cursor-pointer"
+                                title="Delete fuel entry"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -3127,6 +2931,201 @@ export function VehicleDetailsPage() {
                   className="rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition shadow-xs cursor-pointer"
                 >
                   {saving ? "Saving..." : "Save Document"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: RECORD FUEL PURCHASE                                               */}
+      {/* ========================================================================= */}
+      {fuelModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-xs overflow-y-auto"
+          onMouseDown={() => setFuelModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200/90 overflow-hidden my-auto max-h-[92vh] flex flex-col"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60 shrink-0">
+              <div>
+                <h2 className="text-base font-bold tracking-tight text-slate-900 flex items-center gap-2">
+                  <Fuel className="h-4 w-4 text-blue-600" />
+                  Record Fuel Purchase
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Track date, odometer reading, and fuel expense for {vehicle.name}.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFuelModalOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleSaveFuel} className="p-6 space-y-4 overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Purchase Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={fuelDate}
+                    onChange={(e) => setFuelDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Odometer Mileage (km) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="e.g. 45200"
+                    value={fuelMileage}
+                    onChange={(e) => setFuelMileage(e.target.value ? Number(e.target.value) : "")}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Amount Paid (৳) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="e.g. 5000"
+                    value={fuelAmount}
+                    onChange={(e) => handleAmountChange(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-mono font-semibold text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Per Liter Price (৳)
+                    </label>
+                    {BD_FUEL_RATES[fuelType] && (
+                      <button
+                        type="button"
+                        onClick={() => applyPresetRate(BD_FUEL_RATES[fuelType])}
+                        className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer underline decoration-dotted"
+                        title={`Apply standard BD ${fuelType} rate (৳${BD_FUEL_RATES[fuelType]}/L)`}
+                      >
+                        ৳{BD_FUEL_RATES[fuelType]} BD
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder={`e.g. ${BD_FUEL_RATES[fuelType] || 125}`}
+                    value={fuelPricePerLiter}
+                    onChange={(e) => handlePricePerLiterChange(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Liters (Auto-Calculated)
+                  </label>
+                  {fuelAmount && fuelPricePerLiter && (
+                    <span className="text-[10px] font-mono text-emerald-700 font-medium bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                      ৳{fuelAmount} ÷ ৳{fuelPricePerLiter} = {fuelLiters || 0} L
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="e.g. 40.00"
+                    value={fuelLiters}
+                    onChange={(e) => handleLitersChange(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white pr-8"
+                  />
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 pointer-events-none">
+                    L
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Fuel Type
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {FUEL_TYPES.map((ft) => (
+                    <button
+                      key={ft}
+                      type="button"
+                      onClick={() => handleFuelTypeSelect(ft)}
+                      className={`rounded-lg px-2.5 py-1 text-xs font-medium transition cursor-pointer ${
+                        fuelType === ft
+                          ? "bg-slate-900 text-white font-semibold shadow-xs"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      {ft}
+                      {BD_FUEL_RATES[ft] && (
+                        <span className="ml-1 text-[10px] opacity-75 font-mono">
+                          ৳{BD_FUEL_RATES[ft]}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Fuel Station / Note
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Trust Filling Station, Banani Pump"
+                  value={fuelNotes}
+                  onChange={(e) => setFuelNotes(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                />
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setFuelModalOpen(false)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer disabled:opacity-50 shadow-xs"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {saving ? "Saving..." : "Record Fuel Purchase"}
                 </button>
               </div>
             </form>
@@ -4732,6 +4731,15 @@ export function VehicleDetailsPage() {
         isOpen={!!viewingDoc}
         onClose={() => setViewingDoc(null)}
         document={viewingDoc}
+      />
+
+      {/* Fuel Consumption & Expense Trend Graph Modal */}
+      <FuelTrendModal
+        isOpen={fuelTrendModalOpen}
+        onClose={() => setFuelTrendModalOpen(false)}
+        fuelExpenses={fuelExpenses}
+        vehicleName={vehicle.name}
+        vehicleReg={vehicle.registrationNumber}
       />
     </div>
   );

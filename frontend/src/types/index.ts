@@ -90,9 +90,40 @@ export type FamilyMemberAccess = {
   canWriteRent?: boolean;
   canWritePropertyMaintenance?: boolean;
   canAccessWarranties: boolean;
+  canCreateWarranties?: boolean;
+  canReadWarranties?: boolean;
+  canUpdateWarranties?: boolean;
+  canDeleteWarranties?: boolean;
+  assignedWarrantyScope?: "all" | "specific";
+  assignedWarrantyCategories?: string[];
+
   canAccessTasks?: boolean;
+  canCreateTasks?: boolean;
+  canReadTasks?: boolean;
+  canUpdateTasks?: boolean;
+  canDeleteTasks?: boolean;
+  assignedTaskScope?: "all" | "specific";
+
   canAccessSchedule?: boolean;
+
   canAccessDailyExpenses?: boolean;
+  canCreateExpenses?: boolean;
+  canReadExpenses?: boolean;
+  canUpdateExpenses?: boolean;
+  canDeleteExpenses?: boolean;
+  assignedExpenseScope?: "all" | "specific";
+
+  assignedVehicleScope?: "all" | "specific";
+  canCreateVehicles?: boolean;
+  canReadVehicles?: boolean;
+  canUpdateVehicles?: boolean;
+  canDeleteVehicles?: boolean;
+
+  assignedPropertyScope?: "all" | "specific";
+  canCreateProperties?: boolean;
+  canReadProperties?: boolean;
+  canUpdateProperties?: boolean;
+  canDeleteProperties?: boolean;
 };
 
 export type FamilyMember = {
