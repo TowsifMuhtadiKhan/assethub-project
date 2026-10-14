@@ -10,7 +10,6 @@ import {
   Building2,
   Wallet,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Pin,
   Lock,
@@ -406,16 +405,6 @@ export function Sidebar({
                   </div>
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={onToggleCollapse}
-                aria-label="Collapse navigation"
-                title="Collapse sidebar"
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800/80 hover:text-white transition cursor-pointer"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
             </>
           )}
         </div>
