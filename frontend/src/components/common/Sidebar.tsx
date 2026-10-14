@@ -13,8 +13,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Pin,
+  Lock,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
+import { getCurrentUserAccess, type CurrentUserAccessResult } from "../../services/familyService";
 
 type MenuItem = {
   to: string;
@@ -121,6 +123,47 @@ export function Sidebar({
     }));
   }, [activeGroupId]);
 
+  // Track user access for granular permissions
+  const [userAccess, setUserAccess] = useState<CurrentUserAccessResult>({
+    member: null,
+    access: {
+      canLogin: true,
+      loginRole: "Admin",
+      canAccessDashboard: true,
+      canAccessVehicles: true,
+      assignedVehicleIds: [],
+      canWriteFuel: true,
+      canWriteMaintenance: true,
+      canWriteDocuments: true,
+      canAccessVault: true,
+      canAccessProperties: true,
+      canAccessWarranties: true,
+      canAccessTasks: true,
+      canAccessSchedule: true,
+      canAccessDailyExpenses: true,
+    },
+    isHead: true,
+  });
+
+  useEffect(() => {
+    getCurrentUserAccess().then((res) => {
+      setUserAccess(res);
+    });
+  }, []);
+
+  const isItemLocked = (to: string) => {
+    if (userAccess.isHead) return false;
+    const acc = userAccess.access;
+    if (to === "/" && acc.canAccessDashboard === false) return true;
+    if (to === "/my-life/tasks" && acc.canAccessTasks === false) return true;
+    if (to === "/my-life/expenses" && acc.canAccessDailyExpenses === false) return true;
+    if (to === "/documents/vault" && acc.canAccessVault === false) return true;
+    if (to === "/assets/vehicles" && acc.canAccessVehicles === false) return true;
+    if (to === "/rentals/properties" && acc.canAccessProperties === false) return true;
+    if (to === "/assets/warranties" && acc.canAccessWarranties === false) return true;
+    return false;
+  };
+
   // Close mobile menu whenever location changes
   useEffect(() => {
     onCloseMobile?.();
@@ -155,18 +198,23 @@ export function Sidebar({
           to="/"
           end
           onClick={onItemClick}
-          className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-semibold transition cursor-pointer ${
+          className={`flex items-center justify-between rounded-xl px-2.5 py-2 text-xs font-semibold transition cursor-pointer ${
             isDashboardActive
               ? "bg-orange-500/15 text-orange-400 font-bold shadow-xs"
               : "text-slate-300 hover:bg-slate-800/50 hover:text-white"
           }`}
         >
-          <LayoutDashboard
-            className={`h-4 w-4 shrink-0 ${
-              isDashboardActive ? "text-orange-400" : "text-orange-500"
-            }`}
-          />
-          <span className="text-[13px] tracking-tight">Dashboard</span>
+          <div className="flex items-center gap-2.5">
+            <LayoutDashboard
+              className={`h-4 w-4 shrink-0 ${
+                isDashboardActive ? "text-orange-400" : "text-orange-500"
+              }`}
+            />
+            <span className="text-[13px] tracking-tight">Dashboard</span>
+          </div>
+          {isItemLocked("/") && (
+            <Lock className="h-3 w-3 text-slate-500 shrink-0" />
+          )}
         </NavLink>
 
         <div className="my-1 border-t border-slate-800/60" />
@@ -245,6 +293,9 @@ export function Sidebar({
 
                         {/* Submenu Label */}
                         <span className="truncate">{item.label}</span>
+                        {isItemLocked(item.to) && (
+                          <Lock className="h-3 w-3 text-slate-500 ml-auto shrink-0" />
+                        )}
                       </NavLink>
                     );
                   })}

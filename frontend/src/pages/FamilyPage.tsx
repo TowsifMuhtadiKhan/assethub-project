@@ -196,6 +196,7 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
     setError("");
 
     const accessData: FamilyMemberAccess = {
+      ...(editingMember?.access || getDefaultMemberAccess(loginRole)),
       canLogin,
       loginRole,
       canAccessVehicles,

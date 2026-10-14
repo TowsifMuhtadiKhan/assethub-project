@@ -9,6 +9,7 @@ import {
   CheckSquare,
   Car,
   ShieldAlert,
+  LayoutDashboard,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { listTasks, updateTaskStatus } from "../services/taskService";
@@ -16,7 +17,7 @@ import { listDocuments } from "../services/documentService";
 import { listVehicles } from "../services/vehicleService";
 import { listProperties } from "../services/propertyService";
 import { listWarranties } from "../services/warrantyService";
-import { listFamilyMembers } from "../services/familyService";
+import { listFamilyMembers, getCurrentUserAccess } from "../services/familyService";
 import type {
   TaskItem,
   DocumentItem,
@@ -39,8 +40,15 @@ export function DashboardPage() {
   // Schedule filtering state
   const [scheduleTimeframe, setScheduleTimeframe] = useState<"7days" | "30days" | "all">("30days");
   const [scheduleFilter, setScheduleFilter] = useState<"all" | "task" | "document" | "vehicle" | "warranty">("all");
+  const [isLocked, setIsLocked] = useState(false);
 
   useEffect(() => {
+    getCurrentUserAccess().then(({ isHead, access }) => {
+      if (!isHead && access.canAccessDashboard === false) {
+        setIsLocked(true);
+      }
+    });
+
     Promise.all([
       listTasks(),
       listDocuments(),
@@ -201,6 +209,20 @@ export function DashboardPage() {
     }
     return { label: `In ${diffDays}d`, isOverdue: false, isToday: false };
   };
+
+  if (isLocked) {
+    return (
+      <div className="rounded-2xl border border-slate-200/90 bg-white p-12 text-center shadow-2xs space-y-3 mt-6">
+        <div className="h-14 w-14 rounded-2xl bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center mx-auto">
+          <LayoutDashboard className="h-7 w-7" />
+        </div>
+        <h2 className="text-base font-bold text-slate-900">Dashboard Access Restricted</h2>
+        <p className="text-xs text-slate-500 max-w-md mx-auto">
+          You do not currently have permission to view the workspace overview and metrics. Please contact your Family Head to request access.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <>

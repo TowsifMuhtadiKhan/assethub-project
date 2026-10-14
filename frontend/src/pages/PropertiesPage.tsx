@@ -56,6 +56,7 @@ import {
 } from "../components/rentals/RentalForms";
 import { PropertyEntryForm } from "../components/rentals/PropertyEntryForm";
 import { RentalReports } from "../components/rentals/RentalReports";
+import { getCurrentUserAccess } from "../services/familyService";
 
 export const BD_PROPERTY_DOC_PRESETS = [
   {
@@ -148,6 +149,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
   const [data, setData] = useState<RentalData | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isLocked, setIsLocked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [tab, setTab] = useState("Flats & Tenants");
@@ -186,6 +188,12 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
 
   useEffect(() => {
     let live = true;
+    getCurrentUserAccess().then(({ isHead, access }) => {
+      if (live && !isHead && access.canAccessProperties === false) {
+        setIsLocked(true);
+      }
+    });
+
     loadRentalData()
       .then((d) => {
         if (live) setData(d);
@@ -557,6 +565,20 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
       return true;
     });
   }, [data, activeCategory, searchQuery]);
+
+  if (isLocked) {
+    return (
+      <div className="rounded-2xl border border-slate-200/90 bg-white p-12 text-center shadow-2xs space-y-3 mt-6">
+        <div className="h-14 w-14 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center mx-auto">
+          <Building2 className="h-7 w-7" />
+        </div>
+        <h2 className="text-base font-bold text-slate-900">Properties & Rent Access Restricted</h2>
+        <p className="text-xs text-slate-500 max-w-md mx-auto">
+          You do not currently have permission to access family property, real estate deeds, and rental records. Please contact your Family Head to request access.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 pb-28 sm:pb-8">

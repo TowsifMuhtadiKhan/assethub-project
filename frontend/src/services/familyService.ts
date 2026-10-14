@@ -10,6 +10,7 @@ export function getDefaultMemberAccess(role: FamilyMemberAccess["loginRole"] = "
   return {
     canLogin: true,
     loginRole: role,
+    canAccessDashboard: true,
     canAccessVehicles: true,
     assignedVehicleIds: [], // empty means all vehicles, or list of vehicle IDs
     canWriteFuel: true,
@@ -334,3 +335,63 @@ export async function deleteFamilyMember(id: string): Promise<void> {
     await supabase.from(TABLE).delete().eq("id", id);
   } catch {}
 }
+
+export type CurrentUserAccessResult = {
+  member: FamilyMember | null;
+  access: FamilyMemberAccess;
+  isHead: boolean;
+};
+
+/**
+ * Resolves current active access permissions for the logged in account / family member.
+ */
+export async function getCurrentUserAccess(): Promise<CurrentUserAccessResult> {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const email = user?.email || getUserEmail() || "";
+    const userId = user?.id || "";
+
+    const members = await listFamilyMembers();
+
+    // Check if matching member exists
+    const found = members.find(
+      (m) =>
+        (email && m.email && m.email.toLowerCase() === email.toLowerCase()) ||
+        (userId && m.id === userId)
+    );
+
+    if (found) {
+      if (found.relationship === "Self" || found.access?.loginRole === "Admin") {
+        return {
+          member: found,
+          access: { ...getDefaultMemberAccess("Admin"), canAccessDashboard: true },
+          isHead: true,
+        };
+      }
+
+      const memberRole = found.access ? found.access.loginRole : "Viewer";
+      return {
+        member: found,
+        access: found.access || getDefaultMemberAccess(memberRole),
+        isHead: false,
+      };
+    }
+
+    // Default to Family Head / Owner
+    return {
+      member: null,
+      access: { ...getDefaultMemberAccess("Admin"), canAccessDashboard: true },
+      isHead: true,
+    };
+  } catch {
+    return {
+      member: null,
+      access: { ...getDefaultMemberAccess("Admin"), canAccessDashboard: true },
+      isHead: true,
+    };
+  }
+}
+

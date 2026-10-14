@@ -19,6 +19,7 @@ import {
   X,
   XCircle,
   Filter,
+  CheckSquare,
 } from "lucide-react";
 import {
   FormControl,
@@ -37,7 +38,7 @@ import {
 } from "../services/taskService";
 import { listVehicles } from "../services/vehicleService";
 import { listProperties } from "../services/propertyService";
-import { listFamilyMembers } from "../services/familyService";
+import { listFamilyMembers, getCurrentUserAccess } from "../services/familyService";
 import type {
   TaskItem,
   TaskPriority,
@@ -177,6 +178,7 @@ export function TasksPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLocked, setIsLocked] = useState(false);
 
   // Drag and Drop State
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
@@ -408,12 +410,20 @@ export function TasksPage() {
 
   const loadAll = async () => {
     try {
-      const [t, v, p, m] = await Promise.all([
-        listTasks(),
-        listVehicles(),
-        listProperties(),
-        listFamilyMembers(),
+      const [{ isHead, access }, [t, v, p, m]] = await Promise.all([
+        getCurrentUserAccess(),
+        Promise.all([
+          listTasks(),
+          listVehicles(),
+          listProperties(),
+          listFamilyMembers(),
+        ]),
       ]);
+
+      if (!isHead && access.canAccessTasks === false) {
+        setIsLocked(true);
+      }
+
       const deletedIds = await cleanExpiredCancelledTasks(t);
       const activeTasks = deletedIds.length ? t.filter((item) => !deletedIds.includes(item.id)) : t;
       setTasks(activeTasks);
@@ -627,6 +637,20 @@ export function TasksPage() {
   const totalCount = tasks.length;
   const completedCount = tasks.filter((t) => t.status === "Completed").length;
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+  if (isLocked) {
+    return (
+      <div className="rounded-2xl border border-slate-200/90 bg-white p-12 text-center shadow-2xs space-y-3 mt-6">
+        <div className="h-14 w-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
+          <CheckSquare className="h-7 w-7" />
+        </div>
+        <h2 className="text-base font-bold text-slate-900">To-Do List Access Restricted</h2>
+        <p className="text-xs text-slate-500 max-w-md mx-auto">
+          You do not currently have permission to access family tasks and to-do lists. Please contact your Family Head to request access.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 w-full">

@@ -26,6 +26,7 @@ import {
   Folder,
   ChevronDown,
   ChevronUp,
+  LayoutDashboard,
 } from "lucide-react";
 import {
   listFamilyMembers,
@@ -67,10 +68,17 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
   const [savingId, setSavingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Tabs: 'vehicles' | 'properties' | 'vault' | 'warranties' | 'tasks' | 'expenses' | 'matrix'
+  // Tabs matching App Sidebar Structure: Dashboard -> Daily Life (Tasks, Expenses) -> Important Papers (Vault) -> Vehicles & Houses (Vehicles, Properties, Warranties) -> Master Matrix
   const [activeTab, setActiveTab] = useState<
-    "vehicles" | "properties" | "vault" | "warranties" | "tasks" | "expenses" | "matrix"
-  >("vehicles");
+    | "dashboard"
+    | "tasks"
+    | "expenses"
+    | "vault"
+    | "vehicles"
+    | "properties"
+    | "warranties"
+    | "matrix"
+  >("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
 
   // Add Member Modal state
@@ -667,71 +675,36 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
 
       {/* Tabs & Search Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        {/* Module Navigation Tabs */}
-        <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100/90 rounded-xl border border-slate-200/80">
+        {/* Module Navigation Tabs mirroring App Sidebar */}
+        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100/90 rounded-xl border border-slate-200/80">
+          {/* 1. Dashboard */}
           <button
             type="button"
-            onClick={() => setActiveTab("vehicles")}
+            onClick={() => setActiveTab("dashboard")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-              activeTab === "vehicles"
-                ? "bg-white text-orange-600 shadow-2xs"
+              activeTab === "dashboard"
+                ? "bg-white text-orange-600 shadow-2xs font-bold"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <Car className="h-3.5 w-3.5 text-orange-500" />
-            <span>Vehicles & Fuel ({vehicles.length})</span>
+            <LayoutDashboard className="h-3.5 w-3.5 text-orange-500" />
+            <span>Dashboard</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("properties")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-              activeTab === "properties"
-                ? "bg-white text-indigo-600 shadow-2xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Building2 className="h-3.5 w-3.5 text-indigo-500" />
-            <span>Properties & Rent ({properties.length})</span>
-          </button>
+          <div className="h-4 w-px bg-slate-300/80 mx-0.5 hidden sm:block" />
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("vault")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-              activeTab === "vault"
-                ? "bg-white text-sky-600 shadow-2xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <FolderLock className="h-3.5 w-3.5 text-sky-500" />
-            <span>Document Vault</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("warranties")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
-              activeTab === "warranties"
-                ? "bg-white text-emerald-600 shadow-2xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-            <span>Warranties</span>
-          </button>
-
+          {/* 2. Daily Life */}
           <button
             type="button"
             onClick={() => setActiveTab("tasks")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
               activeTab === "tasks"
-                ? "bg-white text-amber-600 shadow-2xs"
+                ? "bg-white text-amber-600 shadow-2xs font-bold"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
             <CheckSquare className="h-3.5 w-3.5 text-amber-500" />
-            <span>Tasks & Schedule</span>
+            <span>To-Do List</span>
           </button>
 
           <button
@@ -739,7 +712,7 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
             onClick={() => setActiveTab("expenses")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
               activeTab === "expenses"
-                ? "bg-white text-rose-600 shadow-2xs"
+                ? "bg-white text-rose-600 shadow-2xs font-bold"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
@@ -747,12 +720,73 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
             <span>Daily Expenses</span>
           </button>
 
+          <div className="h-4 w-px bg-slate-300/80 mx-0.5 hidden sm:block" />
+
+          {/* 3. Important Papers */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("vault")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              activeTab === "vault"
+                ? "bg-white text-sky-600 shadow-2xs font-bold"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <FolderLock className="h-3.5 w-3.5 text-sky-500" />
+            <span>All Documents (Vault)</span>
+          </button>
+
+          <div className="h-4 w-px bg-slate-300/80 mx-0.5 hidden sm:block" />
+
+          {/* 4. Vehicles & Houses */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("vehicles")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              activeTab === "vehicles"
+                ? "bg-white text-emerald-600 shadow-2xs font-bold"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Car className="h-3.5 w-3.5 text-emerald-500" />
+            <span>Cars & Bikes ({vehicles.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("properties")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              activeTab === "properties"
+                ? "bg-white text-indigo-600 shadow-2xs font-bold"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Building2 className="h-3.5 w-3.5 text-indigo-500" />
+            <span>Houses & Rent ({properties.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("warranties")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              activeTab === "warranties"
+                ? "bg-white text-teal-600 shadow-2xs font-bold"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <ShieldCheck className="h-3.5 w-3.5 text-teal-500" />
+            <span>Warranties</span>
+          </button>
+
+          <div className="h-4 w-px bg-slate-300/80 mx-0.5 hidden sm:block" />
+
+          {/* 5. Master Matrix */}
           <button
             type="button"
             onClick={() => setActiveTab("matrix")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
               activeTab === "matrix"
-                ? "bg-white text-slate-900 shadow-2xs"
+                ? "bg-white text-slate-900 shadow-2xs font-bold"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
@@ -797,7 +831,125 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 1: VEHICLE-WISE ACCESS (LIGHT THEME)                                  */}
+      {/* TAB: DASHBOARD ACCESS                                                     */}
+      {/* ========================================================================= */}
+      {!loading && activeTab === "dashboard" && (
+        <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <LayoutDashboard className="h-4 w-4 text-orange-600" />
+                <span>Central Dashboard & Quick Stats Access</span>
+              </h3>
+              <p className="text-xs text-slate-500">
+                Control which family members can view the workspace overview dashboard, key metrics, and activity cards
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  for (const m of members) {
+                    const acc = m.access || getDefaultMemberAccess();
+                    if (!acc.canAccessDashboard) {
+                      await updateFamilyMember(m.id, { access: { ...acc, canAccessDashboard: true } });
+                    }
+                  }
+                  await loadAllData();
+                  showToast("Authorized Dashboard for all members");
+                }}
+                className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition cursor-pointer"
+              >
+                Grant All
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  for (const m of members) {
+                    const acc = m.access || getDefaultMemberAccess();
+                    if (acc.loginRole !== "Admin" && m.relationship !== "Self") {
+                      await updateFamilyMember(m.id, { access: { ...acc, canAccessDashboard: false } });
+                    }
+                  }
+                  await loadAllData();
+                  showToast("Restricted non-admins from Dashboard");
+                }}
+                className="px-2.5 py-1 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 transition cursor-pointer"
+              >
+                Restrict Non-Admins
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50/80 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-100">
+                <tr>
+                  <th className="py-2.5 px-4 sm:px-6">Family Member</th>
+                  <th className="py-2.5 px-4">Role</th>
+                  <th className="py-2.5 px-4">Dashboard Access</th>
+                  <th className="py-2.5 px-4 text-right pr-6">Quick Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredMembers.map((m) => {
+                  const acc = m.access || getDefaultMemberAccess();
+                  const isAuthorized = acc.canAccessDashboard !== false;
+                  return (
+                    <tr key={m.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="py-3 px-4 sm:px-6 font-semibold text-slate-900">
+                        {m.fullName}
+                        <span className="block text-[11px] text-slate-400 font-normal">
+                          {m.relationship} • {m.email || m.phone || "No login"}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
+                          {acc.loginRole.replace("_", " ")}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <label className="inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={isAuthorized}
+                            onChange={() => toggleMemberFlag(m, "canAccessDashboard")}
+                            className="sr-only peer"
+                          />
+                          <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-600"></div>
+                          <span
+                            className={`ms-2 text-xs font-semibold ${
+                              isAuthorized ? "text-orange-700 font-bold" : "text-slate-400"
+                            }`}
+                          >
+                            {isAuthorized ? "Authorized" : "Restricted"}
+                          </span>
+                        </label>
+                      </td>
+
+                      <td className="py-3 px-4 text-right pr-6">
+                        <button
+                          type="button"
+                          onClick={() => setInviteMember(m)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer text-xs font-medium"
+                        >
+                          <Share2 className="h-3.5 w-3.5" />
+                          <span>Invite</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB: VEHICLE-WISE ACCESS (LIGHT THEME)                                    */}
       {/* ========================================================================= */}
       {!loading && activeTab === "vehicles" && (
         <div className="space-y-4">
@@ -1848,12 +2000,14 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
               <thead className="bg-slate-50/80 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-100">
                 <tr>
                   <th className="py-2.5 px-4 sm:px-6">Member</th>
-                  <th className="py-2.5 px-4">System Role</th>
+                  <th className="py-2.5 px-4">Role</th>
+                  <th className="py-2.5 px-4">Dashboard</th>
+                  <th className="py-2.5 px-4">To-Do</th>
+                  <th className="py-2.5 px-4">Expenses</th>
+                  <th className="py-2.5 px-4">Documents</th>
                   <th className="py-2.5 px-4">Vehicles</th>
-                  <th className="py-2.5 px-4">Properties</th>
-                  <th className="py-2.5 px-4">Vault</th>
+                  <th className="py-2.5 px-4">Houses</th>
                   <th className="py-2.5 px-4">Warranties</th>
-                  <th className="py-2.5 px-4">Tasks</th>
                   <th className="py-2.5 px-4 text-right pr-6">Actions</th>
                 </tr>
               </thead>
@@ -1911,34 +2065,46 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
                         </select>
                       </td>
 
+                      {/* 1. Dashboard */}
                       <td className="py-3.5 px-4">
-                        {!acc.canAccessVehicles || permittedVehicles.length === 0 ? (
-                          <span className="text-slate-400 text-[11px]">No access</span>
-                        ) : permittedVehicles.length === vehicles.length ? (
-                          <span className="inline-flex items-center gap-1 text-orange-700 font-semibold bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200 text-[10px]">
-                            All Vehicles ({vehicles.length})
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-slate-700 font-medium bg-slate-100 px-2 py-0.5 rounded-full text-[10px]">
-                            {permittedVehicles.length} of {vehicles.length} Vehicles
-                          </span>
-                        )}
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            acc.canAccessDashboard !== false
+                              ? "bg-orange-50 text-orange-700 border border-orange-200"
+                              : "bg-slate-100 text-slate-400"
+                          }`}
+                        >
+                          {acc.canAccessDashboard !== false ? "Dashboard OK" : "Locked"}
+                        </span>
                       </td>
 
+                      {/* 2. Daily Life: Tasks */}
                       <td className="py-3.5 px-4">
-                        {!acc.canAccessProperties || permittedProperties.length === 0 ? (
-                          <span className="text-slate-400 text-[11px]">No access</span>
-                        ) : permittedProperties.length === properties.length ? (
-                          <span className="inline-flex items-center gap-1 text-indigo-700 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200 text-[10px]">
-                            All Properties ({properties.length})
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-slate-700 font-medium bg-slate-100 px-2 py-0.5 rounded-full text-[10px]">
-                            {permittedProperties.length} Properties
-                          </span>
-                        )}
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            acc.canAccessTasks !== false
+                              ? "bg-amber-50 text-amber-700 border border-amber-200"
+                              : "bg-slate-100 text-slate-400"
+                          }`}
+                        >
+                          {acc.canAccessTasks !== false ? "Tasks OK" : "Locked"}
+                        </span>
                       </td>
 
+                      {/* 2. Daily Life: Expenses */}
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            acc.canAccessDailyExpenses !== false
+                              ? "bg-rose-50 text-rose-700 border border-rose-200"
+                              : "bg-slate-100 text-slate-400"
+                          }`}
+                        >
+                          {acc.canAccessDailyExpenses !== false ? "Expenses OK" : "Locked"}
+                        </span>
+                      </td>
+
+                      {/* 3. Important Papers: Vault */}
                       <td className="py-3.5 px-4">
                         {!acc.canAccessVault ? (
                           <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-400">
@@ -1965,27 +2131,46 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
                         )}
                       </td>
 
+                      {/* 4. Vehicles & Houses: Vehicles */}
+                      <td className="py-3.5 px-4">
+                        {!acc.canAccessVehicles || permittedVehicles.length === 0 ? (
+                          <span className="text-slate-400 text-[11px]">Locked</span>
+                        ) : permittedVehicles.length === vehicles.length ? (
+                          <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 text-[10px]">
+                            All ({vehicles.length})
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-slate-700 font-medium bg-slate-100 px-2 py-0.5 rounded-full text-[10px]">
+                            {permittedVehicles.length} of {vehicles.length}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 4. Vehicles & Houses: Properties */}
+                      <td className="py-3.5 px-4">
+                        {!acc.canAccessProperties || permittedProperties.length === 0 ? (
+                          <span className="text-slate-400 text-[11px]">Locked</span>
+                        ) : permittedProperties.length === properties.length ? (
+                          <span className="inline-flex items-center gap-1 text-indigo-700 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200 text-[10px]">
+                            All ({properties.length})
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-slate-700 font-medium bg-slate-100 px-2 py-0.5 rounded-full text-[10px]">
+                            {permittedProperties.length} Properties
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 4. Vehicles & Houses: Warranties */}
                       <td className="py-3.5 px-4">
                         <span
                           className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                             acc.canAccessWarranties
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              ? "bg-teal-50 text-teal-700 border border-teal-200"
                               : "bg-slate-100 text-slate-400"
                           }`}
                         >
                           {acc.canAccessWarranties ? "Warranties OK" : "Locked"}
-                        </span>
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                            acc.canAccessTasks !== false
-                              ? "bg-amber-50 text-amber-700 border border-amber-200"
-                              : "bg-slate-100 text-slate-400"
-                          }`}
-                        >
-                          {acc.canAccessTasks !== false ? "Tasks OK" : "Locked"}
                         </span>
                       </td>
 

@@ -5,6 +5,7 @@ import {
   createWarranty,
   deleteWarranty,
 } from "../services/warrantyService";
+import { getCurrentUserAccess } from "../services/familyService";
 import type { WarrantyItem } from "../types";
 import { ItemRecipientSelector } from "../components/common/ItemRecipientSelector";
 import { DocumentViewerModal, type ViewableDocument } from "../components/common/DocumentViewerModal";
@@ -12,6 +13,7 @@ import { DocumentViewerModal, type ViewableDocument } from "../components/common
 export function WarrantiesPage() {
   const [warranties, setWarranties] = useState<WarrantyItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLocked, setIsLocked] = useState(false);
   const [viewingDoc, setViewingDoc] = useState<ViewableDocument | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -35,7 +37,14 @@ export function WarrantiesPage() {
 
   const loadWarranties = async () => {
     try {
-      setWarranties(await listWarranties());
+      const [{ isHead, access }, w] = await Promise.all([
+        getCurrentUserAccess(),
+        listWarranties(),
+      ]);
+      if (!isHead && access.canAccessWarranties === false) {
+        setIsLocked(true);
+      }
+      setWarranties(w);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load warranties");
     } finally {
@@ -128,6 +137,20 @@ export function WarrantiesPage() {
       w.seller.toLowerCase().includes(search.toLowerCase()) ||
       w.serialNumber.toLowerCase().includes(search.toLowerCase()),
   );
+
+  if (isLocked) {
+    return (
+      <div className="rounded-2xl border border-slate-200/90 bg-white p-12 text-center shadow-2xs space-y-3 mt-6">
+        <div className="h-14 w-14 rounded-2xl bg-teal-50 border border-teal-200 text-teal-600 flex items-center justify-center mx-auto">
+          <ShieldCheck className="h-7 w-7" />
+        </div>
+        <h2 className="text-base font-bold text-slate-900">Warranty Cards Access Restricted</h2>
+        <p className="text-xs text-slate-500 max-w-md mx-auto">
+          You do not currently have permission to access family purchase receipts and warranty cards. Please contact your Family Head to request access.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 pb-28 sm:pb-8">

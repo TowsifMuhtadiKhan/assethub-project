@@ -26,6 +26,7 @@ import {
   listVehicles,
   updateVehicle,
 } from "../services/vehicleService";
+import { getCurrentUserAccess } from "../services/familyService";
 import type { Vehicle, VehicleType } from "../types";
 
 export function getVehicleIcon(type: string) {
@@ -93,6 +94,7 @@ export function VehicleEntryPage({
 
   const activeFilterCount = activeTab !== "All" ? 1 : 0;
   const [loading, setLoading] = useState(true);
+  const [isLocked, setIsLocked] = useState(false);
   const [error, setError] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle>();
@@ -106,7 +108,13 @@ export function VehicleEntryPage({
     const load = async () => {
       setLoading(true);
       try {
-        const data = await listVehicles();
+        const [{ isHead, access }, data] = await Promise.all([
+          getCurrentUserAccess(),
+          listVehicles(),
+        ]);
+        if (!isHead && access.canAccessVehicles === false) {
+          setIsLocked(true);
+        }
         setVehicles(data);
       } catch (loadError) {
         setError(
@@ -269,6 +277,20 @@ export function VehicleEntryPage({
       <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600 shadow-2xs">
         <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-slate-300 border-t-slate-800 mb-3" />
         <p className="text-xs font-medium">Loading your vehicle records...</p>
+      </div>
+    );
+  }
+
+  if (isLocked) {
+    return (
+      <div className="rounded-2xl border border-slate-200/90 bg-white p-12 text-center shadow-2xs space-y-3 mt-6">
+        <div className="h-14 w-14 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto">
+          <Car className="h-7 w-7" />
+        </div>
+        <h2 className="text-base font-bold text-slate-900">Vehicles Access Restricted</h2>
+        <p className="text-xs text-slate-500 max-w-md mx-auto">
+          You do not currently have permission to access family vehicles, cars, and bikes records. Please contact your Family Head to request access.
+        </p>
       </div>
     );
   }

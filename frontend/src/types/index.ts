@@ -72,6 +72,7 @@ export type RelationshipType =
 export type FamilyMemberAccess = {
   canLogin: boolean;
   loginRole: "Admin" | "Vehicle_Manager" | "Viewer" | "Custom";
+  canAccessDashboard?: boolean; // Dashboard overview & metrics
   canAccessVehicles: boolean;
   assignedVehicleIds: string[]; // empty means all, or specific vehicle IDs
   canWriteFuel: boolean;

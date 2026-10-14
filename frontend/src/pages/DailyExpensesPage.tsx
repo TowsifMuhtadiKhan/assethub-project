@@ -234,6 +234,10 @@ export function DailyExpensesPage() {
 
   // Open PIN modal when a member profile is clicked
   const handleSelectMember = (member: FamilyMember) => {
+    if (member.relationship !== "Self" && member.access && member.access.canAccessDailyExpenses === false) {
+      showToast(`${member.fullName} has Daily Expenses access restricted by the Family Head.`);
+      return;
+    }
     setPinTargetMember(member);
     setPinInput("");
     setPinConfirmInput("");
