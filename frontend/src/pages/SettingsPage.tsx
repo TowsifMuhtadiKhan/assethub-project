@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import {
   Save,
   MessageSquare,
@@ -9,9 +9,7 @@ import {
   AlertCircle,
   Users,
   KeyRound,
-  Smartphone,
-  Download,
-  HardDrive,
+  ShieldCheck,
   ExternalLink,
 } from "lucide-react";
 import { getUserSettings, saveUserSettings } from "../services/settingsService";
@@ -22,20 +20,14 @@ import {
   formatRecipientNumber,
   type WhatsAppSystemStatus,
 } from "../services/whatsappService";
-import { getGoogleDriveDirectDownloadUrl } from "../utils/googleDrive";
 import type { UserSettings } from "../types";
 import { WhatsAppContactsManager } from "../components/common/WhatsAppContactsManager";
 import { FamilyPage } from "./FamilyPage";
 import { AccessControlPage } from "./AccessControlPage";
 
-import {
-  getApkConfig,
-  saveApkConfig,
-  CURRENT_APP_BUILD,
-} from "../services/appUpdateService";
-
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const tabParam = searchParams.get("tab");
 
   const [settings, setSettings] = useState<UserSettings>({
@@ -48,14 +40,7 @@ export function SettingsPage() {
     callmebotApiKey: "",
   });
 
-  const [apkConfig] = useState(() => getApkConfig());
-  const [apkDriveUrl, setApkDriveUrl] = useState(apkConfig.driveUrl);
-  const [apkVersion, setApkVersion] = useState(apkConfig.latestVersion);
-  const [apkReleaseNotes, setApkReleaseNotes] = useState(apkConfig.releaseNotes);
-  const [apkUrlSaved, setApkUrlSaved] = useState(false);
-
-  const [activeTab, setActiveTab] = useState<"profile" | "access" | "notifications" | "app">(() => {
-    if (tabParam === "app" || tabParam === "apk" || tabParam === "mobile") return "app";
+  const [activeTab, setActiveTab] = useState<"profile" | "access" | "notifications">(() => {
     if (tabParam === "access" || tabParam === "permissions") return "access";
     if (tabParam === "notifications" || tabParam === "whatsapp") return "notifications";
     return "profile";
@@ -65,13 +50,18 @@ export function SettingsPage() {
 
   // Sync with URL query parameter
   useEffect(() => {
-    if (tabParam === "app" || tabParam === "apk" || tabParam === "mobile") setActiveTab("app");
-    else if (tabParam === "access" || tabParam === "permissions") setActiveTab("access");
-    else if (tabParam === "notifications" || tabParam === "whatsapp") setActiveTab("notifications");
-    else if (tabParam === "profile" || tabParam === "profiles") setActiveTab("profile");
-  }, [tabParam]);
+    if (tabParam === "app" || tabParam === "apk" || tabParam === "mobile") {
+      navigate("/admin?tab=apk", { replace: true });
+    } else if (tabParam === "access" || tabParam === "permissions") {
+      setActiveTab("access");
+    } else if (tabParam === "notifications" || tabParam === "whatsapp") {
+      setActiveTab("notifications");
+    } else if (tabParam === "profile" || tabParam === "profiles") {
+      setActiveTab("profile");
+    }
+  }, [tabParam, navigate]);
 
-  const switchTab = (tab: "profile" | "access" | "notifications" | "app") => {
+  const switchTab = (tab: "profile" | "access" | "notifications") => {
     setActiveTab(tab);
     setSearchParams({ tab });
   };
@@ -229,19 +219,6 @@ export function SettingsPage() {
           >
             <Bell className="h-4 w-4 text-emerald-600" />
             <span>Notification</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => switchTab("app")}
-            className={`inline-flex items-center gap-1.5 pb-2.5 pt-1 border-b-2 transition cursor-pointer ${
-              activeTab === "app"
-                ? "border-indigo-600 text-indigo-700 font-bold"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <Smartphone className="h-4 w-4 text-indigo-600" />
-            <span>Mobile App & APK</span>
           </button>
         </div>
       </div>
@@ -520,179 +497,20 @@ export function SettingsPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 4: MOBILE APP & ANDROID APK                                           */}
-      {/* ========================================================================= */}
-      {activeTab === "app" && (
-        <div className="space-y-6">
-          {/* Card 1: Android APK Distribution */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs space-y-4">
-            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Smartphone className="h-4 w-4 text-emerald-600" />
-                  <span>Android App (.apk) Distribution via Google Drive</span>
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Host your compiled LifeNest.apk on Google Drive and allow Android users to download and install it in one tap.
-                </p>
-              </div>
-            </div>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                saveApkConfig(apkDriveUrl, apkVersion, apkReleaseNotes);
-                setApkUrlSaved(true);
-                setTimeout(() => setApkUrlSaved(false), 3000);
-              }}
-              className="space-y-3.5"
-            >
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Google Drive APK File Link
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={apkDriveUrl}
-                    onChange={(e) => setApkDriveUrl(e.target.value)}
-                    placeholder="https://drive.google.com/file/d/1A2B3C4D.../view?usp=sharing"
-                    className="flex-1 rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-emerald-500 focus:bg-white font-mono"
-                  />
-                  <button
-                    type="submit"
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 transition cursor-pointer"
-                  >
-                    <Save className="h-3.5 w-3.5" />
-                    <span>Save & Publish</span>
-                  </button>
-                </div>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Upload your <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-700 font-mono">LifeNest.apk</code> to Google Drive, right-click ➔ Share ➔ set to <strong>"Anyone with the link can view"</strong>, and paste the URL here.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Latest APK Version / Build
-                  </label>
-                  <input
-                    type="text"
-                    value={apkVersion}
-                    onChange={(e) => setApkVersion(e.target.value)}
-                    placeholder="1.1.0"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-emerald-500 focus:bg-white font-mono"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-0.5">
-                    Installed build baseline: <strong>v{CURRENT_APP_BUILD}</strong>. Increase this version to trigger update notifications for mobile users.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    What's New / Release Notes (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={apkReleaseNotes}
-                    onChange={(e) => setApkReleaseNotes(e.target.value)}
-                    placeholder="Chassis search, rounded AI chat, minimal answers..."
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-emerald-500 focus:bg-white"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-0.5">
-                    Shown inside the mobile update prompt when users are notified.
-                  </p>
-                </div>
-              </div>
-
-              {apkUrlSaved && (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-800 flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                  Google Drive APK link and version saved! Mobile devices will now receive update prompts.
-                </div>
-              )}
-
-              {apkDriveUrl && (
-                <div className="pt-2 flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const directUrl = getGoogleDriveDirectDownloadUrl(apkDriveUrl);
-                      window.open(directUrl, "_blank");
-                    }}
-                    className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
-                  >
-                    <Download className="h-4 w-4 text-emerald-400" />
-                    <span>Test Direct APK Download</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      window.dispatchEvent(new CustomEvent("lifenest:check-for-updates"));
-                    }}
-                    className="inline-flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition cursor-pointer"
-                  >
-                    <Smartphone className="h-4 w-4 text-emerald-600" />
-                    <span>Test Update Notification Popup</span>
-                  </button>
-
-                  <a
-                    href={apkDriveUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-slate-500 hover:text-slate-800 inline-flex items-center gap-1 font-medium"
-                  >
-                    <span>Open in Google Drive</span>
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-              )}
-            </form>
-          </div>
-
-          {/* Card 2: Instant Progressive Web App (PWA) */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs space-y-3">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <HardDrive className="h-4 w-4 text-orange-500" />
-              <span>Instant Web App (Android & iOS Home Screen)</span>
-            </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Users can also install LifeNest directly onto their phone's home screen without downloading an APK file. This provides instant fullscreen loading, offline asset caching, and an app icon.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-1">
-                <div className="text-xs font-bold text-slate-800">🤖 For Android:</div>
-                <div className="text-[11px] text-slate-500 leading-relaxed">
-                  Open LifeNest in Chrome ➔ tap the install prompt or menu (⋮) ➔ select <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-1">
-                <div className="text-xs font-bold text-slate-800">🍏 For Apple iOS (iPhone/iPad):</div>
-                <div className="text-[11px] text-slate-500 leading-relaxed">
-                  Open in Safari ➔ tap the <strong>Share</strong> button (⎋) ➔ scroll down and select <strong>"Add to Home Screen"</strong>.
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent("lifenest:open-install-prompt"));
-                }}
-                className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-orange-600 transition cursor-pointer"
-              >
-                <Download className="h-4 w-4" />
-                <span>Open Install Prompt / Guide</span>
-              </button>
-            </div>
-          </div>
+      {/* SuperAdmin Console Footer Notice */}
+      <div className="mt-8 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-500">
+        <div className="flex items-center gap-2.5 text-slate-700 font-medium">
+          <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+          <span>Mobile App & APK distribution, WhatsApp Gateways, and System Queues are managed exclusively in the Core Command Console.</span>
         </div>
-      )}
+        <Link
+          to="/admin?tab=apk"
+          className="inline-flex items-center gap-1.5 font-bold text-emerald-700 hover:text-emerald-800 hover:underline shrink-0"
+        >
+          <span>Admin Command Console</span>
+          <ExternalLink className="h-3.5 w-3.5" />
+        </Link>
+      </div>
     </div>
   );
 }
