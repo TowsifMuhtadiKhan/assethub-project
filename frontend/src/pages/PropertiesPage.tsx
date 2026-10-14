@@ -1238,10 +1238,44 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                               (!t.end_month || t.end_month.slice(0, 7) >= currentMonth())
                           );
 
+                          // Helper to format unit titles cleanly
+                          const formatUnitTitle = (unitNumber: string, defaultPrefix = "Flat") => {
+                            const trimmed = (unitNumber || "").trim();
+                            if (/^(flat|unit|room|shop|apartment|apt|suite)\b/i.test(trimmed)) {
+                              return trimmed;
+                            }
+                            return `${defaultPrefix} ${trimmed}`;
+                          };
+
+                          // Helper to render responsive squircle unit badge
+                          const renderUnitBadge = (unitNumber: string, isPurple = false) => {
+                            const trimmed = (unitNumber || "").trim();
+                            const stripped = trimmed.replace(/^(flat|unit|room|suite|apt|apartment|shop)\s*/i, "").trim();
+                            const showText = stripped.length > 0 && stripped.length <= 4;
+                            const displayText = showText ? stripped.toUpperCase() : null;
+
+                            const bgBorder = isPurple
+                              ? "bg-purple-50 border-purple-100/80 text-purple-700"
+                              : "bg-indigo-50 border-indigo-100/80 text-indigo-700";
+
+                            return (
+                              <div
+                                className={`h-9 w-9 rounded-xl border flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs select-none ${bgBorder}`}
+                                title={unitNumber}
+                              >
+                                {displayText ? (
+                                  <span className="font-mono tracking-tight">{displayText}</span>
+                                ) : (
+                                  <Home className="h-4.5 w-4.5" />
+                                )}
+                              </div>
+                            );
+                          };
+
                           // Helper to render tenancies list & rent schedules
                           const renderTenancySection = (targetUnit: PropertyUnit, tList: RentalTenancy[]) => {
                             return (
-                              <div className="space-y-3">
+                              <div className="space-y-2.5">
                                 {tList.map((t) => {
                                   const tenantSchedules = data.schedules
                                     .filter((s) => s.tenancy_id === t.id)
@@ -1250,11 +1284,11 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                   return (
                                     <div
                                       key={t.id}
-                                      className="space-y-2.5 rounded-xl border border-slate-200/80 bg-slate-50/50 p-3"
+                                      className="space-y-2.5 rounded-xl border border-slate-200/70 bg-slate-50/40 p-3"
                                     >
                                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                         <div className="space-y-0.5">
-                                          <div className="flex items-center gap-2">
+                                          <div className="flex items-center gap-2 flex-wrap">
                                             <span className="font-bold text-xs text-slate-900">
                                               {t.tenant_name}
                                             </span>
@@ -1279,7 +1313,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                                 <summary className="cursor-pointer font-medium text-indigo-700">
                                                   NID: {t.tenant_nid.slice(0, 4)}••••
                                                 </summary>
-                                                <span className="font-mono bg-white px-2 py-0.5 rounded-full border border-slate-200 text-slate-800">
+                                                <span className="font-mono bg-white px-2 py-0.5 rounded-md border border-slate-200 text-slate-800">
                                                   {t.tenant_nid}
                                                 </span>
                                               </details>
@@ -1314,7 +1348,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                         <div className="flex items-center gap-1.5 flex-wrap">
                                           <button
                                             type="button"
-                                            className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs transition cursor-pointer"
+                                            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs transition cursor-pointer"
                                             onClick={() =>
                                               setEditor({
                                                 type: "tenant",
@@ -1327,7 +1361,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                           </button>
                                           <button
                                             type="button"
-                                            className="rounded-full border border-indigo-200 bg-indigo-50/80 px-3 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 shadow-2xs transition cursor-pointer"
+                                            className="rounded-lg border border-indigo-200 bg-indigo-50/80 px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 shadow-2xs transition cursor-pointer"
                                             onClick={() =>
                                               setEditor({ type: "rate", tenancy: t })
                                             }
@@ -1337,7 +1371,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                           <button
                                             type="button"
                                             onClick={() => removeTenancy(t.id, t.tenant_name)}
-                                            className="p-1.5 rounded-full text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                                            className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
                                             title={`Delete tenancy for ${t.tenant_name}`}
                                           >
                                             <Trash2 className="h-3.5 w-3.5" />
@@ -1355,26 +1389,27 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                           return (
                                             <div
                                               key={s.id}
-                                              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/80 bg-white p-2.5 text-xs shadow-2xs"
+                                              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200/70 bg-white px-3 py-2 text-xs"
                                             >
-                                              <div className="space-y-1">
-                                                <div className="flex items-center gap-2">
-                                                  <span className="font-mono font-bold text-slate-900">
-                                                    {money(total)}/month
+                                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                                <div className="flex items-baseline gap-1.5">
+                                                  <span className="font-mono font-bold text-slate-900 text-xs">
+                                                    {money(total)}
                                                   </span>
-                                                  <span className="text-[10px] text-slate-400 font-mono">
+                                                  <span className="text-[10px] text-slate-400 font-mono">/mo</span>
+                                                  <span className="text-[10px] text-slate-400 font-mono ml-0.5">
                                                     ({s.from_month.slice(0, 7)} —{" "}
                                                     {s.to_month?.slice(0, 7) || "Ongoing"})
                                                   </span>
                                                 </div>
                                                 <div className="flex flex-wrap gap-1.5 text-[11px] text-slate-600">
-                                                  <span className="rounded-full bg-slate-100 text-slate-700 px-2.5 py-0.5 font-medium border border-slate-200/80 shadow-2xs">
+                                                  <span className="rounded-md bg-slate-100 text-slate-700 px-2 py-0.5 font-medium">
                                                     Base: {money(s.base_rent)}
                                                   </span>
                                                   {s.charges.map((c) => (
                                                     <span
                                                       key={c.label}
-                                                      className="rounded-full bg-indigo-50 text-indigo-700 px-2.5 py-0.5 border border-indigo-100 font-medium shadow-2xs"
+                                                      className="rounded-md bg-indigo-50 text-indigo-700 px-2 py-0.5 font-medium"
                                                     >
                                                       {c.label}: {money(c.amount)}
                                                     </span>
@@ -1382,10 +1417,10 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                                 </div>
                                               </div>
 
-                                              <div className="flex items-center gap-1.5">
+                                              <div className="flex items-center gap-1">
                                                 <button
                                                   type="button"
-                                                  className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
+                                                  className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                                                   onClick={() =>
                                                     setEditor({
                                                       type: "rate",
@@ -1394,12 +1429,12 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                                     })
                                                   }
                                                 >
-                                                  Edit period
+                                                  Edit
                                                 </button>
                                                 <button
                                                   type="button"
                                                   onClick={() => removeSchedule(s.id)}
-                                                  className="p-1 text-slate-400 hover:text-red-600 rounded-full border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 transition shadow-2xs cursor-pointer"
+                                                  className="p-1 text-slate-400 hover:text-red-600 rounded-md hover:bg-red-50 transition cursor-pointer"
                                                   title="Delete rate period"
                                                 >
                                                   <Trash2 className="h-3 w-3" />
@@ -1430,13 +1465,11 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                 {/* Whole Flat Header */}
                                 <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
                                   <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className="h-9 w-9 rounded-full bg-indigo-50 border border-indigo-100/80 flex items-center justify-center text-indigo-700 font-bold text-xs shrink-0 shadow-2xs">
-                                      {flat.unitNumber}
-                                    </div>
+                                    {renderUnitBadge(flat.unitNumber, false)}
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-2 flex-wrap">
                                         <h2 className="font-bold text-sm text-slate-900 truncate">
-                                          {flat.unitNumber.toLowerCase().startsWith("flat") ? flat.unitNumber : `Flat ${flat.unitNumber}`}
+                                          {formatUnitTitle(flat.unitNumber, "Flat")}
                                         </h2>
                                         <span
                                           className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -1503,12 +1536,10 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                             >
                               <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
                                 <div className="flex items-center gap-2.5 min-w-0">
-                                  <div className="h-9 w-9 rounded-full bg-purple-50 border border-purple-100/80 flex items-center justify-center text-purple-700 font-bold text-xs shrink-0 shadow-2xs">
-                                    {flat.unitNumber}
-                                  </div>
+                                  {renderUnitBadge(flat.unitNumber, true)}
                                   <div className="min-w-0">
                                     <h2 className="font-bold text-sm text-slate-900 truncate">
-                                      {flat.unitNumber.toLowerCase().startsWith("flat") ? flat.unitNumber : `Flat ${flat.unitNumber}`}
+                                      {formatUnitTitle(flat.unitNumber, "Flat")}
                                     </h2>
                                     <p className="text-[11px] text-slate-400 mt-0.5 truncate">
                                       Rooms rented separately {flat.floor ? `· Floor: ${flat.floor}` : ""}{" "}
@@ -1548,7 +1579,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                       <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
                                         <div className="flex items-center gap-2">
                                           <h3 className="text-xs font-bold text-slate-900">
-                                            Room {room.unitNumber}
+                                            {formatUnitTitle(room.unitNumber, "Room")}
                                           </h3>
                                           <span
                                             className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
