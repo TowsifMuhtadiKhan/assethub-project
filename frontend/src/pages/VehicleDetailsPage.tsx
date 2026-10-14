@@ -260,7 +260,8 @@ export function VehicleDetailsPage() {
   const [warrantyFile, setWarrantyFile] = useState<File | null>(null);
   const [warrantyNotes, setWarrantyNotes] = useState("");
 
-  // Maintenance form receipt scan feedback
+  // Maintenance modal and receipt scan feedback
+  const [maintenanceModalOpen, setMaintenanceModalOpen] = useState(false);
   const [scannedExtraction, setScannedExtraction] = useState<{
     workshopName?: string;
     cost?: number;
@@ -320,7 +321,6 @@ export function VehicleDetailsPage() {
 
   // Mobile sub-view toggles (History vs Log New)
   const [mobileFuelView, setMobileFuelView] = useState<"history" | "form">("history");
-  const [mobileMaintView, setMobileMaintView] = useState<"history" | "form">("history");
 
   useEffect(() => {
     setLoading(true);
@@ -1005,7 +1005,7 @@ export function VehicleDetailsPage() {
       setMaintenanceNextDate("");
       setMaintenanceFile(null);
       setScannedExtraction(null);
-      setMobileMaintView("history");
+      setMaintenanceModalOpen(false);
     } catch (saveErr) {
       setError(saveErr instanceof Error ? saveErr.message : "Could not save maintenance record.");
     } finally {
@@ -1853,300 +1853,45 @@ export function VehicleDetailsPage() {
       {/* ========================================================================= */}
       {activeTab === "maintenance" && (
         <div className="space-y-3">
-          {/* Mobile Sub-Switcher (History vs Log Service) */}
-          <div className="lg:hidden flex items-center justify-between gap-2 bg-white border border-slate-200/80 p-1.5 rounded-xl shadow-2xs">
-            <div className="p-0.5 bg-slate-100 rounded-lg inline-flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setMobileMaintView("history")}
-                className={`px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
-                  mobileMaintView === "history"
-                    ? "bg-white text-slate-900 shadow-2xs font-bold"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                History ({services.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setMobileMaintView("form")}
-                className={`px-3 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
-                  mobileMaintView === "form"
-                    ? "bg-white text-emerald-600 shadow-2xs font-bold"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                + Log Service
-              </button>
-            </div>
-            <span className="text-xs font-mono font-bold text-slate-900 pr-2">
-              {formatMoney(totalMaintenanceCost)}
-            </span>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-3">
-            {/* Maintenance Entry Form */}
-            <div
-              className={`lg:col-span-1 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3 ${
-                mobileMaintView === "form" ? "block" : "hidden lg:block"
-              }`}
-            >
-              <div className="border-b border-slate-100 pb-2 flex items-center justify-between">
-                <div>
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                    Log Maintenance / Servicing
-                  </h2>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Attach receipt or bill to automatically extract workshop details & cost.
-                  </p>
-                </div>
+          {/* Maintenance Records List & Mobile Cards */}
+          <div className="w-full rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-5 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3 mb-3">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                  Maintenance History
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Track all periodic servicing, oil changes, parts replacements, and attached bills.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <span className="text-xs font-bold font-mono text-slate-900 bg-slate-100 border border-slate-200/60 px-2.5 py-1 rounded-full">
+                  {formatMoney(totalMaintenanceCost)}
+                </span>
                 <button
                   type="button"
-                  onClick={() => setMobileMaintView("history")}
-                  className="lg:hidden text-xs text-emerald-600 font-semibold hover:underline"
-                >
-                  View History
-                </button>
-              </div>
-
-              {/* Smart Bill / Document Upload & Extraction */}
-              <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px] font-bold text-indigo-900 flex items-center gap-1">
-                    <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
-                    Bill / Memo Scanner
-                  </span>
-                  <span className="text-[10px] text-indigo-600 font-medium">Auto-Extracts Details</span>
-                </div>
-                <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-indigo-200 bg-white p-3 hover:bg-indigo-50/50 transition">
-                  <Upload className="h-4 w-4 text-indigo-500 mb-1" />
-                  <span className="text-[11px] font-semibold text-slate-700">
-                    {maintenanceFile ? maintenanceFile.name : "Upload Receipt / Invoice (Image or PDF)"}
-                  </span>
-                  <span className="text-[10px] text-slate-400">
-                    Scans Mobil change, brake pads, workshop name & cost
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*,.pdf,.txt"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) void handleMaintenanceReceiptChange(f);
-                    }}
-                  />
-                </label>
-
-                {scannedExtraction && (
-                  <div className="mt-2 rounded-lg bg-emerald-50 border border-emerald-200 p-2 text-[11px] text-emerald-800">
-                    <div className="font-semibold flex items-center gap-1">
-                      <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Details Extracted from Bill:
-                    </div>
-                    <div className="mt-0.5 text-[10px] text-emerald-700">
-                      {scannedExtraction.detectedServiceType} · {scannedExtraction.workshopName} · {scannedExtraction.cost ? `৳${scannedExtraction.cost}` : "Amount detected"}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <form onSubmit={handleSaveMaintenance} className="space-y-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Service / Maintenance Type *
-                  </label>
-                  <select
-                    value={maintenanceServiceType}
-                    onChange={(e) => setMaintenanceServiceType(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                  >
-                    {MAINTENANCE_PRESETS.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {(maintenanceServiceType === "Others" || maintenanceServiceType === "Other") && (
-                  <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/50 p-3 space-y-2.5">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950">
-                      <Wrench className="h-3.5 w-3.5 text-indigo-600" />
-                      <span>Other Service Details</span>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                        Service Title / Name *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Chain sprocket change, Fuel pump repair, Radiator flush"
-                        value={maintenanceCustomType}
-                        onChange={(e) => setMaintenanceCustomType(e.target.value)}
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-indigo-600"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                        Service Details / Work Done *
-                      </label>
-                      <textarea
-                        rows={2}
-                        required
-                        placeholder="e.g. Replaced worn sprocket, adjusted chain tension, lubricated with high-grade chain wax"
-                        value={maintenanceDescription}
-                        onChange={(e) => setMaintenanceDescription(e.target.value)}
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-indigo-600"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Date *
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={maintenanceDate}
-                      onChange={(e) => setMaintenanceDate(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Mileage (km) *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      placeholder="e.g. 45200"
-                      value={maintenanceMileage}
-                      onChange={(e) =>
-                        setMaintenanceMileage(e.target.value ? Number(e.target.value) : "")
-                      }
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Total Cost (৳) *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      placeholder="e.g. 4500"
-                      value={maintenanceCost}
-                      onChange={(e) =>
-                        setMaintenanceCost(e.target.value ? Number(e.target.value) : "")
-                      }
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs font-mono font-semibold text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Workshop / Garage
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Navana, Rahimafrooz"
-                      value={maintenanceWorkshop}
-                      onChange={(e) => setMaintenanceWorkshop(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                    />
-                  </div>
-                </div>
-
-                {maintenanceServiceType !== "Others" && maintenanceServiceType !== "Other" && (
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Work Done / Replaced Parts (Optional)
-                    </label>
-                    <textarea
-                      rows={2}
-                      placeholder="e.g. 4L Mobil 1 5W-30 + OEM Oil filter replaced"
-                      value={maintenanceDescription}
-                      onChange={(e) => setMaintenanceDescription(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Next Service Due (Optional)
-                  </label>
-                  <input
-                    type="date"
-                    value={maintenanceNextDate}
-                    onChange={(e) => setMaintenanceNextDate(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer disabled:opacity-50 shadow-xs"
+                  onClick={() => setMaintenanceModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-slate-800 transition cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  {saving ? "Saving..." : "Save Maintenance Record"}
+                  <span>Add Record</span>
                 </button>
-              </form>
+              </div>
             </div>
 
-            {/* Maintenance Records List & Mobile Cards */}
-            <div
-              className={`lg:col-span-2 rounded-xl border border-slate-200/90 bg-white p-3.5 sm:p-4 shadow-2xs ${
-                mobileMaintView === "history" ? "block" : "hidden lg:block"
-              }`}
-            >
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
-                <div>
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                    Maintenance History
-                  </h2>
-                  <p className="text-[11px] text-slate-500">
-                    Track all periodic servicing, oil changes, parts replacements, and attached bills.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold font-mono text-slate-900">
-                    {formatMoney(totalMaintenanceCost)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setMobileMaintView("form")}
-                    className="lg:hidden inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white shadow-2xs"
-                  >
-                    <Plus className="h-3 w-3" />
-                    <span>Log</span>
-                  </button>
-                </div>
+            {services.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-xs text-slate-500 space-y-2">
+                <Wrench className="h-6 w-6 text-slate-400 mx-auto" />
+                <p>No maintenance records yet.</p>
+                <button
+                  type="button"
+                  onClick={() => setMaintenanceModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add Record
+                </button>
               </div>
-
-              {services.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-xs text-slate-500 space-y-2">
-                  <Wrench className="h-6 w-6 text-slate-400 mx-auto" />
-                  <p>No maintenance records yet.</p>
-                  <button
-                    type="button"
-                    onClick={() => setMobileMaintView("form")}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Log First Service
-                  </button>
-                </div>
-              ) : (
+            ) : (
                 <>
                   {/* Mobile Clean Card View (sm:hidden) */}
                   <div className="space-y-2.5 sm:hidden">
@@ -2340,8 +2085,7 @@ export function VehicleDetailsPage() {
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* ========================================================================= */}
       {/* TAB 3: BANGLADESH VEHICLE DOCUMENTS (TAX TOKEN, SMART CARD, LICENSE, ETC.) */}
@@ -3389,6 +3133,252 @@ export function VehicleDetailsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: LOG MAINTENANCE / SERVICING                                       */}
+      {/* ========================================================================= */}
+      {maintenanceModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-xs overflow-y-auto"
+          onMouseDown={() => setMaintenanceModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200/90 overflow-hidden my-auto max-h-[92vh] flex flex-col"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60 shrink-0">
+              <div>
+                <h2 className="text-base font-bold tracking-tight text-slate-900 flex items-center gap-2">
+                  <Wrench className="h-4 w-4 text-emerald-600" />
+                  Log Maintenance / Servicing
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Attach receipt or bill to automatically extract workshop details & cost.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMaintenanceModalOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-4">
+              {/* Smart Bill / Document Upload & Extraction */}
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3.5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+                    Bill / Memo Scanner
+                  </span>
+                  <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-100/70 px-2 py-0.5 rounded-full">
+                    Auto-Extracts Details
+                  </span>
+                </div>
+                <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-indigo-200 bg-white p-3.5 hover:bg-indigo-50/50 transition">
+                  <Upload className="h-5 w-5 text-indigo-500 mb-1" />
+                  <span className="text-xs font-semibold text-slate-700 text-center">
+                    {maintenanceFile ? maintenanceFile.name : "Upload Receipt / Invoice (Image or PDF)"}
+                  </span>
+                  <span className="text-[10px] text-slate-400 text-center mt-0.5">
+                    Scans Mobil change, brake pads, workshop name & cost
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*,.pdf,.txt"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void handleMaintenanceReceiptChange(f);
+                    }}
+                  />
+                </label>
+
+                {scannedExtraction && (
+                  <div className="mt-2.5 rounded-lg bg-emerald-50 border border-emerald-200 p-2.5 text-xs text-emerald-800">
+                    <div className="font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> Details Extracted from Bill:
+                    </div>
+                    <div className="mt-1 text-[11px] text-emerald-700">
+                      {scannedExtraction.detectedServiceType} · {scannedExtraction.workshopName} · {scannedExtraction.cost ? `৳${scannedExtraction.cost}` : "Amount detected"}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <form id="maintenance-modal-form" onSubmit={handleSaveMaintenance} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Service / Maintenance Type <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={maintenanceServiceType}
+                    onChange={(e) => setMaintenanceServiceType(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  >
+                    {MAINTENANCE_PRESETS.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {(maintenanceServiceType === "Others" || maintenanceServiceType === "Other") && (
+                  <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/50 p-3 space-y-2.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950">
+                      <Wrench className="h-3.5 w-3.5 text-indigo-600" />
+                      <span>Other Service Details</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Service Title / Name <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Chain sprocket change, Fuel pump repair, Radiator flush"
+                        value={maintenanceCustomType}
+                        onChange={(e) => setMaintenanceCustomType(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Service Details / Work Done <span className="text-rose-500">*</span>
+                      </label>
+                      <textarea
+                        rows={2}
+                        required
+                        placeholder="e.g. Replaced worn sprocket, adjusted chain tension, lubricated with high-grade chain wax"
+                        value={maintenanceDescription}
+                        onChange={(e) => setMaintenanceDescription(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Date <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={maintenanceDate}
+                      onChange={(e) => setMaintenanceDate(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Mileage (km) <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      placeholder="e.g. 45200"
+                      value={maintenanceMileage}
+                      onChange={(e) =>
+                        setMaintenanceMileage(e.target.value ? Number(e.target.value) : "")
+                      }
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Total Cost (৳) <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      placeholder="e.g. 4500"
+                      value={maintenanceCost}
+                      onChange={(e) =>
+                        setMaintenanceCost(e.target.value ? Number(e.target.value) : "")
+                      }
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-mono font-semibold text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Workshop / Garage
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Navana, Rahimafrooz"
+                      value={maintenanceWorkshop}
+                      onChange={(e) => setMaintenanceWorkshop(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                {maintenanceServiceType !== "Others" && maintenanceServiceType !== "Other" && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Work Done / Replaced Parts (Optional)
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="e.g. 4L Mobil 1 5W-30 + OEM Oil filter replaced"
+                      value={maintenanceDescription}
+                      onChange={(e) => setMaintenanceDescription(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Next Service Due (Optional)
+                  </label>
+                  <input
+                    type="date"
+                    value={maintenanceNextDate}
+                    onChange={(e) => setMaintenanceNextDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  />
+                </div>
+              </form>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-slate-100 bg-slate-50/60 shrink-0">
+              <button
+                type="button"
+                onClick={() => setMaintenanceModalOpen(false)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="maintenance-modal-form"
+                disabled={saving}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer disabled:opacity-50 shadow-xs"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                {saving ? "Saving..." : "Save Maintenance Record"}
+              </button>
+            </div>
           </div>
         </div>
       )}
