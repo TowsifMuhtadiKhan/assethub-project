@@ -20,10 +20,13 @@ import {
   Search,
   Sparkles,
   Trash2,
+  TrendingUp,
   Upload,
   Users,
   Wrench,
+  X,
 } from "lucide-react";
+import { PropertyMaintenanceTrendModal } from "../components/rentals/PropertyMaintenanceTrendModal";
 import type { PropertyUnit } from "../types";
 import type { RentalFile, RentalTenancy, RentSchedule } from "../types/rentals";
 import {
@@ -173,7 +176,11 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
 
   const activeFilterCount = activeCategory !== "All" ? 1 : 0;
 
-  // Inline Maintenance Logger States (Vehicle Style)
+  // Maintenance Modal and Trend Modal States
+  const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
+  const [isMaintenanceTrendModalOpen, setIsMaintenanceTrendModalOpen] = useState(false);
+
+  // Maintenance Logger States (Popup Modal)
   const [mCategory, setMCategory] = useState(PROPERTY_MAINTENANCE_PRESETS[0]);
   const [mUnitId, setMUnitId] = useState("");
   const [mAmount, setMAmount] = useState<number | "">("");
@@ -365,6 +372,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
       setMFiles([]);
       setMScanSuccess("");
       setMExtractedText("");
+      setIsMaintenanceModalOpen(false);
     });
   };
 
@@ -2106,331 +2114,169 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                     </div>
                   )}
 
-                  {/* TAB 4: Maintenance (Side-by-Side 3-Col Layout with OCR Scanner Matching Vehicle) */}
+                  {/* TAB 4: Maintenance */}
                   {tab === "Maintenance" && (
-                    <div className="grid gap-4 lg:grid-cols-3">
-                      {/* Left Column: Maintenance Entry Form (Vehicle Pattern) */}
-                      <div className="lg:col-span-1 rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3">
-                        <div className="border-b border-slate-100 pb-2">
-                          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                            Log Maintenance / Servicing
+                    <div className="space-y-4">
+                      {/* Top Action Header Bar */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-2xs">
+                        <div>
+                          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                            <Wrench className="h-4 w-4 text-emerald-600" />
+                            Maintenance & Servicing History
                           </h2>
-                          <p className="text-[11px] text-slate-500 mt-0.5">
-                            Attach plumber/electrician receipt or bill to auto-extract details.
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Track all property repairs, servicing, contractor bills, and tenant unit fixes for {property?.name || "this property"}.
                           </p>
                         </div>
 
-                        {/* Smart Bill / Memo Scanner (Vehicle Style OCR) */}
-                        <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3">
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[11px] font-bold text-indigo-900 flex items-center gap-1">
-                              <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
-                              Bill / Memo Scanner
-                            </span>
-                            <span className="text-[10px] text-indigo-600 font-medium">
-                              Auto-Extracts Details
-                            </span>
-                          </div>
-                          <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-indigo-200 bg-white p-3 hover:bg-indigo-50/50 transition">
-                            <Upload className="h-4 w-4 text-indigo-500 mb-1" />
-                            <span className="text-[11px] font-semibold text-slate-700">
-                              {mFiles.length > 0
-                                ? mFiles[0].name
-                                : "Upload Receipt / Invoice (Image or PDF)"}
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              Scans plumbing, electrical, AC servicing memo & cost
-                            </span>
-                            <input
-                              type="file"
-                              accept="image/*,.pdf"
-                              className="hidden"
-                              onChange={(e) => {
-                                const f = e.target.files?.[0];
-                                if (f) void handleScanReceipt(f);
-                              }}
-                            />
-                          </label>
-
-                          {mScanning && (
-                            <div className="mt-2 text-[10px] font-medium text-indigo-700 flex items-center gap-1.5">
-                              <div className="h-2.5 w-2.5 animate-spin rounded-full border border-indigo-600 border-t-transparent" />
-                              <span>{mProgress}</span>
-                            </div>
-                          )}
-
-                          {mScanSuccess && (
-                            <div className="mt-2 rounded-lg bg-emerald-50 border border-emerald-200 p-2 text-[11px] text-emerald-800">
-                              <div className="font-semibold flex items-center gap-1">
-                                <CheckCircle2 className="h-3 w-3 text-emerald-600" />{" "}
-                                Details Extracted from Bill:
-                              </div>
-                              <div className="mt-0.5 text-[10px] text-emerald-700">
-                                {mScanSuccess}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Inline Form */}
-                        <form onSubmit={handleInlineSaveMaintenance} className="space-y-3">
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                              Maintenance Category *
-                            </label>
-                            <select
-                              value={mCategory}
-                              onChange={(e) => setMCategory(e.target.value)}
-                              className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                            >
-                              {PROPERTY_MAINTENANCE_PRESETS.map((type) => (
-                                <option key={type} value={type}>
-                                  {type}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                              Unit / Space Covered
-                            </label>
-                            <select
-                              value={mUnitId}
-                              onChange={(e) => setMUnitId(e.target.value)}
-                              className="w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800 focus:bg-white"
-                            >
-                              <option value="">Entire Building / Common Area</option>
-                              {units.map((u) => (
-                                <option key={u.id} value={u.id}>
-                                  {u.unitNumber} {u.tenantName ? `(${u.tenantName})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                                Amount (৳ BDT) *
-                              </label>
-                              <input
-                                type="number"
-                                min="1"
-                                step="1"
-                                required
-                                placeholder="e.g. 2500"
-                                value={mAmount}
-                                onChange={(e) =>
-                                  setMAmount(e.target.value ? Number(e.target.value) : "")
-                                }
-                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-slate-800"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                                Service Date *
-                              </label>
-                              <input
-                                type="date"
-                                required
-                                value={mDate}
-                                onChange={(e) => setMDate(e.target.value)}
-                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                                Technician / Vendor
-                              </label>
-                              <input
-                                type="text"
-                                placeholder="e.g. Rafiq Plumber"
-                                value={mVendor}
-                                onChange={(e) => setMVendor(e.target.value)}
-                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                                Payment Method
-                              </label>
-                              <select
-                                value={mPaymentMethod}
-                                onChange={(e) => setMPaymentMethod(e.target.value)}
-                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800"
-                              >
-                                <option value="Cash">Cash</option>
-                                <option value="bKash">bKash</option>
-                                <option value="Nagad">Nagad</option>
-                                <option value="Bank Transfer">Bank Transfer</option>
-                                <option value="Card">Card</option>
-                              </select>
-                            </div>
-                          </div>
-
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                              Problem & Fix Description *
-                            </label>
-                            <textarea
-                              rows={2}
-                              required
-                              placeholder="e.g. Fixed master bathroom leaking pipe, replaced gasket"
-                              value={mDesc}
-                              onChange={(e) => setMDesc(e.target.value)}
-                              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-800"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                              Attach Repair Bills / Receipts
-                            </label>
-                            <input
-                              type="file"
-                              multiple
-                              accept="image/*,.pdf"
-                              onChange={(e) =>
-                                setMFiles(Array.from(e.target.files || []))
-                              }
-                              className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
-                            />
-                          </div>
-
+                        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                          <span className="text-xs font-bold font-mono text-slate-900 bg-slate-100 border border-slate-200/60 px-3 py-1.5 rounded-full">
+                            ৳{totalPropertyMaintenanceCost.toLocaleString()}
+                          </span>
                           <button
-                            type="submit"
-                            disabled={busy}
-                            className="w-full rounded-lg bg-slate-900 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition cursor-pointer"
+                            type="button"
+                            onClick={() => setIsMaintenanceTrendModalOpen(true)}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 px-3.5 py-1.5 text-xs font-semibold shadow-2xs transition cursor-pointer"
+                            title="View Maintenance Spending Trends"
                           >
-                            {busy ? "Saving record…" : "Log Maintenance Expense"}
+                            <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                            <span>Trend Graph</span>
                           </button>
-                        </form>
+                          <button
+                            type="button"
+                            onClick={() => setIsMaintenanceModalOpen(true)}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-slate-800 transition cursor-pointer"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            <span>Log Maintenance</span>
+                          </button>
+                        </div>
                       </div>
 
-                      {/* Right Columns: Maintenance History Log (Vehicle Pattern) */}
-                      <div className="lg:col-span-2 space-y-3">
-                        {/* Summary Bar */}
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                          <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              Total Maintenance Spent
-                            </span>
-                            <div className="mt-1 text-base font-bold text-slate-900">
-                              ৳{totalPropertyMaintenanceCost.toLocaleString()}
-                            </div>
-                          </div>
-
-                          <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              Service Jobs Logged
-                            </span>
-                            <div className="mt-1 text-base font-bold text-slate-900">
-                              {propertyMaintenance.length} records
-                            </div>
-                          </div>
-
-                          <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs col-span-2 sm:col-span-1">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              Latest Repair Date
-                            </span>
-                            <div className="mt-1 text-base font-bold text-slate-900">
-                              {propertyMaintenance[0]?.date || "—"}
-                            </div>
+                      {/* Summary Metrics Bar */}
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            Total Maintenance Spent
+                          </span>
+                          <div className="mt-1 text-lg font-bold font-mono text-slate-900">
+                            ৳{totalPropertyMaintenanceCost.toLocaleString()}
                           </div>
                         </div>
 
-                        {/* List of Maintenance Logs */}
-                        {propertyMaintenance.length === 0 ? (
-                          <div className="rounded-xl border border-dashed border-slate-200 bg-white p-10 text-center">
-                            <Wrench className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-                            <p className="text-xs font-bold text-slate-800">
+                        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            Service Jobs Logged
+                          </span>
+                          <div className="mt-1 text-lg font-bold font-mono text-slate-900">
+                            {propertyMaintenance.length} records
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs col-span-2 sm:col-span-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            Latest Repair Date
+                          </span>
+                          <div className="mt-1 text-lg font-bold font-mono text-slate-900">
+                            {propertyMaintenance[0]?.date || "—"}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* List of Maintenance Logs */}
+                      {propertyMaintenance.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center space-y-3">
+                          <Wrench className="h-10 w-10 text-slate-300 mx-auto" />
+                          <div>
+                            <p className="text-sm font-bold text-slate-800">
                               No maintenance records logged yet
                             </p>
-                            <p className="text-[11px] text-slate-400 mt-0.5">
-                              Use the form on the left to log repairs, plumbing, electrical, or AC servicing.
+                            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                              Log plumbing, electrical repairs, painting, AC servicing, or contractor bills with receipt scanning.
                             </p>
                           </div>
-                        ) : (
-                          <div className="space-y-2.5">
-                            {propertyMaintenance.map((m) => (
-                              <article
-                                key={m.id}
-                                className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:border-slate-300 transition"
-                              >
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                      <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-800 border border-emerald-200">
-                                        {m.category}
-                                      </span>
-                                      <span className="text-[11px] font-semibold text-slate-700">
-                                        {m.unit_id
-                                          ? units.find((u) => u.id === m.unit_id)
-                                              ?.unitNumber || "Flat Unit"
-                                          : "Common Areas / Building"}
-                                      </span>
-                                    </div>
-                                    <h4 className="text-xs font-bold text-slate-900">
-                                      {m.description}
-                                    </h4>
-                                  </div>
-
+                          <button
+                            type="button"
+                            onClick={() => setIsMaintenanceModalOpen(true)}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+                          >
+                            <Plus className="h-3.5 w-3.5" /> Log Maintenance
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {propertyMaintenance.map((m) => (
+                            <article
+                              key={m.id}
+                              className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-2xs hover:border-slate-300 transition"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="space-y-1">
                                   <div className="flex items-center gap-2">
-                                    <span className="font-mono text-sm font-bold text-slate-900">
-                                      {money(m.amount)}
+                                    <span className="rounded-md bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800 border border-emerald-200">
+                                      {m.category}
                                     </span>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        deleteMaint(m.id, m.description, m.files)
-                                      }
-                                      className="text-slate-400 hover:text-rose-600 transition p-1"
-                                      title="Delete record"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
+                                    <span className="text-xs font-semibold text-slate-700">
+                                      {m.unit_id
+                                        ? units.find((u) => u.id === m.unit_id)
+                                            ?.unitNumber || "Flat Unit"
+                                        : "Common Areas / Building"}
+                                    </span>
                                   </div>
+                                  <h4 className="text-sm font-bold text-slate-900 mt-1">
+                                    {m.description}
+                                  </h4>
                                 </div>
 
-                                <div className="mt-2.5 flex flex-wrap items-center gap-3 text-[11px] text-slate-500 border-t border-slate-100 pt-2">
-                                  <span>Date: {m.date}</span>
-                                  {m.vendor && (
-                                    <span>Contractor: {m.vendor}</span>
-                                  )}
-                                  {m.payment_method && (
-                                    <span className="rounded bg-slate-100 px-1.5 py-0.2 text-[10px]">
-                                      Paid via {m.payment_method}
-                                    </span>
-                                  )}
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-base font-bold text-slate-900">
+                                    {money(m.amount)}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      deleteMaint(m.id, m.description, m.files)
+                                    }
+                                    className="text-slate-400 hover:text-rose-600 transition p-1 cursor-pointer rounded-lg hover:bg-slate-50"
+                                    title="Delete record"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
                                 </div>
+                              </div>
 
-                                {m.files && m.files.length > 0 && (
-                                  <div className="mt-2 pt-1 border-t border-slate-100">
-                                    {renderFiles(m.files)}
-                                  </div>
+                              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 border-t border-slate-100 pt-2.5">
+                                <span className="font-mono">Date: {m.date}</span>
+                                {m.vendor && (
+                                  <span>Contractor: <strong className="text-slate-700">{m.vendor}</strong></span>
                                 )}
+                                {m.payment_method && (
+                                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                                    Paid via {m.payment_method}
+                                  </span>
+                                )}
+                              </div>
 
-                                {m.extracted_text && (
-                                  <details className="mt-2 text-[10px] text-slate-500">
-                                    <summary className="cursor-pointer font-medium text-indigo-700">
-                                      Show scanned memo text
-                                    </summary>
-                                    <pre className="whitespace-pre-wrap font-mono bg-slate-50 p-2 rounded mt-1">
-                                      {m.extracted_text}
-                                    </pre>
-                                  </details>
-                                )}
-                              </article>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                              {m.files && m.files.length > 0 && (
+                                <div className="mt-2.5 pt-2 border-t border-slate-100">
+                                  {renderFiles(m.files)}
+                                </div>
+                              )}
+
+                              {m.extracted_text && (
+                                <details className="mt-2 text-xs text-slate-500">
+                                  <summary className="cursor-pointer font-medium text-indigo-700 hover:underline">
+                                    Show scanned memo text
+                                  </summary>
+                                  <pre className="whitespace-pre-wrap font-mono bg-slate-50 p-2.5 rounded-xl mt-1 text-[11px] border border-slate-100">
+                                    {m.extracted_text}
+                                  </pre>
+                                </details>
+                              )}
+                            </article>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -2493,6 +2339,257 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
               close={() => setEditor(null)}
             />
           )}
+
+          {/* POPUP MODAL: LOG MAINTENANCE / SERVICING */}
+          {isMaintenanceModalOpen && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs overflow-y-auto"
+              onMouseDown={() => !busy && !mScanning && setIsMaintenanceModalOpen(false)}
+            >
+              <div
+                className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[92vh] flex flex-col"
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                {/* Modal Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60 shrink-0">
+                  <div>
+                    <h2 className="text-base font-bold tracking-tight text-slate-900 flex items-center gap-2">
+                      <Wrench className="h-4 w-4 text-emerald-600" />
+                      Log Maintenance / Servicing
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Attach plumber/electrician receipt or bill to auto-extract details for {property?.name || "this property"}.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={busy || mScanning}
+                    onClick={() => setIsMaintenanceModalOpen(false)}
+                    className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer disabled:opacity-50"
+                    aria-label="Close modal"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <form onSubmit={handleInlineSaveMaintenance} className="p-6 space-y-4 overflow-y-auto">
+                  {/* Smart Bill / Memo Scanner */}
+                  <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                        <Sparkles className="h-4 w-4 text-indigo-600" />
+                        Bill / Memo Scanner
+                      </span>
+                      <span className="text-[11px] text-indigo-600 font-semibold bg-white px-2 py-0.5 rounded-full border border-indigo-100">
+                        Auto-Extracts Details
+                      </span>
+                    </div>
+                    <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-indigo-200 bg-white p-3.5 hover:bg-indigo-50/30 transition text-center">
+                      <Upload className="h-5 w-5 text-indigo-500 mb-1" />
+                      <span className="text-xs font-semibold text-slate-800">
+                        {mFiles.length > 0 ? mFiles[0].name : "Upload Receipt / Invoice (Image or PDF)"}
+                      </span>
+                      <span className="text-[10px] text-slate-400 mt-0.5">
+                        Scans plumbing, electrical, AC servicing memo & cost
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        className="hidden"
+                        disabled={mScanning || busy}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) void handleScanReceipt(f);
+                        }}
+                      />
+                    </label>
+
+                    {mScanning && (
+                      <div className="text-xs font-medium text-indigo-700 flex items-center gap-2 pt-1">
+                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+                        <span>{mProgress}</span>
+                      </div>
+                    )}
+
+                    {mScanSuccess && (
+                      <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-2.5 text-xs text-emerald-800">
+                        <div className="font-bold flex items-center gap-1.5">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                          Details Extracted from Bill:
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-emerald-700 font-mono">
+                          {mScanSuccess}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Maintenance Category */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Maintenance Category *
+                    </label>
+                    <select
+                      value={mCategory}
+                      onChange={(e) => setMCategory(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                    >
+                      {PROPERTY_MAINTENANCE_PRESETS.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Unit / Space Covered */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Unit / Space Covered
+                    </label>
+                    <select
+                      value={mUnitId}
+                      onChange={(e) => setMUnitId(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                    >
+                      <option value="">Entire Building / Common Area</option>
+                      {units.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.unitNumber} {u.tenantName ? `(${u.tenantName})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Amount & Date */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Amount (৳ BDT) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        required
+                        placeholder="e.g. 2500"
+                        value={mAmount}
+                        onChange={(e) =>
+                          setMAmount(e.target.value ? Number(e.target.value) : "")
+                        }
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-mono font-bold text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Service Date *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={mDate}
+                        onChange={(e) => setMDate(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Technician & Payment Method */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Technician / Vendor
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Rafiq Plumber"
+                        value={mVendor}
+                        onChange={(e) => setMVendor(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Payment Method
+                      </label>
+                      <select
+                        value={mPaymentMethod}
+                        onChange={(e) => setMPaymentMethod(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                      >
+                        <option value="Cash">Cash</option>
+                        <option value="bKash">bKash</option>
+                        <option value="Nagad">Nagad</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="Card">Card</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Problem & Fix Description *
+                    </label>
+                    <textarea
+                      rows={2}
+                      required
+                      placeholder="e.g. Fixed master bathroom leaking pipe, replaced gasket"
+                      value={mDesc}
+                      onChange={(e) => setMDesc(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                    />
+                  </div>
+
+                  {/* Attachments */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Attach Repair Bills / Receipts
+                    </label>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*,.pdf"
+                      onChange={(e) => setMFiles(Array.from(e.target.files || []))}
+                      className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      disabled={busy || mScanning}
+                      onClick={() => setIsMaintenanceModalOpen(false)}
+                      className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={busy || mScanning}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition cursor-pointer disabled:opacity-50 shadow-xs"
+                    >
+                      <Wrench className="h-3.5 w-3.5" />
+                      {busy ? "Saving record…" : "Log Maintenance Expense"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* POPUP MODAL: PROPERTY MAINTENANCE TREND GRAPH */}
+          <PropertyMaintenanceTrendModal
+            isOpen={isMaintenanceTrendModalOpen}
+            onClose={() => setIsMaintenanceTrendModalOpen(false)}
+            maintenance={propertyMaintenance}
+            propertyName={property?.name}
+            units={units}
+          />
         </>
       )}
     </div>
