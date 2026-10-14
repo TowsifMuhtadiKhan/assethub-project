@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { getCurrentUserAccess, type CurrentUserAccessResult } from "../../services/familyService";
+import { useLanguage } from "../../context/LanguageContext";
 
 type MenuItem = {
   to: string;
@@ -85,6 +86,39 @@ export function Sidebar({
   onCloseMobile,
 }: SidebarProps) {
   const location = useLocation();
+  const { t } = useLanguage();
+
+  const getGroupTitle = (groupId: string, defaultTitle: string) => {
+    switch (groupId) {
+      case "my-life":
+        return t("group_my_life", defaultTitle);
+      case "vault":
+        return t("group_vault", defaultTitle);
+      case "assets":
+        return t("group_assets", defaultTitle);
+      default:
+        return defaultTitle;
+    }
+  };
+
+  const getItemLabel = (to: string, defaultLabel: string) => {
+    switch (to) {
+      case "/my-life/tasks":
+        return t("item_todo", defaultLabel);
+      case "/my-life/expenses":
+        return t("item_expenses", defaultLabel);
+      case "/documents/vault":
+        return t("item_docs", defaultLabel);
+      case "/assets/vehicles":
+        return t("item_vehicles", defaultLabel);
+      case "/rentals/properties":
+        return t("item_houses", defaultLabel);
+      case "/assets/warranties":
+        return t("item_warranties", defaultLabel);
+      default:
+        return defaultLabel;
+    }
+  };
 
   // Determine which group contains the active route so it starts expanded
   const activeGroupId = useMemo(() => {
@@ -209,7 +243,7 @@ export function Sidebar({
                 isDashboardActive ? "text-orange-400" : "text-orange-500"
               }`}
             />
-            <span className="text-[13px] tracking-tight">Dashboard</span>
+            <span className="text-[13px] tracking-tight">{t("nav_dashboard", "Dashboard")}</span>
           </div>
           {isItemLocked("/") && (
             <Lock className="h-3 w-3 text-slate-500 shrink-0" />
@@ -238,7 +272,7 @@ export function Sidebar({
                 <div className="flex items-center gap-2.5">
                   <GroupIcon className={`h-4 w-4 shrink-0 ${group.iconColor}`} />
                   <span className="text-[13px] font-bold tracking-tight">
-                    {group.title}
+                    {getGroupTitle(group.id, group.title)}
                   </span>
                 </div>
 
@@ -291,7 +325,7 @@ export function Sidebar({
                         />
 
                         {/* Submenu Label */}
-                        <span className="truncate">{item.label}</span>
+                        <span className="truncate">{getItemLabel(item.to, item.label)}</span>
                         {isItemLocked(item.to) && (
                           <Lock className="h-3 w-3 text-slate-500 ml-auto shrink-0" />
                         )}
@@ -317,7 +351,7 @@ export function Sidebar({
         <NavLink
           to="/"
           end
-          title="Dashboard"
+          title={t("nav_dashboard", "Dashboard")}
           className={`group relative flex h-10 w-10 mx-auto items-center justify-center rounded-xl transition-all ${
             isDashboardActive
               ? "bg-orange-500 text-white shadow-md shadow-orange-500/30"
@@ -344,7 +378,7 @@ export function Sidebar({
                     key={item.to}
                     to={item.to}
                     end={item.to === "/"}
-                    title={`${group.title}: ${item.label}`}
+                    title={`${getGroupTitle(group.id, group.title)}: ${getItemLabel(item.to, item.label)}`}
                     className={`group relative flex h-10 w-10 mx-auto items-center justify-center rounded-xl transition-all ${
                       active
                         ? "bg-orange-500 text-white shadow-md shadow-orange-500/30"

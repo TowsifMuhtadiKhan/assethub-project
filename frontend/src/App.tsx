@@ -19,6 +19,7 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { ErrorPage } from "./pages/ErrorPage";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { startReminderDaemon } from "./services/reminderDaemon";
+import { LanguageProvider } from "./context/LanguageContext";
 
 import { AdminPage } from "./pages/AdminPage";
 
@@ -42,7 +43,8 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <BrowserRouter>
+      <LanguageProvider>
+        <BrowserRouter>
         <Routes>
           {/* Fully Separate & Private SuperAdmin Panel (ID: Towsif, Pass: Admin) */}
           <Route path="/admin" element={<AdminPage />} />
@@ -106,8 +108,9 @@ function App() {
             </Route>
           </Routes>
         </BrowserRouter>
-      </ErrorBoundary>
-    );
-  }
+      </LanguageProvider>
+    </ErrorBoundary>
+  );
+}
 
 export default App;

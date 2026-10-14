@@ -15,6 +15,8 @@ import {
   Smartphone,
   Download,
   X,
+  User,
+  Globe,
 } from "lucide-react";
 import { useNavigate, Outlet } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -29,9 +31,11 @@ import { clearToken, getUserEmail } from "../../services/api";
 import { getUserSettings } from "../../services/settingsService";
 import { supabase } from "../../lib/supabase";
 import { SignoutOverlay } from "../common/LoadingStates";
+import { useLanguage } from "../../context/LanguageContext";
 
 export function AppLayout() {
   const navigate = useNavigate();
+  const { language, setLanguage, toggleLanguage, t } = useLanguage();
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -159,13 +163,25 @@ export function AppLayout() {
                 <Search className="h-3.5 w-3.5 text-slate-400" />
                 <input
                   className="w-56 lg:w-72 border-0 bg-transparent text-xs text-slate-700 outline-none placeholder:text-slate-400"
-                  placeholder="Search documents, cars, bills... (Ctrl+K)"
+                  placeholder={t("search_placeholder", "Search documents, cars, bills... (Ctrl+K)")}
                 />
               </div>
             </div>
 
             {/* Header Right Actions */}
             <div className="flex items-center gap-2 sm:gap-2.5">
+              {/* Multi-language Selector Pill */}
+              <button
+                type="button"
+                onClick={toggleLanguage}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition shadow-2xs cursor-pointer select-none"
+                title={language === "en" ? "বাংলা ভাষায় পরিবর্তন করুন" : "Switch to English"}
+                aria-label="Toggle language"
+              >
+                <Globe className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                <span className="font-bold">{language === "en" ? "বাং" : "EN"}</span>
+              </button>
+
               {/* Quick Create Dropdown */}
               <div className="relative">
                 <button
@@ -175,7 +191,7 @@ export function AppLayout() {
                   className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Add New</span>
+                  <span className="hidden sm:inline">{t("quick_add", "Add New")}</span>
                 </button>
 
                 {quickAddOpen && (
@@ -241,170 +257,198 @@ export function AppLayout() {
                               key={item.path}
                               type="button"
                               onClick={() => {
-                                setQuickAddOpen(false);
-                                navigate(item.path);
-                              }}
-                              className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-left hover:bg-slate-50 transition group cursor-pointer"
+                              setQuickAddOpen(false);
+                              navigate(item.path);
+                            }}
+                            className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-left hover:bg-slate-50 transition group cursor-pointer"
+                          >
+                            <div
+                              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${item.color}`}
                             >
-                              <div
-                                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${item.color}`}
-                              >
-                                <Icon className="h-3.5 w-3.5" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="text-xs font-semibold text-slate-800 group-hover:text-slate-950">
-                                  {item.label}
-                                </div>
-                                <div className="text-[10px] text-slate-400 truncate">
-                                  {item.description}
-                                </div>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Professional User Profile */}
-              <div className="relative">
-                <button
-                  type="button"
-                  aria-label="Open profile menu"
-                  onClick={() => setProfileOpen((open) => !open)}
-                  className="flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white p-1 sm:pl-1 sm:pr-2.5 hover:border-slate-300 hover:bg-slate-50/90 transition shadow-2xs cursor-pointer group"
-                >
-                  {/* Avatar with Gradient & Status Indicator */}
-                  <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-800 text-white font-bold text-xs shadow-xs ring-1 ring-slate-200">
-                    <span>{getInitials(userProfile.fullName, userProfile.email)}</span>
-                    <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
-                  </div>
-
-                  {/* User Name & Role Pill */}
-                  <div className="hidden text-left sm:block">
-                    <div className="text-xs font-bold text-slate-800 group-hover:text-slate-950 capitalize leading-tight">
-                      {displayName}
-                    </div>
-                    <div className="text-[10px] font-medium text-slate-400 leading-none">
-                      Family Head
-                    </div>
-                  </div>
-
-                  <ChevronDown
-                    className={`hidden sm:block h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition-transform duration-200 ${
-                      profileOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-
-                {profileOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-30"
-                      onClick={() => setProfileOpen(false)}
-                    />
-                    <div className="absolute right-0 top-12 z-40 w-72 rounded-2xl border border-slate-200/90 bg-white p-2 shadow-2xl ring-1 ring-slate-950/5 animate-in fade-in zoom-in-95 duration-100">
-                      {/* Profile Card Header */}
-                      <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50/80 border border-slate-100 mb-1.5">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-slate-900 to-indigo-950 text-white font-bold text-sm shadow-xs ring-1 ring-slate-200">
-                          {getInitials(userProfile.fullName, userProfile.email)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-slate-900 truncate capitalize">
-                              {displayName}
-                            </span>
-                            <span className="rounded bg-emerald-50 px-1 py-0.2 text-[9px] font-bold text-emerald-700 border border-emerald-200">
-                              HEAD
-                            </span>
-                          </div>
-                          <div className="truncate text-[11px] text-slate-500 font-mono">
-                            {userProfile.email}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Dropdown Menu Items */}
-                      <div className="space-y-0.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProfileOpen(false);
-                            navigate("/settings?tab=profile");
-                          }}
-                          className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
-                        >
-                          <CircleUserRound className="h-4 w-4 text-slate-400" />
-                          <span>My Profile & Details</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProfileOpen(false);
-                            navigate("/settings");
-                          }}
-                          className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 transition text-left cursor-pointer"
-                        >
-                          <Settings className="h-4 w-4 text-slate-400" />
-                          <span>Settings</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProfileOpen(false);
-                            window.dispatchEvent(new CustomEvent("lifenest:open-install-prompt"));
-                          }}
-                          className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
-                        >
-                          <Smartphone className="h-4 w-4 text-slate-400" />
-                          <span>Install App on Phone</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProfileOpen(false);
-                            downloadApkFromConfiguredDrive();
-                          }}
-                          className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-semibold text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100/80 hover:text-emerald-950 transition text-left cursor-pointer border border-emerald-200/50"
-                        >
-                          <Download className="h-4 w-4 text-emerald-600" />
-                          <div className="flex-1 min-w-0">
-                            <div>Download Android App (APK)</div>
-                            <div className="text-[10px] font-normal text-emerald-600/80 truncate">
-                              Direct download for your phone
+                              <Icon className="h-3.5 w-3.5" />
                             </div>
-                          </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-semibold text-slate-800 group-hover:text-slate-950">
+                                {item.label}
+                              </div>
+                              <div className="text-[10px] text-slate-400 truncate">
+                                {item.description}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Professional User Profile */}
+            <div className="relative">
+              <button
+                type="button"
+                aria-label="Open profile menu"
+                onClick={() => setProfileOpen((open) => !open)}
+                className="flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white p-1 sm:pl-1.5 sm:pr-2.5 hover:border-slate-300 hover:bg-slate-50/90 transition shadow-2xs cursor-pointer group"
+              >
+                {/* Rounded-full User Profile Icon with Status Indicator */}
+                <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-800 text-white shadow-xs ring-1 ring-slate-200">
+                  <User className="h-4 w-4 text-white" />
+                  <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+                </div>
+
+                {/* User Name & Role Pill */}
+                <div className="hidden text-left sm:block">
+                  <div className="text-xs font-bold text-slate-800 group-hover:text-slate-950 capitalize leading-tight">
+                    {displayName}
+                  </div>
+                  <div className="text-[10px] font-medium text-slate-400 leading-none">
+                    {t("family_head", "Family Head")}
+                  </div>
+                </div>
+
+                <ChevronDown
+                  className={`hidden sm:block h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition-transform duration-200 ${
+                    profileOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {profileOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-30"
+                    onClick={() => setProfileOpen(false)}
+                  />
+                  <div className="absolute right-0 top-12 z-40 w-72 rounded-2xl border border-slate-200/90 bg-white p-2 shadow-2xl ring-1 ring-slate-950/5 animate-in fade-in zoom-in-95 duration-100">
+                    {/* Profile Card Header */}
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50/80 border border-slate-100 mb-1.5">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-slate-900 to-indigo-950 text-white shadow-xs ring-1 ring-slate-200">
+                        <User className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-slate-900 truncate capitalize">
+                            {displayName}
+                          </span>
+                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700 border border-emerald-200">
+                            HEAD
+                          </span>
+                        </div>
+                        <div className="truncate text-[11px] text-slate-500 font-mono">
+                          {userProfile.email}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Language Switcher Bar inside dropdown */}
+                    <div className="p-2 mb-1.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                        <Globe className="h-3.5 w-3.5 text-indigo-600" />
+                        <span>{t("language", "Language")}</span>
+                      </div>
+                      <div className="inline-flex rounded-lg bg-slate-200/80 p-0.5 text-xs font-semibold">
+                        <button
+                          type="button"
+                          onClick={() => setLanguage("en")}
+                          className={`px-2.5 py-0.5 rounded-md transition cursor-pointer ${
+                            language === "en" ? "bg-white text-slate-900 shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          English
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
-                            setProfileOpen(false);
-                            window.dispatchEvent(new CustomEvent("lifenest:check-for-updates"));
-                          }}
-                          className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
+                          onClick={() => setLanguage("bn")}
+                          className={`px-2.5 py-0.5 rounded-md transition cursor-pointer ${
+                            language === "bn" ? "bg-white text-slate-900 shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"
+                          }`}
                         >
-                          <Smartphone className="h-4 w-4 text-slate-400" />
-                          <span>Check for App Update</span>
+                          বাংলা
                         </button>
                       </div>
+                    </div>
 
-                      <div className="my-1.5 border-t border-slate-100" />
-
-                      {/* Sign Out Action */}
+                    {/* Dropdown Menu Items */}
+                    <div className="space-y-0.5">
                       <button
                         type="button"
-                        onClick={handleSignOut}
-                        disabled={isSigningOut}
-                        className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition text-left cursor-pointer disabled:opacity-50"
+                        onClick={() => {
+                          setProfileOpen(false);
+                          navigate("/settings?tab=profile");
+                        }}
+                        className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
                       >
-                        <LogOut className="h-4 w-4 text-rose-500" />
-                        <span>{isSigningOut ? "Signing out..." : "Sign Out"}</span>
+                        <CircleUserRound className="h-4 w-4 text-slate-400" />
+                        <span>{t("my_profile", "My Profile & Details")}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileOpen(false);
+                          navigate("/settings");
+                        }}
+                        className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 transition text-left cursor-pointer"
+                      >
+                        <Settings className="h-4 w-4 text-slate-400" />
+                        <span>{t("settings", "Settings")}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileOpen(false);
+                          window.dispatchEvent(new CustomEvent("lifenest:open-install-prompt"));
+                        }}
+                        className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
+                      >
+                        <Smartphone className="h-4 w-4 text-slate-400" />
+                        <span>Install App on Phone</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileOpen(false);
+                          downloadApkFromConfiguredDrive();
+                        }}
+                        className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-semibold text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100/80 hover:text-emerald-950 transition text-left cursor-pointer border border-emerald-200/50"
+                      >
+                        <Download className="h-4 w-4 text-emerald-600" />
+                        <div className="flex-1 min-w-0">
+                          <div>Download Android App (APK)</div>
+                          <div className="text-[10px] font-normal text-emerald-600/80 truncate">
+                            Direct download for your phone
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileOpen(false);
+                          window.dispatchEvent(new CustomEvent("lifenest:check-for-updates"));
+                        }}
+                        className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
+                      >
+                        <Smartphone className="h-4 w-4 text-slate-400" />
+                        <span>Check for App Update</span>
                       </button>
                     </div>
-                  </>
-                )}
+
+                    <div className="my-1.5 border-t border-slate-100" />
+
+                    {/* Sign Out Action */}
+                    <button
+                      type="button"
+                      onClick={handleSignOut}
+                      disabled={isSigningOut}
+                      className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition text-left cursor-pointer disabled:opacity-50"
+                    >
+                      <LogOut className="h-4 w-4 text-rose-500" />
+                      <span>{isSigningOut ? t("loading", "Signing out...") : t("sign_out", "Sign Out")}</span>
+                    </button>
+                  </div>
+                </>
+              )}
                 </div>
               </div>
             </div>

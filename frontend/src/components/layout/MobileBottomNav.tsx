@@ -5,6 +5,7 @@ import {
   Sparkles,
   CircleUserRound,
 } from "lucide-react";
+import { useLanguage } from "../../context/LanguageContext";
 
 type MobileBottomNavProps = {
   onOpenQuickAdd?: () => void;
@@ -19,6 +20,7 @@ export function MobileBottomNav({
 }: MobileBottomNavProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const pathname = location.pathname;
 
   const isHome = pathname === "/";
@@ -62,7 +64,7 @@ export function MobileBottomNav({
           className={`flex flex-1 flex-col items-center justify-center py-1 transition-all active:scale-95 cursor-pointer outline-none select-none ${
             isHome ? "text-blue-600" : "text-slate-400 hover:text-slate-600"
           }`}
-          aria-label="Home"
+          aria-label={t("nav_home", "Home")}
         >
           <Home
             className={`h-5 w-5 transition-transform ${
@@ -74,7 +76,7 @@ export function MobileBottomNav({
               isHome ? "font-bold text-blue-600" : "font-medium text-slate-500"
             }`}
           >
-            Home
+            {t("nav_home", "Home")}
           </span>
         </button>
 
@@ -83,11 +85,11 @@ export function MobileBottomNav({
           type="button"
           onClick={handleOpenAdd}
           className="flex flex-1 flex-col items-center justify-center py-1 text-slate-400 hover:text-blue-600 transition-all active:scale-95 cursor-pointer outline-none select-none group"
-          aria-label="Add New"
+          aria-label={t("nav_add", "Add")}
         >
           <PlusCircle className="h-5 w-5 stroke-[1.85] text-slate-400 group-hover:text-blue-600 group-hover:scale-105 transition-all" />
           <span className="mt-1 text-[10px] font-medium text-slate-500 group-hover:text-blue-600 tracking-tight leading-none">
-            Add
+            {t("nav_add", "Add")}
           </span>
         </button>
 
@@ -96,11 +98,11 @@ export function MobileBottomNav({
           type="button"
           onClick={handleOpenAi}
           className="flex flex-1 flex-col items-center justify-center py-1 text-slate-400 hover:text-blue-600 transition-all active:scale-95 cursor-pointer outline-none select-none group"
-          aria-label="AI Help"
+          aria-label={t("nav_ai_help", "AI Help")}
         >
           <Sparkles className="h-5 w-5 stroke-[1.85] text-slate-400 group-hover:text-blue-600 group-hover:scale-105 transition-all" />
           <span className="mt-1 text-[10px] font-medium text-slate-500 group-hover:text-blue-600 tracking-tight leading-none">
-            AI Help
+            {t("nav_ai_help", "AI Help")}
           </span>
         </button>
 
@@ -111,7 +113,7 @@ export function MobileBottomNav({
           className={`flex flex-1 flex-col items-center justify-center py-1 transition-all active:scale-95 cursor-pointer outline-none select-none ${
             isProfile ? "text-blue-600" : "text-slate-400 hover:text-slate-600"
           }`}
-          aria-label="Profile"
+          aria-label={t("nav_profile", "Profile")}
         >
           <CircleUserRound
             className={`h-5 w-5 transition-transform ${
@@ -123,7 +125,7 @@ export function MobileBottomNav({
               isProfile ? "font-bold text-blue-600" : "font-medium text-slate-500"
             }`}
           >
-            Profile
+            {t("nav_profile", "Profile")}
           </span>
         </button>
       </div>
