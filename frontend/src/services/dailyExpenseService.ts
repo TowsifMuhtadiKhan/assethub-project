@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase";
-import type { DailyExpense, MemberLoan, LoanRepaymentSegment } from "../types";
+import type { DailyExpense, MemberLoan, LoanRepaymentSegment, MemberSavings, SavingsDepositLog } from "../types";
 
 const TABLE = "lifenest_daily_expenses";
 const LOCAL_STORAGE_KEY = "lifenest_daily_expenses_list";
@@ -543,10 +543,11 @@ export async function syncLocalLoansToRemote(): Promise<number> {
   return synced;
 }
 
-export async function syncAllLocalExpenseData(): Promise<{ syncedExpenses: number; syncedLoans: number }> {
+export async function syncAllLocalExpenseData(): Promise<{ syncedExpenses: number; syncedLoans: number; syncedSavings: number }> {
   const syncedExpenses = await syncLocalExpensesToRemote();
   const syncedLoans = await syncLocalLoansToRemote();
-  return { syncedExpenses, syncedLoans };
+  const syncedSavings = await syncLocalSavingsToRemote();
+  return { syncedExpenses, syncedLoans, syncedSavings };
 }
 
 export async function listMemberLoans(
@@ -883,4 +884,488 @@ export async function deleteLoanRepaymentSegment(
 
   return updatedLoan;
 }
+
+// ============================================================================
+// 4. MEMBER SAVINGS, DPS & TERM DEPOSITS (FDR, Sanchayapatra)
+// ============================================================================
+
+const SAVINGS_TABLE = "lifenest_member_savings";
+const LOCAL_SAVINGS_KEY = "lifenest_member_savings_list";
+
+function getLocalSavings(): MemberSavings[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_SAVINGS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalSavings(list: MemberSavings[]): void {
+  try {
+    localStorage.setItem(LOCAL_SAVINGS_KEY, JSON.stringify(list));
+  } catch {}
+}
+
+export async function syncLocalSavingsToRemote(): Promise<number> {
+  let synced = 0;
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return 0;
+
+    const localList = getLocalSavings();
+    const unsynced = localList.filter((s) => s.id.startsWith("sav_"));
+    if (unsynced.length === 0) return 0;
+
+    for (const item of unsynced) {
+      const targetMemberId =
+        !item.familyMemberId || item.familyMemberId === "owner-admin-towsif"
+          ? user.id
+          : item.familyMemberId;
+
+      const { data, error } = await supabase
+        .from(SAVINGS_TABLE)
+        .insert({
+          owner_id: user.id,
+          family_member_id: targetMemberId,
+          family_member_name: item.familyMemberName || "",
+          title: item.title,
+          type: item.type,
+          institution_name: item.institutionName,
+          account_number: item.accountNumber || "",
+          monthly_installment: item.monthlyInstallment,
+          principal_amount: item.principalAmount,
+          tenure_years: item.tenureYears,
+          tenure_months: item.tenureMonths,
+          start_date: item.startDate,
+          maturity_date: item.maturityDate,
+          interest_rate: item.interestRate,
+          maturity_amount: item.maturityAmount,
+          deposit_day_of_month: item.depositDayOfMonth,
+          profit_payout_frequency: item.profitPayoutFrequency,
+          deposit_logs: item.depositLogs || [],
+          status: item.status || "ACTIVE",
+          nominee_name: item.nomineeName || "",
+          notes: item.notes || "",
+        })
+        .select()
+        .single();
+
+      if (!error && data) {
+        synced++;
+        const currentList = getLocalSavings();
+        const updated = currentList.map((c) =>
+          c.id === item.id
+            ? { ...c, id: data.id, familyMemberId: targetMemberId }
+            : c,
+        );
+        saveLocalSavings(updated);
+      } else if (error) {
+        console.warn("Could not sync savings to Supabase:", error.message);
+        break;
+      }
+    }
+  } catch (err) {
+    console.warn("syncLocalSavingsToRemote error:", err);
+  }
+  return synced;
+}
+
+export async function listMemberSavings(
+  familyMemberId?: string,
+  familyMemberName?: string,
+): Promise<MemberSavings[]> {
+  const localList = getLocalSavings();
+
+  try {
+    await syncLocalSavingsToRemote();
+
+    const query = supabase
+      .from(SAVINGS_TABLE)
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    const { data, error } = await query;
+    if (!error && data) {
+      const remoteList: MemberSavings[] = data.map((row: any) => ({
+        id: row.id,
+        familyMemberId: row.family_member_id,
+        familyMemberName: row.family_member_name ?? "",
+        title: row.title ?? "Savings Scheme",
+        type: row.type ?? "DPS",
+        institutionName: row.institution_name ?? "",
+        accountNumber: row.account_number ?? "",
+        monthlyInstallment: row.monthly_installment ? Number(row.monthly_installment) : undefined,
+        principalAmount: row.principal_amount ? Number(row.principal_amount) : undefined,
+        tenureYears: row.tenure_years ? Number(row.tenure_years) : undefined,
+        tenureMonths: row.tenure_months ? Number(row.tenure_months) : undefined,
+        startDate: row.start_date || new Date().toISOString().split("T")[0],
+        maturityDate: row.maturity_date || undefined,
+        interestRate: row.interest_rate ? Number(row.interest_rate) : undefined,
+        maturityAmount: row.maturity_amount ? Number(row.maturity_amount) : undefined,
+        depositDayOfMonth: row.deposit_day_of_month ? Number(row.deposit_day_of_month) : undefined,
+        profitPayoutFrequency: row.profit_payout_frequency ?? undefined,
+        depositLogs: Array.isArray(row.deposit_logs) ? row.deposit_logs : [],
+        status: row.status ?? "ACTIVE",
+        nomineeName: row.nominee_name ?? "",
+        notes: row.notes ?? "",
+        createdAt: row.created_at,
+      }));
+
+      const remoteIds = new Set(remoteList.map((r) => r.id));
+      const currentLocal = getLocalSavings();
+      const filteredLocal = currentLocal.filter((s) => !remoteIds.has(s.id));
+      const merged = [...remoteList, ...filteredLocal];
+      saveLocalSavings(merged);
+
+      if (!familyMemberId && !familyMemberName) return merged;
+
+      const normName = familyMemberName?.trim().toLowerCase();
+      return merged.filter((s) => {
+        if (familyMemberId && s.familyMemberId === familyMemberId) return true;
+        if (normName && s.familyMemberName?.trim().toLowerCase() === normName) return true;
+        if (
+          (familyMemberId === "owner-admin-towsif" || familyMemberName?.toLowerCase().includes("towsif")) &&
+          (!s.familyMemberId || s.familyMemberId === "owner-admin-towsif")
+        ) {
+          return true;
+        }
+        return false;
+      });
+    }
+  } catch (err) {
+    console.warn("listMemberSavings error, using local:", err);
+  }
+
+  if (!familyMemberId && !familyMemberName) return localList;
+  const normName = familyMemberName?.trim().toLowerCase();
+  return localList.filter((s) => {
+    if (familyMemberId && s.familyMemberId === familyMemberId) return true;
+    if (normName && s.familyMemberName?.trim().toLowerCase() === normName) return true;
+    if (
+      (familyMemberId === "owner-admin-towsif" || familyMemberName?.toLowerCase().includes("towsif")) &&
+      (!s.familyMemberId || s.familyMemberId === "owner-admin-towsif")
+    ) {
+      return true;
+    }
+    return false;
+  });
+}
+
+export async function createMemberSavings(
+  savingsData: Omit<MemberSavings, "id" | "createdAt" | "depositLogs">,
+  initialDeposit?: boolean
+): Promise<MemberSavings> {
+  let createdId = `sav_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  let finalMemberId = savingsData.familyMemberId;
+  let remoteCreated: MemberSavings | null = null;
+
+  const depositLogs: SavingsDepositLog[] = [];
+  if (initialDeposit && savingsData.monthlyInstallment && savingsData.type === "DPS") {
+    depositLogs.push({
+      id: `dep_${Date.now()}_init`,
+      savingsId: createdId,
+      installmentNo: 1,
+      amount: savingsData.monthlyInstallment,
+      depositDate: savingsData.startDate || new Date().toISOString().split("T")[0],
+      paymentMethod: "Bank Card",
+      notes: "First installment deposit upon opening DPS",
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      if (!finalMemberId || finalMemberId === "owner-admin-towsif") {
+        finalMemberId = user.id;
+      }
+
+      const { data, error } = await supabase
+        .from(SAVINGS_TABLE)
+        .insert({
+          owner_id: user.id,
+          family_member_id: finalMemberId,
+          family_member_name: savingsData.familyMemberName || "",
+          title: savingsData.title,
+          type: savingsData.type,
+          institution_name: savingsData.institutionName,
+          account_number: savingsData.accountNumber || "",
+          monthly_installment: savingsData.monthlyInstallment,
+          principal_amount: savingsData.principalAmount,
+          tenure_years: savingsData.tenureYears,
+          tenure_months: savingsData.tenureMonths,
+          start_date: savingsData.startDate,
+          maturity_date: savingsData.maturityDate,
+          interest_rate: savingsData.interestRate,
+          maturity_amount: savingsData.maturityAmount,
+          deposit_day_of_month: savingsData.depositDayOfMonth,
+          profit_payout_frequency: savingsData.profitPayoutFrequency,
+          deposit_logs: depositLogs,
+          status: savingsData.status || "ACTIVE",
+          nominee_name: savingsData.nomineeName || "",
+          notes: savingsData.notes || "",
+        })
+        .select()
+        .single();
+
+      if (!error && data) {
+        createdId = data.id;
+        remoteCreated = {
+          id: data.id,
+          familyMemberId: data.family_member_id,
+          familyMemberName: data.family_member_name,
+          title: data.title,
+          type: data.type,
+          institutionName: data.institution_name,
+          accountNumber: data.account_number,
+          monthlyInstallment: data.monthly_installment ? Number(data.monthly_installment) : undefined,
+          principalAmount: data.principal_amount ? Number(data.principal_amount) : undefined,
+          tenureYears: data.tenure_years ? Number(data.tenure_years) : undefined,
+          tenureMonths: data.tenure_months ? Number(data.tenure_months) : undefined,
+          startDate: data.start_date,
+          maturityDate: data.maturity_date,
+          interestRate: data.interest_rate ? Number(data.interest_rate) : undefined,
+          maturityAmount: data.maturity_amount ? Number(data.maturity_amount) : undefined,
+          depositDayOfMonth: data.deposit_day_of_month ? Number(data.deposit_day_of_month) : undefined,
+          profitPayoutFrequency: data.profit_payout_frequency,
+          depositLogs: Array.isArray(data.deposit_logs) ? data.deposit_logs : depositLogs,
+          status: data.status,
+          nomineeName: data.nominee_name,
+          notes: data.notes,
+          createdAt: data.created_at,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("createMemberSavings remote error, falling back locally:", err);
+  }
+
+  const localSavings: MemberSavings = remoteCreated || {
+    ...savingsData,
+    id: createdId,
+    familyMemberId: finalMemberId,
+    depositLogs,
+    status: savingsData.status || "ACTIVE",
+    createdAt: new Date().toISOString(),
+  };
+
+  const localList = getLocalSavings();
+  localList.unshift(localSavings);
+  saveLocalSavings(localList);
+
+  return localSavings;
+}
+
+export async function updateMemberSavings(
+  id: string,
+  updates: Partial<MemberSavings>
+): Promise<MemberSavings> {
+  const localList = getLocalSavings();
+  const index = localList.findIndex((s) => s.id === id);
+  if (index < 0) throw new Error("Savings record not found");
+
+  const updated: MemberSavings = {
+    ...localList[index],
+    ...updates,
+  };
+
+  localList[index] = updated;
+  saveLocalSavings(localList);
+
+  if (!id.startsWith("sav_")) {
+    try {
+      await supabase
+        .from(SAVINGS_TABLE)
+        .update({
+          title: updated.title,
+          type: updated.type,
+          institution_name: updated.institutionName,
+          account_number: updated.accountNumber,
+          monthly_installment: updated.monthlyInstallment,
+          principal_amount: updated.principalAmount,
+          tenure_years: updated.tenureYears,
+          tenure_months: updated.tenureMonths,
+          start_date: updated.startDate,
+          maturity_date: updated.maturityDate,
+          interest_rate: updated.interestRate,
+          maturity_amount: updated.maturityAmount,
+          deposit_day_of_month: updated.depositDayOfMonth,
+          profit_payout_frequency: updated.profitPayoutFrequency,
+          status: updated.status,
+          nominee_name: updated.nomineeName,
+          notes: updated.notes,
+          deposit_logs: updated.depositLogs,
+        })
+        .eq("id", id);
+    } catch (err) {
+      console.warn("updateMemberSavings remote error:", err);
+    }
+  }
+
+  return updated;
+}
+
+export async function deleteMemberSavings(id: string): Promise<boolean> {
+  const localList = getLocalSavings();
+  const filtered = localList.filter((s) => s.id !== id);
+  saveLocalSavings(filtered);
+
+  if (!id.startsWith("sav_")) {
+    try {
+      await supabase.from(SAVINGS_TABLE).delete().eq("id", id);
+    } catch (err) {
+      console.warn("deleteMemberSavings remote error:", err);
+    }
+  }
+  return true;
+}
+
+export async function addSavingsDepositLog(
+  savingsId: string,
+  logData: Omit<SavingsDepositLog, "id" | "createdAt" | "savingsId">,
+  syncToDailyExpenses = false,
+  familyMemberName?: string
+): Promise<MemberSavings> {
+  const localList = getLocalSavings();
+  const index = localList.findIndex((s) => s.id === savingsId);
+  if (index < 0) throw new Error("Savings account not found");
+
+  const savings = localList[index];
+  const nextInstallmentNo = (savings.depositLogs?.length || 0) + 1;
+
+  const newLog: SavingsDepositLog = {
+    ...logData,
+    id: `dep_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    savingsId,
+    installmentNo: logData.installmentNo || nextInstallmentNo,
+    createdAt: new Date().toISOString(),
+  };
+
+  const updatedLogs = [...(savings.depositLogs || []), newLog];
+
+  // Check if fully matured based on tenure
+  const totalMonthsExpected = savings.tenureMonths || (savings.tenureYears ? savings.tenureYears * 12 : 0);
+  const isMatured = totalMonthsExpected > 0 && updatedLogs.length >= totalMonthsExpected;
+
+  const updatedSavings: MemberSavings = {
+    ...savings,
+    depositLogs: updatedLogs,
+    status: isMatured ? "MATURED" : savings.status,
+  };
+
+  localList[index] = updatedSavings;
+  saveLocalSavings(localList);
+
+  if (!savingsId.startsWith("sav_")) {
+    try {
+      await supabase
+        .from(SAVINGS_TABLE)
+        .update({
+          deposit_logs: updatedLogs,
+          status: updatedSavings.status,
+        })
+        .eq("id", savingsId);
+    } catch {}
+  }
+
+  // Optionally sync into Daily Expenses
+  if (syncToDailyExpenses) {
+    try {
+      await createDailyExpense({
+        familyMemberId: savings.familyMemberId,
+        familyMemberName: savings.familyMemberName || familyMemberName || "",
+        date: logData.depositDate || new Date().toISOString().split("T")[0],
+        amount: logData.amount,
+        category: "DPS & Savings Deposit",
+        paymentMethod: logData.paymentMethod,
+        description: `${savings.title} - Installment #${newLog.installmentNo} deposit to ${savings.institutionName}`,
+        merchant: savings.institutionName,
+        notes: logData.notes || `DPS deposit: ${savings.accountNumber || ""}`,
+      });
+    } catch (err) {
+      console.warn("Could not sync deposit to Daily Expenses:", err);
+    }
+  }
+
+  return updatedSavings;
+}
+
+export async function updateSavingsDepositLog(
+  savingsId: string,
+  logId: string,
+  updates: Partial<SavingsDepositLog>
+): Promise<MemberSavings> {
+  const localList = getLocalSavings();
+  const index = localList.findIndex((s) => s.id === savingsId);
+  if (index < 0) throw new Error("Savings account not found");
+
+  const savings = localList[index];
+  const updatedLogs = (savings.depositLogs || []).map((log) => {
+    if (log.id === logId) {
+      return { ...log, ...updates };
+    }
+    return log;
+  });
+
+  const updatedSavings: MemberSavings = {
+    ...savings,
+    depositLogs: updatedLogs,
+  };
+
+  localList[index] = updatedSavings;
+  saveLocalSavings(localList);
+
+  if (!savingsId.startsWith("sav_")) {
+    try {
+      await supabase
+        .from(SAVINGS_TABLE)
+        .update({
+          deposit_logs: updatedLogs,
+        })
+        .eq("id", savingsId);
+    } catch {}
+  }
+
+  return updatedSavings;
+}
+
+export async function deleteSavingsDepositLog(
+  savingsId: string,
+  logId: string
+): Promise<MemberSavings> {
+  const localList = getLocalSavings();
+  const index = localList.findIndex((s) => s.id === savingsId);
+  if (index < 0) throw new Error("Savings account not found");
+
+  const savings = localList[index];
+  const updatedLogs = (savings.depositLogs || []).filter((log) => log.id !== logId);
+
+  const updatedSavings: MemberSavings = {
+    ...savings,
+    depositLogs: updatedLogs,
+  };
+
+  localList[index] = updatedSavings;
+  saveLocalSavings(localList);
+
+  if (!savingsId.startsWith("sav_")) {
+    try {
+      await supabase
+        .from(SAVINGS_TABLE)
+        .update({
+          deposit_logs: updatedLogs,
+        })
+        .eq("id", savingsId);
+    } catch {}
+  }
+
+  return updatedSavings;
+}
+
 

@@ -22,6 +22,7 @@ import {
   Banknote,
   Percent,
   Filter,
+  PiggyBank,
 } from "lucide-react";
 import { listFamilyMembersWithSelf } from "../services/familyService";
 import {
@@ -40,6 +41,7 @@ import {
   updateLoanRepaymentSegment,
   deleteLoanRepaymentSegment,
   deleteMemberLoan,
+  listMemberSavings,
 } from "../services/dailyExpenseService";
 import type {
   DailyExpense,
@@ -49,6 +51,7 @@ import type {
   MemberLoan,
   LoanRepaymentSegment,
 } from "../types";
+import { MemberSavingsView } from "../components/expenses/MemberSavingsView";
 
 const CATEGORIES: { label: DailyExpenseCategory; color: string; bg: string }[] = [
   { label: "Food & Dining", color: "text-orange-700", bg: "bg-orange-50 border-orange-200" },
@@ -61,6 +64,7 @@ const CATEGORIES: { label: DailyExpenseCategory; color: string; bg: string }[] =
   { label: "Entertainment", color: "text-pink-700", bg: "bg-pink-50 border-pink-200" },
   { label: "Family & Home", color: "text-indigo-700", bg: "bg-indigo-50 border-indigo-200" },
   { label: "Loan & EMI Repayment", color: "text-teal-700", bg: "bg-teal-50 border-teal-200" },
+  { label: "DPS & Savings Deposit", color: "text-indigo-700", bg: "bg-indigo-50 border-indigo-200" },
   { label: "Others", color: "text-slate-700", bg: "bg-slate-100 border-slate-200" },
 ];
 
@@ -124,8 +128,10 @@ export function DailyExpensesPage() {
   // Delete modal state
   const [expenseToDelete, setExpenseToDelete] = useState<DailyExpense | null>(null);
 
-  // Active Tab: Expenses Ledger vs Loans & Repayments
-  const [activeTab, setActiveTab] = useState<"expenses" | "loans">("expenses");
+  // Active Tab: Expenses Ledger vs Loans vs DPS & FDR
+  const [activeTab, setActiveTab] = useState<"expenses" | "loans" | "savings">("expenses");
+  const [savingsStats, setSavingsStats] = useState({ total: 0, activeCount: 0 });
+  const [triggerAddSavings, setTriggerAddSavings] = useState(false);
 
   // Loans & Segment Repayments State
   const [loans, setLoans] = useState<MemberLoan[]>([]);
@@ -303,12 +309,23 @@ export function DailyExpensesPage() {
     }
   };
 
+  const loadSavingsSummary = async (memberId: string) => {
+    try {
+      const activeMem = members.find((m) => m.id === memberId);
+      const data = await listMemberSavings(memberId, activeMem?.fullName);
+      const activeCount = data.filter((s) => s.status === "ACTIVE").length;
+      setSavingsStats({ total: data.length, activeCount });
+    } catch {}
+  };
+
   useEffect(() => {
     if (activeMemberId) {
       loadLoans(activeMemberId);
+      loadSavingsSummary(activeMemberId);
     } else {
       setLoans([]);
       setViewingLoanSegments(null);
+      setSavingsStats({ total: 0, activeCount: 0 });
     }
   }, [activeMemberId]);
 
@@ -797,11 +814,23 @@ export function DailyExpensesPage() {
         {activeMember && (
           <button
             type="button"
-            onClick={activeTab === "expenses" ? openCreateModal : openAddLoanModal}
+            onClick={
+              activeTab === "expenses"
+                ? openCreateModal
+                : activeTab === "loans"
+                ? openAddLoanModal
+                : () => setTriggerAddSavings(true)
+            }
             className="sm:hidden inline-flex items-center gap-1 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs active:scale-95 transition cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
-            <span>{activeTab === "expenses" ? "Log Expense" : "Add Loan"}</span>
+            <span>
+              {activeTab === "expenses"
+                ? "Log Expense"
+                : activeTab === "loans"
+                ? "Add Loan"
+                : "Add DPS/FDR"}
+            </span>
           </button>
         )}
       </div>
@@ -913,8 +942,8 @@ export function DailyExpensesPage() {
         /* 3. ACTIVE MEMBER'S EXPENSE DASHBOARD                                      */
         /* ========================================================================= */
         <div className="space-y-3 sm:space-y-6">
-          {/* Sub Navigation: Daily Expenses vs Loans & Segment Repayments */}
-          <div className="p-0.5 sm:p-1 bg-slate-100/90 rounded-xl grid grid-cols-2 gap-1 border border-slate-200/60 max-w-xs sm:max-w-sm">
+          {/* Sub Navigation: Daily Expenses vs Loans vs DPS & FDR */}
+          <div className="p-0.5 sm:p-1 bg-slate-100/90 rounded-xl grid grid-cols-3 gap-1 border border-slate-200/60 max-w-sm sm:max-w-md">
             <button
               type="button"
               onClick={() => setActiveTab("expenses")}
@@ -969,9 +998,42 @@ export function DailyExpensesPage() {
                 </span>
               )}
             </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("savings")}
+              className={`flex items-center justify-center gap-1.5 py-1 sm:py-1.5 px-2 sm:px-3 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
+                activeTab === "savings"
+                  ? "bg-white text-slate-900 font-bold shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900 font-medium"
+              }`}
+            >
+              <PiggyBank className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0 text-indigo-600" />
+              <span>
+                DPS<span className="hidden sm:inline"> & FDR</span>
+              </span>
+              {savingsStats.activeCount > 0 ? (
+                <span
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
+                    activeTab === "savings" ? "bg-indigo-100 text-indigo-800" : "bg-indigo-100/60 text-indigo-800"
+                  }`}
+                >
+                  {savingsStats.activeCount}
+                  <span className="hidden sm:inline ml-0.5 font-semibold">Active</span>
+                </span>
+              ) : (
+                <span
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
+                    activeTab === "savings" ? "bg-slate-100 text-slate-800" : "bg-slate-200/70 text-slate-600"
+                  }`}
+                >
+                  {savingsStats.total}
+                </span>
+              )}
+            </button>
           </div>
 
-          {activeTab === "expenses" ? (
+          {activeTab === "expenses" && (
             <div className="space-y-3 sm:space-y-6">
               {/* Mobile Compact Stats Strip (sm:hidden) */}
               <div className="sm:hidden rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs">
@@ -1354,8 +1416,10 @@ export function DailyExpensesPage() {
             )}
           </div>
         </div>
-          ) : (
-            /* LOANS & SEGMENT REPAYMENTS VIEW */
+          )}
+
+          {/* LOANS & SEGMENT REPAYMENTS VIEW */}
+          {activeTab === "loans" && (
             <div className="space-y-6">
               {/* Mobile Compact Loan Stats Strip (sm:hidden) */}
               <div className="sm:hidden rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs">
@@ -1784,6 +1848,19 @@ export function DailyExpensesPage() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* DPS & FDR SAVINGS VIEW */}
+          {activeTab === "savings" && activeMember && (
+            <MemberSavingsView
+              activeMember={activeMember}
+              onToast={showToast}
+              onOpenAddModalDirect={triggerAddSavings}
+              onResetOpenAddModal={() => {
+                setTriggerAddSavings(false);
+                if (activeMemberId) loadSavingsSummary(activeMemberId);
+              }}
+            />
           )}
         </div>
       )}

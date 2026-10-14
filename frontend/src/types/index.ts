@@ -531,6 +531,7 @@ export type DailyExpenseCategory =
   | "Entertainment"
   | "Family & Home"
   | "Loan & EMI Repayment"
+  | "DPS & Savings Deposit"
   | "Others";
 
 export type DailyExpensePaymentMethod =
@@ -590,6 +591,47 @@ export type MemberLoan = {
   monthlyEmiAmount?: number;
   repayments: LoanRepaymentSegment[];
   status: "ACTIVE" | "PAID_OFF" | "DEFAULTED";
+  notes?: string;
+  createdAt?: string;
+};
+
+// 12. Savings, DPS & Term Deposits (FDR, Sanchayapatra, Mutual Funds)
+export type MemberSavingsType = "DPS" | "FDR" | "Sanchayapatra" | "Other";
+export type MemberSavingsStatus = "ACTIVE" | "MATURED" | "CLOSED";
+
+export type SavingsDepositLog = {
+  id: string;
+  savingsId: string;
+  installmentNo?: number;
+  amount: number;
+  depositDate: string;
+  paymentMethod: DailyExpensePaymentMethod;
+  notes?: string;
+  receiptUrl?: string;
+  createdAt?: string;
+};
+
+export type MemberSavings = {
+  id: string;
+  familyMemberId: string;
+  familyMemberName?: string;
+  title: string;
+  type: MemberSavingsType;
+  institutionName: string;
+  accountNumber?: string;
+  monthlyInstallment?: number;
+  principalAmount?: number;
+  tenureYears?: number;
+  tenureMonths?: number;
+  startDate: string;
+  maturityDate?: string;
+  interestRate?: number;
+  maturityAmount?: number;
+  depositDayOfMonth?: number;
+  profitPayoutFrequency?: "On Maturity" | "Monthly" | "Quarterly" | "Half-Yearly";
+  depositLogs: SavingsDepositLog[];
+  status: MemberSavingsStatus;
+  nomineeName?: string;
   notes?: string;
   createdAt?: string;
 };
