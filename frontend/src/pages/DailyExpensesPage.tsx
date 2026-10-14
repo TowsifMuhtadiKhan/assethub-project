@@ -941,20 +941,18 @@ export function DailyExpensesPage() {
         /* ========================================================================= */
         <div className="space-y-3 sm:space-y-6">
           {/* Sub Navigation: Daily Expenses vs Loans vs DPS & FDR */}
-          <div className="p-0.5 sm:p-1 bg-slate-100/90 rounded-xl grid grid-cols-3 gap-1 border border-slate-200/60 max-w-sm sm:max-w-md">
+          <div className="inline-flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-2xl border border-slate-200/60 max-w-full overflow-x-auto">
             <button
               type="button"
               onClick={() => setActiveTab("expenses")}
-              className={`flex items-center justify-center gap-1.5 py-1 sm:py-1.5 px-2 sm:px-3 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
+              className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl text-xs transition cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === "expenses"
                   ? "bg-white text-slate-900 font-bold shadow-2xs"
                   : "text-slate-600 hover:text-slate-900 font-medium"
               }`}
             >
-              <Wallet className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
-              <span>
-                <span className="hidden sm:inline">Daily </span>Expenses
-              </span>
+              <Wallet className="h-3.5 w-3.5 shrink-0" />
+              <span>Daily Expenses</span>
               <span
                 className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
                   activeTab === "expenses" ? "bg-slate-100 text-slate-800" : "bg-slate-200/70 text-slate-600"
@@ -967,67 +965,45 @@ export function DailyExpensesPage() {
             <button
               type="button"
               onClick={() => setActiveTab("loans")}
-              className={`flex items-center justify-center gap-1.5 py-1 sm:py-1.5 px-2 sm:px-3 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
+              className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl text-xs transition cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === "loans"
                   ? "bg-white text-slate-900 font-bold shadow-2xs"
                   : "text-slate-600 hover:text-slate-900 font-medium"
               }`}
             >
-              <CreditCard className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
-              <span>
-                Loans<span className="hidden sm:inline"> & Debts</span>
+              <CreditCard className="h-3.5 w-3.5 shrink-0" />
+              <span>Loans & Debts</span>
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
+                  activeTab === "loans"
+                    ? "bg-amber-100 text-amber-900"
+                    : "bg-slate-200/70 text-slate-600"
+                }`}
+              >
+                {loanStats.activeCount > 0 ? loanStats.activeCount : loans.length}
               </span>
-              {loanStats.activeCount > 0 ? (
-                <span
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
-                    activeTab === "loans" ? "bg-amber-100 text-amber-800" : "bg-amber-100/60 text-amber-800"
-                  }`}
-                >
-                  {loanStats.activeCount}
-                  <span className="hidden sm:inline ml-0.5 font-semibold">Active</span>
-                </span>
-              ) : (
-                <span
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
-                    activeTab === "loans" ? "bg-slate-100 text-slate-800" : "bg-slate-200/70 text-slate-600"
-                  }`}
-                >
-                  {loans.length}
-                </span>
-              )}
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab("savings")}
-              className={`flex items-center justify-center gap-1.5 py-1 sm:py-1.5 px-2 sm:px-3 rounded-lg text-xs transition cursor-pointer whitespace-nowrap ${
+              className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl text-xs transition cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === "savings"
                   ? "bg-white text-slate-900 font-bold shadow-2xs"
                   : "text-slate-600 hover:text-slate-900 font-medium"
               }`}
             >
-              <PiggyBank className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0 text-indigo-600" />
-              <span>
-                DPS<span className="hidden sm:inline"> & FDR</span>
+              <PiggyBank className="h-3.5 w-3.5 shrink-0 text-indigo-600" />
+              <span>DPS & FDR</span>
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
+                  activeTab === "savings"
+                    ? "bg-indigo-100 text-indigo-900"
+                    : "bg-slate-200/70 text-slate-600"
+                }`}
+              >
+                {savingsStats.activeCount > 0 ? savingsStats.activeCount : savingsStats.total}
               </span>
-              {savingsStats.activeCount > 0 ? (
-                <span
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
-                    activeTab === "savings" ? "bg-indigo-100 text-indigo-800" : "bg-indigo-100/60 text-indigo-800"
-                  }`}
-                >
-                  {savingsStats.activeCount}
-                  <span className="hidden sm:inline ml-0.5 font-semibold">Active</span>
-                </span>
-              ) : (
-                <span
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
-                    activeTab === "savings" ? "bg-slate-100 text-slate-800" : "bg-slate-200/70 text-slate-600"
-                  }`}
-                >
-                  {savingsStats.total}
-                </span>
-              )}
             </button>
           </div>
 
