@@ -532,7 +532,8 @@ export type DailyExpenseCategory =
   | "Family & Home"
   | "Loan & EMI Repayment"
   | "DPS & Savings Deposit"
-  | "Others";
+  | "Others"
+  | (string & {});
 
 export type DailyExpensePaymentMethod =
   | "Cash"

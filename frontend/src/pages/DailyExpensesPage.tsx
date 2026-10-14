@@ -23,6 +23,7 @@ import {
   Percent,
   Filter,
   PiggyBank,
+  LineChart,
 } from "lucide-react";
 import { listFamilyMembersWithSelf } from "../services/familyService";
 import {
@@ -53,6 +54,7 @@ import type {
 } from "../types";
 import { MemberSavingsView } from "../components/expenses/MemberSavingsView";
 import { ExpensesSkeleton } from "../components/common/LoadingStates";
+import { CategoryTrendModal } from "../components/expenses/CategoryTrendModal";
 
 const CATEGORIES: { label: DailyExpenseCategory; color: string; bg: string }[] = [
   { label: "Food & Dining", color: "text-orange-700", bg: "bg-orange-50 border-orange-200" },
@@ -121,6 +123,46 @@ export function DailyExpensesPage() {
   const [formAmount, setFormAmount] = useState<number | "">("");
   const [formDate, setFormDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
   const [formCategory, setFormCategory] = useState<DailyExpenseCategory>("Food & Dining");
+  const [customCategoryInput, setCustomCategoryInput] = useState("");
+  const [customCategories, setCustomCategories] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("lifenest_custom_expense_categories");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Collect all unique categories from default list + stored custom categories + existing expenses
+  const allCategoryOptions = useMemo(() => {
+    const defaultLabels = new Set(CATEGORIES.map((c) => c.label));
+    const extraLabels = new Set<string>();
+
+    customCategories.forEach((cat) => {
+      if (cat && !defaultLabels.has(cat) && cat !== "Others") {
+        extraLabels.add(cat);
+      }
+    });
+
+    expenses.forEach((exp) => {
+      if (exp.category && !defaultLabels.has(exp.category) && exp.category !== "Others") {
+        extraLabels.add(exp.category);
+      }
+    });
+
+    return Array.from(extraLabels).sort();
+  }, [customCategories, expenses]);
+
+  const getCategoryBadge = (catName: string) => {
+    const found = CATEGORIES.find((c) => c.label === catName);
+    if (found) return found;
+    return {
+      label: catName,
+      color: "text-violet-700",
+      bg: "bg-violet-50 border-violet-200",
+    };
+  };
+
   const [formPaymentMethod, setFormPaymentMethod] = useState<DailyExpensePaymentMethod>("Cash");
   const [formDescription, setFormDescription] = useState("");
   const [formMerchant, setFormMerchant] = useState("");
@@ -128,6 +170,15 @@ export function DailyExpensesPage() {
 
   // Delete modal state
   const [expenseToDelete, setExpenseToDelete] = useState<DailyExpense | null>(null);
+
+  // Category Trend Graph & Last Month Differentiation Modal State
+  const [trendModalOpen, setTrendModalOpen] = useState(false);
+  const [trendModalCategory, setTrendModalCategory] = useState<string>("all");
+
+  const openCategoryTrend = (category: string = "all") => {
+    setTrendModalCategory(category);
+    setTrendModalOpen(true);
+  };
 
   // Active Tab: Expenses Ledger vs Loans vs DPS & FDR
   const [activeTab, setActiveTab] = useState<"expenses" | "loans" | "savings">("expenses");
@@ -667,6 +718,7 @@ export function DailyExpensesPage() {
     setFormAmount("");
     setFormDate(new Date().toISOString().split("T")[0]);
     setFormCategory("Food & Dining");
+    setCustomCategoryInput("");
     setFormPaymentMethod("Cash");
     setFormDescription("");
     setFormMerchant("");
@@ -678,7 +730,16 @@ export function DailyExpensesPage() {
     setEditingExpense(exp);
     setFormAmount(exp.amount);
     setFormDate(exp.date);
-    setFormCategory(exp.category);
+
+    const isStandard = CATEGORIES.some((c) => c.label === exp.category && c.label !== "Others");
+    if (isStandard || customCategories.includes(exp.category)) {
+      setFormCategory(exp.category);
+      setCustomCategoryInput("");
+    } else {
+      setFormCategory("Others");
+      setCustomCategoryInput(exp.category === "Others" ? "" : exp.category);
+    }
+
     setFormPaymentMethod(exp.paymentMethod);
     setFormDescription(exp.description);
     setFormMerchant(exp.merchant || "");
@@ -690,13 +751,30 @@ export function DailyExpensesPage() {
     e.preventDefault();
     if (!activeMemberId || formAmount === "" || formAmount <= 0) return;
 
+    let finalCategory = formCategory;
+    if (formCategory === "Others") {
+      const trimmed = customCategoryInput.trim();
+      if (trimmed) {
+        finalCategory = trimmed;
+        if (!customCategories.includes(trimmed)) {
+          const updated = [...customCategories, trimmed];
+          setCustomCategories(updated);
+          try {
+            localStorage.setItem("lifenest_custom_expense_categories", JSON.stringify(updated));
+          } catch {}
+        }
+      } else {
+        finalCategory = "Others";
+      }
+    }
+
     setSavingExpense(true);
     try {
       if (editingExpense) {
         const updated = await updateDailyExpense(editingExpense.id, {
           amount: Number(formAmount),
           date: formDate,
-          category: formCategory,
+          category: finalCategory,
           paymentMethod: formPaymentMethod,
           description: formDescription.trim(),
           merchant: formMerchant.trim(),
@@ -709,7 +787,7 @@ export function DailyExpensesPage() {
           familyMemberName: activeMember?.fullName,
           amount: Number(formAmount),
           date: formDate,
-          category: formCategory,
+          category: finalCategory,
           paymentMethod: formPaymentMethod,
           description: formDescription.trim(),
           merchant: formMerchant.trim(),
@@ -1054,16 +1132,26 @@ export function DailyExpensesPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    This Month's Total
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      This Month's Total
+                    </div>
+                    <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-amber-600">
+                      ৳{stats.monthTotal.toLocaleString()}
+                    </div>
+                    <div className="mt-1 text-[11px] text-slate-400">
+                      {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                    </div>
                   </div>
-                  <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-amber-600">
-                    ৳{stats.monthTotal.toLocaleString()}
-                  </div>
-                  <div className="mt-1 text-[11px] text-slate-400">
-                    {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openCategoryTrend("all")}
+                    className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100/80 px-2 py-1 rounded-lg border border-amber-200/80 transition cursor-pointer w-fit"
+                  >
+                    <LineChart className="h-3 w-3" />
+                    <span>View Trends & Compare</span>
+                  </button>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
@@ -1077,18 +1165,30 @@ export function DailyExpensesPage() {
                   <div className="mt-1 text-[11px] text-slate-400">Based on past {new Date().getDate()} days</div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Top Expense
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Top Expense
+                    </div>
+                    <div className="mt-1 text-sm sm:text-base font-bold text-slate-900 truncate">
+                      {stats.topCat}
+                    </div>
+                    <div className="mt-1 text-[11px] text-slate-400">
+                      {stats.categoryTotals[stats.topCat]
+                        ? `৳${stats.categoryTotals[stats.topCat].toLocaleString()} this month`
+                        : "No entries yet"}
+                    </div>
                   </div>
-                  <div className="mt-1 text-sm sm:text-base font-bold text-slate-900 truncate">
-                    {stats.topCat}
-                  </div>
-                  <div className="mt-1 text-[11px] text-slate-400">
-                    {stats.categoryTotals[stats.topCat]
-                      ? `৳${stats.categoryTotals[stats.topCat].toLocaleString()} this month`
-                      : "No entries yet"}
-                  </div>
+                  {stats.topCat !== "—" && (
+                    <button
+                      type="button"
+                      onClick={() => openCategoryTrend(stats.topCat)}
+                      className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100/80 px-2 py-1 rounded-lg border border-indigo-200/80 transition cursor-pointer truncate max-w-full w-fit"
+                    >
+                      <LineChart className="h-3 w-3 shrink-0" />
+                      <span className="truncate">See {stats.topCat} Trend</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1184,17 +1284,38 @@ export function DailyExpensesPage() {
                   className="rounded-xl border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-slate-800 focus:bg-white font-medium cursor-pointer"
                 >
                   <option value="all">All Categories</option>
-                  {CATEGORIES.map((c) => (
+                  {CATEGORIES.filter((c) => c.label !== "Others").map((c) => (
                     <option key={c.label} value={c.label}>
                       {c.label}
                     </option>
                   ))}
+                  {allCategoryOptions.length > 0 && (
+                    <optgroup label="Custom Categories">
+                      {allCategoryOptions.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  <option value="Others">Others</option>
                 </select>
               </div>
             </div>
 
-            {/* Right Cluster: View Mode Toggle + Log Expense Button */}
+            {/* Right Cluster: View Mode Toggle + Trend Graph + Log Expense Button */}
             <div className="flex items-center gap-1.5 shrink-0 self-end md:self-auto">
+              {/* Trend Graph Button */}
+              <button
+                type="button"
+                onClick={() => openCategoryTrend(categoryFilter !== "all" ? categoryFilter : "all")}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-2xs transition cursor-pointer shrink-0"
+                title="View Category Trend Graph & Month Comparison"
+              >
+                <LineChart className="h-3.5 w-3.5 text-emerald-600" />
+                <span className="hidden sm:inline">Trend Graph</span>
+              </button>
+
               {/* View mode toggle */}
               <div className="flex items-center p-0.5 rounded-xl border border-slate-200 bg-slate-100 shrink-0">
                 <button
@@ -1279,18 +1400,21 @@ export function DailyExpensesPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredExpenses.map((exp) => {
-                      const catConfig = CATEGORIES.find((c) => c.label === exp.category) || CATEGORIES[9];
+                      const catConfig = getCategoryBadge(exp.category);
                       return (
                         <tr key={exp.id} className="hover:bg-slate-50/70 transition-colors">
                           <td className="whitespace-nowrap py-3 px-4 font-mono text-[11px] text-slate-700">
                             {exp.date}
                           </td>
                           <td className="py-3 px-4">
-                            <span
-                              className={`inline-block px-2.5 py-0.5 rounded-md text-[11px] font-bold border ${catConfig.bg} ${catConfig.color}`}
+                            <button
+                              type="button"
+                              onClick={() => openCategoryTrend(exp.category)}
+                              className={`inline-block px-2.5 py-0.5 rounded-md text-[11px] font-bold border transition hover:opacity-80 active:scale-95 cursor-pointer ${catConfig.bg} ${catConfig.color}`}
+                              title={`Click to view trend graph for ${exp.category}`}
                             >
                               {exp.category}
-                            </span>
+                            </button>
                           </td>
                           <td className="py-3 px-4">
                             <div className="font-semibold text-slate-900 text-xs">
@@ -1338,7 +1462,7 @@ export function DailyExpensesPage() {
               /* GRID CARDS VIEW */
               <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {filteredExpenses.map((exp) => {
-                  const catConfig = CATEGORIES.find((c) => c.label === exp.category) || CATEGORIES[9];
+                  const catConfig = getCategoryBadge(exp.category);
                   return (
                     <div
                       key={exp.id}
@@ -1346,11 +1470,14 @@ export function DailyExpensesPage() {
                     >
                       <div>
                         <div className="flex items-center justify-between">
-                          <span
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${catConfig.bg} ${catConfig.color}`}
+                          <button
+                            type="button"
+                            onClick={() => openCategoryTrend(exp.category)}
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition hover:opacity-80 active:scale-95 cursor-pointer ${catConfig.bg} ${catConfig.color}`}
+                            title={`Click to view trend graph for ${exp.category}`}
                           >
                             {exp.category}
-                          </span>
+                          </button>
                           <span className="font-mono text-[10px] text-slate-400">{exp.date}</span>
                         </div>
 
@@ -1991,15 +2118,51 @@ export function DailyExpensesPage() {
                 </label>
                 <select
                   value={formCategory}
-                  onChange={(e) => setFormCategory(e.target.value as DailyExpenseCategory)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white font-medium"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFormCategory(val);
+                    if (val !== "Others") {
+                      setCustomCategoryInput("");
+                    }
+                  }}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white font-medium cursor-pointer"
                 >
-                  {CATEGORIES.map((c) => (
+                  {CATEGORIES.filter((c) => c.label !== "Others").map((c) => (
                     <option key={c.label} value={c.label}>
                       {c.label}
                     </option>
                   ))}
+                  {allCategoryOptions.length > 0 && (
+                    <optgroup label="Your Custom Categories">
+                      {allCategoryOptions.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  <option value="Others">Others (Add Custom Category)</option>
                 </select>
+
+                {formCategory === "Others" && (
+                  <div className="mt-2.5 p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/40 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <label className="block text-[11px] font-bold text-indigo-900 mb-1">
+                      Enter Custom Category Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      autoFocus
+                      placeholder="e.g. Pet Care, Donation, Gym, Subscriptions"
+                      value={customCategoryInput}
+                      onChange={(e) => setCustomCategoryInput(e.target.value)}
+                      className="w-full rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-500 shadow-2xs"
+                    />
+                    <p className="mt-1 text-[10px] text-indigo-600/80">
+                      This category will be saved and available in your category list for future expenses.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Date & Payment Method */}
@@ -3116,6 +3279,21 @@ export function DailyExpensesPage() {
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* 14. MODAL: CATEGORY TREND GRAPH & LAST MONTH DIFFERENTIATION             */}
+      {/* ========================================================================= */}
+      <CategoryTrendModal
+        isOpen={trendModalOpen}
+        onClose={() => setTrendModalOpen(false)}
+        initialCategory={trendModalCategory}
+        allExpenses={memberExpenses}
+        availableCategories={
+          allCategoryOptions.length > 0
+            ? [...CATEGORIES.map((c) => c.label), ...allCategoryOptions]
+            : CATEGORIES.map((c) => c.label)
+        }
+      />
     </div>
   );
 }
