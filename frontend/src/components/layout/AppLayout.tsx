@@ -27,11 +27,28 @@ import { MobileHeader } from "./MobileHeader";
 import { downloadApkFromConfiguredDrive } from "../../services/appUpdateService";
 import { clearToken, getUserEmail } from "../../services/api";
 import { getUserSettings } from "../../services/settingsService";
+import { supabase } from "../../lib/supabase";
+import { SignoutOverlay } from "../common/LoadingStates";
 
 export function AppLayout() {
   const navigate = useNavigate();
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn("Signout error:", err);
+    } finally {
+      clearToken();
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 600);
+    }
+  };
 
   // Desktop sidebar collapse state (persisted)
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
@@ -378,14 +395,12 @@ export function AppLayout() {
                       {/* Sign Out Action */}
                       <button
                         type="button"
-                        onClick={() => {
-                          clearToken();
-                          window.location.reload();
-                        }}
-                        className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition text-left cursor-pointer"
+                        onClick={handleSignOut}
+                        disabled={isSigningOut}
+                        className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition text-left cursor-pointer disabled:opacity-50"
                       >
                         <LogOut className="h-4 w-4 text-rose-500" />
-                        <span>Sign Out</span>
+                        <span>{isSigningOut ? "Signing out..." : "Sign Out"}</span>
                       </button>
                     </div>
                   </>
@@ -549,14 +564,12 @@ export function AppLayout() {
             <div className="mt-3 pt-2.5 border-t border-slate-100">
               <button
                 type="button"
-                onClick={() => {
-                  clearToken();
-                  window.location.reload();
-                }}
-                className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition text-left cursor-pointer"
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+                className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition text-left cursor-pointer disabled:opacity-50"
               >
                 <LogOut className="h-4 w-4 text-rose-500" />
-                <span>Sign Out</span>
+                <span>{isSigningOut ? "Signing out..." : "Sign Out"}</span>
               </button>
             </div>
           </div>
@@ -578,6 +591,9 @@ export function AppLayout() {
 
       {/* Grounded LifeNest AI Assistant */}
       <AskAiAssistant />
+
+      {/* Animated Signout Overlay */}
+      {isSigningOut && <SignoutOverlay />}
     </div>
   );
 }

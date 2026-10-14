@@ -20,6 +20,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { VehicleEntryForm } from "../components/common/VehicleEntryForm";
 import { SqlSetupBanner } from "../components/common/SqlSetupBanner";
+import { CardsGridSkeleton } from "../components/common/LoadingStates";
 import {
   createVehicle,
   deleteVehicle,
@@ -273,12 +274,7 @@ export function VehicleEntryPage({
       : "Vehicle details, registration number plate, fuel costs, and maintenance.";
 
   if (loading) {
-    return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600 shadow-2xs">
-        <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-slate-300 border-t-slate-800 mb-3" />
-        <p className="text-xs font-medium">Loading your vehicle records...</p>
-      </div>
-    );
+    return <CardsGridSkeleton count={6} />;
   }
 
   if (isLocked) {

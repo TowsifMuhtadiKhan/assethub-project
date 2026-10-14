@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AuthPage } from "../../pages/AuthPage";
 import { supabase } from "../../lib/supabase";
 import type { Session } from "@supabase/supabase-js";
+import { AnimatedPageLoader } from "../common/LoadingStates";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -25,9 +26,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="text-sm font-semibold text-slate-500">Loading AssetHub...</div>
-      </div>
+      <AnimatedPageLoader
+        message="Loading AssetHub..."
+        subtitle="Connecting encrypted vault & session"
+      />
     );
   }
 

@@ -52,6 +52,7 @@ import type {
   LoanRepaymentSegment,
 } from "../types";
 import { MemberSavingsView } from "../components/expenses/MemberSavingsView";
+import { ExpensesSkeleton } from "../components/common/LoadingStates";
 
 const CATEGORIES: { label: DailyExpenseCategory; color: string; bg: string }[] = [
   { label: "Food & Dining", color: "text-orange-700", bg: "bg-orange-50 border-orange-200" },
@@ -839,10 +840,7 @@ export function DailyExpensesPage() {
       {/* 2. LOADING STATE OR PROFILE SELECTOR / EXPENSES DASHBOARD                 */}
       {/* ========================================================================= */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-2xl border border-slate-200 p-8 shadow-2xs">
-          <div className="h-8 w-8 rounded-full border-2 border-amber-500 border-t-transparent animate-spin mb-3" />
-          <p className="text-xs font-semibold text-slate-600">Loading daily expenses and member ledgers...</p>
-        </div>
+        <ExpensesSkeleton />
       ) : !activeMember ? (
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-2xs">

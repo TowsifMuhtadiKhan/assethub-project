@@ -49,6 +49,7 @@ import {
   uploadUserDocumentToGoogleDrive,
 } from "../utils/googleDrive";
 import { SqlSetupBanner } from "../components/common/SqlSetupBanner";
+import { CardsGridSkeleton } from "../components/common/LoadingStates";
 import {
   FormControl,
   Select,
@@ -1285,9 +1286,7 @@ export function DocumentsPage() {
             </div>
 
             {loading ? (
-              <div className="py-20 text-center text-xs text-slate-400 rounded-2xl border border-slate-200/80 bg-white shadow-2xs">
-                Loading documents...
-              </div>
+              <CardsGridSkeleton count={6} />
             ) : filteredDocuments.length === 0 ? (
               <div
                 onContextMenu={handleCanvasContextMenu}

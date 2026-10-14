@@ -18,6 +18,7 @@ import { listVehicles } from "../services/vehicleService";
 import { listProperties } from "../services/propertyService";
 import { listWarranties } from "../services/warrantyService";
 import { listFamilyMembers, getCurrentUserAccess } from "../services/familyService";
+import { DashboardSkeleton } from "../components/common/LoadingStates";
 import type {
   TaskItem,
   DocumentItem,
@@ -41,6 +42,7 @@ export function DashboardPage() {
   const [scheduleTimeframe, setScheduleTimeframe] = useState<"7days" | "30days" | "all">("30days");
   const [scheduleFilter, setScheduleFilter] = useState<"all" | "task" | "document" | "vehicle" | "warranty">("all");
   const [isLocked, setIsLocked] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getCurrentUserAccess().then(({ isHead, access }) => {
@@ -65,7 +67,8 @@ export function DashboardPage() {
         setWarranties(w);
         setFamilyMembers(f);
       })
-      .catch((err) => console.error(err));
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleToggleTask = async (task: TaskItem) => {
@@ -209,6 +212,10 @@ export function DashboardPage() {
     }
     return { label: `In ${diffDays}d`, isOverdue: false, isToday: false };
   };
+
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
 
   if (isLocked) {
     return (

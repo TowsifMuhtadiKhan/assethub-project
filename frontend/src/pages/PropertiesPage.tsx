@@ -57,6 +57,7 @@ import {
 import { PropertyEntryForm } from "../components/rentals/PropertyEntryForm";
 import { RentalReports } from "../components/rentals/RentalReports";
 import { getCurrentUserAccess } from "../services/familyService";
+import { CardsGridSkeleton } from "../components/common/LoadingStates";
 
 export const BD_PROPERTY_DOC_PRESETS = [
   {
@@ -688,10 +689,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
       )}
 
       {loading && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600 shadow-2xs">
-          <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-slate-300 border-t-slate-800 mb-3" />
-          <p className="text-xs font-medium">Loading property & rental records…</p>
-        </div>
+        <CardsGridSkeleton count={4} />
       )}
 
       {data && (

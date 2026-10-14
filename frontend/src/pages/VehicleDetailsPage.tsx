@@ -31,6 +31,7 @@ import {
   parseVehicleSpecsFromNotes,
 } from "../services/vehicleService";
 import { SqlSetupBanner } from "../components/common/SqlSetupBanner";
+import { DetailPageSkeleton } from "../components/common/LoadingStates";
 import { DocumentViewerModal, type ViewableDocument } from "../components/common/DocumentViewerModal";
 import {
   createVehicleExpense,
@@ -1264,12 +1265,7 @@ export function VehicleDetailsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="mx-auto max-w-md py-16 text-center space-y-3">
-        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-slate-800" />
-        <p className="text-xs font-medium text-slate-500">Loading vehicle profile...</p>
-      </div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   if (!vehicle) {
