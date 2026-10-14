@@ -39,6 +39,16 @@ export function embedVehicleSpecsIntoNotes(
   return clean ? `${clean}\n${tag}` : tag;
 }
 
+export function normalizeVehicleType(rawType?: string): VehicleType {
+  const t = (rawType || "").toLowerCase().trim();
+  if (t.includes("bike") || t.includes("motorcycle") || t === "two-wheeler") return "Bike";
+  if (t.includes("scooter") || t.includes("moped")) return "Scooter";
+  if (t.includes("truck") || t.includes("commercial") || t.includes("pickup") || t.includes("lorry") || t.includes("van") || t.includes("microbus")) return "Commercial";
+  if (t.includes("bicycle") || t.includes("cycle")) return "Other";
+  if (t.includes("car") || t.includes("sedan") || t.includes("suv") || t.includes("hatchback") || t.includes("jeep") || t.includes("ev")) return "Car";
+  return (rawType as VehicleType) || "Car";
+}
+
 // Helper to convert database row to Vehicle type
 function mapVehicleFromRow(row: Record<string, any>): Vehicle {
   const specs = parseVehicleSpecsFromNotes(row.notes);
@@ -56,6 +66,7 @@ function mapVehicleFromRow(row: Record<string, any>): Vehicle {
     purchaseDate: row.purchase_date ?? "",
     purchasePrice: Number(row.purchase_price ?? 0),
     color: row.color ?? "",
+    ownershipInfo: row.ownership_info ?? "",
     insuranceInfo: row.insurance_info ?? "",
     taxTokenInfo: row.tax_token_info ?? "",
     fitnessExpiry: row.fitness_expiry ?? "",
@@ -89,10 +100,12 @@ export async function createVehicle(
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
-  const rowData = {
+  const safeType = normalizeVehicleType(input.type);
+
+  const rowData: Record<string, any> = {
     owner_id: user.id,
     name: input.name,
-    type: input.type,
+    type: safeType,
     brand: input.brand ?? "",
     model: input.model ?? "",
     year: input.year ?? 2024,
@@ -103,9 +116,13 @@ export async function createVehicle(
     purchase_date: input.purchaseDate || null,
     purchase_price: input.purchasePrice ?? 0,
     color: input.color ?? "",
+    ownership_info: input.ownershipInfo ?? "",
     insurance_info: input.insuranceInfo ?? "",
     tax_token_info: input.taxTokenInfo ?? "",
     fitness_expiry: input.fitnessExpiry || null,
+    tax_token_expiry: input.taxTokenExpiry || null,
+    insurance_expiry: input.insuranceExpiry || null,
+    route_permit_expiry: input.routePermitExpiry || null,
     notes: input.notes ?? "",
     image: input.image ?? "",
     status: input.status ?? "GOOD",
@@ -127,7 +144,7 @@ export async function updateVehicle(
 ): Promise<Vehicle> {
   const patch: Record<string, unknown> = {};
   if (input.name !== undefined) patch.name = input.name;
-  if (input.type !== undefined) patch.type = input.type;
+  if (input.type !== undefined) patch.type = normalizeVehicleType(input.type);
   if (input.brand !== undefined) patch.brand = input.brand;
   if (input.model !== undefined) patch.model = input.model;
   if (input.year !== undefined) patch.year = input.year;
@@ -143,12 +160,20 @@ export async function updateVehicle(
   if (input.purchasePrice !== undefined)
     patch.purchase_price = input.purchasePrice;
   if (input.color !== undefined) patch.color = input.color;
+  if (input.ownershipInfo !== undefined)
+    patch.ownership_info = input.ownershipInfo;
   if (input.insuranceInfo !== undefined)
     patch.insurance_info = input.insuranceInfo;
   if (input.taxTokenInfo !== undefined)
     patch.tax_token_info = input.taxTokenInfo;
   if (input.fitnessExpiry !== undefined)
     patch.fitness_expiry = input.fitnessExpiry || null;
+  if (input.taxTokenExpiry !== undefined)
+    patch.tax_token_expiry = input.taxTokenExpiry || null;
+  if (input.insuranceExpiry !== undefined)
+    patch.insurance_expiry = input.insuranceExpiry || null;
+  if (input.routePermitExpiry !== undefined)
+    patch.route_permit_expiry = input.routePermitExpiry || null;
   if (input.notes !== undefined) patch.notes = input.notes;
   if (
     input.cubicCapacity !== undefined ||
@@ -180,3 +205,4 @@ export async function deleteVehicle(id: string): Promise<void> {
   const { error } = await supabase.from(TABLE).delete().eq("id", id);
   if (error) throw error;
 }
+

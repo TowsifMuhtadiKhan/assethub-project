@@ -32,6 +32,7 @@ import {
   hasMemberPin,
   setMemberPin,
   verifyMemberPin,
+  loadCloudMemberPins,
   listMemberLoans,
   createMemberLoan,
   updateMemberLoan,
@@ -202,6 +203,9 @@ export function DailyExpensesPage() {
       const famMembers = await listFamilyMembersWithSelf();
       setMembers(famMembers);
 
+      // Load cloud synced PINs first so all profiles unlock cleanly
+      await loadCloudMemberPins();
+
       const allExpenses = await listDailyExpenses();
       setExpenses(allExpenses);
     } catch (err) {
@@ -237,11 +241,11 @@ export function DailyExpensesPage() {
   };
 
   // Submit PIN for unlock or initial setup
-  const handlePinSubmit = (e?: React.FormEvent) => {
+  const handlePinSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!pinTargetMember) return;
 
-    const hasPin = hasMemberPin(pinTargetMember.id);
+    const hasPin = hasMemberPin(pinTargetMember.id, pinTargetMember.fullName);
 
     if (!hasPin) {
       // First-time PIN setup
@@ -254,7 +258,7 @@ export function DailyExpensesPage() {
         return;
       }
 
-      setMemberPin(pinTargetMember.id, pinInput);
+      await setMemberPin(pinTargetMember.id, pinInput, pinTargetMember.fullName);
       setActiveMemberId(pinTargetMember.id);
       try {
         sessionStorage.setItem("lifenest_unlocked_expense_member", pinTargetMember.id);
@@ -263,7 +267,7 @@ export function DailyExpensesPage() {
       showToast(`PIN set successfully for ${pinTargetMember.fullName}!`);
     } else {
       // PIN verification
-      const valid = verifyMemberPin(pinTargetMember.id, pinInput);
+      const valid = verifyMemberPin(pinTargetMember.id, pinInput, pinTargetMember.fullName);
       if (!valid) {
         setPinError("Incorrect PIN. Please try again.");
         return;
@@ -281,7 +285,8 @@ export function DailyExpensesPage() {
   const loadLoans = async (memberId: string) => {
     setLoadingLoans(true);
     try {
-      const data = await listMemberLoans(memberId);
+      const activeMem = members.find((m) => m.id === memberId);
+      const data = await listMemberLoans(memberId, activeMem?.fullName);
       setLoans(data);
       setViewingLoanSegments((prev) => {
         if (!prev) return null;
@@ -543,8 +548,18 @@ export function DailyExpensesPage() {
   // Filter expenses for current member
   const memberExpenses = useMemo(() => {
     if (!activeMemberId) return [];
-    return expenses.filter((e) => e.familyMemberId === activeMemberId);
-  }, [expenses, activeMemberId]);
+    const activeName = activeMember?.fullName?.trim().toLowerCase();
+    return expenses.filter((e) => {
+      if (e.familyMemberId === activeMemberId) return true;
+      if (activeName && e.familyMemberName?.trim().toLowerCase() === activeName) return true;
+      if (
+        activeMember?.relationship === "Self" &&
+        (!e.familyMemberId || e.familyMemberId === "owner-admin-towsif")
+      )
+        return true;
+      return false;
+    });
+  }, [expenses, activeMemberId, activeMember]);
 
   // Filter by time range, category, search
   const filteredExpenses = useMemo(() => {
@@ -812,7 +827,7 @@ export function DailyExpensesPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-w-4xl mx-auto">
               {members.map((m) => {
-                const hasPin = hasMemberPin(m.id);
+                const hasPin = hasMemberPin(m.id, m.fullName);
                 const isSelf = m.relationship === "Self";
                 return (
                   <button
@@ -1780,12 +1795,12 @@ export function DailyExpensesPage() {
                 <Lock className="h-6 w-6" />
               </div>
               <h3 className="text-base font-bold text-slate-900">
-                {hasMemberPin(pinTargetMember.id)
+                {hasMemberPin(pinTargetMember.id, pinTargetMember.fullName)
                   ? `Enter PIN for ${pinTargetMember.fullName}`
                   : `Set New PIN for ${pinTargetMember.fullName}`}
               </h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                {hasMemberPin(pinTargetMember.id)
+                {hasMemberPin(pinTargetMember.id, pinTargetMember.fullName)
                   ? "Enter your 4-digit security PIN to access your personal expenses ledger."
                   : "Create a confidential 4-digit PIN to keep your daily expenses private."}
               </p>
@@ -1812,7 +1827,7 @@ export function DailyExpensesPage() {
                 />
               </div>
 
-              {!hasMemberPin(pinTargetMember.id) && (
+              {!hasMemberPin(pinTargetMember.id, pinTargetMember.fullName) && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1 text-center">
                     Confirm PIN
@@ -1851,7 +1866,7 @@ export function DailyExpensesPage() {
                   type="submit"
                   className="flex-1 rounded-xl bg-slate-900 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition shadow-xs cursor-pointer"
                 >
-                  {hasMemberPin(pinTargetMember.id) ? "Unlock Ledger" : "Set & Unlock"}
+                  {hasMemberPin(pinTargetMember.id, pinTargetMember.fullName) ? "Unlock Ledger" : "Set & Unlock"}
                 </button>
               </div>
             </form>

@@ -127,7 +127,7 @@ export function VehicleEntryPage({
     const cars = vehicles.filter((v) => (v.type || "").toLowerCase().includes("car")).length;
     const bikes = vehicles.filter((v) => {
       const t = (v.type || "").toLowerCase();
-      return t === "bike" || t === "motorcycle";
+      return t.includes("bike") || t.includes("motorcycle");
     }).length;
     const scooters = vehicles.filter((v) => (v.type || "").toLowerCase().includes("scooter")).length;
     const commercial = vehicles.filter((v) => {
@@ -148,9 +148,9 @@ export function VehicleEntryPage({
       if (activeTab === "All") {
         matchesTab = true;
       } else if (activeTab === "Car") {
-        matchesTab = t.includes("car");
+        matchesTab = t.includes("car") || t.includes("sedan") || t.includes("suv") || t.includes("jeep");
       } else if (activeTab === "Bike") {
-        matchesTab = t === "bike" || t === "motorcycle";
+        matchesTab = t.includes("bike") || t.includes("motorcycle");
       } else if (activeTab === "Scooter") {
         matchesTab = t.includes("scooter");
       } else if (activeTab === "Commercial") {
@@ -162,8 +162,8 @@ export function VehicleEntryPage({
       } else if (activeTab === "Other") {
         matchesTab =
           !t.includes("car") &&
-          t !== "bike" &&
-          t !== "motorcycle" &&
+          !t.includes("bike") &&
+          !t.includes("motorcycle") &&
           !t.includes("scooter") &&
           !t.includes("truck") &&
           !t.includes("commercial") &&

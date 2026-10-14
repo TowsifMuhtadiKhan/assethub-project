@@ -32,11 +32,16 @@ export async function syncLocalExpensesToRemote(): Promise<number> {
     if (unsynced.length === 0) return 0;
 
     for (const item of unsynced) {
+      const targetMemberId =
+        !item.familyMemberId || item.familyMemberId === "owner-admin-towsif"
+          ? user.id
+          : item.familyMemberId;
+
       const { data, error } = await supabase
         .from(TABLE)
         .insert({
           owner_id: user.id,
-          family_member_id: item.familyMemberId,
+          family_member_id: targetMemberId,
           family_member_name: item.familyMemberName || "",
           date: item.date,
           amount: item.amount,
@@ -54,7 +59,9 @@ export async function syncLocalExpensesToRemote(): Promise<number> {
         synced++;
         const currentList = getLocalExpenses();
         const updated = currentList.map((c) =>
-          c.id === item.id ? { ...c, id: data.id } : c,
+          c.id === item.id
+            ? { ...c, id: data.id, familyMemberId: targetMemberId }
+            : c,
         );
         saveLocalExpenses(updated);
       } else if (error) {
@@ -70,6 +77,7 @@ export async function syncLocalExpensesToRemote(): Promise<number> {
 
 export async function listDailyExpenses(
   familyMemberId?: string,
+  familyMemberName?: string,
 ): Promise<DailyExpense[]> {
   const localList = getLocalExpenses();
 
@@ -77,10 +85,10 @@ export async function listDailyExpenses(
     // Attempt auto-sync of any unsynced local items
     await syncLocalExpensesToRemote();
 
-    let query = supabase.from(TABLE).select("*").order("date", { ascending: false });
-    if (familyMemberId) {
-      query = query.eq("family_member_id", familyMemberId);
-    }
+    const query = supabase
+      .from(TABLE)
+      .select("*")
+      .order("date", { ascending: false });
 
     const { data, error } = await query;
     if (!error && data) {
@@ -106,18 +114,37 @@ export async function listDailyExpenses(
       const combined = [...remoteList, ...filteredLocal];
       saveLocalExpenses(combined);
 
-      return familyMemberId
-        ? combined.filter((e) => e.familyMemberId === familyMemberId)
-        : combined;
+      if (!familyMemberId && !familyMemberName) return combined;
+
+      const normName = familyMemberName?.trim().toLowerCase();
+      return combined.filter((e) => {
+        if (familyMemberId && e.familyMemberId === familyMemberId) return true;
+        if (normName && e.familyMemberName?.trim().toLowerCase() === normName) return true;
+        if (
+          familyMemberId === "owner-admin-towsif" &&
+          (!e.familyMemberId || e.familyMemberId === "owner-admin-towsif")
+        )
+          return true;
+        return false;
+      });
     }
   } catch (err) {
     console.warn("listDailyExpenses remote query failed, fallback to local:", err);
   }
 
   // Fallback to local storage
-  return familyMemberId
-    ? localList.filter((e) => e.familyMemberId === familyMemberId)
-    : localList;
+  if (!familyMemberId && !familyMemberName) return localList;
+  const normName = familyMemberName?.trim().toLowerCase();
+  return localList.filter((e) => {
+    if (familyMemberId && e.familyMemberId === familyMemberId) return true;
+    if (normName && e.familyMemberName?.trim().toLowerCase() === normName) return true;
+    if (
+      familyMemberId === "owner-admin-towsif" &&
+      (!e.familyMemberId || e.familyMemberId === "owner-admin-towsif")
+    )
+      return true;
+    return false;
+  });
 }
 
 export async function createDailyExpense(
@@ -239,47 +266,198 @@ export async function deleteDailyExpense(id: string): Promise<void> {
 
 
 // ==============================================================================
-// PIN SECURITY HELPERS
+// PIN SECURITY HELPERS (CLOUD-SYNCED & PERSISTENT)
 // ==============================================================================
 
 const PIN_PREFIX = "lifenest_expense_pin_";
+const PIN_MAP_KEY = "lifenest_expense_pin_map";
 
-function hashPin(pin: string, memberId: string): string {
-  // Simple obfuscation hash with salt
-  const salt = `ln_salt_${memberId.slice(-4)}`;
-  return btoa(`${salt}:${pin.trim()}`);
-}
-
-export function hasMemberPin(memberId: string): boolean {
+function getLocalPinMap(): Record<string, string> {
   try {
-    const stored = localStorage.getItem(`${PIN_PREFIX}${memberId}`);
-    return Boolean(stored && stored.length > 0);
+    const raw = localStorage.getItem(PIN_MAP_KEY);
+    return raw ? JSON.parse(raw) : {};
   } catch {
-    return false;
+    return {};
   }
 }
 
-export function setMemberPin(memberId: string, pin: string): void {
+function saveLocalPinMap(map: Record<string, string>): void {
   try {
-    const hashed = hashPin(pin, memberId);
-    localStorage.setItem(`${PIN_PREFIX}${memberId}`, hashed);
+    localStorage.setItem(PIN_MAP_KEY, JSON.stringify(map));
   } catch {}
 }
 
-export function verifyMemberPin(memberId: string, pin: string): boolean {
+function hashPin(pin: string): string {
+  return btoa(`ln_expense_salt_v1:${pin.trim()}`);
+}
+
+function verifyPinMatch(storedHash: string, pin: string, memberId?: string): boolean {
+  if (!storedHash) return false;
+  const p = pin.trim();
+  // 1. Check standard constant-salt hash
+  if (storedHash === hashPin(p)) return true;
+  // 2. Check legacy salt with memberId if applicable
+  if (memberId && storedHash === btoa(`ln_salt_${memberId.slice(-4)}:${p}`)) return true;
+  // 3. Plaintext fallback if legacy
+  if (storedHash === p) return true;
+  return false;
+}
+
+export async function loadCloudMemberPins(): Promise<Record<string, string>> {
+  const localMap = getLocalPinMap();
   try {
-    const stored = localStorage.getItem(`${PIN_PREFIX}${memberId}`);
-    if (!stored) return false;
-    const expected = hashPin(pin, memberId);
-    return stored === expected;
-  } catch {
-    return false;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return localMap;
+
+    const { data } = await supabase
+      .from("lifenest_user_settings")
+      .select("member_pins, whatsapp_contacts")
+      .eq("owner_id", user.id)
+      .maybeSingle();
+
+    if (data) {
+      let cloudPins: Record<string, string> = {};
+      if (data.member_pins && typeof data.member_pins === "object") {
+        cloudPins = data.member_pins;
+      } else if (Array.isArray(data.whatsapp_contacts)) {
+        const pinStore = data.whatsapp_contacts.find(
+          (c: any) => c && c.id === "__lifenest_member_pins__",
+        );
+        if (pinStore && pinStore.pins) {
+          cloudPins = pinStore.pins;
+        }
+      }
+
+      const merged = { ...localMap, ...cloudPins };
+      saveLocalPinMap(merged);
+      return merged;
+    }
+  } catch (err) {
+    console.warn("loadCloudMemberPins error:", err);
+  }
+  return localMap;
+}
+
+export function hasMemberPin(memberId: string, memberName?: string): boolean {
+  const map = getLocalPinMap();
+  if (map[memberId]) return true;
+  if (localStorage.getItem(`${PIN_PREFIX}${memberId}`)) return true;
+
+  if (memberName) {
+    const norm = memberName.trim().toLowerCase();
+    if (map[norm]) return true;
+    if (localStorage.getItem(`${PIN_PREFIX}${norm}`)) return true;
+  }
+  return false;
+}
+
+export async function setMemberPin(
+  memberId: string,
+  pin: string,
+  memberName?: string,
+): Promise<void> {
+  const hashed = hashPin(pin);
+  const map = getLocalPinMap();
+  map[memberId] = hashed;
+  if (memberName) {
+    map[memberName.trim().toLowerCase()] = hashed;
+  }
+
+  try {
+    localStorage.setItem(`${PIN_PREFIX}${memberId}`, hashed);
+    if (memberName) {
+      localStorage.setItem(`${PIN_PREFIX}${memberName.trim().toLowerCase()}`, hashed);
+    }
+  } catch {}
+  saveLocalPinMap(map);
+
+  // Sync to Supabase cloud
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      // Also map under the authenticated user ID if setting Self
+      map[user.id] = hashed;
+      saveLocalPinMap(map);
+
+      // 1. Attempt update with member_pins column
+      const { error } = await supabase
+        .from("lifenest_user_settings")
+        .update({ member_pins: map })
+        .eq("owner_id", user.id);
+
+      if (error) {
+        // 2. Fallback to whatsapp_contacts JSONB storage if member_pins column doesn't exist yet
+        const { data: currentSettings } = await supabase
+          .from("lifenest_user_settings")
+          .select("whatsapp_contacts")
+          .eq("owner_id", user.id)
+          .maybeSingle();
+
+        const currentContacts = Array.isArray(currentSettings?.whatsapp_contacts)
+          ? currentSettings.whatsapp_contacts
+          : [];
+        const filtered = currentContacts.filter(
+          (c: any) => c && c.id !== "__lifenest_member_pins__",
+        );
+        filtered.push({ id: "__lifenest_member_pins__", pins: map });
+
+        await supabase
+          .from("lifenest_user_settings")
+          .update({ whatsapp_contacts: filtered })
+          .eq("owner_id", user.id);
+      }
+    }
+  } catch (err) {
+    console.warn("setMemberPin cloud sync error:", err);
   }
 }
 
-export function removeMemberPin(memberId: string): void {
+export function verifyMemberPin(
+  memberId: string,
+  pin: string,
+  memberName?: string,
+): boolean {
+  const map = getLocalPinMap();
+  let stored = map[memberId] || localStorage.getItem(`${PIN_PREFIX}${memberId}`);
+  if (!stored && memberName) {
+    const norm = memberName.trim().toLowerCase();
+    stored = map[norm] || localStorage.getItem(`${PIN_PREFIX}${norm}`);
+  }
+  if (!stored) return false;
+  return verifyPinMatch(stored, pin, memberId);
+}
+
+export async function removeMemberPin(
+  memberId: string,
+  memberName?: string,
+): Promise<void> {
+  const map = getLocalPinMap();
+  delete map[memberId];
+  if (memberName) delete map[memberName.trim().toLowerCase()];
+
   try {
     localStorage.removeItem(`${PIN_PREFIX}${memberId}`);
+    if (memberName) {
+      localStorage.removeItem(`${PIN_PREFIX}${memberName.trim().toLowerCase()}`);
+    }
+  } catch {}
+  saveLocalPinMap(map);
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      await supabase
+        .from("lifenest_user_settings")
+        .update({ member_pins: map })
+        .eq("owner_id", user.id);
+    }
   } catch {}
 }
 
@@ -318,11 +496,16 @@ export async function syncLocalLoansToRemote(): Promise<number> {
     if (unsynced.length === 0) return 0;
 
     for (const item of unsynced) {
+      const targetMemberId =
+        !item.familyMemberId || item.familyMemberId === "owner-admin-towsif"
+          ? user.id
+          : item.familyMemberId;
+
       const { data, error } = await supabase
         .from(LOANS_TABLE)
         .insert({
           owner_id: user.id,
-          family_member_id: item.familyMemberId,
+          family_member_id: targetMemberId,
           family_member_name: item.familyMemberName || "",
           loan_title: item.loanTitle,
           loan_type: item.loanType,
@@ -344,7 +527,9 @@ export async function syncLocalLoansToRemote(): Promise<number> {
         synced++;
         const currentList = getLocalLoans();
         const updated = currentList.map((c) =>
-          c.id === item.id ? { ...c, id: data.id } : c,
+          c.id === item.id
+            ? { ...c, id: data.id, familyMemberId: targetMemberId }
+            : c,
         );
         saveLocalLoans(updated);
       } else if (error) {
@@ -364,17 +549,21 @@ export async function syncAllLocalExpenseData(): Promise<{ syncedExpenses: numbe
   return { syncedExpenses, syncedLoans };
 }
 
-export async function listMemberLoans(familyMemberId?: string): Promise<MemberLoan[]> {
+export async function listMemberLoans(
+  familyMemberId?: string,
+  familyMemberName?: string,
+): Promise<MemberLoan[]> {
   const localList = getLocalLoans();
 
   try {
     // Attempt auto-sync of any unsynced local loans
     await syncLocalLoansToRemote();
 
-    let query = supabase.from(LOANS_TABLE).select("*").order("created_at", { ascending: false });
-    if (familyMemberId) {
-      query = query.eq("family_member_id", familyMemberId);
-    }
+    const query = supabase
+      .from(LOANS_TABLE)
+      .select("*")
+      .order("created_at", { ascending: false });
+
     const { data, error } = await query;
     if (!error && data) {
       const remoteList: MemberLoan[] = data.map((row: any) => ({
@@ -402,13 +591,36 @@ export async function listMemberLoans(familyMemberId?: string): Promise<MemberLo
       const merged = [...remoteList, ...filteredLocal];
       saveLocalLoans(merged);
 
-      return familyMemberId ? merged.filter((l) => l.familyMemberId === familyMemberId) : merged;
+      if (!familyMemberId && !familyMemberName) return merged;
+
+      const normName = familyMemberName?.trim().toLowerCase();
+      return merged.filter((l) => {
+        if (familyMemberId && l.familyMemberId === familyMemberId) return true;
+        if (normName && l.familyMemberName?.trim().toLowerCase() === normName) return true;
+        if (
+          familyMemberId === "owner-admin-towsif" &&
+          (!l.familyMemberId || l.familyMemberId === "owner-admin-towsif")
+        )
+          return true;
+        return false;
+      });
     }
   } catch (err) {
     console.warn("listMemberLoans remote query failed, fallback to local:", err);
   }
 
-  return familyMemberId ? localList.filter((l) => l.familyMemberId === familyMemberId) : localList;
+  if (!familyMemberId && !familyMemberName) return localList;
+  const normName = familyMemberName?.trim().toLowerCase();
+  return localList.filter((l) => {
+    if (familyMemberId && l.familyMemberId === familyMemberId) return true;
+    if (normName && l.familyMemberName?.trim().toLowerCase() === normName) return true;
+    if (
+      familyMemberId === "owner-admin-towsif" &&
+      (!l.familyMemberId || l.familyMemberId === "owner-admin-towsif")
+    )
+      return true;
+    return false;
+  });
 }
 
 export async function createMemberLoan(

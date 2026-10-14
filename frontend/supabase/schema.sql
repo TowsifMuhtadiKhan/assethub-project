@@ -533,3 +533,16 @@ create index if not exists lifenest_member_loans_owner_status_idx
 
 create index if not exists lifenest_member_loans_member_idx
   on public.lifenest_member_loans (owner_id, family_member_id);
+
+-- 17. MEMBER PINS & EXTENDED VEHICLE SPECS MIGRATION
+alter table public.lifenest_user_settings
+  add column if not exists member_pins jsonb not null default '{}'::jsonb;
+
+alter table public.lifenest_vehicles
+  drop constraint if exists lifenest_vehicles_type_check;
+
+alter table public.lifenest_vehicles
+  add column if not exists ownership_info text not null default '',
+  add column if not exists tax_token_expiry date,
+  add column if not exists insurance_expiry date,
+  add column if not exists route_permit_expiry date;
