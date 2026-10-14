@@ -13,9 +13,9 @@ import {
   Search,
   Layers,
   BarChart3,
-  Filter,
   List,
   LayoutGrid,
+  ChevronDown,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { VehicleEntryForm } from "../components/common/VehicleEntryForm";
@@ -88,12 +88,9 @@ export function VehicleEntryPage({
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [activeTab, setActiveTab] = useState<string>(filterType);
   const [searchQuery, setSearchQuery] = useState("");
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"table" | "grid">(
     typeof window !== "undefined" && window.innerWidth < 768 ? "grid" : "table"
   );
-
-  const activeFilterCount = activeTab !== "All" ? 1 : 0;
   const [loading, setLoading] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
   const [error, setError] = useState("");
@@ -392,8 +389,27 @@ export function VehicleEntryPage({
 
       {/* Tabs and Search Bar */}
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-        {/* Search Input + Mobile Filter + View Switcher */}
-        <div className="flex items-center gap-1.5 w-full sm:w-auto order-1 sm:order-2">
+        {/* Category Dropdown */}
+        <div className="relative min-w-[170px] w-full sm:w-auto">
+          <select
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value)}
+            className="w-full sm:w-auto appearance-none rounded-xl border border-slate-200/90 bg-white pl-3.5 pr-8 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs hover:border-slate-300 focus:border-slate-900 focus:outline-none transition cursor-pointer"
+          >
+            <option value="All">All Vehicles ({counts.total})</option>
+            <option value="Car">Cars ({counts.cars})</option>
+            <option value="Bike">Bikes ({counts.bikes})</option>
+            <option value="Scooter">Scooters ({counts.scooters})</option>
+            <option value="Commercial">Commercial ({counts.commercial})</option>
+            <option value="Van">Vans ({counts.vans})</option>
+            <option value="Bicycle">Bicycles ({counts.bicycles})</option>
+            <option value="Other">Other ({counts.other})</option>
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+        </div>
+
+        {/* Search Input + View Switcher */}
+        <div className="flex items-center gap-1.5 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-64">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <input
@@ -404,24 +420,6 @@ export function VehicleEntryPage({
               className="w-full rounded-xl border border-slate-200/90 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none shadow-2xs"
             />
           </div>
-
-          <button
-            type="button"
-            onClick={() => setMobileFiltersOpen((prev) => !prev)}
-            className={`sm:hidden inline-flex items-center gap-1 rounded-xl border px-2.5 py-1.5 text-xs font-semibold transition shrink-0 cursor-pointer ${
-              mobileFiltersOpen || activeFilterCount > 0
-                ? "border-blue-500 bg-blue-50 text-blue-700"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            }`}
-          >
-            <Filter className="h-3.5 w-3.5" />
-            <span>Filter</span>
-            {activeFilterCount > 0 && (
-              <span className="flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white px-1">
-                {activeFilterCount}
-              </span>
-            )}
-          </button>
 
           {/* View Mode Toggle (Grid vs Table) */}
           <div className="flex items-center p-0.5 rounded-xl border border-slate-200 bg-slate-100 shrink-0">
@@ -450,43 +448,6 @@ export function VehicleEntryPage({
               <LayoutGrid className="h-3.5 w-3.5" />
             </button>
           </div>
-        </div>
-
-        {/* Category Tabs - Collapsible on mobile, inline on sm */}
-        <div className={`w-full sm:w-auto flex-wrap items-center gap-1.5 order-2 sm:order-1 ${mobileFiltersOpen ? "flex" : "hidden sm:flex"}`}>
-          {[
-            { id: "All", label: "All Vehicles", count: counts.total },
-            { id: "Car", label: "Cars", count: counts.cars },
-            { id: "Bike", label: "Bikes", count: counts.bikes },
-            { id: "Scooter", label: "Scooters", count: counts.scooters },
-            { id: "Commercial", label: "Commercial", count: counts.commercial },
-            { id: "Van", label: "Vans", count: counts.vans },
-            { id: "Bicycle", label: "Bicycles", count: counts.bicycles },
-            { id: "Other", label: "Other", count: counts.other },
-          ].map((tab) => {
-            const isSelected = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition cursor-pointer ${
-                  isSelected
-                    ? "bg-slate-900 text-white shadow-2xs"
-                    : "bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50 hover:text-slate-900"
-                }`}
-              >
-                <span>{tab.label}</span>
-                <span
-                  className={`rounded-full px-1.5 py-0.2 text-[10px] font-semibold ${
-                    isSelected ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
-                  }`}
-                >
-                  {tab.count}
-                </span>
-              </button>
-            );
-          })}
         </div>
       </div>
 
