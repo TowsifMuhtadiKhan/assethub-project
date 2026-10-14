@@ -1319,13 +1319,13 @@ export function VehicleDetailsPage() {
                   {vehicle.name}
                 </h1>
                 <span
-                  className={`rounded-md border px-1.5 py-0.2 text-[10px] font-semibold ${getVehicleTypeBadgeClass(
+                  className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${getVehicleTypeBadgeClass(
                     vehicle.type,
                   )}`}
                 >
                   {vehicle.type}
                 </span>
-                <span className="rounded bg-emerald-50 px-1.5 py-0.2 text-[10px] font-semibold text-emerald-700 border border-emerald-200/50">
+                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200/50">
                   {vehicle.status}
                 </span>
               </div>

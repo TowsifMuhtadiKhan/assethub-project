@@ -1273,7 +1273,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                                 <summary className="cursor-pointer font-medium text-indigo-700">
                                                   NID: {t.tenant_nid.slice(0, 4)}••••
                                                 </summary>
-                                                <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200 text-slate-800">
+                                                <span className="font-mono bg-white px-2 py-0.5 rounded-full border border-slate-200 text-slate-800">
                                                   {t.tenant_nid}
                                                 </span>
                                               </details>
@@ -1308,7 +1308,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                         <div className="flex items-center gap-1.5 flex-wrap">
                                           <button
                                             type="button"
-                                            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs transition cursor-pointer"
+                                            className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs transition cursor-pointer"
                                             onClick={() =>
                                               setEditor({
                                                 type: "tenant",
@@ -1321,7 +1321,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                           </button>
                                           <button
                                             type="button"
-                                            className="rounded-lg border border-indigo-200 bg-indigo-50/80 px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 shadow-2xs transition cursor-pointer"
+                                            className="rounded-full border border-indigo-200 bg-indigo-50/80 px-3 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 shadow-2xs transition cursor-pointer"
                                             onClick={() =>
                                               setEditor({ type: "rate", tenancy: t })
                                             }
@@ -1331,7 +1331,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                           <button
                                             type="button"
                                             onClick={() => removeTenancy(t.id, t.tenant_name)}
-                                            className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                                            className="p-1.5 rounded-full text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
                                             title={`Delete tenancy for ${t.tenant_name}`}
                                           >
                                             <Trash2 className="h-3.5 w-3.5" />
@@ -1349,7 +1349,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                           return (
                                             <div
                                               key={s.id}
-                                              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200/80 bg-white p-2.5 text-xs shadow-2xs"
+                                              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/80 bg-white p-2.5 text-xs shadow-2xs"
                                             >
                                               <div className="space-y-1">
                                                 <div className="flex items-center gap-2">
@@ -1362,13 +1362,13 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                                   </span>
                                                 </div>
                                                 <div className="flex flex-wrap gap-1.5 text-[11px] text-slate-600">
-                                                  <span className="rounded bg-slate-100 px-1.5 py-0.5">
+                                                  <span className="rounded-full bg-slate-100 text-slate-700 px-2.5 py-0.5 font-medium border border-slate-200/80 shadow-2xs">
                                                     Base: {money(s.base_rent)}
                                                   </span>
                                                   {s.charges.map((c) => (
                                                     <span
                                                       key={c.label}
-                                                      className="rounded bg-indigo-50 text-indigo-700 px-1.5 py-0.5 border border-indigo-100"
+                                                      className="rounded-full bg-indigo-50 text-indigo-700 px-2.5 py-0.5 border border-indigo-100 font-medium shadow-2xs"
                                                     >
                                                       {c.label}: {money(c.amount)}
                                                     </span>
@@ -1379,7 +1379,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                               <div className="flex items-center gap-1.5">
                                                 <button
                                                   type="button"
-                                                  className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
+                                                  className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
                                                   onClick={() =>
                                                     setEditor({
                                                       type: "rate",
@@ -1393,7 +1393,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                                 <button
                                                   type="button"
                                                   onClick={() => removeSchedule(s.id)}
-                                                  className="p-1 text-slate-400 hover:text-red-600 rounded-lg border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 transition shadow-2xs cursor-pointer"
+                                                  className="p-1 text-slate-400 hover:text-red-600 rounded-full border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 transition shadow-2xs cursor-pointer"
                                                   title="Delete rate period"
                                                 >
                                                   <Trash2 className="h-3 w-3" />
@@ -1424,7 +1424,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                 {/* Whole Flat Header */}
                                 <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
                                   <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className="h-9 w-9 rounded-xl bg-indigo-50 border border-indigo-100/80 flex items-center justify-center text-indigo-700 font-bold text-xs shrink-0">
+                                    <div className="h-9 w-9 rounded-full bg-indigo-50 border border-indigo-100/80 flex items-center justify-center text-indigo-700 font-bold text-xs shrink-0 shadow-2xs">
                                       {flat.unitNumber}
                                     </div>
                                     <div className="min-w-0">
@@ -1452,7 +1452,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                   <div className="flex items-center gap-1.5 shrink-0">
                                     <button
                                       type="button"
-                                      className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 px-2.5 py-1.5 sm:px-3 sm:py-1.5 text-xs font-semibold text-white shadow-2xs hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer"
+                                      className="inline-flex items-center gap-1 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer"
                                       onClick={() => setEditor({ type: "tenant", unit: flat })}
                                     >
                                       <Plus className="h-3.5 w-3.5" />
@@ -1461,7 +1461,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                     <button
                                       type="button"
                                       onClick={() => removeUnit(flat.id, flat.unitNumber)}
-                                      className="p-1.5 rounded-xl border border-rose-200 bg-rose-50/50 text-rose-600 hover:bg-rose-100 transition shadow-2xs cursor-pointer"
+                                      className="p-1.5 rounded-full border border-rose-200 bg-rose-50/50 text-rose-600 hover:bg-rose-100 transition shadow-2xs cursor-pointer"
                                       title={`Delete flat "${flat.unitNumber}"`}
                                     >
                                       <Trash2 className="h-3.5 w-3.5" />
@@ -1497,7 +1497,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                             >
                               <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
                                 <div className="flex items-center gap-2.5 min-w-0">
-                                  <div className="h-9 w-9 rounded-xl bg-purple-50 border border-purple-100/80 flex items-center justify-center text-purple-700 font-bold text-xs shrink-0">
+                                  <div className="h-9 w-9 rounded-full bg-purple-50 border border-purple-100/80 flex items-center justify-center text-purple-700 font-bold text-xs shrink-0 shadow-2xs">
                                     {flat.unitNumber}
                                   </div>
                                   <div className="min-w-0">
@@ -1515,7 +1515,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                   <button
                                     type="button"
                                     onClick={() => removeUnit(flat.id, flat.unitNumber)}
-                                    className="p-1.5 rounded-xl border border-rose-200 bg-rose-50/50 text-rose-600 hover:bg-rose-100 transition shadow-2xs cursor-pointer"
+                                    className="p-1.5 rounded-full border border-rose-200 bg-rose-50/50 text-rose-600 hover:bg-rose-100 transition shadow-2xs cursor-pointer"
                                     title={`Delete flat "${flat.unitNumber}"`}
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
@@ -1558,7 +1558,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                         <div className="flex items-center gap-1.5">
                                           <button
                                             type="button"
-                                            className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-indigo-700 transition cursor-pointer"
+                                            className="inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700 transition cursor-pointer shadow-2xs"
                                             onClick={() => setEditor({ type: "tenant", unit: room })}
                                           >
                                             <Plus className="h-3 w-3" />
@@ -1567,7 +1567,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                           <button
                                             type="button"
                                             onClick={() => removeUnit(room.id, room.unitNumber)}
-                                            className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                                            className="p-1.5 rounded-full text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
                                             title={`Delete room "${room.unitNumber}"`}
                                           >
                                             <Trash2 className="h-3.5 w-3.5" />
