@@ -604,11 +604,11 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
             <button
               type="button"
               onClick={() => setParams({})}
-              className="hidden lg:inline-flex p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold items-center gap-1.5 transition shadow-2xs cursor-pointer shrink-0"
-              title="Back to all properties"
+              className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-700 shadow-2xs hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer shrink-0"
+              title="Back"
+              aria-label="Back"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>Properties</span>
             </button>
             <div className="min-w-0">
               <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
