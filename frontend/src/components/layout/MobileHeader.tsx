@@ -18,17 +18,38 @@ export function MobileHeader(_props: MobileHeaderProps = {}) {
   const getPageTitle = () => {
     if (isHome) return "LifeNest";
     if (pathname.startsWith("/my-life/tasks")) return "To-Do & Tasks";
-    if (pathname.startsWith("/my-life/expenses") || pathname.startsWith("/expenses")) return "Daily Expenses";
+    if (pathname.startsWith("/my-life/calendar")) return "Calendar";
+    if (pathname.startsWith("/my-life/expenses") || pathname.startsWith("/expenses") || pathname.startsWith("/daily-expenses")) return "Daily Expenses";
     if (pathname.startsWith("/documents/vault") || pathname.startsWith("/documents")) return "Document Vault";
     if (pathname.startsWith("/documents/licenses")) return "Licenses & IDs";
-    if (pathname.startsWith("/assets/vehicles")) return "Vehicles & Fuel";
-    if (pathname.startsWith("/rentals/properties") || pathname.startsWith("/rentals")) return "Properties & Rent";
+    if (pathname.startsWith("/assets/vehicles/dashboard")) return "Vehicles Dashboard";
+    if (pathname.startsWith("/assets/vehicles/cars")) return "Cars";
+    if (pathname.startsWith("/assets/vehicles/bikes")) return "Bikes & Scooters";
+    if (pathname.startsWith("/vehicles/")) return "Vehicle Details";
+    if (pathname.startsWith("/assets/vehicles") || pathname.startsWith("/vehicles")) return "Vehicles & Fuel";
+    if (pathname.startsWith("/rentals/dashboard")) return "Rentals Dashboard";
+    if (pathname.startsWith("/rentals/properties") || pathname.startsWith("/rentals") || pathname.startsWith("/properties")) {
+      return location.search.includes("property=") ? "Property Details" : "Properties & Rent";
+    }
     if (pathname.startsWith("/assets/warranties")) return "Warranty Cards";
     if (pathname.startsWith("/settings")) return "Settings";
     return "LifeNest";
   };
 
   const handleBack = () => {
+    // If inside vehicle details, go back to vehicles list
+    if (pathname.startsWith("/vehicles/")) {
+      navigate("/assets/vehicles");
+      return;
+    }
+    // If inside a specific property details view, go back to properties list
+    if (
+      (pathname.startsWith("/rentals") || pathname.startsWith("/properties")) &&
+      location.search.includes("property=")
+    ) {
+      navigate("/rentals/properties");
+      return;
+    }
     if (window.history.length > 2) {
       navigate(-1);
     } else {

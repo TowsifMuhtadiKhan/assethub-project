@@ -1299,7 +1299,7 @@ export function VehicleDetailsPage() {
           <button
             type="button"
             onClick={() => navigate("/assets/vehicles")}
-            className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer shrink-0"
+            className="hidden lg:inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer shrink-0"
             title="Back"
             aria-label="Back"
           >
