@@ -50,7 +50,7 @@ export function AppLayout() {
       clearToken();
       setTimeout(() => {
         window.location.href = "/";
-      }, 600);
+      }, 1250);
     }
   };
 

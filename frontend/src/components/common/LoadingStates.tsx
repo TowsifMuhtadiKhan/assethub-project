@@ -1,4 +1,12 @@
-import { Sparkles, LogOut } from "lucide-react";
+import { useState, useEffect } from "react";
+import {
+  Sparkles,
+  LogOut,
+  ShieldCheck,
+  Lock,
+  KeyRound,
+  CheckCircle2,
+} from "lucide-react";
 
 /**
  * Animated Brand Page Loader
@@ -56,37 +64,209 @@ export function AnimatedPageLoader({
 }
 
 /**
+ * Signin Transition Overlay
+ * Displays a multi-phase animated verification, vault unlock, and welcome transition.
+ */
+export function SigninOverlay({
+  email,
+  customMessage,
+}: {
+  email?: string;
+  customMessage?: string;
+}) {
+  const [phase, setPhase] = useState<1 | 2 | 3>(1);
+  const [progress, setProgress] = useState(20);
+
+  useEffect(() => {
+    const t1 = setTimeout(() => {
+      setPhase(2);
+      setProgress(65);
+    }, 450);
+
+    const t2 = setTimeout(() => {
+      setPhase(3);
+      setProgress(100);
+    }, 950);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, []);
+
+  const userName = email ? email.split("@")[0] : "";
+
+  return (
+    <div
+      className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-xl px-4 text-white animate-in fade-in duration-300"
+      role="status"
+      aria-live="polite"
+    >
+      {/* Background Ambient Glows */}
+      <div className="absolute h-80 w-80 rounded-full bg-cyan-500/15 blur-3xl -top-10 -left-10 pointer-events-none" />
+      <div className="absolute h-80 w-80 rounded-full bg-indigo-500/15 blur-3xl -bottom-10 -right-10 pointer-events-none" />
+
+      {/* Centerpiece Icon with Multi-ring Glow */}
+      <div className="relative flex items-center justify-center mb-6">
+        {/* Outer Halo */}
+        <div className="absolute h-28 w-28 rounded-full bg-gradient-to-tr from-cyan-500/25 to-blue-600/25 blur-xl animate-pulse" />
+
+        {/* Outer Gradient Spinning Ring */}
+        <div className="h-20 w-20 rounded-full border-2 border-transparent border-t-cyan-400 border-r-blue-500 animate-spin" />
+
+        {/* Inner Counter-Rotating Ring */}
+        <div
+          className="absolute h-14 w-14 rounded-full border-2 border-transparent border-b-emerald-400 border-l-teal-300 animate-spin"
+          style={{ animationDirection: "reverse", animationDuration: "1.4s" }}
+        />
+
+        {/* Center Animated Icon Tile */}
+        <div className="absolute flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 border border-cyan-500/30 text-cyan-400 shadow-xl shadow-cyan-500/20">
+          {phase === 1 && <KeyRound className="h-5 w-5 animate-pulse text-cyan-400" />}
+          {phase === 2 && <Lock className="h-5 w-5 text-indigo-400 animate-bounce" />}
+          {phase === 3 && <ShieldCheck className="h-5 w-5 text-emerald-400 animate-in zoom-in-75 duration-300" />}
+        </div>
+      </div>
+
+      {/* Main Status Header */}
+      <div className="text-center space-y-1">
+        <h3 className="text-lg font-bold tracking-tight text-white flex items-center justify-center gap-2">
+          {phase === 1 && (customMessage || "Verifying Credentials...")}
+          {phase === 2 && "Unlocking Personal Vault..."}
+          {phase === 3 && (userName ? `Welcome back, ${userName}!` : "Welcome to LifeNest!")}
+        </h3>
+        <p className="text-xs text-slate-400 max-w-xs mx-auto">
+          {phase === 1 && "Authenticating identity & security tokens"}
+          {phase === 2 && "Decrypting personal keys and family records"}
+          {phase === 3 && "Opening encrypted dashboard workspace"}
+        </p>
+      </div>
+
+      {/* Smooth Progress Bar with Glowing Head */}
+      <div className="mt-6 w-56 h-1.5 overflow-hidden rounded-full bg-slate-800/80 p-0.5 border border-slate-700/50">
+        <div
+          className="h-full bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-400 rounded-full transition-all duration-500 ease-out"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      {/* Security Checkpoints Mini-List */}
+      <div className="mt-6 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-3 w-64 space-y-1.5 text-[11px] font-mono backdrop-blur-xs">
+        <div className={`flex items-center gap-2 transition ${progress >= 30 ? "text-emerald-400 font-semibold" : "text-slate-500"}`}>
+          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+          <span>Identity Verified</span>
+        </div>
+        <div className={`flex items-center gap-2 transition ${progress >= 65 ? "text-emerald-400 font-semibold" : "text-slate-500"}`}>
+          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+          <span>Vault Keys Decrypted</span>
+        </div>
+        <div className={`flex items-center gap-2 transition ${progress >= 100 ? "text-emerald-400 font-semibold" : "text-slate-500"}`}>
+          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+          <span>Workspace Connected</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Signout Transition Overlay
  * Displayed smoothly while clearing local credentials and revoking Supabase session.
  */
 export function SignoutOverlay({
   message = "Signing out securely...",
-  subtitle = "Clearing session data and closing workspace",
+  subtitle = "Clearing session data and locking workspace",
 }: {
   message?: string;
   subtitle?: string;
 }) {
+  const [phase, setPhase] = useState<1 | 2 | 3>(1);
+  const [progress, setProgress] = useState(25);
+
+  useEffect(() => {
+    const t1 = setTimeout(() => {
+      setPhase(2);
+      setProgress(65);
+    }, 400);
+
+    const t2 = setTimeout(() => {
+      setPhase(3);
+      setProgress(100);
+    }, 850);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-slate-950/85 backdrop-blur-md px-4 text-white">
+    <div
+      className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-xl px-4 text-white animate-in fade-in duration-300"
+      role="status"
+      aria-live="polite"
+    >
+      {/* Background Ambient Glows */}
+      <div className="absolute h-80 w-80 rounded-full bg-rose-500/15 blur-3xl -top-10 -left-10 pointer-events-none" />
+      <div className="absolute h-80 w-80 rounded-full bg-amber-500/15 blur-3xl -bottom-10 -right-10 pointer-events-none" />
+
+      {/* Centerpiece Icon */}
       <div className="relative flex items-center justify-center mb-6">
         {/* Glow */}
-        <div className="absolute h-24 w-24 rounded-full bg-rose-500/20 blur-xl animate-pulse" />
+        <div className="absolute h-28 w-28 rounded-full bg-rose-500/25 blur-xl animate-pulse" />
 
         {/* Spinning Ring */}
-        <div className="h-16 w-16 rounded-full border-2 border-rose-500/20 border-t-rose-500 animate-spin" />
+        <div className="h-20 w-20 rounded-full border-2 border-transparent border-t-rose-500 border-r-amber-500 animate-spin" />
 
-        {/* Center LogOut Icon */}
-        <div className="absolute flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 border border-rose-500/30 text-rose-400 shadow-lg">
-          <LogOut className="h-4 w-4 animate-pulse text-rose-400" />
+        {/* Inner Counter-Rotating Ring */}
+        <div
+          className="absolute h-14 w-14 rounded-full border-2 border-transparent border-b-rose-400 border-l-red-300 animate-spin"
+          style={{ animationDirection: "reverse", animationDuration: "1.4s" }}
+        />
+
+        {/* Center LogOut / Lock Icon */}
+        <div className="absolute flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 border border-rose-500/30 text-rose-400 shadow-xl shadow-rose-500/20">
+          {phase === 1 && <LogOut className="h-5 w-5 animate-pulse text-rose-400" />}
+          {phase === 2 && <Lock className="h-5 w-5 text-amber-400 animate-bounce" />}
+          {phase === 3 && <ShieldCheck className="h-5 w-5 text-emerald-400 animate-in zoom-in-75 duration-300" />}
         </div>
       </div>
 
-      <h3 className="text-base font-bold tracking-tight text-white">{message}</h3>
-      <p className="mt-1 text-xs text-slate-400">{subtitle}</p>
+      <div className="text-center space-y-1">
+        <h3 className="text-lg font-bold tracking-tight text-white">
+          {phase === 1 && message}
+          {phase === 2 && "Securing & Encrypting Vault..."}
+          {phase === 3 && "Signed Out Safely. See you soon!"}
+        </h3>
+        <p className="text-xs text-slate-400 max-w-xs mx-auto">
+          {phase === 1 && subtitle}
+          {phase === 2 && "Revoking active session credentials"}
+          {phase === 3 && "All workspace data locked on this device"}
+        </p>
+      </div>
 
       {/* Progress Bar Animation */}
-      <div className="mt-5 h-1 w-44 overflow-hidden rounded-full bg-slate-800">
-        <div className="h-full w-full bg-gradient-to-r from-rose-500 to-indigo-500 animate-[shimmer_1.5s_infinite] origin-left" />
+      <div className="mt-6 w-56 h-1.5 overflow-hidden rounded-full bg-slate-800/80 p-0.5 border border-slate-700/50">
+        <div
+          className="h-full bg-gradient-to-r from-rose-500 via-amber-400 to-emerald-400 rounded-full transition-all duration-500 ease-out"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      {/* Security Checkpoints Mini-List */}
+      <div className="mt-6 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-3 w-64 space-y-1.5 text-[11px] font-mono backdrop-blur-xs">
+        <div className={`flex items-center gap-2 transition ${progress >= 30 ? "text-rose-400 font-semibold" : "text-slate-500"}`}>
+          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+          <span>Local Tokens Cleared</span>
+        </div>
+        <div className={`flex items-center gap-2 transition ${progress >= 65 ? "text-amber-400 font-semibold" : "text-slate-500"}`}>
+          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+          <span>Sync Channels Disconnected</span>
+        </div>
+        <div className={`flex items-center gap-2 transition ${progress >= 100 ? "text-emerald-400 font-semibold" : "text-slate-500"}`}>
+          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+          <span>Vault Sealed & Locked</span>
+        </div>
       </div>
     </div>
   );
