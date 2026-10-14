@@ -35,7 +35,7 @@ import { useLanguage } from "../../context/LanguageContext";
 
 export function AppLayout() {
   const navigate = useNavigate();
-  const { language, setLanguage, toggleLanguage, t } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -170,18 +170,6 @@ export function AppLayout() {
 
             {/* Header Right Actions */}
             <div className="flex items-center gap-2 sm:gap-2.5">
-              {/* Multi-language Selector Pill */}
-              <button
-                type="button"
-                onClick={toggleLanguage}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition shadow-2xs cursor-pointer select-none"
-                title={language === "en" ? "বাংলা ভাষায় পরিবর্তন করুন" : "Switch to English"}
-                aria-label="Toggle language"
-              >
-                <Globe className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
-                <span className="font-bold">{language === "en" ? "বাং" : "EN"}</span>
-              </button>
-
               {/* Quick Create Dropdown */}
               <div className="relative">
                 <button

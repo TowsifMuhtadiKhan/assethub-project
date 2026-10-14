@@ -12,7 +12,6 @@ import {
   Eye,
   EyeOff,
   Users,
-  Globe,
 } from "lucide-react";
 import { listTasks } from "../../services/taskService";
 import { listDocuments } from "../../services/documentService";
@@ -26,7 +25,7 @@ import { useLanguage } from "../../context/LanguageContext";
 
 export function MobileHomePage() {
   const navigate = useNavigate();
-  const { language, toggleLanguage } = useLanguage();
+  const { language } = useLanguage();
   const [userName, setUserName] = useState("");
   const [hideAmount, setHideAmount] = useState<boolean>(() => {
     try {
@@ -136,23 +135,10 @@ export function MobileHomePage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Multi-language English / Bangla Pill Toggle */}
-            <button
-              type="button"
-              onClick={toggleLanguage}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/80 active:scale-95 transition cursor-pointer"
-              title="Change Language / ভাষা পরিবর্তন"
-            >
-              <Globe className="h-3 w-3 text-slate-500" />
-              <span>{language === "en" ? "বাংলা" : "ENG"}</span>
-            </button>
-
-            {/* Status Pill */}
-            <div className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>{language === "bn" ? "ভল্ট সক্রিয়" : "Vault Active"}</span>
-            </div>
+          {/* Status Pill */}
+          <div className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-2.5 py-1 rounded-full flex items-center gap-1.5 shrink-0">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>{language === "bn" ? "ভল্ট সক্রিয়" : "Vault Active"}</span>
           </div>
         </div>
 

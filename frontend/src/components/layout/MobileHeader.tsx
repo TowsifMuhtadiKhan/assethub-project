@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { ChevronLeft, Globe, User } from "lucide-react";
+import { ChevronLeft, User } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 
 type MobileHeaderProps = {
@@ -11,7 +11,7 @@ type MobileHeaderProps = {
 export function MobileHeader(props: MobileHeaderProps = {}) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { language, toggleLanguage, t } = useLanguage();
+  const { language, t } = useLanguage();
   const pathname = location.pathname;
 
   const isHome = pathname === "/";
@@ -96,18 +96,8 @@ export function MobileHeader(props: MobileHeaderProps = {}) {
           </div>
         </div>
 
-        {/* Right: Language switch & Profile button */}
+        {/* Right: Profile button */}
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={toggleLanguage}
-            className="flex items-center gap-1 rounded-full border border-slate-200/90 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-100 shadow-2xs cursor-pointer active:scale-95 transition"
-            aria-label="Toggle language"
-            title={language === "en" ? "বাংলা ভাষায় পরিবর্তন করুন" : "Switch to English"}
-          >
-            <Globe className="h-3 w-3 text-indigo-600" />
-            <span>{language === "en" ? "বাং" : "EN"}</span>
-          </button>
           {props.onOpenProfile && (
             <button
               type="button"
