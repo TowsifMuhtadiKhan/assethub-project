@@ -2,6 +2,7 @@ export type RentCharge = { label: string; amount: number };
 export type RentalTenancy = {
   id: string; owner_id: string; unit_id: string; tenant_name: string; tenant_phone: string;
   tenant_nid: string; start_month: string; end_month: string | null;
+  nid_files?: RentalFile[];
 };
 export type RentSchedule = {
   id: string; tenancy_id: string; from_month: string; to_month: string | null;

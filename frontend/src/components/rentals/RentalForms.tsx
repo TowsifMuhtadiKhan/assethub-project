@@ -1,8 +1,9 @@
 import { useState } from "react";
 import type { FormEvent, ReactNode } from "react";
+import { FileText, Upload } from "lucide-react";
 import type { PropertyUnit } from "../../types";
-import type { RentCharge, RentalTenancy, RentSchedule } from "../../types/rentals";
-import { addRentalFlat, createRentalProperty, savePropertyDocument, saveRentalMaintenance, saveRentSchedule, saveTenancy } from "../../services/rentalService";
+import type { RentCharge, RentalFile, RentalTenancy, RentSchedule } from "../../types/rentals";
+import { addRentalFlat, createRentalProperty, savePropertyDocument, saveRentalMaintenance, saveRentSchedule, saveTenancy, uploadRentalFiles } from "../../services/rentalService";
 import { currentMonth } from "../../utils/rentalLedger";
 import { sumMoney } from "../../utils/assetReports";
 import { scanMaintenanceReceipt } from "../../services/receiptOcr";
@@ -68,6 +69,7 @@ export function TenancyForm({
   const [gasBill, setGasBill] = useState("");
   const [electricityBill, setElectricityBill] = useState("");
   const [waterBill, setWaterBill] = useState("");
+  const [nidFiles, setNidFiles] = useState<File[]>([]);
 
   const totalCalculated =
     (Number(rent) || 0) +
@@ -89,16 +91,45 @@ export function TenancyForm({
           const start = value(f, "start");
           const end = value(f, "end");
           const baseRentNum = Number(rent) || 0;
+          const tenantName = value(f, "name");
+          const tenantPhone = value(f, "phone");
+          const tenantNid = value(f, "nid");
 
           void save(async () => {
+            let uploadedNidFiles: RentalFile[] = tenancy?.nid_files ? [...tenancy.nid_files] : [];
+            if (nidFiles.length > 0) {
+              const uploaded = await uploadRentalFiles(unit.propertyId, nidFiles);
+              uploadedNidFiles = [...uploadedNidFiles, ...uploaded];
+
+              // Also archive in property documents with category "Renter NID / Passport (ভাড়াটিয়ার এনআইডি)"
+              try {
+                await savePropertyDocument(
+                  {
+                    property_id: unit.propertyId,
+                    category: "Renter NID / Passport (ভাড়াটিয়ার এনআইডি)",
+                    name: `${tenantName} - NID Card (${unit.unitNumber})`,
+                    document_number: tenantNid || "",
+                    issue_date: null,
+                    expiry_date: null,
+                    notes: `Uploaded during renter setup for ${unit.unitNumber}. Contact: ${tenantPhone}`,
+                  },
+                  nidFiles
+                );
+              } catch (docErr) {
+                console.warn("Could not archive to property documents:", docErr);
+              }
+            }
+
             const tenancyId = await saveTenancy({
               id: tenancy?.id,
               unit_id: unit.id,
-              tenant_name: value(f, "name"),
-              tenant_phone: value(f, "phone"),
-              tenant_nid: value(f, "nid"),
+              property_id: unit.propertyId,
+              tenant_name: tenantName,
+              tenant_phone: tenantPhone,
+              tenant_nid: tenantNid,
               start_month: start,
               end_month: end || null,
+              nid_files: uploadedNidFiles,
             });
 
             if (baseRentNum > 0 && tenancyId) {
@@ -151,14 +182,95 @@ export function TenancyForm({
           </Label>
         </div>
 
-        <Label title="NID / Passport number (optional)">
-          <input
-            name="nid"
-            placeholder="e.g. 19902692518..."
-            defaultValue={tenancy?.tenant_nid || unit.tenantNid}
-            className={field}
-          />
-        </Label>
+        <div className="space-y-3 rounded-xl border border-slate-200/90 bg-slate-50/60 p-3.5">
+          <Label title="NID / Passport Number (optional)">
+            <input
+              name="nid"
+              placeholder="e.g. 19902692518... or A01234567"
+              defaultValue={tenancy?.tenant_nid || unit.tenantNid}
+              className={field}
+            />
+          </Label>
+
+          <div>
+            <label className="block space-y-1 text-xs font-semibold text-slate-700">
+              <span className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5 text-indigo-600" />
+                  <span>Attach Renter NID / Passport Copy (Photo or PDF)</span>
+                </span>
+                <span className="text-[10px] text-slate-400 font-normal">Optional</span>
+              </span>
+              <div className="mt-1 flex items-center gap-2">
+                <label className="flex-1 cursor-pointer flex items-center justify-center gap-2 rounded-lg border border-dashed border-indigo-200 bg-white px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-50/50 hover:border-indigo-300 transition">
+                  <Upload className="h-3.5 w-3.5 text-indigo-600" />
+                  <span>{nidFiles.length > 0 ? "Add more scans/photos" : "Upload NID Front & Back / Passport (PDF or Images)"}</span>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    onChange={(e) => {
+                      const selected = Array.from(e.target.files || []);
+                      if (selected.length) {
+                        setNidFiles((prev) => [...prev, ...selected]);
+                      }
+                    }}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </label>
+            <p className="text-[10px] text-slate-400 mt-1">
+              Supports JPG, PNG, WebP or PDF up to 20 MB. Stored privately and securely.
+            </p>
+
+            {nidFiles.length > 0 && (
+              <div className="mt-2.5 space-y-1.5">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Files ready to upload ({nidFiles.length})
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {nidFiles.map((f, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-indigo-200 px-2.5 py-1 text-xs font-mono text-slate-800 shadow-2xs"
+                    >
+                      <FileText className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                      <span className="max-w-[150px] truncate">{f.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setNidFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                        className="text-slate-400 hover:text-rose-600 ml-1 text-sm font-bold cursor-pointer"
+                        title="Remove file"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {tenancy?.nid_files && tenancy.nid_files.length > 0 && (
+              <div className="mt-2.5 space-y-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Existing Attached NID Documents
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {tenancy.nid_files.map((file) => (
+                    <span
+                      key={file.path}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-mono text-emerald-800 shadow-2xs"
+                    >
+                      <FileText className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                      <span className="max-w-[150px] truncate">{file.name}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <Label title="First rental month *">
@@ -282,6 +394,7 @@ export const propertyDocumentTypes = [
   "Land development tax receipt (Dakhila / দাখিলা)",
   "Holding tax receipt (হোল্ডিং ট্যাক্স)",
   "Lease / Tenancy agreement (ভাড়া চুক্তিপত্র)",
+  "Renter NID / Passport (ভাড়াটিয়ার এনআইডি)",
   "Utility connection document (WASA / DESCO / Titas)",
   "Approved building plan (RAJUK / CDA)",
   "Occupancy / Completion certificate",

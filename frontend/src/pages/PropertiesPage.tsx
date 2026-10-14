@@ -96,6 +96,12 @@ export const BD_PROPERTY_DOC_PRESETS = [
     required: true,
   },
   {
+    name: "Renter NID / Passport (ভাড়াটিয়ার এনআইডি)",
+    category: "Renter NID / Passport (ভাড়াটিয়ার এনআইডি)",
+    description: "National ID photocopy/scan or passport for police verification & record.",
+    required: false,
+  },
+  {
     name: "Utility Sanctions (WASA/DESCO/Titas)",
     category: "Utility connection document (WASA / DESCO / Titas)",
     description: "Electricity, WASA water, or Titas gas meter sanction and clearance papers.",
@@ -1272,6 +1278,30 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                                 </span>
                                               </details>
                                             )}
+                                            {(() => {
+                                              const matchingDocs = propertyDocs.filter(
+                                                (d) =>
+                                                  (t.tenant_nid && d.document_number === t.tenant_nid) ||
+                                                  (d.name.toLowerCase().includes(t.tenant_name.toLowerCase()) &&
+                                                    d.category.toLowerCase().includes("nid"))
+                                              );
+                                              const allNidFiles = [
+                                                ...(t.nid_files || []),
+                                                ...matchingDocs.flatMap((d) => d.files || []),
+                                              ];
+                                              const uniqueNidFiles = allNidFiles.filter(
+                                                (f, idx, arr) => arr.findIndex((x) => x.path === f.path) === idx
+                                              );
+                                              if (!uniqueNidFiles.length) return null;
+                                              return (
+                                                <span className="inline-flex items-center gap-1.5 flex-wrap">
+                                                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                                    NID Card:
+                                                  </span>
+                                                  {renderFiles(uniqueNidFiles)}
+                                                </span>
+                                              );
+                                            })()}
                                           </div>
                                         </div>
 

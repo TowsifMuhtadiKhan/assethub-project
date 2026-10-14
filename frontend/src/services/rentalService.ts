@@ -30,7 +30,7 @@ export async function loadRentalData(): Promise<RentalData> {
   return {
     properties: properties.map(p => ({ id: p.id, name: p.name, location: p.location, type: p.type, unitsCount: p.units_count, occupancyRate: p.occupancy_rate })),
     units: units.map(u => ({ id: u.id, propertyId: u.property_id, parentUnitId: u.parent_unit_id, rentalMode: u.rental_mode || "whole", unitNumber: u.unit_number, unitName: u.unit_name, unitType: u.unit_type, floor: u.floor || "", sizeSqft: u.size_sqft || 0, monthlyRent: Number(u.monthly_rent), securityDeposit: Number(u.security_deposit), currentTenant: u.tenant_name || "", tenantName: u.tenant_name, tenantPhone: u.tenant_phone, tenantEmail: u.tenant_email, tenantNid: u.tenant_nid, emergencyContact: u.emergency_contact, status: u.status })),
-    tenancies, schedules: schedules.map(s => ({ ...s, base_rent: Number(s.base_rent) })), payments: payments.map(p => ({ ...p, amount_paid: Number(p.amount_paid) })), maintenance: maintenance.map(m => ({ ...m, amount: Number(m.amount), files: m.files || [] })), documents,
+    tenancies: tenancies.map(t => ({ ...t, nid_files: Array.isArray(t.nid_files) ? t.nid_files : [] })), schedules: schedules.map(s => ({ ...s, base_rent: Number(s.base_rent) })), payments: payments.map(p => ({ ...p, amount_paid: Number(p.amount_paid) })), maintenance: maintenance.map(m => ({ ...m, amount: Number(m.amount), files: m.files || [] })), documents,
   };
 }
 export async function createRentalProperty(input: { name: string; location: string; type: string; flat: string; rooms: number }) {
@@ -158,14 +158,44 @@ export async function deleteRentSchedule(scheduleId: string) {
   if (error) throw error;
 }
 
-export async function saveTenancy(input: Omit<RentalTenancy, "id" | "owner_id"> & { id?: string }): Promise<string> {
+export async function saveTenancy(input: Omit<RentalTenancy, "id" | "owner_id"> & { id?: string; property_id?: string }): Promise<string> {
   if (!input.tenant_name.trim() || input.tenant_phone.trim().length < 6) throw new Error("Tenant name and phone number are required.");
-  const { id, ...values } = input;
-  const row = { ...values, start_month: values.start_month.slice(0, 7) + "-01", end_month: values.end_month ? values.end_month.slice(0, 7) + "-01" : null };
-  const query = id ? supabase.from("lifenest_rental_tenancies").update(row).eq("id", id).select().single() : supabase.from("lifenest_rental_tenancies").insert({ ...row, owner_id: await ownerId() }).select().single();
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data?.id || id) as string;
+  const { id, property_id, ...values } = input;
+  const row: Record<string, any> = {
+    ...values,
+    start_month: values.start_month.slice(0, 7) + "-01",
+    end_month: values.end_month ? values.end_month.slice(0, 7) + "-01" : null,
+  };
+  try {
+    const query = id
+      ? supabase.from("lifenest_rental_tenancies").update(row).eq("id", id).select().single()
+      : supabase.from("lifenest_rental_tenancies").insert({ ...row, owner_id: await ownerId() }).select().single();
+    const { data, error } = await query;
+    if (error) {
+      if (error.message?.includes("nid_files") || error.code === "PGRST204" || error.code === "42703") {
+        delete row.nid_files;
+        const retry = id
+          ? supabase.from("lifenest_rental_tenancies").update(row).eq("id", id).select().single()
+          : supabase.from("lifenest_rental_tenancies").insert({ ...row, owner_id: await ownerId() }).select().single();
+        const { data: retryData, error: retryError } = await retry;
+        if (retryError) throw retryError;
+        return (retryData?.id || id) as string;
+      }
+      throw error;
+    }
+    return (data?.id || id) as string;
+  } catch (err: any) {
+    if (err?.message?.includes("nid_files") || err?.code === "PGRST204" || err?.code === "42703") {
+      delete row.nid_files;
+      const retry = id
+        ? supabase.from("lifenest_rental_tenancies").update(row).eq("id", id).select().single()
+        : supabase.from("lifenest_rental_tenancies").insert({ ...row, owner_id: await ownerId() }).select().single();
+      const { data: retryData, error: retryError } = await retry;
+      if (retryError) throw retryError;
+      return (retryData?.id || id) as string;
+    }
+    throw err;
+  }
 }
 export async function saveRentSchedule(input: Omit<RentSchedule, "id"> & { id?: string }, existing: RentSchedule[]) {
   validateSchedule(input, existing);
