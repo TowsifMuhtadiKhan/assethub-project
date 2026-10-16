@@ -9,6 +9,7 @@ import {
   Mail,
   CreditCard,
 } from "lucide-react";
+import { FormControl, Select, MenuItem } from "@mui/material";
 import { supabase } from "../../lib/supabase";
 import {
   createRentalProperty,
@@ -117,7 +118,7 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
     }
 
     if (isOccupied && (!tenantName.trim() || tenantPhone.trim().length < 6)) {
-      setError("For an occupied property, tenant name and valid phone number are required.");
+      setError("For an occupied property, renter name and valid phone number are required.");
       return;
     }
 
@@ -262,7 +263,7 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                 Add Real Estate & Rental Property
               </h2>
               <p className="text-xs text-slate-500">
-                Setup flat layout, tenant occupancy, monthly rent, Bangladeshi documents, and maintenance
+                Setup flat layout, renter occupancy, monthly rent, Bangladeshi documents, and maintenance
               </p>
             </div>
           </div>
@@ -330,17 +331,25 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                 <label className="block font-semibold text-slate-700 mb-1">
                   Property Type
                 </label>
-                <select
-                  value={propertyType}
-                  onChange={(e) => setPropertyType(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-slate-900 outline-none focus:border-slate-900 focus:bg-white font-medium"
-                >
-                  <option value="Residential">Residential Flat / House</option>
-                  <option value="Commercial">Commercial Office / Floor</option>
-                  <option value="Shop / Retail">Shop / Retail Space</option>
-                  <option value="Mixed use">Mixed Use Building</option>
-                  <option value="Warehouse">Warehouse / Storage</option>
-                </select>
+                <FormControl size="small" fullWidth>
+                  <Select
+                    value={propertyType}
+                    onChange={(e) => setPropertyType(e.target.value)}
+                    sx={{
+                      fontSize: "0.8125rem",
+                      fontFamily: '"Plus Jakarta Sans", sans-serif',
+                      borderRadius: "0.75rem",
+                      backgroundColor: "#f8fafc",
+                      "& .MuiSelect-select": { py: "8px" },
+                    }}
+                  >
+                    <MenuItem value="Residential" sx={{ fontSize: "0.8125rem" }}>Residential Flat / House</MenuItem>
+                    <MenuItem value="Commercial" sx={{ fontSize: "0.8125rem" }}>Commercial Office / Floor</MenuItem>
+                    <MenuItem value="Shop / Retail" sx={{ fontSize: "0.8125rem" }}>Shop / Retail Space</MenuItem>
+                    <MenuItem value="Mixed use" sx={{ fontSize: "0.8125rem" }}>Mixed Use Building</MenuItem>
+                    <MenuItem value="Warehouse" sx={{ fontSize: "0.8125rem" }}>Warehouse / Storage</MenuItem>
+                  </Select>
+                </FormControl>
               </div>
 
               <div>
@@ -364,6 +373,7 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                 <div className="flex gap-2">
                   <input
                     type="number"
+                    inputMode="numeric"
                     placeholder="Sqft (e.g. 1450)"
                     value={sizeSqft}
                     onChange={(e) => setSizeSqft(e.target.value ? Number(e.target.value) : "")}
@@ -398,7 +408,7 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                   <Home className={`h-4 w-4 mt-0.5 ${rentalMode === "whole" ? "text-indigo-600" : "text-slate-400"}`} />
                   <div>
                     <span className="font-bold block text-slate-900">Single Entire Flat / House</span>
-                    <span className="text-[11px] text-slate-500">Rented as a complete single unit to one family or tenant</span>
+                    <span className="text-[11px] text-slate-500">Rented as a complete single unit to one family or renter</span>
                   </div>
                 </button>
 
@@ -426,6 +436,7 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                   </label>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min="1"
                     max="50"
                     value={roomCount}
@@ -438,18 +449,18 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
           </div>
 
           {/* ========================================================================= */}
-          {/* STEP 2: OCCUPANCY STATUS & TENANT PERSON ("is there any rental person?")  */}
+          {/* STEP 2: OCCUPANCY STATUS & RENTER PERSON ("is there any rental person?")  */}
           {/* ========================================================================= */}
           <div className="space-y-3.5 rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
             <div className="flex items-center gap-2 text-indigo-700 font-bold border-b border-slate-100 pb-2">
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 text-[11px]">
                 2
               </span>
-              <span className="text-sm">Occupancy Status & Tenant Details</span>
+              <span className="text-sm">Occupancy Status & Renter Details</span>
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="font-semibold text-slate-700">Is there currently a rental person / tenant living here?</span>
+              <span className="font-semibold text-slate-700">Is there currently a renter living here?</span>
               <div className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-0.5">
                 <button
                   type="button"
@@ -477,7 +488,7 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">
-                      Tenant Full Name *
+                      Renter Full Name *
                     </label>
                     <div className="relative">
                       <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
@@ -494,12 +505,13 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
 
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">
-                      Tenant Phone / WhatsApp *
+                      Renter Phone / WhatsApp *
                     </label>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                       <input
                         type="tel"
+                        inputMode="tel"
                         required={isOccupied}
                         placeholder="e.g. 01711234567"
                         value={tenantPhone}
@@ -513,12 +525,13 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">
-                      Tenant Email Address (Optional)
+                      Renter Email Address (Optional)
                     </label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                       <input
                         type="email"
+                        inputMode="email"
                         placeholder="e.g. tariqul@company.com"
                         value={tenantEmail}
                         onChange={(e) => setTenantEmail(e.target.value)}
@@ -535,6 +548,7 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                       <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                       <input
                         type="text"
+                        inputMode="numeric"
                         placeholder="e.g. 19902692518..."
                         value={tenantNid}
                         onChange={(e) => setTenantNid(e.target.value)}
@@ -547,7 +561,7 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">
-                      Tenancy Start Month *
+                      Rent Start Month *
                     </label>
                     <input
                       type="month"
@@ -575,7 +589,7 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
               <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-200/70 text-amber-900">
                 <span className="font-bold block">Space marked as Vacant</span>
                 <span className="text-[11px] text-amber-800">
-                  You can set up expected rent and add tenant details later when a new tenant moves in.
+                  You can set up expected rent and add renter details later when a new renter moves in.
                 </span>
               </div>
             )}
@@ -603,6 +617,7 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                   </span>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min="0"
                     placeholder="e.g. 28000"
                     value={baseRent}
@@ -622,6 +637,7 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                   </span>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min="0"
                     placeholder="e.g. 56000 (2 months advance)"
                     value={securityDeposit}
@@ -642,6 +658,7 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                   <label className="block text-[11px] text-slate-500 mb-0.5 font-medium">Service Charge</label>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min="0"
                     placeholder="0"
                     value={serviceCharge}
@@ -653,6 +670,7 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                   <label className="block text-[11px] text-slate-500 mb-0.5 font-medium">Gas Bill</label>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min="0"
                     placeholder="0"
                     value={gasBill}
@@ -664,6 +682,7 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                   <label className="block text-[11px] text-slate-500 mb-0.5 font-medium">Electricity</label>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min="0"
                     placeholder="0"
                     value={electricityBill}
@@ -675,6 +694,7 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                   <label className="block text-[11px] text-slate-500 mb-0.5 font-medium">Water Bill</label>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min="0"
                     placeholder="0"
                     value={waterBill}
@@ -686,6 +706,7 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                   <label className="block text-[11px] text-slate-500 mb-0.5 font-medium">Parking / Gen.</label>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min="0"
                     placeholder="0"
                     value={parkingCharge}
@@ -741,20 +762,28 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                     <label className="block font-semibold text-slate-700 mb-1">
                       Document Category
                     </label>
-                    <select
-                      value={docCategory}
-                      onChange={(e) => {
-                        setDocCategory(e.target.value);
-                        if (!docTitle) setDocTitle(e.target.value.split("(")[0].trim());
-                      }}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
-                    >
-                      {BD_PROPERTY_DOC_TYPES.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                    </select>
+                    <FormControl size="small" fullWidth>
+                      <Select
+                        value={docCategory}
+                        onChange={(e) => {
+                          setDocCategory(e.target.value);
+                          if (!docTitle) setDocTitle(e.target.value.split("(")[0].trim());
+                        }}
+                        sx={{
+                          fontSize: "0.8125rem",
+                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          borderRadius: "0.75rem",
+                          backgroundColor: "#f8fafc",
+                          "& .MuiSelect-select": { py: "8px" },
+                        }}
+                      >
+                        {BD_PROPERTY_DOC_TYPES.map((cat) => (
+                          <MenuItem key={cat} value={cat} sx={{ fontSize: "0.8125rem" }}>
+                            {cat}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
                   </div>
 
                   <div>
@@ -864,17 +893,25 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                     <label className="block font-semibold text-slate-700 mb-1">
                       Maintenance Category
                     </label>
-                    <select
-                      value={maintenanceCategory}
-                      onChange={(e) => setMaintenanceCategory(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
-                    >
-                      {MAINTENANCE_CATEGORIES.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                    </select>
+                    <FormControl size="small" fullWidth>
+                      <Select
+                        value={maintenanceCategory}
+                        onChange={(e) => setMaintenanceCategory(e.target.value)}
+                        sx={{
+                          fontSize: "0.8125rem",
+                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          borderRadius: "0.75rem",
+                          backgroundColor: "#f8fafc",
+                          "& .MuiSelect-select": { py: "8px" },
+                        }}
+                      >
+                        {MAINTENANCE_CATEGORIES.map((cat) => (
+                          <MenuItem key={cat} value={cat} sx={{ fontSize: "0.8125rem" }}>
+                            {cat}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
                   </div>
 
                   <div>
@@ -926,18 +963,26 @@ export function PropertyEntryForm({ onSuccess, onCancel }: PropertyEntryFormProp
                   <label className="block font-semibold text-slate-700 mb-1">
                     Payment Method
                   </label>
-                  <select
-                    value={maintenancePaymentMethod}
-                    onChange={(e) => setMaintenancePaymentMethod(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
-                  >
-                    <option value="Cash">Cash</option>
-                    <option value="bKash">bKash</option>
-                    <option value="Nagad">Nagad</option>
-                    <option value="Bank Transfer">Bank Transfer</option>
-                    <option value="Card">Card</option>
-                    <option value="Other">Other</option>
-                  </select>
+                  <FormControl size="small" fullWidth>
+                    <Select
+                      value={maintenancePaymentMethod}
+                      onChange={(e) => setMaintenancePaymentMethod(e.target.value)}
+                      sx={{
+                        fontSize: "0.8125rem",
+                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        borderRadius: "0.75rem",
+                        backgroundColor: "#f8fafc",
+                        "& .MuiSelect-select": { py: "8px" },
+                      }}
+                    >
+                      <MenuItem value="Cash" sx={{ fontSize: "0.8125rem" }}>Cash</MenuItem>
+                      <MenuItem value="bKash" sx={{ fontSize: "0.8125rem" }}>bKash</MenuItem>
+                      <MenuItem value="Nagad" sx={{ fontSize: "0.8125rem" }}>Nagad</MenuItem>
+                      <MenuItem value="Bank Transfer" sx={{ fontSize: "0.8125rem" }}>Bank Transfer</MenuItem>
+                      <MenuItem value="Card" sx={{ fontSize: "0.8125rem" }}>Card</MenuItem>
+                      <MenuItem value="Other" sx={{ fontSize: "0.8125rem" }}>Other</MenuItem>
+                    </Select>
+                  </FormControl>
                 </div>
 
                 <div>

@@ -1,5 +1,13 @@
 import { supabase } from "../lib/supabase";
-import type { DailyExpense, MemberLoan, LoanRepaymentSegment, MemberSavings, SavingsDepositLog } from "../types";
+import type {
+  DailyExpense,
+  DailyExpensePaymentMethod,
+  MemberLoan,
+  LoanRepaymentSegment,
+  MemberSavings,
+  MemberSavingsType,
+  SavingsDepositLog,
+} from "../types";
 
 const TABLE = "lifenest_daily_expenses";
 const LOCAL_STORAGE_KEY = "lifenest_daily_expenses_list";
@@ -112,19 +120,59 @@ export async function listDailyExpenses(
       const currentLocal = getLocalExpenses();
       const filteredLocal = currentLocal.filter((l) => !remoteIdSet.has(l.id));
       const combined = [...remoteList, ...filteredLocal];
+
+      // Auto-correct any EMI installment expense dates where date was recorded as current day instead of installment month
+      const MONTH_NAME_MAP: Record<string, string> = {
+        january: "01", february: "02", march: "03", april: "04", may: "05", june: "06",
+        july: "07", august: "08", september: "09", october: "10", november: "11", december: "12",
+        jan: "01", feb: "02", mar: "03", apr: "04", jun: "06", jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12"
+      };
+
+      for (const item of combined) {
+        if (item.description && item.description.includes("EMI Payment:")) {
+          const match = item.description.match(/\((January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[,\s]+(\d{2,4})\)/i);
+          if (match) {
+            const mName = match[1].toLowerCase();
+            const yStr = match[2].length === 2 ? `20${match[2]}` : match[2];
+            const mNum = MONTH_NAME_MAP[mName];
+            if (mNum) {
+              const expectedPrefix = `${yStr}-${mNum}`;
+              if (!item.date.startsWith(expectedPrefix)) {
+                const correctedDate = `${expectedPrefix}-01`;
+                item.date = correctedDate;
+                item.category = "Loan & EMI Repayment";
+                // Persist update to Supabase
+                supabase.from(TABLE).update({ date: correctedDate, category: "Loan & EMI Repayment" }).eq("id", item.id).then();
+              }
+            }
+          }
+        }
+      }
+
       saveLocalExpenses(combined);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const currentAuthId = user?.id;
 
       if (!familyMemberId && !familyMemberName) return combined;
 
       const normName = familyMemberName?.trim().toLowerCase();
+      const isOwner =
+        familyMemberId === "owner-admin-towsif" ||
+        (currentAuthId && familyMemberId === currentAuthId) ||
+        (normName && (normName.includes("towsif") || normName.includes("self")));
+
       return combined.filter((e) => {
         if (familyMemberId && e.familyMemberId === familyMemberId) return true;
         if (normName && e.familyMemberName?.trim().toLowerCase() === normName) return true;
-        if (
-          familyMemberId === "owner-admin-towsif" &&
-          (!e.familyMemberId || e.familyMemberId === "owner-admin-towsif")
-        )
-          return true;
+        if (isOwner) {
+          if (!e.familyMemberId || e.familyMemberId === "owner-admin-towsif") return true;
+          if (currentAuthId && e.familyMemberId === currentAuthId) return true;
+          if (e.familyMemberName && e.familyMemberName.toLowerCase().includes("towsif")) return true;
+          if (!e.familyMemberName) return true;
+        }
         return false;
       });
     }
@@ -135,14 +183,18 @@ export async function listDailyExpenses(
   // Fallback to local storage
   if (!familyMemberId && !familyMemberName) return localList;
   const normName = familyMemberName?.trim().toLowerCase();
+  const isOwner =
+    familyMemberId === "owner-admin-towsif" ||
+    (normName && (normName.includes("towsif") || normName.includes("self")));
+
   return localList.filter((e) => {
     if (familyMemberId && e.familyMemberId === familyMemberId) return true;
     if (normName && e.familyMemberName?.trim().toLowerCase() === normName) return true;
-    if (
-      familyMemberId === "owner-admin-towsif" &&
-      (!e.familyMemberId || e.familyMemberId === "owner-admin-towsif")
-    )
-      return true;
+    if (isOwner) {
+      if (!e.familyMemberId || e.familyMemberId === "owner-admin-towsif") return true;
+      if (e.familyMemberName && e.familyMemberName.toLowerCase().includes("towsif")) return true;
+      if (!e.familyMemberName) return true;
+    }
     return false;
   });
 }
@@ -592,17 +644,28 @@ export async function listMemberLoans(
       const merged = [...remoteList, ...filteredLocal];
       saveLocalLoans(merged);
 
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const currentAuthId = user?.id;
+
       if (!familyMemberId && !familyMemberName) return merged;
 
       const normName = familyMemberName?.trim().toLowerCase();
+      const isOwner =
+        familyMemberId === "owner-admin-towsif" ||
+        (currentAuthId && familyMemberId === currentAuthId) ||
+        (normName && (normName.includes("towsif") || normName.includes("self")));
+
       return merged.filter((l) => {
         if (familyMemberId && l.familyMemberId === familyMemberId) return true;
         if (normName && l.familyMemberName?.trim().toLowerCase() === normName) return true;
-        if (
-          familyMemberId === "owner-admin-towsif" &&
-          (!l.familyMemberId || l.familyMemberId === "owner-admin-towsif")
-        )
-          return true;
+        if (isOwner) {
+          if (!l.familyMemberId || l.familyMemberId === "owner-admin-towsif") return true;
+          if (currentAuthId && l.familyMemberId === currentAuthId) return true;
+          if (l.familyMemberName && l.familyMemberName.toLowerCase().includes("towsif")) return true;
+          if (!l.familyMemberName) return true;
+        }
         return false;
       });
     }
@@ -612,27 +675,135 @@ export async function listMemberLoans(
 
   if (!familyMemberId && !familyMemberName) return localList;
   const normName = familyMemberName?.trim().toLowerCase();
+  const isOwner =
+    familyMemberId === "owner-admin-towsif" ||
+    (normName && (normName.includes("towsif") || normName.includes("self")));
+
   return localList.filter((l) => {
     if (familyMemberId && l.familyMemberId === familyMemberId) return true;
     if (normName && l.familyMemberName?.trim().toLowerCase() === normName) return true;
-    if (
-      familyMemberId === "owner-admin-towsif" &&
-      (!l.familyMemberId || l.familyMemberId === "owner-admin-towsif")
-    )
-      return true;
+    if (isOwner) {
+      if (!l.familyMemberId || l.familyMemberId === "owner-admin-towsif") return true;
+      if (l.familyMemberName && l.familyMemberName.toLowerCase().includes("towsif")) return true;
+      if (!l.familyMemberName) return true;
+    }
     return false;
   });
 }
 
+// EMI calculation and installment generation helper
+export function generateEmiInstallments(
+  principalAmount: number,
+  tenureMonths: number,
+  startDate: string,
+  interestRate: number = 0,
+  interestType: "zero" | "flat" | "reducing" = "zero"
+): {
+  monthlyEmi: number;
+  totalRepayable: number;
+  segments: LoanRepaymentSegment[];
+} {
+  const n = Math.max(1, Math.round(tenureMonths));
+  let monthlyEmi = 0;
+  let totalRepayable = 0;
+
+  if (interestRate <= 0 || interestType === "zero") {
+    // 0% Interest (e.g. Credit Card 0% EMI, bKash 0% Merchant EMI)
+    totalRepayable = principalAmount;
+    monthlyEmi = Math.round(principalAmount / n);
+  } else if (interestType === "flat") {
+    // Flat Rate (Common in consumer finance in BD)
+    const totalInterest = principalAmount * (interestRate / 100) * (n / 12);
+    totalRepayable = Math.round(principalAmount + totalInterest);
+    monthlyEmi = Math.round(totalRepayable / n);
+  } else {
+    // Reducing balance formula
+    const r = interestRate / 12 / 100;
+    const factor = Math.pow(1 + r, n);
+    monthlyEmi = Math.round((principalAmount * r * factor) / (factor - 1));
+    totalRepayable = monthlyEmi * n;
+  }
+
+  const segments: LoanRepaymentSegment[] = [];
+  const start = new Date(startDate || new Date().toISOString().split("T")[0]);
+
+  let sumAssigned = 0;
+  for (let i = 0; i < n; i++) {
+    const d = new Date(start);
+    d.setMonth(d.getMonth() + i);
+
+    // Format: e.g. "November, 26"
+    const monthShort = d.toLocaleString("en-US", { month: "long" });
+    const yearShort = d.getFullYear().toString().slice(-2);
+    const monthLabel = `${monthShort}, ${yearShort}`;
+    const dueDate = d.toISOString().split("T")[0];
+
+    // Adjust last installment so exact sum equals totalRepayable
+    const isLast = i === n - 1;
+    const amount = isLast ? Math.max(0, totalRepayable - sumAssigned) : monthlyEmi;
+    sumAssigned += amount;
+
+    segments.push({
+      id: `seg_${Date.now()}_${i + 1}`,
+      loanId: "",
+      installmentNo: i + 1,
+      monthLabel,
+      dueDate,
+      amount,
+      isPaid: false,
+      paymentMethod: "Bank Card",
+    });
+  }
+
+  return { monthlyEmi, totalRepayable, segments };
+}
+
+export async function getMemberLoanById(loanId: string): Promise<MemberLoan | null> {
+  const localList = getLocalLoans();
+  const local = localList.find((l) => l.id === loanId);
+  if (local) return local;
+
+  try {
+    const { data, error } = await supabase
+      .from(LOANS_TABLE)
+      .select("*")
+      .eq("id", loanId)
+      .single();
+    if (!error && data) {
+      return {
+        id: data.id,
+        familyMemberId: data.family_member_id,
+        familyMemberName: data.family_member_name,
+        loanTitle: data.loan_title,
+        loanType: data.loan_type,
+        lenderName: data.lender_name,
+        principalAmount: data.principal_amount,
+        totalRepayableAmount: data.total_repayable_amount,
+        interestRate: data.interest_rate,
+        tenureMonths: data.tenure_months,
+        startDate: data.start_date,
+        targetEndDate: data.target_end_date,
+        monthlyEmiAmount: data.monthly_emi_amount,
+        repayments: Array.isArray(data.repayments) ? data.repayments : [],
+        status: data.status,
+        notes: data.notes,
+        createdAt: data.created_at,
+      };
+    }
+  } catch {}
+  return null;
+}
+
 export async function createMemberLoan(
-  input: Omit<MemberLoan, "id" | "repayments" | "createdAt">
+  input: Omit<MemberLoan, "id" | "createdAt"> & { repayments?: LoanRepaymentSegment[] }
 ): Promise<MemberLoan> {
   const localList = getLocalLoans();
   const newId = `loan_${Date.now()}`;
+  const repayments = input.repayments || [];
   const newLoan: MemberLoan = {
     id: newId,
     ...input,
-    repayments: [],
+    repayments,
     createdAt: new Date().toISOString(),
   };
 
@@ -641,27 +812,42 @@ export async function createMemberLoan(
       data: { user },
     } = await supabase.auth.getUser();
     if (user) {
-      const { data, error } = await supabase
+      const insertPayload: Record<string, any> = {
+        owner_id: user.id,
+        family_member_id: input.familyMemberId,
+        family_member_name: input.familyMemberName || "",
+        loan_title: input.loanTitle,
+        loan_type: input.loanType,
+        lender_name: input.lenderName,
+        principal_amount: input.principalAmount,
+        total_repayable_amount: input.totalRepayableAmount,
+        interest_rate: input.interestRate,
+        tenure_months: input.tenureMonths,
+        start_date: input.startDate,
+        target_end_date: input.targetEndDate,
+        monthly_emi_amount: input.monthlyEmiAmount,
+        repayments: repayments,
+        status: input.status || "ACTIVE",
+        notes: input.notes || "",
+      };
+
+      let { data, error } = await supabase
         .from(LOANS_TABLE)
-        .insert({
-          owner_id: user.id,
-          family_member_id: input.familyMemberId,
-          family_member_name: input.familyMemberName || "",
-          loan_title: input.loanTitle,
-          loan_type: input.loanType,
-          lender_name: input.lenderName,
-          principal_amount: input.principalAmount,
-          total_repayable_amount: input.totalRepayableAmount,
-          interest_rate: input.interestRate,
-          start_date: input.startDate,
-          target_end_date: input.targetEndDate,
-          monthly_emi_amount: input.monthlyEmiAmount,
-          repayments: [],
-          status: input.status || "ACTIVE",
-          notes: input.notes || "",
-        })
+        .insert(insertPayload)
         .select()
         .single();
+
+      // If Supabase schema does not yet have the tenure_months column, retry without it
+      if (error && (error.message.includes("tenure_months") || error.code === "PGRST204")) {
+        delete insertPayload.tenure_months;
+        const retry = await supabase
+          .from(LOANS_TABLE)
+          .insert(insertPayload)
+          .select()
+          .single();
+        data = retry.data;
+        error = retry.error;
+      }
 
       if (!error && data) {
         newLoan.id = data.id;
@@ -676,6 +862,106 @@ export async function createMemberLoan(
   const updated = [newLoan, ...localList.filter((l) => l.id !== newLoan.id)];
   saveLocalLoans(updated);
   return newLoan;
+}
+
+export async function toggleLoanSegmentPayment(
+  loanId: string,
+  segmentId: string,
+  paidDate?: string,
+  syncToExpense = true,
+  paymentMethod: DailyExpensePaymentMethod = "Bank Card"
+): Promise<MemberLoan> {
+  const localList = getLocalLoans();
+  const loanIndex = localList.findIndex((l) => l.id === loanId);
+  if (loanIndex < 0) {
+    throw new Error("Loan not found");
+  }
+
+  const loan = localList[loanIndex];
+  const nowStr = new Date().toISOString().split("T")[0];
+  let targetSegmentAmount = 0;
+  let targetSegmentMonth = "";
+  let targetSegmentDueDate = "";
+  let markedAsPaid = false;
+
+  const updatedRepayments = loan.repayments.map((r) => {
+    if (r.id === segmentId) {
+      const nextIsPaid = !r.isPaid;
+      markedAsPaid = nextIsPaid;
+      targetSegmentAmount = r.amount;
+      targetSegmentMonth = r.monthLabel || r.dueDate || "";
+      targetSegmentDueDate = r.dueDate || paidDate || nowStr;
+      return {
+        ...r,
+        isPaid: nextIsPaid,
+        paymentDate: nextIsPaid ? (r.dueDate || paidDate || nowStr) : undefined,
+      };
+    }
+    return r;
+  });
+
+  const totalRepaid = updatedRepayments.reduce(
+    (sum, r) => sum + (r.isPaid !== false && (r.isPaid === true || r.paymentDate) ? r.amount : 0),
+    0
+  );
+  const totalDue = loan.totalRepayableAmount || loan.principalAmount || 0;
+  const isPaidOff = totalRepaid >= totalDue && totalDue > 0;
+
+  const updatedLoan: MemberLoan = {
+    ...loan,
+    repayments: updatedRepayments,
+    status: isPaidOff ? "PAID_OFF" : "ACTIVE",
+  };
+
+  localList[loanIndex] = updatedLoan;
+  saveLocalLoans(localList);
+
+  if (!loanId.startsWith("loan_")) {
+    try {
+      await supabase
+        .from(LOANS_TABLE)
+        .update({
+          repayments: updatedRepayments,
+          status: updatedLoan.status,
+        })
+        .eq("id", loanId);
+    } catch (err) {
+      console.warn("Supabase toggleLoanSegmentPayment update failed:", err);
+    }
+  }
+
+  // Auto log to daily expenses if marked as paid under its actual installment month
+  if (syncToExpense && markedAsPaid && targetSegmentAmount > 0) {
+    try {
+      const expenseDate = targetSegmentDueDate || paidDate || nowStr;
+      await createDailyExpense({
+        familyMemberId: loan.familyMemberId,
+        familyMemberName: loan.familyMemberName,
+        date: expenseDate,
+        amount: targetSegmentAmount,
+        category: "Loan & EMI Repayment",
+        paymentMethod: paymentMethod || "Bank Card",
+        description: `EMI Payment: ${loan.loanTitle} (${targetSegmentMonth})`,
+        merchant: loan.lenderName,
+        notes: `Auto-recorded from EMI installment checkmark`,
+      });
+    } catch {}
+  } else if (syncToExpense && !markedAsPaid) {
+    try {
+      const currentExpenses = await listDailyExpenses();
+      const match = currentExpenses.find(
+        (e) =>
+          e.amount === targetSegmentAmount &&
+          e.description.includes(`EMI Payment: ${loan.loanTitle}`) &&
+          (e.description.includes(targetSegmentMonth) || e.date === targetSegmentDueDate)
+      );
+      if (match) {
+        await deleteDailyExpense(match.id);
+      }
+    } catch {}
+  }
+
+  return updatedLoan;
 }
 
 export async function addLoanRepaymentSegment(
@@ -728,10 +1014,10 @@ export async function addLoanRepaymentSegment(
       await createDailyExpense({
         familyMemberId: loan.familyMemberId,
         familyMemberName: loan.familyMemberName,
-        date: segment.paymentDate,
+        date: segment.paymentDate || new Date().toISOString().split("T")[0],
         amount: segment.amount,
         category: "Loan & EMI Repayment",
-        paymentMethod: segment.paymentMethod,
+        paymentMethod: segment.paymentMethod || "Bank Card",
         description: `${loan.loanTitle} - Repayment installment to ${loan.lenderName}`,
         merchant: loan.lenderName,
         notes: segment.notes || `Repayment installment for ${loan.loanTitle}`,
@@ -821,8 +1107,12 @@ export async function updateLoanRepaymentSegment(
     return seg;
   });
 
-  const totalRepaid = updatedRepayments.reduce((sum, r) => sum + r.amount, 0);
-  const isPaidOff = totalRepaid >= loan.totalRepayableAmount;
+  const totalRepaid = updatedRepayments.reduce(
+    (sum, r) => sum + (r.isPaid !== false && (r.isPaid === true || r.paymentDate) ? r.amount : 0),
+    0
+  );
+  const totalDue = loan.totalRepayableAmount || loan.principalAmount || 0;
+  const isPaidOff = totalRepaid >= totalDue && totalDue > 0;
 
   const updatedLoan: MemberLoan = {
     ...loan,
@@ -1020,17 +1310,27 @@ export async function listMemberSavings(
       const merged = [...remoteList, ...filteredLocal];
       saveLocalSavings(merged);
 
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const currentAuthId = user?.id;
+
       if (!familyMemberId && !familyMemberName) return merged;
 
       const normName = familyMemberName?.trim().toLowerCase();
+      const isOwner =
+        familyMemberId === "owner-admin-towsif" ||
+        (currentAuthId && familyMemberId === currentAuthId) ||
+        (normName && (normName.includes("towsif") || normName.includes("self")));
+
       return merged.filter((s) => {
         if (familyMemberId && s.familyMemberId === familyMemberId) return true;
         if (normName && s.familyMemberName?.trim().toLowerCase() === normName) return true;
-        if (
-          (familyMemberId === "owner-admin-towsif" || familyMemberName?.toLowerCase().includes("towsif")) &&
-          (!s.familyMemberId || s.familyMemberId === "owner-admin-towsif")
-        ) {
-          return true;
+        if (isOwner) {
+          if (!s.familyMemberId || s.familyMemberId === "owner-admin-towsif") return true;
+          if (currentAuthId && s.familyMemberId === currentAuthId) return true;
+          if (s.familyMemberName && s.familyMemberName.toLowerCase().includes("towsif")) return true;
+          if (!s.familyMemberName) return true;
         }
         return false;
       });
@@ -1041,34 +1341,41 @@ export async function listMemberSavings(
 
   if (!familyMemberId && !familyMemberName) return localList;
   const normName = familyMemberName?.trim().toLowerCase();
+  const isOwner =
+    familyMemberId === "owner-admin-towsif" ||
+    (normName && (normName.includes("towsif") || normName.includes("self")));
+
   return localList.filter((s) => {
     if (familyMemberId && s.familyMemberId === familyMemberId) return true;
     if (normName && s.familyMemberName?.trim().toLowerCase() === normName) return true;
-    if (
-      (familyMemberId === "owner-admin-towsif" || familyMemberName?.toLowerCase().includes("towsif")) &&
-      (!s.familyMemberId || s.familyMemberId === "owner-admin-towsif")
-    ) {
-      return true;
+    if (isOwner) {
+      if (!s.familyMemberId || s.familyMemberId === "owner-admin-towsif") return true;
+      if (s.familyMemberName && s.familyMemberName.toLowerCase().includes("towsif")) return true;
+      if (!s.familyMemberName) return true;
     }
     return false;
   });
 }
 
 export async function createMemberSavings(
-  savingsData: Omit<MemberSavings, "id" | "createdAt" | "depositLogs">,
+  savingsData: Omit<MemberSavings, "id" | "createdAt" | "depositLogs"> & { depositLogs?: SavingsDepositLog[] },
   initialDeposit?: boolean
 ): Promise<MemberSavings> {
   let createdId = `sav_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   let finalMemberId = savingsData.familyMemberId;
   let remoteCreated: MemberSavings | null = null;
 
-  const depositLogs: SavingsDepositLog[] = [];
-  if (initialDeposit && savingsData.monthlyInstallment && savingsData.type === "DPS") {
+  let depositLogs: SavingsDepositLog[] = Array.isArray(savingsData.depositLogs) && savingsData.depositLogs.length > 0
+    ? savingsData.depositLogs
+    : [];
+
+  if (depositLogs.length === 0 && initialDeposit && savingsData.monthlyInstallment && savingsData.type === "DPS") {
     depositLogs.push({
       id: `dep_${Date.now()}_init`,
       savingsId: createdId,
       installmentNo: 1,
       amount: savingsData.monthlyInstallment,
+      isPaid: true,
       depositDate: savingsData.startDate || new Date().toISOString().split("T")[0],
       paymentMethod: "Bank Card",
       notes: "First installment deposit upon opening DPS",
@@ -1283,7 +1590,7 @@ export async function addSavingsDepositLog(
         date: logData.depositDate || new Date().toISOString().split("T")[0],
         amount: logData.amount,
         category: "DPS & Savings Deposit",
-        paymentMethod: logData.paymentMethod,
+        paymentMethod: logData.paymentMethod || "Bank Card",
         description: `${savings.title} - Installment #${newLog.installmentNo} deposit to ${savings.institutionName}`,
         merchant: savings.institutionName,
         notes: logData.notes || `DPS deposit: ${savings.accountNumber || ""}`,
@@ -1367,5 +1674,255 @@ export async function deleteSavingsDepositLog(
 
   return updatedSavings;
 }
+
+export async function getMemberSavingsById(id: string): Promise<MemberSavings | null> {
+  const localList = getLocalSavings();
+  const local = localList.find((s) => s.id === id);
+  if (local) return local;
+
+  if (!id.startsWith("sav_")) {
+    try {
+      const { data, error } = await supabase
+        .from(SAVINGS_TABLE)
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (!error && data) {
+        return {
+          id: data.id,
+          familyMemberId: data.family_member_id || "",
+          familyMemberName: data.family_member_name || "",
+          title: data.title,
+          type: data.type || "DPS",
+          institutionName: data.institution_name,
+          accountNumber: data.account_number || undefined,
+          monthlyInstallment: data.monthly_installment ? Number(data.monthly_installment) : undefined,
+          principalAmount: data.principal_amount ? Number(data.principal_amount) : undefined,
+          tenureYears: data.tenure_years ? Number(data.tenure_years) : undefined,
+          tenureMonths: data.tenure_months ? Number(data.tenure_months) : undefined,
+          startDate: data.start_date,
+          maturityDate: data.maturity_date || undefined,
+          interestRate: data.interest_rate ? Number(data.interest_rate) : undefined,
+          maturityAmount: data.maturity_amount ? Number(data.maturity_amount) : undefined,
+          depositDayOfMonth: data.deposit_day_of_month ? Number(data.deposit_day_of_month) : 10,
+          profitPayoutFrequency: data.profit_payout_frequency || undefined,
+          depositLogs: Array.isArray(data.deposit_logs) ? data.deposit_logs : [],
+          status: data.status || "ACTIVE",
+          nomineeName: data.nominee_name || undefined,
+          notes: data.notes || undefined,
+          createdAt: data.created_at,
+        };
+      }
+    } catch {}
+  }
+
+  return null;
+}
+
+/**
+ * Generate installment schedule for DPS or FDR profit collection
+ */
+export function generateSavingsSchedule(
+  type: MemberSavingsType,
+  amount: number, // monthly installment for DPS, or principal amount for FDR
+  tenureMonths: number,
+  startDateStr: string,
+  interestRate = 0,
+  profitPayoutFrequency: "On Maturity" | "Monthly" | "Quarterly" | "Half-Yearly" = "Monthly"
+): { maturityAmount: number; logs: SavingsDepositLog[] } {
+  const logs: SavingsDepositLog[] = [];
+  const baseDate = startDateStr ? new Date(startDateStr) : new Date();
+
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
+  if (type === "DPS") {
+    // DPS: user deposits fixed monthly installment
+    const monthlyDeposit = amount;
+    // Standard Bangladesh bank DPS maturity estimation:
+    // Compound interest formula or simple monthly deposit estimation
+    const r = (interestRate || 8.5) / 100 / 12;
+    let maturityAmount = 0;
+    if (r > 0) {
+      maturityAmount = Math.round(monthlyDeposit * ((Math.pow(1 + r, tenureMonths) - 1) / r) * (1 + r));
+    } else {
+      maturityAmount = monthlyDeposit * tenureMonths;
+    }
+
+    for (let i = 0; i < tenureMonths; i++) {
+      const d = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, baseDate.getDate() || 10);
+      const yStr = String(d.getFullYear()).slice(-2);
+      const mStr = monthNames[d.getMonth()];
+      const monthLabel = `${mStr}, ${yStr}`;
+      const dueDate = d.toISOString().split("T")[0];
+
+      logs.push({
+        id: `dep_sched_${Date.now()}_${i + 1}_${Math.random().toString(36).slice(2, 6)}`,
+        savingsId: "",
+        installmentNo: i + 1,
+        monthLabel,
+        dueDate,
+        amount: monthlyDeposit,
+        isPaid: false,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    return { maturityAmount, logs };
+  } else {
+    // FDR / Sanchayapatra
+    const principal = amount;
+    const rate = (interestRate || 9.0) / 100;
+    const totalProfit = Math.round(principal * rate * (tenureMonths / 12));
+    const maturityAmount = principal + totalProfit;
+
+    if (profitPayoutFrequency === "Monthly") {
+      const monthlyProfit = Math.round((principal * rate) / 12);
+      for (let i = 0; i < tenureMonths; i++) {
+        const d = new Date(baseDate.getFullYear(), baseDate.getMonth() + i + 1, baseDate.getDate() || 10);
+        const yStr = String(d.getFullYear()).slice(-2);
+        const mStr = monthNames[d.getMonth()];
+        const monthLabel = `${mStr}, ${yStr}`;
+        const dueDate = d.toISOString().split("T")[0];
+
+        logs.push({
+          id: `dep_sched_${Date.now()}_${i + 1}_${Math.random().toString(36).slice(2, 6)}`,
+          savingsId: "",
+          installmentNo: i + 1,
+          monthLabel,
+          dueDate,
+          amount: monthlyProfit,
+          isPaid: false,
+          notes: `Monthly Profit Payout (#${i + 1})`,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    } else if (profitPayoutFrequency === "Quarterly") {
+      const quarters = Math.max(1, Math.floor(tenureMonths / 3));
+      const quarterlyProfit = Math.round((principal * rate) / 4);
+      for (let i = 0; i < quarters; i++) {
+        const d = new Date(baseDate.getFullYear(), baseDate.getMonth() + (i + 1) * 3, baseDate.getDate() || 10);
+        const yStr = String(d.getFullYear()).slice(-2);
+        const mStr = monthNames[d.getMonth()];
+        const monthLabel = `${mStr}, ${yStr}`;
+        const dueDate = d.toISOString().split("T")[0];
+
+        logs.push({
+          id: `dep_sched_${Date.now()}_${i + 1}_${Math.random().toString(36).slice(2, 6)}`,
+          savingsId: "",
+          installmentNo: i + 1,
+          monthLabel,
+          dueDate,
+          amount: quarterlyProfit,
+          isPaid: false,
+          notes: `Quarterly Profit Payout (#${i + 1})`,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    } else {
+      // On Maturity
+      const d = new Date(baseDate.getFullYear(), baseDate.getMonth() + tenureMonths, baseDate.getDate() || 10);
+      const yStr = String(d.getFullYear()).slice(-2);
+      const mStr = monthNames[d.getMonth()];
+      const monthLabel = `${mStr}, ${yStr}`;
+      const dueDate = d.toISOString().split("T")[0];
+
+      logs.push({
+        id: `dep_sched_${Date.now()}_1_${Math.random().toString(36).slice(2, 6)}`,
+        savingsId: "",
+        installmentNo: 1,
+        monthLabel,
+        dueDate,
+        amount: maturityAmount,
+        isPaid: false,
+        notes: `Total Maturity Payout (Principal + Profit)`,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    return { maturityAmount, logs };
+  }
+}
+
+/**
+ * Toggle checkmark for a savings / DPS installment or profit collection
+ */
+export async function toggleSavingsDepositPaid(
+  savingsId: string,
+  logId: string,
+  paidDate?: string,
+  syncToExpense = false,
+  paymentMethod: DailyExpensePaymentMethod = "Bank Card"
+): Promise<MemberSavings> {
+  const localList = getLocalSavings();
+  const index = localList.findIndex((s) => s.id === savingsId);
+  if (index < 0) throw new Error("Savings account not found");
+
+  const savings = localList[index];
+  let targetLog = (savings.depositLogs || []).find((l) => l.id === logId);
+  if (!targetLog) throw new Error("Deposit segment not found");
+
+  const newIsPaid = !targetLog.isPaid;
+  const updatedLogs = (savings.depositLogs || []).map((l) => {
+    if (l.id === logId) {
+      return {
+        ...l,
+        isPaid: newIsPaid,
+        depositDate: newIsPaid ? (paidDate || new Date().toISOString().split("T")[0]) : undefined,
+        paymentMethod: newIsPaid ? (l.paymentMethod || paymentMethod) : undefined,
+      };
+    }
+    return l;
+  });
+
+  const allPaid = updatedLogs.length > 0 && updatedLogs.every((l) => l.isPaid);
+
+  const updatedSavings: MemberSavings = {
+    ...savings,
+    depositLogs: updatedLogs,
+    status: allPaid ? "MATURED" : savings.status === "MATURED" ? "ACTIVE" : savings.status,
+  };
+
+  localList[index] = updatedSavings;
+  saveLocalSavings(localList);
+
+  if (!savingsId.startsWith("sav_")) {
+    try {
+      await supabase
+        .from(SAVINGS_TABLE)
+        .update({
+          deposit_logs: updatedLogs,
+          status: updatedSavings.status,
+        })
+        .eq("id", savingsId);
+    } catch (err) {
+      console.warn("toggleSavingsDepositPaid remote error:", err);
+    }
+  }
+
+  // If newly paid and user wants sync to daily expenses (for DPS deposits)
+  if (newIsPaid && syncToExpense && savings.type === "DPS") {
+    try {
+      await createDailyExpense({
+        familyMemberId: savings.familyMemberId,
+        familyMemberName: savings.familyMemberName || "",
+        date: paidDate || new Date().toISOString().split("T")[0],
+        amount: targetLog.amount,
+        category: "DPS & Savings Deposit",
+        paymentMethod: paymentMethod || "Bank Card",
+        description: `${savings.title} - Installment #${targetLog.installmentNo || ""}`,
+        merchant: savings.institutionName,
+        notes: `DPS installment: ${savings.accountNumber || ""}`,
+      });
+    } catch (err) {
+      console.warn("Could not sync DPS installment to Daily Expenses:", err);
+    }
+  }
+
+  return updatedSavings;
+}
+
 
 

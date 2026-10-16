@@ -123,31 +123,31 @@ export function resolveTaskRecipientNumbers(
 export function buildTaskWhatsAppMessage(task: TaskItem): string {
   const dueInfo = task.dueDate
     ? `${task.dueDate}${task.dueTime ? ` at ${task.dueTime}` : ""}`
-    : "Immediate";
+    : "today";
 
-  let lines = [
-    `🔔 *LifeNest Task Due Notification*`,
+  const lines = [
+    `🔔 *Aponjon*`,
     ``,
-    `• *Task*: ${task.title}`,
-    `• *Priority*: ${task.priority || "Medium"}`,
-    `• *Schedule*: ${dueInfo}`,
+    `Hi, you have a task due soon:`,
+    `*${task.title}*`,
+    ``,
+    `Due *${dueInfo}*`,
   ];
 
-  if (task.description) {
-    lines.push(`• *Details*: ${task.description}`);
-  }
   if (task.familyMemberName) {
-    lines.push(`• *Assignee*: ${task.familyMemberName}`);
+    lines.push(`Assigned to *${task.familyMemberName}*`);
   }
   if (task.vehicleName) {
-    lines.push(`• *Vehicle*: ${task.vehicleName}`);
+    lines.push(`Vehicle *${task.vehicleName}*`);
   }
   if (task.propertyName) {
-    lines.push(`• *Property*: ${task.propertyName}`);
+    lines.push(`Property *${task.propertyName}*`);
+  }
+  if (task.description) {
+    lines.push(``, task.description);
   }
 
-  lines.push(``);
-  lines.push(`_LifeNest Automated Asset & Task OS_`);
+  lines.push(``, `Please take care of it when you can. Have a wonderful day!`);
   return lines.join("\n");
 }
 
@@ -213,47 +213,37 @@ export function buildVehicleDocWhatsAppMessage(doc: VehicleDocument, vehicle?: V
     ? Math.ceil((new Date(doc.expiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
     : null;
 
-  const statusStr =
-    remainingDays === null
-      ? "Recorded"
-      : remainingDays < 0
-      ? `⚠️ Overdue by ${Math.abs(remainingDays)} day(s)`
-      : remainingDays === 0
-      ? `🚨 Expires Today`
-      : remainingDays <= 15
-      ? `⚡ Expires in ${remainingDays} day(s)`
-      : `✅ Valid (${remainingDays} days remaining)`;
+  const dueInfo = doc.expiryDate
+    ? `${doc.expiryDate}${
+        remainingDays !== null
+          ? ` (${remainingDays < 0 ? `${Math.abs(remainingDays)} days overdue` : remainingDays === 0 ? "today" : `in ${remainingDays} days`})`
+          : ""
+      }`
+    : "soon";
 
   const lines = [
-    `📄 *LifeNest Vehicle Document Alert*`,
+    `🚗 *Aponjon*`,
     ``,
-    `• *Document*: ${doc.name}`,
-    `• *Category*: ${doc.category || "BRTA Document"}`,
+    `Hi, this is a reminder that your vehicle paper is expiring:`,
+    `*${doc.name}*`,
+    ``,
+    `Expires *${dueInfo}*`,
   ];
 
   if (vehicle) {
-    lines.push(`• *Vehicle*: ${vehicle.name} (${vehicle.registrationNumber || "Unregistered"})`);
+    lines.push(`Vehicle *${vehicle.name} (${vehicle.registrationNumber || "Unregistered"})*`);
   }
   if (doc.documentNumber) {
-    lines.push(`• *Doc / License No*: ${doc.documentNumber}`);
+    lines.push(`Doc No. *${doc.documentNumber}*`);
   }
-  if (doc.issueDate) {
-    lines.push(`• *Issue Date*: ${doc.issueDate}`);
-  }
-  if (doc.expiryDate) {
-    lines.push(`• *Expiry Date*: ${doc.expiryDate}`);
-  }
-  lines.push(`• *Validity Status*: ${statusStr}`);
-
   if (doc.notes) {
     const cleanNotes = doc.notes.replace(/\s*\[Reminder:[^\]]+\]/gi, "").trim();
     if (cleanNotes) {
-      lines.push(`• *Notes*: ${cleanNotes}`);
+      lines.push(``, cleanNotes);
     }
   }
 
-  lines.push(``);
-  lines.push(`_LifeNest Automated Asset OS_`);
+  lines.push(``, `Please complete the renewal on time to avoid BRTA penalties.`);
   return lines.join("\n");
 }
 

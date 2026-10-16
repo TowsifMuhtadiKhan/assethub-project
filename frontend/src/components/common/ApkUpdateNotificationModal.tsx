@@ -11,16 +11,19 @@ import {
   downloadApkFromConfiguredDrive,
   dismissCurrentUpdate,
   fetchLatestApkVersion,
+  isNativeApk,
   type ApkUpdateStatus,
 } from "../../services/appUpdateService";
 
 export function ApkUpdateNotificationModal() {
+  const isApk = isNativeApk();
   const [updateStatus, setUpdateStatus] = useState<ApkUpdateStatus | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [downloadStarted, setDownloadStarted] = useState(false);
   const [manualCheckNotice, setManualCheckNotice] = useState<string | null>(null);
 
   const runUpdateCheck = async (isManual = false) => {
+    if (!isApk) return;
     try {
       await fetchLatestApkVersion();
     } catch {}
@@ -42,23 +45,32 @@ export function ApkUpdateNotificationModal() {
   };
 
   useEffect(() => {
-    // Initial check on load (delayed slightly for smooth initial rendering)
-    const timer = setTimeout(() => {
-      runUpdateCheck(false);
-    }, 1500);
+    // If running in regular web browser, do not check for APK updates at all
+    if (!isApk) return;
 
-    const handleConfigUpdated = () => runUpdateCheck(false);
+    // Only check once per session when user opens the native app
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    try {
+      const hasChecked = sessionStorage.getItem("lifenest_apk_checked_session");
+      if (!hasChecked) {
+        sessionStorage.setItem("lifenest_apk_checked_session", "true");
+        timer = setTimeout(() => {
+          runUpdateCheck(false);
+        }, 2000);
+      }
+    } catch {
+      // Fallback if sessionStorage is unavailable
+    }
+
+    // Manual check listener (e.g. user taps "Check for App Update" inside native app)
     const handleManualCheck = () => runUpdateCheck(true);
-
-    window.addEventListener("lifenest:apk-config-updated", handleConfigUpdated);
     window.addEventListener("lifenest:check-for-updates", handleManualCheck);
 
     return () => {
-      clearTimeout(timer);
-      window.removeEventListener("lifenest:apk-config-updated", handleConfigUpdated);
+      if (timer) clearTimeout(timer);
       window.removeEventListener("lifenest:check-for-updates", handleManualCheck);
     };
-  }, []);
+  }, [isApk]);
 
   const handleDownload = () => {
     const success = downloadApkFromConfiguredDrive();
@@ -76,17 +88,17 @@ export function ApkUpdateNotificationModal() {
     setManualCheckNotice(null);
   };
 
-  if (!isOpen || !updateStatus) return null;
+  if (!isApk || !isOpen || !updateStatus) return null;
 
   const isUpToDate = !updateStatus.hasUpdate && manualCheckNotice;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150 overflow-y-auto"
       onClick={handleDismiss}
     >
       <div
-        className="w-full max-w-sm rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl text-slate-900 animate-in zoom-in-95 duration-200"
+        className="w-full max-w-sm max-h-[92dvh] overflow-y-auto my-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl text-slate-900 animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header */}
@@ -98,7 +110,7 @@ export function ApkUpdateNotificationModal() {
             <div>
               <div className="flex items-center gap-1.5">
                 <h3 className="text-sm font-bold text-slate-900">
-                  {isUpToDate ? "App Version Check" : "LifeNest Update Available"}
+                  {isUpToDate ? "App Version Check" : "Likhe Rakho Update Available"}
                 </h3>
               </div>
               <p className="text-[11px] text-slate-500 mt-0.5">
@@ -162,7 +174,7 @@ export function ApkUpdateNotificationModal() {
                   <div>
                     <span className="font-bold block">Download Started!</span>
                     <span className="text-[11px] text-blue-700">
-                      Check your phone's notification drawer or Downloads folder, then tap <strong>LifeNest.apk</strong> to install.
+                      Check your phone's notification drawer or Downloads folder, then tap <strong>LikheRakho.apk</strong> to install.
                     </span>
                   </div>
                 </div>

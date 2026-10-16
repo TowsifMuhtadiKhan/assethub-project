@@ -1,5 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { createPortal } from "react-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 import {
   Wallet,
   Plus,
@@ -13,19 +15,38 @@ import {
   Edit2,
   Pencil,
   ExternalLink,
-  LayoutGrid,
-  List,
   Clock,
   CreditCard,
-  ChevronDown,
-  ChevronUp,
   Banknote,
   Percent,
   Filter,
-  PiggyBank,
   LineChart,
+  Table,
+  CalendarRange,
+  CheckCircle2,
+  Circle,
+  Landmark,
+  ChevronDown,
+  ChevronRight,
+  Car,
+  Bike,
+  Smartphone,
+  Laptop,
+  Coins,
+  ArrowUpDown,
+  Calendar,
+  TrendingUp,
+  Zap,
+  UtensilsCrossed,
+  ShoppingBag,
+  HeartPulse,
+  GraduationCap,
+  Film,
+  Home,
 } from "lucide-react";
-import { listFamilyMembersWithSelf } from "../services/familyService";
+import { FormControl, Select, MenuItem } from "@mui/material";
+import { useLanguage } from "../context/LanguageContext";
+import { listFamilyMembersWithSelf, getCurrentUserAccess, type CurrentUserAccessResult } from "../services/familyService";
 import {
   listDailyExpenses,
   createDailyExpense,
@@ -42,7 +63,10 @@ import {
   updateLoanRepaymentSegment,
   deleteLoanRepaymentSegment,
   deleteMemberLoan,
+  deleteMemberSavings,
   listMemberSavings,
+  generateEmiInstallments,
+  toggleLoanSegmentPayment,
 } from "../services/dailyExpenseService";
 import type {
   DailyExpense,
@@ -51,24 +75,28 @@ import type {
   FamilyMember,
   MemberLoan,
   LoanRepaymentSegment,
+  MemberSavings,
 } from "../types";
 import { MemberSavingsView } from "../components/expenses/MemberSavingsView";
 import { ExpensesSkeleton } from "../components/common/LoadingStates";
 import { CategoryTrendModal } from "../components/expenses/CategoryTrendModal";
+import { Chip, type ChipColor } from "../components/common/Chip";
+import { TableRowActions } from "../components/common/TableRowActions";
+import { Tabs, ConfirmationModal, ViewModeToggle } from "../components/common";
 
-const CATEGORIES: { label: DailyExpenseCategory; color: string; bg: string }[] = [
-  { label: "Food & Dining", color: "text-orange-700", bg: "bg-orange-50 border-orange-200" },
-  { label: "Groceries & Market", color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200" },
-  { label: "Transport & Commute", color: "text-sky-700", bg: "bg-sky-50 border-sky-200" },
-  { label: "Shopping & Personal", color: "text-purple-700", bg: "bg-purple-50 border-purple-200" },
-  { label: "Bills & Utilities", color: "text-amber-700", bg: "bg-amber-50 border-amber-200" },
-  { label: "Healthcare & Medicine", color: "text-rose-700", bg: "bg-rose-50 border-rose-200" },
-  { label: "Education", color: "text-blue-700", bg: "bg-blue-50 border-blue-200" },
-  { label: "Entertainment", color: "text-pink-700", bg: "bg-pink-50 border-pink-200" },
-  { label: "Family & Home", color: "text-indigo-700", bg: "bg-indigo-50 border-indigo-200" },
-  { label: "Loan & EMI Repayment", color: "text-teal-700", bg: "bg-teal-50 border-teal-200" },
-  { label: "DPS & Savings Deposit", color: "text-indigo-700", bg: "bg-indigo-50 border-indigo-200" },
-  { label: "Others", color: "text-slate-700", bg: "bg-slate-100 border-slate-200" },
+const CATEGORIES: { label: DailyExpenseCategory; color: string; bg: string; chipColor: ChipColor }[] = [
+  { label: "Food & Dining", color: "text-amber-700", bg: "bg-amber-50 border-amber-200/70", chipColor: "amber" },
+  { label: "Groceries & Market", color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200/70", chipColor: "emerald" },
+  { label: "Transport & Commute", color: "text-blue-700", bg: "bg-blue-50 border-blue-200/70", chipColor: "blue" },
+  { label: "Shopping & Personal", color: "text-purple-700", bg: "bg-purple-50 border-purple-200/70", chipColor: "purple" },
+  { label: "Bills & Utilities", color: "text-rose-700", bg: "bg-rose-50 border-rose-200/70", chipColor: "rose" },
+  { label: "Healthcare & Medicine", color: "text-rose-700", bg: "bg-rose-50 border-rose-200/70", chipColor: "rose" },
+  { label: "Education", color: "text-blue-700", bg: "bg-blue-50 border-blue-200/70", chipColor: "blue" },
+  { label: "Entertainment", color: "text-purple-700", bg: "bg-purple-50 border-purple-200/70", chipColor: "purple" },
+  { label: "Family & Home", color: "text-teal-700", bg: "bg-teal-50 border-teal-200/70", chipColor: "teal" },
+  { label: "Loan & EMI Repayment", color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200/70", chipColor: "emerald" },
+  { label: "DPS & Savings Deposit", color: "text-teal-700", bg: "bg-teal-50 border-teal-200/70", chipColor: "teal" },
+  { label: "Others", color: "text-slate-700", bg: "bg-slate-100 border-slate-200/70", chipColor: "slate" },
 ];
 
 const PAYMENT_METHODS: DailyExpensePaymentMethod[] = [
@@ -80,7 +108,181 @@ const PAYMENT_METHODS: DailyExpensePaymentMethod[] = [
   "Other",
 ];
 
+export function BkashLogo({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={`${className} shrink-0`} fill="none">
+      <rect width="24" height="24" rx="5" fill="#E2136E" />
+      <path
+        d="M5.5 13.5L11 7.5L18.5 9L13.5 13.5L18.5 15L9 18.5L10.5 14L5.5 13.5Z"
+        fill="white"
+      />
+    </svg>
+  );
+}
+
+export function NagadLogo({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={`${className} shrink-0`} fill="none">
+      <rect width="24" height="24" rx="5" fill="#F7941D" />
+      <circle cx="12" cy="12" r="7" stroke="white" strokeWidth="2.5" strokeDasharray="32 10" />
+      <circle cx="12" cy="12" r="2.5" fill="white" />
+    </svg>
+  );
+}
+
+export function RocketLogo({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={`${className} shrink-0`} fill="none">
+      <rect width="24" height="24" rx="5" fill="#8C3494" />
+      <path
+        d="M12 5C12 5 15.5 7.5 15.5 11.5L17 13L15.5 13.5L14.5 16L13.5 14.5L12 15L10.5 14.5L9.5 16L8.5 13.5L7 13L8.5 11.5C8.5 7.5 12 5 12 5Z"
+        fill="white"
+      />
+      <circle cx="12" cy="10" r="1.5" fill="#8C3494" />
+    </svg>
+  );
+}
+
+export function CashLogo({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <div className={`${className} shrink-0 rounded-md bg-emerald-600 flex items-center justify-center text-white`}>
+      <Banknote className="w-3.5 h-3.5" />
+    </div>
+  );
+}
+
+export function CardLogo({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <div className={`${className} shrink-0 rounded-md bg-slate-800 flex items-center justify-center text-white`}>
+      <CreditCard className="w-3.5 h-3.5" />
+    </div>
+  );
+}
+
+export function OtherPaymentLogo({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <div className={`${className} shrink-0 rounded-md bg-slate-400 flex items-center justify-center text-white`}>
+      <Wallet className="w-3.5 h-3.5" />
+    </div>
+  );
+}
+
+export function getPaymentMethodIcon(method: DailyExpensePaymentMethod) {
+  switch (method) {
+    case "bKash":
+      return <BkashLogo className="w-5 h-5" />;
+    case "Nagad":
+      return <NagadLogo className="w-5 h-5" />;
+    case "Rocket":
+      return <RocketLogo className="w-5 h-5" />;
+    case "Cash":
+      return <CashLogo className="w-5 h-5" />;
+    case "Bank Card":
+      return <CardLogo className="w-5 h-5" />;
+    default:
+      return <OtherPaymentLogo className="w-5 h-5" />;
+  }
+}
+
+function normalizeNumericInput(val: string): string {
+  if (!val) return "";
+  const banglaDigits = "০১২৩৪৫৬৭৮৯";
+  let cleaned = val.replace(/[০-৯]/g, (d) => banglaDigits.indexOf(d).toString());
+  cleaned = cleaned.replace(/[,৳\s]/g, "");
+  const parts = cleaned.split(".");
+  if (parts.length > 2) {
+    cleaned = parts[0] + "." + parts.slice(1).join("");
+  }
+  return cleaned.replace(/[^0-9.]/g, "");
+}
+
+export function getExpenseCategoryIcon(category: string) {
+  const cat = (category || "").toLowerCase();
+  if (cat.includes("food") || cat.includes("dining") || cat.includes("restaurant") || cat.includes("eat")) {
+    return {
+      icon: <UtensilsCrossed className="h-5 w-5 text-amber-600" />,
+      bg: "bg-amber-50 border-amber-200/80 text-amber-700",
+    };
+  }
+  if (cat.includes("grocer") || cat.includes("market") || cat.includes("bazar") || cat.includes("shop")) {
+    return {
+      icon: <ShoppingBag className="h-5 w-5 text-emerald-600" />,
+      bg: "bg-emerald-50 border-emerald-200/80 text-emerald-700",
+    };
+  }
+  if (
+    cat.includes("bill") ||
+    cat.includes("utilit") ||
+    cat.includes("electr") ||
+    cat.includes("gas") ||
+    cat.includes("water") ||
+    cat.includes("current")
+  ) {
+    return {
+      icon: <Zap className="h-5 w-5 text-rose-600" />,
+      bg: "bg-rose-50 border-rose-200/80 text-rose-700",
+    };
+  }
+  if (
+    cat.includes("transport") ||
+    cat.includes("commute") ||
+    cat.includes("ride") ||
+    cat.includes("fuel") ||
+    cat.includes("uber") ||
+    cat.includes("pathao") ||
+    cat.includes("car") ||
+    cat.includes("bike")
+  ) {
+    return {
+      icon: <Car className="h-5 w-5 text-blue-600" />,
+      bg: "bg-blue-50 border-blue-200/80 text-blue-700",
+    };
+  }
+  if (cat.includes("loan") || cat.includes("emi") || cat.includes("repay")) {
+    return {
+      icon: <CreditCard className="h-5 w-5 text-emerald-600" />,
+      bg: "bg-emerald-50 border-emerald-200/80 text-emerald-700",
+    };
+  }
+  if (cat.includes("health") || cat.includes("med") || cat.includes("doctor") || cat.includes("pharma")) {
+    return {
+      icon: <HeartPulse className="h-5 w-5 text-rose-600" />,
+      bg: "bg-rose-50 border-rose-200/80 text-rose-700",
+    };
+  }
+  if (cat.includes("educat") || cat.includes("school") || cat.includes("college") || cat.includes("tuition")) {
+    return {
+      icon: <GraduationCap className="h-5 w-5 text-blue-600" />,
+      bg: "bg-blue-50 border-blue-200/80 text-blue-700",
+    };
+  }
+  if (cat.includes("entertain") || cat.includes("movie") || cat.includes("fun") || cat.includes("cinema")) {
+    return {
+      icon: <Film className="h-5 w-5 text-purple-600" />,
+      bg: "bg-purple-50 border-purple-200/80 text-purple-700",
+    };
+  }
+  if (cat.includes("family") || cat.includes("home") || cat.includes("house") || cat.includes("rent")) {
+    return {
+      icon: <Home className="h-5 w-5 text-teal-600" />,
+      bg: "bg-teal-50 border-teal-200/80 text-teal-700",
+    };
+  }
+  if (cat.includes("dps") || cat.includes("savin") || cat.includes("deposit") || cat.includes("fdr")) {
+    return {
+      icon: <Landmark className="h-5 w-5 text-teal-600" />,
+      bg: "bg-teal-50 border-teal-200/80 text-teal-700",
+    };
+  }
+  return {
+    icon: <Wallet className="h-5 w-5 text-slate-600" />,
+    bg: "bg-slate-100 border-slate-200/80 text-slate-700",
+  };
+}
+
 export function DailyExpensesPage() {
+  const navigate = useNavigate();
+  const { language } = useLanguage();
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [expenses, setExpenses] = useState<DailyExpense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,9 +304,10 @@ export function DailyExpensesPage() {
   const [pinError, setPinError] = useState("");
 
   // Filters & View State
-  const [timeFilter, setTimeFilter] = useState<"today" | "week" | "month" | "all">("month");
+  const [timeFilter, setTimeFilter] = useState<"today" | "week" | "month" | "all">("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [authUserId, setAuthUserId] = useState<string>("");
   const [viewMode, setViewMode] = useState<"table" | "grid">(() => {
     if (typeof window !== "undefined" && window.innerWidth < 768) {
       return "grid";
@@ -120,7 +323,7 @@ export function DailyExpensesPage() {
   // Create / Edit Expense Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<DailyExpense | null>(null);
-  const [formAmount, setFormAmount] = useState<number | "">("");
+  const [formAmount, setFormAmount] = useState<string>("");
   const [formDate, setFormDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
   const [formCategory, setFormCategory] = useState<DailyExpenseCategory>("Food & Dining");
   const [customCategoryInput, setCustomCategoryInput] = useState("");
@@ -158,9 +361,31 @@ export function DailyExpensesPage() {
     if (found) return found;
     return {
       label: catName,
-      color: "text-violet-700",
-      bg: "bg-violet-50 border-violet-200",
+      color: "text-purple-700",
+      bg: "bg-purple-50 border-purple-200/70",
+      chipColor: "purple" as ChipColor,
     };
+  };
+
+  const getObligationIcon = (title: string, type: string) => {
+    const t = (title || "").toLowerCase();
+    const ty = (type || "").toLowerCase();
+    if (t.includes("bike") || t.includes("motor") || t.includes("cycle")) {
+      return { icon: Bike, bg: "bg-purple-50 text-purple-600 border-purple-200/80" };
+    }
+    if (t.includes("car") || t.includes("auto") || t.includes("vehicle")) {
+      return { icon: Car, bg: "bg-blue-50 text-blue-600 border-blue-200/80" };
+    }
+    if (t.includes("phone") || t.includes("mobile") || t.includes("light") || t.includes("device") || t.includes("gadget")) {
+      return { icon: Smartphone, bg: "bg-sky-50 text-sky-600 border-sky-200/80" };
+    }
+    if (t.includes("laptop") || t.includes("mac") || t.includes("computer")) {
+      return { icon: Laptop, bg: "bg-indigo-50 text-indigo-600 border-indigo-200/80" };
+    }
+    if (ty.includes("card") || t.includes("card")) {
+      return { icon: CreditCard, bg: "bg-amber-50 text-amber-600 border-amber-200/80" };
+    }
+    return { icon: Landmark, bg: "bg-emerald-50 text-emerald-600 border-emerald-200/80" };
   };
 
   const [formPaymentMethod, setFormPaymentMethod] = useState<DailyExpensePaymentMethod>("Cash");
@@ -180,48 +405,81 @@ export function DailyExpensesPage() {
     setTrendModalOpen(true);
   };
 
-  // Active Tab: Expenses Ledger vs Loans vs DPS & FDR
-  const [activeTab, setActiveTab] = useState<"expenses" | "loans" | "savings">("expenses");
+  // Active Tab: Expenses Ledger vs Banking & Financial Obligations
+  const [activeTab, setActiveTab] = useState<"expenses" | "banking">("expenses");
+  const [viewingExpenseDetail, setViewingExpenseDetail] = useState<DailyExpense | null>(null);
+
+  // Banking State: Unified Obligations, Sub-tabs & Filter
+  const [bankingFilter, setBankingFilter] = useState<"ALL" | "EMI" | "CARD" | "LOAN" | "SAVINGS">("ALL");
+  const [savingsList, setSavingsList] = useState<MemberSavings[]>([]);
+  const [loadingSavings, setLoadingSavings] = useState(false);
   const [savingsStats, setSavingsStats] = useState({ total: 0, activeCount: 0 });
   const [triggerAddSavings, setTriggerAddSavings] = useState(false);
 
   // Loans & Segment Repayments State
   const [loans, setLoans] = useState<MemberLoan[]>([]);
   const [loadingLoans, setLoadingLoans] = useState(false);
-  const [expandedLoanIds, setExpandedLoanIds] = useState<Set<string>>(new Set());
 
   // Add Loan Modal State
   const [isAddLoanModalOpen, setIsAddLoanModalOpen] = useState(false);
   const [loanTitle, setLoanTitle] = useState("");
   const [lenderName, setLenderName] = useState("");
-  const [loanType, setLoanType] = useState<MemberLoan["loanType"]>("Car Loan");
-  const [totalPrincipal, setTotalPrincipal] = useState<number | "">("");
-  const [monthlyEmiAmount, setMonthlyEmiAmount] = useState<number | "">("");
+  const [loanType, setLoanType] = useState<MemberLoan["loanType"]>("Consumer EMI");
+  const [totalPrincipal, setTotalPrincipal] = useState<string>("");
   const [interestRatePercent, setInterestRatePercent] = useState<number | "">("");
+  const [tenureMonthsInput, setTenureMonthsInput] = useState<number>(12);
+  const [interestType, setInterestType] = useState<"flat" | "reducing">("flat");
   const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [targetEndDate, setTargetEndDate] = useState("");
   const [loanNotes, setLoanNotes] = useState("");
   const [savingLoan, setSavingLoan] = useState(false);
+  const [loansViewSubTab, setLoansViewSubTab] = useState<"dashboard" | "matrix" | "savings" | "cards">("dashboard");
+  const [showAddObligationDropdown, setShowAddObligationDropdown] = useState(false);
+
+  // Mobile Header Portal & Menu State
+  const [headerPortalEl, setHeaderPortalEl] = useState<HTMLElement | null>(null);
+  const [showMobileOptionsMenu, setShowMobileOptionsMenu] = useState(false);
+
+  useEffect(() => {
+    const el = document.getElementById("mobile-header-right");
+    if (el) {
+      setHeaderPortalEl(el);
+      return;
+    }
+    const interval = setInterval(() => {
+      const found = document.getElementById("mobile-header-right");
+      if (found) {
+        setHeaderPortalEl(found);
+        clearInterval(interval);
+      }
+    }, 50);
+    const timeout = setTimeout(() => clearInterval(interval), 2000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, []);
 
   // Pay Segment Modal State
   const [isPaySegmentModalOpen, setIsPaySegmentModalOpen] = useState(false);
   const [selectedLoanForSegment, setSelectedLoanForSegment] = useState<MemberLoan | null>(null);
-  const [segmentAmount, setSegmentAmount] = useState<number | "">("");
+  const [segmentAmount, setSegmentAmount] = useState<string>("");
   const [segmentDate, setSegmentDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [segmentMethod, setSegmentMethod] = useState<DailyExpensePaymentMethod>("Bank Card");
   const [segmentNotes, setSegmentNotes] = useState("");
   const [segmentSyncDailyExpense, setSegmentSyncDailyExpense] = useState(true);
   const [savingSegment, setSavingSegment] = useState(false);
 
-  // Delete Loan Modal State
+  // Delete Loan & Savings Modal State
   const [loanToDelete, setLoanToDelete] = useState<MemberLoan | null>(null);
+  const [savingToDelete, setSavingToDelete] = useState<MemberSavings | null>(null);
 
   // Edit Loan Modal State
   const [editingLoan, setEditingLoan] = useState<MemberLoan | null>(null);
   const [editLoanTitle, setEditLoanTitle] = useState("");
   const [editLenderName, setEditLenderName] = useState("");
   const [editLoanType, setEditLoanType] = useState<MemberLoan["loanType"]>("Car Loan");
-  const [editTotalPrincipal, setEditTotalPrincipal] = useState<number | "">("");
+  const [editTotalPrincipal, setEditTotalPrincipal] = useState<string>("");
   const [editMonthlyEmiAmount, setEditMonthlyEmiAmount] = useState<number | "">("");
   const [editInterestRatePercent, setEditInterestRatePercent] = useState<number | "">("");
   const [editStartDate, setEditStartDate] = useState("");
@@ -238,7 +496,7 @@ export function DailyExpensesPage() {
     loanId: string;
     segment: LoanRepaymentSegment;
   } | null>(null);
-  const [editSegmentAmount, setEditSegmentAmount] = useState<number | "">("");
+  const [editSegmentAmount, setEditSegmentAmount] = useState<string>("");
   const [editSegmentDate, setEditSegmentDate] = useState("");
   const [editSegmentMethod, setEditSegmentMethod] = useState<DailyExpensePaymentMethod>("Bank Card");
   const [editSegmentNotes, setEditSegmentNotes] = useState("");
@@ -251,6 +509,9 @@ export function DailyExpensesPage() {
   } | null>(null);
   const [deletingSegment, setDeletingSegment] = useState(false);
 
+  const [isLocked, setIsLocked] = useState(false);
+  const [_userAccess, setUserAccess] = useState<CurrentUserAccessResult | null>(null);
+
   useEffect(() => {
     loadInitialData();
   }, []);
@@ -258,14 +519,43 @@ export function DailyExpensesPage() {
   const loadInitialData = async () => {
     setLoading(true);
     try {
-      const famMembers = await listFamilyMembersWithSelf();
+      const [currentUserAcc, famMembers] = await Promise.all([
+        getCurrentUserAccess(),
+        listFamilyMembersWithSelf(),
+      ]);
+      setUserAccess(currentUserAcc);
+      if (!currentUserAcc.isHead && currentUserAcc.access.canAccessDailyExpenses === false) {
+        setIsLocked(true);
+      }
       setMembers(famMembers);
+
+      // Get current authenticated user ID for owner expense resolution
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          setAuthUserId(user.id);
+        }
+      } catch {}
 
       // Load cloud synced PINs first so all profiles unlock cleanly
       await loadCloudMemberPins();
 
       const allExpenses = await listDailyExpenses();
       setExpenses(allExpenses);
+
+      // Auto-unlock Self profile if no PIN is configured or if already stored
+      try {
+        const storedId = sessionStorage.getItem("lifenest_unlocked_expense_member");
+        if (!storedId) {
+          const selfMember = famMembers.find((m) => m.relationship === "Self") || famMembers[0];
+          if (selfMember && !hasMemberPin(selfMember.id, selfMember.fullName)) {
+            setActiveMemberId(selfMember.id);
+            sessionStorage.setItem("lifenest_unlocked_expense_member", selfMember.id);
+          }
+        }
+      } catch {}
     } catch (err) {
       console.error(err);
     } finally {
@@ -290,10 +580,20 @@ export function DailyExpensesPage() {
     } catch {}
   };
 
-  // Open PIN modal when a member profile is clicked
+  // Open PIN modal or directly unlock member profile
   const handleSelectMember = (member: FamilyMember) => {
     if (member.relationship !== "Self" && member.access && member.access.canAccessDailyExpenses === false) {
       showToast(`${member.fullName} has Daily Expenses access restricted by the Family Head.`);
+      return;
+    }
+    const hasPin = hasMemberPin(member.id, member.fullName);
+    if (!hasPin) {
+      // Direct unlock without forcing PIN setup for non-technical users
+      setActiveMemberId(member.id);
+      try {
+        sessionStorage.setItem("lifenest_unlocked_expense_member", member.id);
+      } catch {}
+      showToast(`Welcome, ${member.fullName}!`);
       return;
     }
     setPinTargetMember(member);
@@ -362,12 +662,18 @@ export function DailyExpensesPage() {
   };
 
   const loadSavingsSummary = async (memberId: string) => {
+    setLoadingSavings(true);
     try {
       const activeMem = members.find((m) => m.id === memberId);
       const data = await listMemberSavings(memberId, activeMem?.fullName);
+      setSavingsList(data);
       const activeCount = data.filter((s) => s.status === "ACTIVE").length;
       setSavingsStats({ total: data.length, activeCount });
-    } catch {}
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingSavings(false);
+    }
   };
 
   useEffect(() => {
@@ -376,46 +682,265 @@ export function DailyExpensesPage() {
       loadSavingsSummary(activeMemberId);
     } else {
       setLoans([]);
+      setSavingsList([]);
       setViewingLoanSegments(null);
       setSavingsStats({ total: 0, activeCount: 0 });
     }
   }, [activeMemberId]);
 
-  const loanStats = useMemo(() => {
-    const totalBorrowed = loans.reduce(
-      (acc, l) => acc + (l.totalRepayableAmount || l.principalAmount || 0),
-      0
-    );
-    const totalRepaid = loans.reduce(
-      (acc, l) => acc + (l.repayments || []).reduce((s, r) => s + r.amount, 0),
-      0
-    );
-    const totalRemaining = Math.max(0, totalBorrowed - totalRepaid);
-    const activeCount = loans.filter((l) => l.status === "ACTIVE").length;
-    const settledCount = loans.filter((l) => l.status === "PAID_OFF").length;
-    const totalSegments = loans.reduce((acc, l) => acc + (l.repayments?.length || 0), 0);
-    const overallRepaidPct =
-      totalBorrowed > 0 ? Math.min(100, Math.round((totalRepaid / totalBorrowed) * 100)) : 0;
+  // Unified Obligations Ledger (EMIs, Credit Cards, Loans, DPS & FDR)
+  const unifiedObligations = useMemo(() => {
+    type UnifiedItem = {
+      id: string;
+      title: string;
+      institution: string;
+      kind: "LOAN" | "SAVINGS";
+      typeLabel: string;
+      typeCategory: "EMI" | "CARD" | "LOAN" | "SAVINGS";
+      tenureText: string;
+      monthlyDue: number;
+      totalTarget: number;
+      cumulativePaid: number;
+      remaining: number;
+      pct: number;
+      status: string;
+      isCleared: boolean;
+      targetUrl: string;
+      rawLoan?: MemberLoan;
+      rawSaving?: MemberSavings;
+    };
 
-    return { totalBorrowed, totalRepaid, totalRemaining, activeCount, settledCount, totalSegments, overallRepaidPct };
+    const list: UnifiedItem[] = [];
+
+    loans.forEach((loan) => {
+      const commitment = loan.totalRepayableAmount || loan.principalAmount || 0;
+      const paid = (loan.repayments || [])
+        .filter((r) => r.isPaid)
+        .reduce((sum, r) => sum + r.amount, 0);
+      const remaining = Math.max(0, commitment - paid);
+      const isCleared = loan.status === "PAID_OFF" || remaining <= 0;
+      const pct = commitment > 0 ? Math.min(100, Math.round((paid / commitment) * 100)) : 0;
+      const isCard = loan.loanType === "Credit Card Bill" || loan.loanType === "Credit Card EMI";
+      const isEmi = loan.loanType === "Consumer EMI";
+      const typeCategory: "EMI" | "CARD" | "LOAN" = isCard ? "CARD" : isEmi ? "EMI" : "LOAN";
+
+      list.push({
+        id: loan.id,
+        title: loan.loanTitle,
+        institution: loan.lenderName || "—",
+        kind: "LOAN",
+        typeLabel: loan.loanType,
+        typeCategory,
+        tenureText: loan.tenureMonths
+          ? `${loan.tenureMonths}m`
+          : loan.repayments?.length
+          ? `${loan.repayments.length}m`
+          : "—",
+        monthlyDue: loan.monthlyEmiAmount || 0,
+        totalTarget: commitment,
+        cumulativePaid: paid,
+        remaining,
+        pct,
+        status: isCleared ? "Cleared" : "Active",
+        isCleared,
+        targetUrl: `/my-life/expenses/loans/${loan.id}`,
+        rawLoan: loan,
+      });
+    });
+
+    savingsList.forEach((saving) => {
+      const totalTarget =
+        saving.maturityAmount ||
+        ((saving.monthlyInstallment || 0) * (saving.tenureMonths || (saving.tenureYears || 1) * 12)) ||
+        saving.principalAmount ||
+        0;
+      const deposited = (saving.depositLogs || [])
+        .filter((l) => l.isPaid !== false)
+        .reduce((sum, l) => sum + l.amount, 0);
+      const remaining = Math.max(0, totalTarget - deposited);
+      const isCleared = saving.status === "MATURED" || saving.status === "CLOSED" || remaining <= 0;
+      const pct = totalTarget > 0 ? Math.min(100, Math.round((deposited / totalTarget) * 100)) : 0;
+
+      list.push({
+        id: saving.id,
+        title: saving.title,
+        institution: saving.institutionName || "—",
+        kind: "SAVINGS",
+        typeLabel: saving.type,
+        typeCategory: "SAVINGS",
+        tenureText: saving.tenureMonths
+          ? `${saving.tenureMonths}m`
+          : saving.tenureYears
+          ? `${saving.tenureYears}y`
+          : "—",
+        monthlyDue: saving.monthlyInstallment || 0,
+        totalTarget,
+        cumulativePaid: deposited,
+        remaining,
+        pct,
+        status: saving.status === "ACTIVE" ? "Active" : saving.status === "MATURED" ? "Matured" : "Closed",
+        isCleared,
+        targetUrl: `/my-life/expenses/savings/${saving.id}`,
+        rawSaving: saving,
+      });
+    });
+
+    return list;
+  }, [loans, savingsList]);
+
+  const filteredObligations = useMemo(() => {
+    if (bankingFilter === "ALL") return unifiedObligations;
+    return unifiedObligations.filter((item) => item.typeCategory === bankingFilter);
+  }, [unifiedObligations, bankingFilter]);
+
+  const bankingMetrics = useMemo(() => {
+    const totalTarget = unifiedObligations.reduce((acc, o) => acc + o.totalTarget, 0);
+    const cumulativePaid = unifiedObligations.reduce((acc, o) => acc + o.cumulativePaid, 0);
+    const totalRemaining = unifiedObligations.reduce((acc, o) => acc + o.remaining, 0);
+    const activeCount = unifiedObligations.filter((o) => !o.isCleared).length;
+    const emiCount = unifiedObligations.filter((o) => o.typeCategory === "EMI").length;
+    const cardCount = unifiedObligations.filter((o) => o.typeCategory === "CARD").length;
+    const loanCount = unifiedObligations.filter((o) => o.typeCategory === "LOAN").length;
+    const savingsCount = unifiedObligations.filter((o) => o.typeCategory === "SAVINGS").length;
+    const overallPct = totalTarget > 0 ? Math.min(100, Math.round((cumulativePaid / totalTarget) * 100)) : 0;
+
+    return {
+      totalTarget,
+      cumulativePaid,
+      totalRemaining,
+      activeCount,
+      emiCount,
+      cardCount,
+      loanCount,
+      savingsCount,
+      overallPct,
+    };
+  }, [unifiedObligations]);
+
+  const calculatedAddEmi = useMemo(() => {
+    const p = Number(totalPrincipal) || 0;
+    const t = Number(tenureMonthsInput) || 12;
+    const r = interestRatePercent !== "" ? Number(interestRatePercent) : 0;
+    if (p <= 0 || t <= 0) return { monthlyEmi: 0, totalRepayable: 0, segments: [] };
+    return generateEmiInstallments(p, t, startDate, r, interestType);
+  }, [totalPrincipal, tenureMonthsInput, interestRatePercent, startDate, interestType]);
+
+  const tenureSummary = useMemo(() => {
+    const groups = [
+      { category: "12-Month EMIs", tenureMonths: 12, count: 0, commitment: 0, paid: 0, remaining: 0 },
+      { category: "6-Month EMIs", tenureMonths: 6, count: 0, commitment: 0, paid: 0, remaining: 0 },
+      { category: "3-Month EMIs", tenureMonths: 3, count: 0, commitment: 0, paid: 0, remaining: 0 },
+      { category: "Other Loans & EMIs", tenureMonths: null, count: 0, commitment: 0, paid: 0, remaining: 0 },
+    ];
+
+    let totalCombinedCommitment = 0;
+    let totalCombinedPaid = 0;
+    let totalCombinedRemaining = 0;
+
+    for (const loan of loans) {
+      const commitment = loan.totalRepayableAmount || loan.principalAmount || 0;
+      const paid = (loan.repayments || []).filter((r) => r.isPaid).reduce((sum, r) => sum + r.amount, 0);
+      const remaining = Math.max(0, commitment - paid);
+
+      totalCombinedCommitment += commitment;
+      totalCombinedPaid += paid;
+      totalCombinedRemaining += remaining;
+
+      let idx = 3;
+      if (loan.tenureMonths === 12 || loan.repayments?.length === 12) {
+        idx = 0;
+      } else if (loan.tenureMonths === 6 || loan.repayments?.length === 6) {
+        idx = 1;
+      } else if (loan.tenureMonths === 3 || loan.repayments?.length === 3) {
+        idx = 2;
+      }
+
+      groups[idx].count++;
+      groups[idx].commitment += commitment;
+      groups[idx].paid += paid;
+      groups[idx].remaining += remaining;
+    }
+
+    return { groups, totalCombinedCommitment, totalCombinedPaid, totalCombinedRemaining };
   }, [loans]);
 
-  const toggleLoanExpanded = (loanId: string) => {
-    setExpandedLoanIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(loanId)) next.delete(loanId);
-      else next.add(loanId);
-      return next;
+  const emiMatrixData = useMemo(() => {
+    const activeLoans = loans.filter((l) => l.repayments && l.repayments.length > 0);
+    const monthMap = new Map<string, { date: Date; label: string }>();
+
+    for (const loan of activeLoans) {
+      for (const seg of loan.repayments || []) {
+        if (seg.monthLabel) {
+          if (!monthMap.has(seg.monthLabel)) {
+            const dueDate = seg.dueDate ? new Date(seg.dueDate) : new Date();
+            monthMap.set(seg.monthLabel, { date: dueDate, label: seg.monthLabel });
+          }
+        }
+      }
+    }
+
+    const sortedMonths = Array.from(monthMap.values()).sort(
+      (a, b) => a.date.getTime() - b.date.getTime()
+    );
+
+    const rows = sortedMonths.map((m) => {
+      let rowTotal = 0;
+      let rowPaid = 0;
+      const loanCells: Record<string, { segment?: LoanRepaymentSegment; amount: number; isPaid: boolean }> = {};
+
+      for (const loan of activeLoans) {
+        const seg = (loan.repayments || []).find((s) => s.monthLabel === m.label);
+        if (seg) {
+          rowTotal += seg.amount || 0;
+          if (seg.isPaid) rowPaid += seg.amount || 0;
+          loanCells[loan.id] = {
+            segment: seg,
+            amount: seg.amount || 0,
+            isPaid: !!seg.isPaid,
+          };
+        } else {
+          loanCells[loan.id] = {
+            amount: 0,
+            isPaid: false,
+          };
+        }
+      }
+
+      return {
+        monthLabel: m.label,
+        loanCells,
+        rowTotal,
+        rowPaid,
+      };
     });
+
+    return { activeLoans, sortedMonths, rows };
+  }, [loans]);
+
+  const handleToggleMatrixCell = async (loanId: string, segmentId: string) => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      await toggleLoanSegmentPayment(loanId, segmentId, today, true);
+      if (activeMemberId) {
+        await loadLoans(activeMemberId);
+        const allExpenses = await listDailyExpenses();
+        setExpenses(allExpenses);
+      }
+      showToast("Updated installment payment status!");
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to update installment status");
+    }
   };
 
   const openAddLoanModal = () => {
     setLoanTitle("");
     setLenderName("");
-    setLoanType("Car Loan");
+    setLoanType("Consumer EMI");
     setTotalPrincipal("");
-    setMonthlyEmiAmount("");
     setInterestRatePercent("");
+    setTenureMonthsInput(12);
+    setInterestType("flat");
     setStartDate(new Date().toISOString().split("T")[0]);
     setTargetEndDate("");
     setLoanNotes("");
@@ -427,23 +952,39 @@ export function DailyExpensesPage() {
     if (!activeMemberId || !loanTitle.trim() || !lenderName.trim() || totalPrincipal === "" || Number(totalPrincipal) <= 0) return;
     setSavingLoan(true);
     try {
-      await createMemberLoan({
+      const tenure = Number(tenureMonthsInput) || 12;
+      const rate = interestRatePercent !== "" ? Number(interestRatePercent) : 0;
+      const generated = generateEmiInstallments(
+        Number(totalPrincipal),
+        tenure,
+        startDate,
+        rate,
+        interestType
+      );
+
+      const createdLoan = await createMemberLoan({
         familyMemberId: activeMemberId,
         loanTitle: loanTitle.trim(),
         lenderName: lenderName.trim(),
         loanType,
         principalAmount: Number(totalPrincipal),
-        totalRepayableAmount: Number(totalPrincipal),
-        monthlyEmiAmount: monthlyEmiAmount !== "" ? Number(monthlyEmiAmount) : undefined,
-        interestRate: interestRatePercent !== "" ? Number(interestRatePercent) : undefined,
+        totalRepayableAmount: generated.totalRepayable,
+        monthlyEmiAmount: generated.monthlyEmi,
+        interestRate: rate,
+        tenureMonths: tenure,
         startDate,
-        targetEndDate: targetEndDate || undefined,
+        targetEndDate: targetEndDate || (generated.segments[generated.segments.length - 1]?.dueDate || undefined),
+        repayments: generated.segments,
         status: "ACTIVE",
         notes: loanNotes.trim() || undefined,
       });
       await loadLoans(activeMemberId);
       setIsAddLoanModalOpen(false);
-      showToast("Loan / Borrowing entry created successfully!");
+      if (createdLoan.id.startsWith("loan_")) {
+        showToast(`Saved locally: ${loanTitle.trim()}! Please run the SQL migration to sync to Supabase.`);
+      } else {
+        showToast(`Added ${loanTitle.trim()} with automated ${tenure}-month schedule!`);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -456,7 +997,7 @@ export function DailyExpensesPage() {
     setEditLoanTitle(loan.loanTitle);
     setEditLenderName(loan.lenderName);
     setEditLoanType(loan.loanType);
-    setEditTotalPrincipal(loan.totalRepayableAmount || loan.principalAmount || "");
+    setEditTotalPrincipal(String(loan.totalRepayableAmount || loan.principalAmount || ""));
     setEditMonthlyEmiAmount(loan.monthlyEmiAmount || "");
     setEditInterestRatePercent(loan.interestRate || "");
     setEditStartDate(loan.startDate || "");
@@ -500,7 +1041,7 @@ export function DailyExpensesPage() {
 
   const openPaySegmentModal = (loan: MemberLoan) => {
     setSelectedLoanForSegment(loan);
-    setSegmentAmount(loan.monthlyEmiAmount || "");
+    setSegmentAmount(loan.monthlyEmiAmount ? String(loan.monthlyEmiAmount) : "");
     setSegmentDate(new Date().toISOString().split("T")[0]);
     setSegmentMethod("Bank Card");
     setSegmentNotes("");
@@ -544,9 +1085,9 @@ export function DailyExpensesPage() {
 
   const openEditSegmentModal = (loanId: string, segment: LoanRepaymentSegment) => {
     setEditingSegment({ loanId, segment });
-    setEditSegmentAmount(segment.amount);
-    setEditSegmentDate(segment.paymentDate);
-    setEditSegmentMethod(segment.paymentMethod);
+    setEditSegmentAmount(segment.amount ? String(segment.amount) : "");
+    setEditSegmentDate(segment.paymentDate || "");
+    setEditSegmentMethod(segment.paymentMethod || "Bank Card");
     setEditSegmentNotes(segment.notes || "");
   };
 
@@ -618,21 +1159,59 @@ export function DailyExpensesPage() {
     }
   };
 
+  const handleConfirmDeleteSaving = async () => {
+    if (!savingToDelete) return;
+    try {
+      await deleteMemberSavings(savingToDelete.id);
+      if (activeMemberId) await loadSavingsSummary(activeMemberId);
+      setSavingToDelete(null);
+      showToast("Savings scheme removed successfully!");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   // Filter expenses for current member
   const memberExpenses = useMemo(() => {
     if (!activeMemberId) return [];
     const activeName = activeMember?.fullName?.trim().toLowerCase();
+    const isSelf =
+      activeMember?.relationship === "Self" ||
+      activeMemberId === "owner-admin-towsif" ||
+      (authUserId && activeMemberId === authUserId) ||
+      (activeName && (activeName.includes("towsif") || activeName.includes("self")));
+
+    // Collect IDs of other distinct family members (e.g. spouse, child)
+    const otherMemberIds = new Set(
+      members
+        .filter(
+          (m) =>
+            m.id !== activeMemberId &&
+            m.relationship !== "Self" &&
+            m.id !== "owner-admin-towsif" &&
+            (!authUserId || m.id !== authUserId) &&
+            !m.fullName.toLowerCase().includes("towsif")
+        )
+        .map((m) => m.id)
+    );
+
     return expenses.filter((e) => {
+      // Direct member ID match
       if (e.familyMemberId === activeMemberId) return true;
+      // Direct member name match
       if (activeName && e.familyMemberName?.trim().toLowerCase() === activeName) return true;
-      if (
-        activeMember?.relationship === "Self" &&
-        (!e.familyMemberId || e.familyMemberId === "owner-admin-towsif")
-      )
-        return true;
+      // If viewing Self / Account Owner:
+      if (isSelf) {
+        if (authUserId && e.familyMemberId === authUserId) return true;
+        if (e.familyMemberId === "owner-admin-towsif") return true;
+        if (!e.familyMemberId) return true;
+        if (e.familyMemberName && e.familyMemberName.toLowerCase().includes("towsif")) return true;
+        // Any expense not specifically tied to another distinct family member belongs to the owner
+        if (!e.familyMemberName && !otherMemberIds.has(e.familyMemberId)) return true;
+      }
       return false;
     });
-  }, [expenses, activeMemberId, activeMember]);
+  }, [expenses, activeMemberId, activeMember, authUserId, members]);
 
   // Filter by time range, category, search
   const filteredExpenses = useMemo(() => {
@@ -728,7 +1307,7 @@ export function DailyExpensesPage() {
   // Open Edit Modal
   const openEditModal = (exp: DailyExpense) => {
     setEditingExpense(exp);
-    setFormAmount(exp.amount);
+    setFormAmount(exp.amount ? String(exp.amount) : "");
     setFormDate(exp.date);
 
     const isStandard = CATEGORIES.some((c) => c.label === exp.category && c.label !== "Others");
@@ -749,7 +1328,8 @@ export function DailyExpensesPage() {
   // Save Expense (Create or Update)
   const handleSaveExpense = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeMemberId || formAmount === "" || formAmount <= 0) return;
+    const numericAmount = parseFloat(formAmount);
+    if (!activeMemberId || !formAmount || isNaN(numericAmount) || numericAmount <= 0) return;
 
     let finalCategory = formCategory;
     if (formCategory === "Others") {
@@ -772,7 +1352,7 @@ export function DailyExpensesPage() {
     try {
       if (editingExpense) {
         const updated = await updateDailyExpense(editingExpense.id, {
-          amount: Number(formAmount),
+          amount: numericAmount,
           date: formDate,
           category: finalCategory,
           paymentMethod: formPaymentMethod,
@@ -785,7 +1365,7 @@ export function DailyExpensesPage() {
         const created = await createDailyExpense({
           familyMemberId: activeMemberId,
           familyMemberName: activeMember?.fullName,
-          amount: Number(formAmount),
+          amount: numericAmount,
           date: formDate,
           category: finalCategory,
           paymentMethod: formPaymentMethod,
@@ -816,8 +1396,32 @@ export function DailyExpensesPage() {
     }
   };
 
+  if (isLocked) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center max-w-md mx-auto my-12 space-y-4 shadow-sm">
+        <div className="h-14 w-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+          <Lock className="h-7 w-7" />
+        </div>
+        <h2 className="text-lg font-bold text-slate-900">
+          {language === "bn" ? "অ্যাক্সেস সংরক্ষিত" : "Access Restricted"}
+        </h2>
+        <p className="text-xs text-slate-600 leading-relaxed">
+          {language === "bn"
+            ? "আপনার অ্যাকাউন্টে দৈনিক খরচের পাতা দেখার অনুমতি নেই। অনুগ্রহ করে পরিবারের প্রধানের সাথে যোগাযোগ করুন।"
+            : "Your account does not have permission to view Daily Expenses. Please contact the Family Head to request access."}
+        </p>
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition"
+        >
+          {language === "bn" ? "হোম পেজে ফিরে যান" : "Back to Home"}
+        </Link>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 w-full text-slate-800">
+    <div className="space-y-4 sm:space-y-6 w-full text-slate-800">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-24 sm:bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold animate-in fade-in slide-in-from-bottom-2 duration-200">
@@ -829,36 +1433,140 @@ export function DailyExpensesPage() {
       {/* ========================================================================= */}
       {/* 1. TOP HEADER & ACTIVE MEMBER STATUS                                     */}
       {/* ========================================================================= */}
-      <div className="flex items-center justify-between gap-2 border-b border-slate-200/90 pb-2.5">
+      {/* Mobile Top Header Integration via Portal into MobileHeader */}
+      {headerPortalEl &&
+        activeMember &&
+        createPortal(
+          <div className="flex items-center gap-1.5 lg:hidden relative">
+            <button
+              type="button"
+              onClick={() => setShowMobileOptionsMenu((prev) => !prev)}
+              className="flex items-center gap-1.5 bg-[#dcfce7] hover:bg-emerald-200/80 active:scale-95 border border-emerald-300/90 rounded-full px-2.5 py-1 shadow-2xs transition cursor-pointer"
+              title={`Active Profile: ${activeMember.fullName} (Click to manage)`}
+            >
+              <span className="text-xs font-bold text-[#064e3b]">
+                {activeMember.fullName.charAt(0)}
+              </span>
+              <Lock className="h-3.5 w-3.5 text-[#064e3b]" />
+            </button>
+
+              {showMobileOptionsMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowMobileOptionsMenu(false)}
+                  />
+                  <div className="absolute right-0 top-9 z-50 w-56 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-100 text-slate-800">
+                    {activeMember && (
+                      <div className="px-3 py-2 border-b border-slate-100 mb-1">
+                        <div className="text-xs font-bold text-slate-900 truncate">
+                          {activeMember.fullName}
+                        </div>
+                        <div className="text-[10px] text-emerald-600 font-medium">
+                          Ledger Unlocked
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Switch / Choose Profile */}
+                    <div className="py-1 border-b border-slate-100">
+                      <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Family Profiles
+                      </div>
+                      {members.map((m) => {
+                        const isCurrent = m.id === activeMember?.id;
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              setShowMobileOptionsMenu(false);
+                              handleSelectMember(m);
+                            }}
+                            className={`w-full flex items-center justify-between px-2.5 py-1.5 text-xs font-semibold rounded-xl transition text-left cursor-pointer ${
+                              isCurrent ? "bg-emerald-50 text-[#064e3b]" : "text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span
+                                className={`h-5 w-5 rounded-md flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${
+                                  m.relationship === "Self" ? "bg-[#064e3b]" : "bg-slate-700"
+                                }`}
+                              >
+                                {m.fullName.charAt(0)}
+                              </span>
+                              <span className="truncate">{m.fullName}</span>
+                              {m.relationship === "Self" && (
+                                <span className="text-[9px] text-emerald-700 font-bold bg-emerald-100 px-1 rounded">
+                                  You
+                                </span>
+                              )}
+                            </div>
+                            {isCurrent && <Check className="h-3.5 w-3.5 text-emerald-700 shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {activeMember && !hasMemberPin(activeMember.id, activeMember.fullName) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowMobileOptionsMenu(false);
+                          setPinTargetMember(activeMember);
+                          setPinInput("");
+                          setPinConfirmInput("");
+                          setPinError("");
+                        }}
+                        className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-semibold rounded-xl text-emerald-800 hover:bg-emerald-50 transition text-left"
+                      >
+                        <KeyRound className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>Protect with PIN</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMobileOptionsMenu(false);
+                        openCategoryTrend("all");
+                      }}
+                      className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-semibold rounded-xl text-slate-700 hover:bg-slate-50 transition text-left"
+                    >
+                      <LineChart className="h-3.5 w-3.5 text-amber-600" />
+                      <span>Trends & Comparison</span>
+                    </button>
+                    {activeMember && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowMobileOptionsMenu(false);
+                          handleLockProfile();
+                        }}
+                        className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-semibold rounded-xl text-rose-700 hover:bg-rose-50 transition text-left"
+                      >
+                        <Lock className="h-3.5 w-3.5 text-rose-600" />
+                        <span>Lock & Switch Profile</span>
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+          </div>,
+          headerPortalEl
+        )}
+
+      {/* Desktop Header & Active Member Profile (On mobile, cleanly handled in top MobileHeader via portal) */}
+      <div className="hidden lg:flex items-center justify-between gap-2 border-b border-slate-200/90 pb-2.5">
         <div className="min-w-0 flex items-center gap-2">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 hidden sm:block truncate">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 truncate">
             Daily Expenses
           </h1>
-          {/* On mobile: compact active profile capsule */}
-          {activeMember && (
-            <div className="flex sm:hidden items-center gap-1.5 bg-white border border-slate-200/90 rounded-xl px-2 py-1 shadow-2xs">
-              <div className="h-5.5 w-5.5 rounded-lg bg-blue-50 text-blue-700 font-bold text-[11px] flex items-center justify-center shrink-0">
-                {activeMember.fullName.charAt(0)}
-              </div>
-              <span className="text-xs font-bold text-slate-800 truncate max-w-[110px]">
-                {activeMember.fullName}
-              </span>
-              <button
-                type="button"
-                onClick={handleLockProfile}
-                className="p-0.5 text-slate-400 hover:text-slate-700 rounded transition cursor-pointer"
-                title="Lock / Switch profile"
-              >
-                <Lock className="h-3 w-3" />
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Desktop profile switcher */}
         {activeMember ? (
-          <div className="hidden sm:flex items-center gap-2 bg-white border border-slate-200/90 rounded-2xl p-1.5 shadow-2xs">
-            <div className="h-9 w-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center font-bold text-xs uppercase text-amber-700">
+          <div className="flex items-center gap-2 bg-white border border-slate-200/90 rounded-2xl p-1.5 shadow-2xs">
+            <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center font-bold text-xs uppercase text-[#064e3b]">
               {activeMember.fullName.charAt(0)}
             </div>
             <div className="px-1 text-left">
@@ -870,47 +1578,124 @@ export function DailyExpensesPage() {
                 <span>Ledger Unlocked</span>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleLockProfile}
-              className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 transition cursor-pointer border border-slate-100"
-              title="Lock and switch profile"
-            >
-              <Lock className="h-3.5 w-3.5 text-slate-400" />
-              <span>Lock / Switch</span>
-            </button>
+            <div className="flex items-center gap-1.5 ml-1">
+              {!hasMemberPin(activeMember.id, activeMember.fullName) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPinTargetMember(activeMember);
+                    setPinInput("");
+                    setPinConfirmInput("");
+                    setPinError("");
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100/80 px-2 py-1.5 rounded-xl border border-emerald-200/80 transition cursor-pointer"
+                  title="Protect this ledger with a 4-digit PIN"
+                >
+                  <KeyRound className="h-3 w-3" />
+                  <span>Set PIN</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleLockProfile}
+                className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 transition cursor-pointer border border-slate-100"
+                title="Lock and switch profile"
+              >
+                <Lock className="h-3.5 w-3.5 text-slate-400" />
+                <span>Lock / Switch</span>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <div className="rounded-xl bg-amber-50 border border-amber-200/80 px-2.5 py-1 text-xs text-amber-800 font-medium flex items-center gap-1.5">
-              <Lock className="h-3.5 w-3.5" />
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200/90 px-3 py-1.5 text-xs text-[#064e3b] font-medium flex items-center gap-1.5 shadow-2xs">
+              <Lock className="h-3.5 w-3.5 text-emerald-600" />
               <span>Select profile below to unlock</span>
             </div>
           </div>
         )}
 
-        {/* Mobile Header Right Add Button */}
-        {activeMember && (
-          <button
-            type="button"
-            onClick={
-              activeTab === "expenses"
-                ? openCreateModal
-                : activeTab === "loans"
-                ? openAddLoanModal
-                : () => setTriggerAddSavings(true)
-            }
-            className="sm:hidden inline-flex items-center gap-1 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs active:scale-95 transition cursor-pointer"
+        {/* Mobile Add Obligation Bottom Sheet Popup (matches AppLayout style) */}
+        {showAddObligationDropdown && (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 backdrop-blur-xs sm:hidden animate-in fade-in duration-150"
+            onClick={() => setShowAddObligationDropdown(false)}
           >
-            <Plus className="h-3.5 w-3.5" />
-            <span>
-              {activeTab === "expenses"
-                ? "Log Expense"
-                : activeTab === "loans"
-                ? "Add Loan"
-                : "Add DPS/FDR"}
-            </span>
-          </button>
+            <div
+              className="w-full max-h-[85dvh] overflow-y-auto rounded-t-3xl border-t border-slate-200 bg-white shadow-2xl p-4 text-slate-900 animate-in slide-in-from-bottom duration-200"
+              style={{
+                paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mx-auto mb-2.5 h-1.5 w-12 rounded-full bg-slate-200" />
+
+              <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Add Obligation
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Save loans, EMIs, credit cards, or DPS savings
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddObligationDropdown(false)}
+                  className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddObligationDropdown(false);
+                    openAddLoanModal();
+                  }}
+                  className="w-full flex items-center gap-3.5 p-3 rounded-2xl border border-slate-200/90 bg-white hover:bg-emerald-50/50 active:scale-[0.99] transition text-left cursor-pointer group shadow-2xs"
+                >
+                  <div className="h-11 w-11 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-700 flex items-center justify-center shrink-0">
+                    <CreditCard className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-900">
+                      Loan, EMI or Card
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      Consumer EMI, credit card bill, bank loan
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-500 shrink-0" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddObligationDropdown(false);
+                    setLoansViewSubTab("savings");
+                    setTriggerAddSavings(true);
+                  }}
+                  className="w-full flex items-center gap-3.5 p-3 rounded-2xl border border-slate-200/90 bg-white hover:bg-teal-50/50 active:scale-[0.99] transition text-left cursor-pointer group shadow-2xs"
+                >
+                  <div className="h-11 w-11 rounded-xl bg-teal-50 border border-teal-200/80 text-teal-700 flex items-center justify-center shrink-0">
+                    <Landmark className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold text-slate-900 group-hover:text-teal-900">
+                      DPS / FDR Scheme
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      Monthly recurring DPS, fixed deposit scheme
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-500 shrink-0" />
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
@@ -921,10 +1706,99 @@ export function DailyExpensesPage() {
         <ExpensesSkeleton />
       ) : !activeMember ? (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-2xs">
+          {/* Mobile Profile Selector (lg:hidden) */}
+          <div className="space-y-3 lg:hidden">
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs text-center space-y-1.5">
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 shadow-2xs">
+                <KeyRound className="h-5 w-5 text-emerald-600" />
+              </div>
+              <h2 className="text-sm font-bold text-slate-900">
+                Select Profile to Unlock Expenses
+              </h2>
+              <p className="text-[11px] text-slate-500 max-w-xs mx-auto leading-relaxed">
+                Each family member maintains their own confidential spending ledger protected by personal PIN.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {members.map((m) => {
+                const hasPin = hasMemberPin(m.id, m.fullName);
+                const isSelf = m.relationship === "Self";
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => handleSelectMember(m)}
+                    className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition text-left cursor-pointer active:scale-[0.99] shadow-2xs ${
+                      isSelf
+                        ? "border-emerald-300 bg-white hover:bg-emerald-50/30"
+                        : "border-slate-200/90 bg-white hover:bg-slate-50/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* Avatar */}
+                      <div className="relative shrink-0">
+                        <div
+                          className={`h-11 w-11 rounded-2xl flex items-center justify-center font-bold text-base uppercase shadow-2xs ${
+                            isSelf
+                              ? "bg-gradient-to-tr from-[#064e3b] to-[#0d825c] text-white"
+                              : "bg-gradient-to-tr from-slate-700 to-slate-900 text-white"
+                          }`}
+                        >
+                          {m.fullName.charAt(0)}
+                        </div>
+                        <span
+                          className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full flex items-center justify-center text-[9px] border-2 border-white shadow-2xs ${
+                            hasPin ? "bg-slate-800 text-white" : "bg-emerald-600 text-white"
+                          }`}
+                        >
+                          <Lock className="h-2 w-2" />
+                        </span>
+                      </div>
+
+                      {/* Member Info */}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-bold text-slate-900 truncate">
+                            {m.fullName}
+                          </span>
+                          {isSelf && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-emerald-100 text-[#064e3b] border border-emerald-200">
+                              You
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {isSelf ? "Account Owner (Self)" : m.relationship}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Action button */}
+                    <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-[#064e3b] border border-emerald-200 shadow-2xs">
+                      <KeyRound className="h-3.5 w-3.5 text-emerald-700" />
+                      <span>{hasPin ? "Enter PIN" : "Open"}</span>
+                      <ChevronRight className="h-3.5 w-3.5 text-emerald-600/70" />
+                    </div>
+                  </button>
+                );
+              })}
+
+              <Link
+                to="/workspace/family"
+                className="w-full flex items-center justify-center gap-2 p-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 hover:bg-white hover:border-emerald-400 hover:text-[#064e3b] transition text-xs font-semibold text-slate-500 shadow-2xs"
+              >
+                <Plus className="h-4 w-4 text-slate-400" />
+                <span>Add Family Member</span>
+              </Link>
+            </div>
+          </div>
+
+          {/* Desktop Profile Selector (hidden lg:block) */}
+          <div className="hidden lg:block rounded-2xl border border-slate-200/90 bg-white p-6 shadow-2xs">
             <div className="max-w-xl mx-auto text-center space-y-2 mb-6">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 mb-1">
-                <KeyRound className="h-6 w-6" />
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 mb-1 shadow-2xs">
+                <KeyRound className="h-6 w-6 text-emerald-600" />
               </div>
               <h2 className="text-base font-bold text-slate-900">
                 Select Your Family Profile to Unlock Daily Expenses
@@ -945,12 +1819,12 @@ export function DailyExpensesPage() {
                     onClick={() => handleSelectMember(m)}
                     className={`flex flex-col items-center p-4 rounded-xl border transition text-center cursor-pointer group relative ${
                       isSelf
-                        ? "border-amber-300 bg-amber-50/30 hover:bg-white hover:border-amber-500 hover:shadow-md"
-                        : "border-slate-200 bg-slate-50/50 hover:bg-white hover:border-amber-400 hover:shadow-md"
+                        ? "border-emerald-300 bg-emerald-50/30 hover:bg-white hover:border-emerald-500 hover:shadow-md"
+                        : "border-slate-200 bg-slate-50/50 hover:bg-white hover:border-emerald-400 hover:shadow-md"
                     }`}
                   >
                     {isSelf && (
-                      <span className="absolute top-2.5 right-2.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-200 text-amber-900 border border-amber-300">
+                      <span className="absolute top-2.5 right-2.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-emerald-100 text-[#064e3b] border border-emerald-200">
                         You
                       </span>
                     )}
@@ -959,15 +1833,15 @@ export function DailyExpensesPage() {
                       <div
                         className={`h-14 w-14 rounded-2xl flex items-center justify-center font-bold text-lg uppercase shadow-sm ${
                           isSelf
-                            ? "bg-gradient-to-tr from-slate-900 via-slate-800 to-amber-600 text-white"
-                            : "bg-gradient-to-tr from-amber-500 to-orange-400 text-white"
+                            ? "bg-gradient-to-tr from-slate-900 via-emerald-950 to-[#064e3b] text-white"
+                            : "bg-gradient-to-tr from-[#064e3b] to-[#0d825c] text-white"
                         }`}
                       >
                         {m.fullName.charAt(0)}
                       </div>
                       <span
                         className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center text-[10px] border border-white shadow-2xs ${
-                          hasPin ? "bg-slate-800 text-white" : "bg-amber-500 text-white"
+                          hasPin ? "bg-slate-800 text-white" : "bg-emerald-600 text-white"
                         }`}
                         title={hasPin ? "PIN Protected" : "Setup PIN"}
                       >
@@ -975,7 +1849,7 @@ export function DailyExpensesPage() {
                       </span>
                     </div>
 
-                    <h3 className="mt-3 text-xs font-bold text-slate-900 group-hover:text-amber-700">
+                    <h3 className="mt-3 text-xs font-bold text-slate-900 group-hover:text-[#064e3b]">
                       {m.fullName}
                     </h3>
                     <div className="text-[11px] text-slate-400">
@@ -986,10 +1860,10 @@ export function DailyExpensesPage() {
                       className={`mt-2.5 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
                         hasPin
                           ? "bg-slate-100 text-slate-700"
-                          : "bg-amber-100 text-amber-800 border border-amber-200"
+                          : "bg-emerald-50 text-[#064e3b] border border-emerald-200"
                       }`}
                     >
-                      {hasPin ? "Enter PIN to Unlock" : "Set New PIN"}
+                      {hasPin ? "Enter PIN to Unlock" : "Click to Open"}
                     </span>
                   </button>
                 );
@@ -998,12 +1872,12 @@ export function DailyExpensesPage() {
               {/* Add Family Member quick shortcut */}
               <Link
                 to="/workspace/family"
-                className="flex flex-col items-center justify-center p-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/40 hover:bg-white hover:border-amber-400 hover:text-amber-700 transition text-center cursor-pointer group text-slate-500 min-h-[160px]"
+                className="flex flex-col items-center justify-center p-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/40 hover:bg-white hover:border-emerald-400 hover:text-[#064e3b] transition text-center cursor-pointer group text-slate-500 min-h-[160px]"
               >
-                <div className="h-12 w-12 rounded-2xl border border-dashed border-slate-300 flex items-center justify-center mb-2 group-hover:border-amber-400 group-hover:bg-amber-50 transition">
-                  <Plus className="h-5 w-5 text-slate-400 group-hover:text-amber-600" />
+                <div className="h-12 w-12 rounded-2xl border border-dashed border-slate-300 flex items-center justify-center mb-2 group-hover:border-emerald-400 group-hover:bg-emerald-50 transition">
+                  <Plus className="h-5 w-5 text-slate-400 group-hover:text-emerald-700" />
                 </div>
-                <span className="text-xs font-bold text-slate-700 group-hover:text-amber-700">
+                <span className="text-xs font-bold text-slate-700 group-hover:text-[#064e3b]">
                   Add Family Member
                 </span>
                 <span className="text-[10px] text-slate-400 mt-0.5">
@@ -1018,22 +1892,24 @@ export function DailyExpensesPage() {
         /* 3. ACTIVE MEMBER'S EXPENSE DASHBOARD                                      */
         /* ========================================================================= */
         <div className="space-y-3 sm:space-y-6">
-          {/* Sub Navigation: Daily Expenses vs Loans vs DPS & FDR */}
-          <div className="inline-flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-2xl border border-slate-200/60 max-w-full overflow-x-auto">
+          {/* Sub Navigation: Daily Expenses vs Banking & Financial Obligations */}
+          <div className="grid grid-cols-2 sm:inline-flex items-center gap-1 p-1 bg-slate-100/90 rounded-full border border-slate-200/60 w-full sm:w-auto">
             <button
               type="button"
               onClick={() => setActiveTab("expenses")}
-              className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl text-xs transition cursor-pointer whitespace-nowrap shrink-0 ${
+              className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-2.5 sm:px-4 rounded-full text-[11px] sm:text-xs transition cursor-pointer whitespace-nowrap ${
                 activeTab === "expenses"
                   ? "bg-white text-slate-900 font-bold shadow-2xs"
                   : "text-slate-600 hover:text-slate-900 font-medium"
               }`}
             >
-              <Wallet className="h-3.5 w-3.5 shrink-0" />
-              <span>Daily Expenses</span>
+              <Wallet className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
+              <span>
+                <span className="hidden sm:inline">Daily </span>Expenses
+              </span>
               <span
-                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
-                  activeTab === "expenses" ? "bg-slate-100 text-slate-800" : "bg-slate-200/70 text-slate-600"
+                className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
+                  activeTab === "expenses" ? "bg-emerald-50 text-emerald-800" : "bg-slate-200/70 text-slate-600"
                 }`}
               >
                 {memberExpenses.length}
@@ -1042,79 +1918,86 @@ export function DailyExpensesPage() {
 
             <button
               type="button"
-              onClick={() => setActiveTab("loans")}
-              className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl text-xs transition cursor-pointer whitespace-nowrap shrink-0 ${
-                activeTab === "loans"
+              onClick={() => setActiveTab("banking")}
+              className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-2.5 sm:px-4 rounded-full text-[11px] sm:text-xs transition cursor-pointer whitespace-nowrap ${
+                activeTab === "banking"
                   ? "bg-white text-slate-900 font-bold shadow-2xs"
                   : "text-slate-600 hover:text-slate-900 font-medium"
               }`}
             >
-              <CreditCard className="h-3.5 w-3.5 shrink-0" />
-              <span>Loans & Debts</span>
-              <span
-                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
-                  activeTab === "loans"
-                    ? "bg-amber-100 text-amber-900"
-                    : "bg-slate-200/70 text-slate-600"
-                }`}
-              >
-                {loanStats.activeCount > 0 ? loanStats.activeCount : loans.length}
+              <Landmark className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
+              <span>
+                Banking<span className="hidden sm:inline"> & Obligations</span>
               </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("savings")}
-              className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl text-xs transition cursor-pointer whitespace-nowrap shrink-0 ${
-                activeTab === "savings"
-                  ? "bg-white text-slate-900 font-bold shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900 font-medium"
-              }`}
-            >
-              <PiggyBank className="h-3.5 w-3.5 shrink-0 text-indigo-600" />
-              <span>DPS & FDR</span>
               <span
-                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
-                  activeTab === "savings"
-                    ? "bg-indigo-100 text-indigo-900"
+                className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
+                  activeTab === "banking"
+                    ? "bg-emerald-50 text-emerald-800"
                     : "bg-slate-200/70 text-slate-600"
                 }`}
               >
-                {savingsStats.activeCount > 0 ? savingsStats.activeCount : savingsStats.total}
+                {unifiedObligations.length}
               </span>
             </button>
           </div>
 
           {activeTab === "expenses" && (
             <div className="space-y-3 sm:space-y-6">
-              {/* Mobile Compact Stats Strip (sm:hidden) */}
-              <div className="sm:hidden rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs">
-                <div className="grid grid-cols-3 divide-x divide-slate-100 text-center">
-                  <div className="px-1">
-                    <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+              {/* Mobile Compact Stats Cards (sm:hidden) matching reference mockup */}
+              <div className="sm:hidden grid grid-cols-3 gap-2">
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <div className="h-7 w-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mb-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-tight">
                       Today
                     </div>
-                    <div className="mt-0.5 text-xs font-bold font-mono text-slate-900 truncate">
-                      ৳{stats.todayTotal.toLocaleString()}
-                    </div>
                   </div>
-                  <div className="px-1">
-                    <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
-                      This Month
-                    </div>
-                    <div className="mt-0.5 text-xs font-bold font-mono text-blue-600 truncate">
-                      ৳{stats.monthTotal.toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="px-1">
-                    <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
-                      Daily Avg
-                    </div>
-                    <div className="mt-0.5 text-xs font-bold font-mono text-slate-700 truncate">
-                      ৳{stats.dailyAvg.toLocaleString()}
-                    </div>
+                  <div className="mt-2 text-xs font-black font-mono text-slate-900 truncate">
+                    ৳{stats.todayTotal.toLocaleString()}
                   </div>
                 </div>
+
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <div className="h-7 w-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mb-1">
+                      <TrendingUp className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-tight">
+                      This Month
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs font-black font-mono text-emerald-600 truncate">
+                    ৳{stats.monthTotal.toLocaleString()}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <div className="h-7 w-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 mb-1">
+                      <LineChart className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-tight">
+                      Daily Avg
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs font-black font-mono text-amber-600 truncate">
+                    ৳{stats.dailyAvg.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Mobile Full-width Log Expense Button */}
+              <div className="sm:hidden">
+                <button
+                  type="button"
+                  onClick={openCreateModal}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#064e3b] to-[#0d825c] text-white font-bold text-xs shadow-sm hover:from-[#053d2e] hover:to-[#0a6d4d] active:scale-[0.99] transition cursor-pointer"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Log Expense</span>
+                </button>
               </div>
 
               {/* Desktop 4-Card Metric Grid (hidden sm:grid) */}
@@ -1183,7 +2066,7 @@ export function DailyExpensesPage() {
                     <button
                       type="button"
                       onClick={() => openCategoryTrend(stats.topCat)}
-                      className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100/80 px-2 py-1 rounded-lg border border-indigo-200/80 transition cursor-pointer truncate max-w-full w-fit"
+                      className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100/80 px-2 py-1 rounded-lg border border-emerald-200/80 transition cursor-pointer truncate max-w-full w-fit"
                     >
                       <LineChart className="h-3 w-3 shrink-0" />
                       <span className="truncate">See {stats.topCat} Trend</span>
@@ -1192,49 +2075,29 @@ export function DailyExpensesPage() {
                 </div>
               </div>
 
-          {/* Filter Bar & Quick Add - Unified in one line */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 bg-white p-2 sm:p-2.5 rounded-2xl border border-slate-200/90 shadow-2xs">
-            {/* Left Cluster: Search + Time Range Pills + Category Dropdown */}
-            <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+          {/* Filter Bar & Controls - Unified in one line */}
+          <div className="bg-white p-2 sm:p-2.5 rounded-2xl border border-slate-200/90 shadow-2xs">
+            <div className="flex items-center justify-between gap-1.5 sm:gap-2 w-full">
               {/* Search Box */}
-              <div className="relative flex-1 sm:flex-initial sm:w-48 lg:w-60 min-w-[140px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <div className="relative flex-1 min-w-[100px]">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search item, merchant..."
-                  className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50/60 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-800 focus:bg-white transition"
+                  className="w-full pl-7 sm:pl-8 pr-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50/60 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-600 focus:bg-white transition"
                 />
               </div>
 
-              {/* Mobile Filter Toggle Button (< md only) */}
-              <button
-                type="button"
-                onClick={() => setMobileFiltersOpen((prev) => !prev)}
-                className={`md:hidden inline-flex items-center gap-1 rounded-xl border px-2.5 py-1.5 text-xs font-semibold transition shrink-0 cursor-pointer ${
-                  mobileFiltersOpen || activeFilterCount > 0
-                    ? "border-blue-400 bg-blue-50 text-blue-700"
-                    : "border-slate-200 bg-slate-50 text-slate-700"
-                }`}
-              >
-                <Filter className="h-3.5 w-3.5" />
-                <span className="text-xs">Filter</span>
-                {activeFilterCount > 0 && (
-                  <span className="flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-blue-600 px-1 text-[9px] font-bold text-white">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </button>
-
-              {/* Time Range Pills & Category Dropdown (inline on md+, toggle on mobile) */}
-              <div className={`items-center gap-2 ${mobileFiltersOpen ? "flex flex-wrap w-full md:w-auto pt-1 md:pt-0" : "hidden md:inline-flex"}`}>
+              {/* Time Range Pills & Category Dropdown (inline on md+) */}
+              <div className="hidden md:flex items-center gap-2 shrink-0">
                 {/* Time Range Pills */}
-                <div className="inline-flex items-center p-0.5 rounded-xl border border-slate-200 bg-slate-100 text-xs">
+                <div className="inline-flex items-center p-0.5 rounded-full border border-slate-200 bg-slate-100 text-xs">
                   <button
                     type="button"
                     onClick={() => setTimeFilter("today")}
-                    className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer text-center text-xs ${
+                    className={`px-3 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
                       timeFilter === "today"
                         ? "bg-white text-slate-900 shadow-2xs font-bold"
                         : "text-slate-600 hover:text-slate-900"
@@ -1245,7 +2108,7 @@ export function DailyExpensesPage() {
                   <button
                     type="button"
                     onClick={() => setTimeFilter("week")}
-                    className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer text-center text-xs ${
+                    className={`px-3 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
                       timeFilter === "week"
                         ? "bg-white text-slate-900 shadow-2xs font-bold"
                         : "text-slate-600 hover:text-slate-900"
@@ -1256,7 +2119,7 @@ export function DailyExpensesPage() {
                   <button
                     type="button"
                     onClick={() => setTimeFilter("month")}
-                    className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer text-center text-xs ${
+                    className={`px-3 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
                       timeFilter === "month"
                         ? "bg-white text-slate-900 shadow-2xs font-bold"
                         : "text-slate-600 hover:text-slate-900"
@@ -1267,7 +2130,7 @@ export function DailyExpensesPage() {
                   <button
                     type="button"
                     onClick={() => setTimeFilter("all")}
-                    className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer text-center text-xs ${
+                    className={`px-3 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
                       timeFilter === "all"
                         ? "bg-white text-slate-900 shadow-2xs font-bold"
                         : "text-slate-600 hover:text-slate-900"
@@ -1277,39 +2140,66 @@ export function DailyExpensesPage() {
                   </button>
                 </div>
 
-                {/* Category Dropdown */}
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="rounded-xl border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-slate-800 focus:bg-white font-medium cursor-pointer"
-                >
-                  <option value="all">All Categories</option>
-                  {CATEGORIES.filter((c) => c.label !== "Others").map((c) => (
-                    <option key={c.label} value={c.label}>
-                      {c.label}
-                    </option>
-                  ))}
-                  {allCategoryOptions.length > 0 && (
-                    <optgroup label="Custom Categories">
-                      {allCategoryOptions.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  <option value="Others">Others</option>
-                </select>
+                {/* Proper MUI Category Dropdown */}
+                <FormControl size="small">
+                  <Select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    sx={{
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      fontFamily: '"Plus Jakarta Sans", sans-serif',
+                      borderRadius: "0.75rem",
+                      backgroundColor: "#f8fafc",
+                      "& .MuiSelect-select": {
+                        py: "5px",
+                        px: "10px",
+                      },
+                    }}
+                  >
+                    <MenuItem value="all" sx={{ fontSize: "0.75rem", fontWeight: 700 }}>
+                      All Categories
+                    </MenuItem>
+                    {CATEGORIES.filter((c) => c.label !== "Others").map((c) => (
+                      <MenuItem key={c.label} value={c.label} sx={{ fontSize: "0.75rem" }}>
+                        {c.label}
+                      </MenuItem>
+                    ))}
+                    {allCategoryOptions.map((opt) => (
+                      <MenuItem key={opt} value={opt} sx={{ fontSize: "0.75rem" }}>
+                        🏷️ {opt}
+                      </MenuItem>
+                    ))}
+                    <MenuItem value="Others" sx={{ fontSize: "0.75rem" }}>Others</MenuItem>
+                  </Select>
+                </FormControl>
               </div>
-            </div>
 
-            {/* Right Cluster: View Mode Toggle + Trend Graph + Log Expense Button */}
-            <div className="flex items-center gap-1.5 shrink-0 self-end md:self-auto">
+              {/* Mobile Filter Toggle Button (< md only) */}
+              <button
+                type="button"
+                onClick={() => setMobileFiltersOpen((prev) => !prev)}
+                className={`md:hidden inline-flex items-center gap-1 rounded-xl border px-2 py-1.5 text-xs font-semibold transition shrink-0 cursor-pointer ${
+                  mobileFiltersOpen || activeFilterCount > 0
+                    ? "border-emerald-500 bg-emerald-50 text-[#064e3b]"
+                    : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                }`}
+                title="Filters"
+              >
+                <Filter className="h-3.5 w-3.5" />
+                <span className="hidden xs:inline text-xs">Filter</span>
+                {activeFilterCount > 0 && (
+                  <span className="flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-emerald-700 px-1 text-[9px] font-bold text-white">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+
               {/* Trend Graph Button */}
               <button
                 type="button"
                 onClick={() => openCategoryTrend(categoryFilter !== "all" ? categoryFilter : "all")}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-2xs transition cursor-pointer shrink-0"
+                className="inline-flex items-center gap-1 rounded-xl border border-slate-200/90 bg-white px-2 sm:px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-2xs transition cursor-pointer shrink-0"
                 title="View Category Trend Graph & Month Comparison"
               >
                 <LineChart className="h-3.5 w-3.5 text-emerald-600" />
@@ -1317,39 +2207,111 @@ export function DailyExpensesPage() {
               </button>
 
               {/* View mode toggle */}
-              <div className="flex items-center p-0.5 rounded-xl border border-slate-200 bg-slate-100 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("table")}
-                  className={`p-1.5 rounded-lg transition cursor-pointer ${
-                    viewMode === "table" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-400 hover:text-slate-600"
-                  }`}
-                  title="Table view"
-                >
-                  <List className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("grid")}
-                  className={`p-1.5 rounded-lg transition cursor-pointer ${
-                    viewMode === "grid" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-400 hover:text-slate-600"
-                  }`}
-                  title="Grid view"
-                >
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              <ViewModeToggle
+                viewMode={viewMode}
+                onChange={(mode) => setViewMode(mode as "table" | "grid")}
+                gridLabel="Grid"
+                listLabel="Table"
+                listValue="table"
+              />
 
-              {/* Desktop Add Expense Button */}
+              {/* Desktop Only Log Expense Button */}
               <button
                 type="button"
                 onClick={openCreateModal}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 transition cursor-pointer shrink-0"
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer shrink-0"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>Log Expense</span>
               </button>
             </div>
+
+            {/* Mobile Expanded Filters Panel */}
+            {mobileFiltersOpen && (
+              <div className="md:hidden flex flex-wrap items-center gap-2 pt-2 mt-2 border-t border-slate-100 animate-in fade-in slide-in-from-top-1 duration-150">
+                {/* Time Range Pills */}
+                <div className="inline-flex items-center p-0.5 rounded-full border border-slate-200 bg-slate-100 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setTimeFilter("today")}
+                    className={`px-2.5 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
+                      timeFilter === "today"
+                        ? "bg-white text-slate-900 shadow-2xs font-bold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTimeFilter("week")}
+                    className={`px-2.5 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
+                      timeFilter === "week"
+                        ? "bg-white text-slate-900 shadow-2xs font-bold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Week
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTimeFilter("month")}
+                    className={`px-2.5 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
+                      timeFilter === "month"
+                        ? "bg-white text-slate-900 shadow-2xs font-bold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Month
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTimeFilter("all")}
+                    className={`px-2.5 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
+                      timeFilter === "all"
+                        ? "bg-white text-slate-900 shadow-2xs font-bold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    All
+                  </button>
+                </div>
+
+                {/* Category Dropdown */}
+                <FormControl size="small">
+                  <Select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    sx={{
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      fontFamily: '"Plus Jakarta Sans", sans-serif',
+                      borderRadius: "0.75rem",
+                      backgroundColor: "#f8fafc",
+                      "& .MuiSelect-select": {
+                        py: "5px",
+                        px: "10px",
+                      },
+                    }}
+                  >
+                    <MenuItem value="all" sx={{ fontSize: "0.75rem", fontWeight: 700 }}>
+                      All Categories
+                    </MenuItem>
+                    {CATEGORIES.filter((c) => c.label !== "Others").map((c) => (
+                      <MenuItem key={c.label} value={c.label} sx={{ fontSize: "0.75rem" }}>
+                        {c.label}
+                      </MenuItem>
+                    ))}
+                    {allCategoryOptions.map((opt) => (
+                      <MenuItem key={opt} value={opt} sx={{ fontSize: "0.75rem" }}>
+                        🏷️ {opt}
+                      </MenuItem>
+                    ))}
+                    <MenuItem value="Others" sx={{ fontSize: "0.75rem" }}>Others</MenuItem>
+                  </Select>
+                </FormControl>
+              </div>
+            )}
           </div>
 
           {/* Expense Entries Table / Grid */}
@@ -1384,215 +2346,384 @@ export function DailyExpensesPage() {
                   <Plus className="h-3 w-3" /> Log First Expense
                 </button>
               </div>
-            ) : viewMode === "table" ? (
-              /* TABLE VIEW */
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-xs">
-                  <thead className="border-b border-slate-100 bg-slate-50/80 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                    <tr>
-                      <th className="py-2.5 px-4">Date</th>
-                      <th className="py-2.5 px-4">Category</th>
-                      <th className="py-2.5 px-4">Description / Merchant</th>
-                      <th className="py-2.5 px-4">Payment Method</th>
-                      <th className="py-2.5 px-4 font-mono text-right">Amount</th>
-                      <th className="py-2.5 px-4 text-right pr-6">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredExpenses.map((exp) => {
-                      const catConfig = getCategoryBadge(exp.category);
-                      return (
-                        <tr key={exp.id} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="whitespace-nowrap py-3 px-4 font-mono text-[11px] text-slate-700">
-                            {exp.date}
-                          </td>
-                          <td className="py-3 px-4">
-                            <button
-                              type="button"
-                              onClick={() => openCategoryTrend(exp.category)}
-                              className={`inline-block px-2.5 py-0.5 rounded-md text-[11px] font-bold border transition hover:opacity-80 active:scale-95 cursor-pointer ${catConfig.bg} ${catConfig.color}`}
-                              title={`Click to view trend graph for ${exp.category}`}
+            ) : (
+              <>
+                {/* Mobile Unified Expense Cards List (sm:hidden) matching mockup */}
+                <div className="sm:hidden divide-y divide-slate-100">
+                  {filteredExpenses.map((exp) => {
+                    const catConfig = getCategoryBadge(exp.category);
+                    const catIcon = getExpenseCategoryIcon(exp.category);
+                    return (
+                      <div
+                        key={exp.id}
+                        onClick={() => setViewingExpenseDetail(exp)}
+                        className="p-3.5 hover:bg-slate-50/80 active:bg-slate-100/70 transition flex items-start gap-3 cursor-pointer group"
+                      >
+                        {/* Soft rounded icon box */}
+                        <div
+                          className={`h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 border shadow-2xs ${catIcon.bg}`}
+                        >
+                          {catIcon.icon}
+                        </div>
+
+                        {/* Content Details */}
+                        <div className="flex-1 min-w-0">
+                          {/* Top Line: Category Chip + Date */}
+                          <div className="flex items-center justify-between gap-2">
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openCategoryTrend(exp.category);
+                              }}
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border transition ${catConfig.color} ${catConfig.bg}`}
+                              title={`Click to view trend for ${exp.category}`}
                             >
                               {exp.category}
-                            </button>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="font-semibold text-slate-900 text-xs">
-                              {exp.description || "Daily Expense"}
-                            </div>
-                            {exp.merchant && (
-                              <div className="text-[11px] text-slate-400">
-                                Store: {exp.merchant}
-                              </div>
-                            )}
-                          </td>
-                          <td className="whitespace-nowrap py-3 px-4">
-                            <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                              {exp.paymentMethod}
                             </span>
-                          </td>
-                          <td className="whitespace-nowrap py-3 px-4 font-mono font-bold text-slate-900 text-right text-sm">
-                            ৳{exp.amount.toLocaleString()}
-                          </td>
-                          <td className="whitespace-nowrap py-3 px-4 text-right pr-6 space-x-1">
-                            <button
-                              type="button"
-                              onClick={() => openEditModal(exp)}
-                              className="rounded p-1 text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition cursor-pointer"
-                              title="Edit expense"
-                            >
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setExpenseToDelete(exp)}
-                              className="rounded p-1 text-slate-300 hover:text-rose-600 hover:bg-slate-100 transition cursor-pointer"
-                              title="Delete expense"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              /* GRID CARDS VIEW */
-              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {filteredExpenses.map((exp) => {
-                  const catConfig = getCategoryBadge(exp.category);
-                  return (
-                    <div
-                      key={exp.id}
-                      className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs hover:shadow-xs transition flex flex-col justify-between"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <button
-                            type="button"
-                            onClick={() => openCategoryTrend(exp.category)}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition hover:opacity-80 active:scale-95 cursor-pointer ${catConfig.bg} ${catConfig.color}`}
-                            title={`Click to view trend graph for ${exp.category}`}
-                          >
-                            {exp.category}
-                          </button>
-                          <span className="font-mono text-[10px] text-slate-400">{exp.date}</span>
-                        </div>
-
-                        <div className="mt-2 text-xs font-bold text-slate-900">
-                          {exp.description || "Daily Expense"}
-                        </div>
-                        {exp.merchant && (
-                          <div className="text-[11px] text-slate-400">{exp.merchant}</div>
-                        )}
-                      </div>
-
-                      <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-                        <div>
-                          <div className="font-mono font-bold text-slate-900 text-sm">
-                            ৳{exp.amount.toLocaleString()}
+                            <span className="font-mono text-[10px] text-slate-400 shrink-0">
+                              {exp.date}
+                            </span>
                           </div>
-                          <span className="text-[10px] text-slate-400">{exp.paymentMethod}</span>
-                        </div>
 
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(exp)}
-                            className="p-1 text-slate-400 hover:text-slate-800"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setExpenseToDelete(exp)}
-                            className="p-1 text-slate-300 hover:text-rose-600"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          {/* Title / Description */}
+                          <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-800 transition truncate mt-1">
+                            {exp.description || "Daily Expense"}
+                          </div>
+
+                          {/* Store / Merchant */}
+                          {exp.merchant && (
+                            <div className="text-[11px] text-slate-400 truncate mt-0.5">
+                              {exp.merchant}
+                            </div>
+                          )}
+
+                          {/* Bottom Line: Amount + Payment Method + TableRowActions */}
+                          <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-50">
+                            <div>
+                              <div className="font-mono font-black text-slate-900 text-sm">
+                                ৳{exp.amount.toLocaleString()}
+                              </div>
+                              <div className="text-[10px] text-slate-500 font-medium flex items-center gap-1.5 mt-0.5">
+                                {getPaymentMethodIcon(exp.paymentMethod)}
+                                <span>{exp.paymentMethod}</span>
+                              </div>
+                            </div>
+
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <TableRowActions
+                                title={exp.description || exp.category}
+                                subtitle={`${exp.date} • ৳${exp.amount.toLocaleString()} (${exp.paymentMethod})`}
+                                actions={[
+                                  {
+                                    label: "View Full Details",
+                                    description: "Odometer, receipt image, merchant, notes",
+                                    icon: ExternalLink,
+                                    variant: "emerald",
+                                    onClick: () => setViewingExpenseDetail(exp),
+                                  },
+                                  {
+                                    label: "Edit Expense Record",
+                                    description: "Update amount, category, date or payment method",
+                                    icon: Edit2,
+                                    onClick: () => openEditModal(exp),
+                                  },
+                                  {
+                                    label: "Delete Expense",
+                                    description: "Permanently delete this entry",
+                                    icon: Trash2,
+                                    variant: "danger",
+                                    onClick: () => setExpenseToDelete(exp),
+                                  },
+                                ]}
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop View (Table or Grid) */}
+                <div className="hidden sm:block">
+                  {viewMode === "table" ? (
+                    /* TABLE VIEW */
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-left text-xs">
+                        <thead className="border-b border-slate-100 bg-slate-50/80 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                          <tr>
+                            <th className="py-2.5 px-4">Date</th>
+                            <th className="py-2.5 px-4">Category</th>
+                            <th className="py-2.5 px-4">Description / Merchant</th>
+                            <th className="py-2.5 px-4">Payment Method</th>
+                            <th className="py-2.5 px-4 font-mono text-right">Amount</th>
+                            <th className="py-2.5 px-4 text-right pr-6">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredExpenses.map((exp) => {
+                            const catConfig = getCategoryBadge(exp.category);
+                            return (
+                              <tr
+                                key={exp.id}
+                                onClick={() => setViewingExpenseDetail(exp)}
+                                className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
+                              >
+                                <td className="whitespace-nowrap py-3 px-4 font-mono text-[11px] text-slate-700">
+                                  {exp.date}
+                                </td>
+                                <td className="py-3 px-4">
+                                  <Chip
+                                    size="sm"
+                                    color={catConfig.chipColor}
+                                    label={exp.category}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openCategoryTrend(exp.category);
+                                    }}
+                                    className="border border-current/15 shadow-2xs"
+                                    title={`Click to view trend graph for ${exp.category}`}
+                                  />
+                                </td>
+                                <td className="py-3 px-4">
+                                  <div className="font-semibold text-slate-900 text-xs group-hover:text-emerald-700 transition flex items-center gap-1.5">
+                                    <span>{exp.description || "Daily Expense"}</span>
+                                    <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                                  </div>
+                                  {exp.merchant && (
+                                    <div className="text-[11px] text-slate-400">
+                                      Store: {exp.merchant}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="whitespace-nowrap py-3 px-4">
+                                  <Chip
+                                    size="sm"
+                                    color="slate"
+                                    label={exp.paymentMethod}
+                                    className="border border-slate-200/80 font-medium"
+                                  />
+                                </td>
+                                <td className="whitespace-nowrap py-3 px-4 font-mono font-bold text-slate-900 text-right text-sm">
+                                  ৳{exp.amount.toLocaleString()}
+                                </td>
+                                <td className="whitespace-nowrap py-2 px-4 text-right pr-4">
+                                  <TableRowActions
+                                    title={exp.description || exp.category}
+                                    subtitle={`${exp.date} • ৳${exp.amount.toLocaleString()} (${exp.paymentMethod})`}
+                                    actions={[
+                                      {
+                                        label: "View Full Details",
+                                        description: "Odometer, receipt image, merchant, notes",
+                                        icon: ExternalLink,
+                                        variant: "emerald",
+                                        onClick: () => setViewingExpenseDetail(exp),
+                                      },
+                                      {
+                                        label: "Edit Expense Record",
+                                        description: "Update amount, category, date or payment method",
+                                        icon: Edit2,
+                                        onClick: () => openEditModal(exp),
+                                      },
+                                      {
+                                        label: "Delete Expense",
+                                        description: "Permanently delete this entry",
+                                        icon: Trash2,
+                                        variant: "danger",
+                                        onClick: () => setExpenseToDelete(exp),
+                                      },
+                                    ]}
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
-                  );
-                })}
-              </div>
+                  ) : (
+                    /* GRID CARDS VIEW */
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                      {filteredExpenses.map((exp) => {
+                        const catConfig = getCategoryBadge(exp.category);
+                        return (
+                          <div
+                            key={exp.id}
+                            onClick={() => setViewingExpenseDetail(exp)}
+                            className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs hover:shadow-xs hover:border-slate-300 transition-all cursor-pointer flex flex-col justify-between group"
+                          >
+                            <div>
+                              <div className="flex items-center justify-between">
+                                <Chip
+                                  size="sm"
+                                  color={catConfig.chipColor}
+                                  label={exp.category}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openCategoryTrend(exp.category);
+                                  }}
+                                  className="border border-current/15 shadow-2xs max-w-[70%]"
+                                  title={`Click to view trend graph for ${exp.category}`}
+                                />
+                                <span className="font-mono text-[10px] text-slate-400">{exp.date}</span>
+                              </div>
+
+                              <div className="mt-2 text-xs font-bold text-slate-900 group-hover:text-blue-600 transition flex items-center justify-between">
+                                <span>{exp.description || "Daily Expense"}</span>
+                                <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                              </div>
+                              {exp.merchant && (
+                                <div className="text-[11px] text-slate-400">{exp.merchant}</div>
+                              )}
+                            </div>
+
+                            <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                              <div>
+                                <div className="font-mono font-bold text-slate-900 text-sm">
+                                  ৳{exp.amount.toLocaleString()}
+                                </div>
+                                <span className="text-[10px] text-slate-400">{exp.paymentMethod}</span>
+                              </div>
+
+                              <TableRowActions
+                                title={exp.description || exp.category}
+                                subtitle={`${exp.date} • ৳${exp.amount.toLocaleString()} (${exp.paymentMethod})`}
+                                actions={[
+                                  {
+                                    label: "View Full Details",
+                                    description: "Odometer, receipt image, merchant, notes",
+                                    icon: ExternalLink,
+                                    variant: "emerald",
+                                    onClick: () => setViewingExpenseDetail(exp),
+                                  },
+                                  {
+                                    label: "Edit Expense Record",
+                                    description: "Update amount, category, date or payment method",
+                                    icon: Edit2,
+                                    onClick: () => openEditModal(exp),
+                                  },
+                                  {
+                                    label: "Delete Expense",
+                                    description: "Permanently delete this entry",
+                                    icon: Trash2,
+                                    variant: "danger",
+                                    onClick: () => setExpenseToDelete(exp),
+                                  },
+                                ]}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </div>
         </div>
           )}
 
-          {/* LOANS & SEGMENT REPAYMENTS VIEW */}
-          {activeTab === "loans" && (
+          {/* BANKING & FINANCIAL OBLIGATIONS VIEW */}
+          {activeTab === "banking" && (
             <div className="space-y-6">
-              {/* Mobile Compact Loan Stats Strip (sm:hidden) */}
-              <div className="sm:hidden rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs">
-                <div className="grid grid-cols-3 divide-x divide-slate-100 text-center">
-                  <div className="px-1">
-                    <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
-                      Borrowed
+              {/* Mobile Compact Banking Metric Cards (matching reference mockup) */}
+              <div className="sm:hidden grid grid-cols-3 gap-2">
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <div className="h-7 w-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 mb-1">
+                      <Wallet className="h-3.5 w-3.5" />
                     </div>
-                    <div className="mt-0.5 text-xs font-bold font-mono text-slate-900 truncate">
-                      ৳{loanStats.totalBorrowed.toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="px-1">
-                    <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
-                      Remaining
-                    </div>
-                    <div className="mt-0.5 text-xs font-bold font-mono text-amber-700 truncate">
-                      ৳{loanStats.totalRemaining.toLocaleString()}
+                    <div className="text-[10px] font-semibold text-slate-500 leading-tight">
+                      Total Commitments
                     </div>
                   </div>
-                  <div className="px-1">
-                    <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
-                      Cleared
+                  <div className="mt-2">
+                    <div className="text-xs font-black font-mono text-slate-900 truncate">
+                      ৳{bankingMetrics.totalTarget.toLocaleString()}
                     </div>
-                    <div className="mt-0.5 text-xs font-bold font-mono text-emerald-600 truncate">
-                      {loanStats.overallRepaidPct}%
+                    <div className="text-[9px] text-slate-400 truncate mt-0.5">
+                      {unifiedObligations.length} obligations
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <div className="h-7 w-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mb-1">
+                      <Coins className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="text-[10px] font-semibold text-slate-500 leading-tight">
+                      Paid / Deposited
+                    </div>
+                  </div>
+                  <div className="mt-2">
+                    <div className="text-xs font-black font-mono text-emerald-600 truncate">
+                      ৳{bankingMetrics.cumulativePaid.toLocaleString()}
+                    </div>
+                    <div className="text-[9px] text-emerald-600 font-semibold truncate mt-0.5">
+                      ↑ {bankingMetrics.overallPct}% completed
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <div className="h-7 w-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 mb-1">
+                      <Clock className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="text-[10px] font-semibold text-slate-500 leading-tight">
+                      Remaining Balance
+                    </div>
+                  </div>
+                  <div className="mt-2">
+                    <div className="text-xs font-black font-mono text-amber-600 truncate">
+                      ৳{bankingMetrics.totalRemaining.toLocaleString()}
+                    </div>
+                    <div className="text-[9px] text-amber-600 font-medium truncate mt-0.5">
+                      Outstanding
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Top Loan Metric Cards (hidden sm:grid) */}
+              {/* Top Banking Metric Cards (hidden sm:grid) */}
               <div className="hidden sm:grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Total Borrowed
+                    Total Commitments / Target
                   </div>
                   <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-slate-900">
-                    ৳{loanStats.totalBorrowed.toLocaleString()}
+                    ৳{bankingMetrics.totalTarget.toLocaleString()}
                   </div>
                   <div className="mt-1 text-[11px] text-slate-400 flex items-center gap-1">
                     <Banknote className="h-3.5 w-3.5 text-slate-400" />
-                    <span>Principal amount ({loans.length} loans)</span>
+                    <span>{unifiedObligations.length} obligations (EMIs, Loans, DPS)</span>
                   </div>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Total Repaid So Far
+                    Cumulative Paid / Deposited
                   </div>
                   <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-emerald-600">
-                    ৳{loanStats.totalRepaid.toLocaleString()}
+                    ৳{bankingMetrics.cumulativePaid.toLocaleString()}
                   </div>
                   <div className="mt-1 text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
                     <Percent className="h-3 w-3" />
-                    <span>{loanStats.overallRepaidPct}% Cleared ({loanStats.totalSegments} segments)</span>
+                    <span>{bankingMetrics.overallPct}% Cleared / Deposited</span>
                   </div>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Remaining Debt
+                    Remaining Balance
                   </div>
                   <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-amber-700">
-                    ৳{loanStats.totalRemaining.toLocaleString()}
+                    ৳{bankingMetrics.totalRemaining.toLocaleString()}
                   </div>
                   <div className="mt-1 text-[11px] text-slate-400">
-                    Outstanding balance to clear
+                    Outstanding commitments to clear
                   </div>
                 </div>
 
@@ -1601,78 +2732,863 @@ export function DailyExpensesPage() {
                     Active Portfolios
                   </div>
                   <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-slate-900">
-                    {loanStats.activeCount}
+                    {bankingMetrics.activeCount}
                     <span className="text-xs font-normal text-slate-400 ml-1.5">
-                      / {loans.length} total
+                      / {unifiedObligations.length} total
                     </span>
                   </div>
                   <div className="mt-1 text-[11px] text-slate-400">
-                    {loanStats.settledCount} fully paid & closed
+                    {unifiedObligations.length - bankingMetrics.activeCount} completed & closed
                   </div>
                 </div>
               </div>
 
-              {/* Action Bar */}
-              <div className="flex items-center justify-between gap-3 bg-white border border-slate-200/90 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl shadow-2xs">
-                <div>
-                  <h2 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600" />
-                    <span>Loans & Flexible Segment Repayments</span>
-                  </h2>
-                  <p className="text-[11px] text-slate-500 mt-0.5 hidden sm:block">
-                    Manage car loans, bank borrowings, or private debts with partial segment repayments at different dates.
-                  </p>
+              {/* Action Bar & Sub-tab Switcher Card (matching reference mockup) */}
+              <div className="bg-white border border-slate-200/90 p-3 sm:p-4 rounded-2xl sm:rounded-3xl shadow-2xs space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  {/* Title Banner */}
+                  <div className="flex items-start sm:items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center font-bold shrink-0 mt-0.5 sm:mt-0">
+                      <Landmark className="h-4.5 w-4.5" />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <span>Banking & Obligations</span>
+                      </h2>
+                      <p className="text-[11px] text-slate-500 leading-relaxed">
+                        Unified ledger of Consumer EMIs, Credit Cards, Bank Loans, and DPS / FDR savings
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Desktop Only Add Button */}
+                  <div className="relative hidden sm:block">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddObligationDropdown((prev) => !prev)}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-2 text-xs font-bold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer shrink-0"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Add Obligation</span>
+                      <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${showAddObligationDropdown ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {showAddObligationDropdown && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-30"
+                          onClick={() => setShowAddObligationDropdown(false)}
+                        />
+                        <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white p-1.5 shadow-xl border border-slate-200/90 z-40 text-left animate-in fade-in zoom-in-95 duration-100">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAddObligationDropdown(false);
+                              openAddLoanModal();
+                            }}
+                            className="w-full flex items-start gap-3 p-2.5 rounded-xl hover:bg-emerald-50/70 transition text-left group cursor-pointer"
+                          >
+                            <div className="p-2 rounded-lg bg-emerald-100/70 text-emerald-800 group-hover:bg-emerald-200/80 transition shrink-0 mt-0.5">
+                              <CreditCard className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-slate-800 group-hover:text-emerald-900">
+                                EMI / Loan / Card
+                              </div>
+                              <div className="text-[11px] text-slate-500 line-clamp-1">
+                                Consumer EMI, credit card, bank loan
+                              </div>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAddObligationDropdown(false);
+                              setLoansViewSubTab("savings");
+                              setTriggerAddSavings(true);
+                            }}
+                            className="w-full flex items-start gap-3 p-2.5 rounded-xl hover:bg-teal-50/70 transition text-left group cursor-pointer"
+                          >
+                            <div className="p-2 rounded-lg bg-teal-100/70 text-teal-800 group-hover:bg-teal-200/80 transition shrink-0 mt-0.5">
+                              <Landmark className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-slate-800 group-hover:text-teal-900">
+                                DPS / FDR Scheme
+                              </div>
+                              <div className="text-[11px] text-slate-500 line-clamp-1">
+                                Monthly DPS, fixed deposit scheme
+                              </div>
+                            </div>
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
+
+                {/* Subtabs Switcher */}
+                <div className="w-full">
+                  <Tabs
+                    value={loansViewSubTab}
+                    onChange={(val) => setLoansViewSubTab(val as any)}
+                    variant="segmented"
+                    size="sm"
+                    fullWidth
+                    items={[
+                      { id: "dashboard", label: "Ledger" },
+                      { id: "matrix", label: "Matrix" },
+                      {
+                        id: "savings",
+                        label: "DPS & FDR",
+                        count: savingsStats.total > 0 ? savingsStats.total : undefined,
+                      },
+                    ]}
+                  />
+                </div>
+
+                {/* Full-width Add Obligation Button on Mobile (matching mockup) */}
                 <button
                   type="button"
-                  onClick={openAddLoanModal}
-                  className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+                  onClick={() => setShowAddObligationDropdown(true)}
+                  className="sm:hidden w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-2.5 text-xs font-bold text-white shadow-xs active:scale-[0.99] transition cursor-pointer"
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Add Loan / Borrowing</span>
+                  <Plus className="h-4 w-4" />
+                  <span>Add Obligation</span>
+                  <ChevronDown className="h-3.5 w-3.5 ml-0.5 opacity-80" />
                 </button>
               </div>
 
-              {/* Loans List */}
-              {loadingLoans ? (
+              {/* Banking & Financial Obligations Content */}
+              {loadingLoans || loadingSavings ? (
                 <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 text-xs text-slate-500">
                   <div className="h-6 w-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                  Loading loans and repayment segments...
+                  Loading financial commitments and savings...
                 </div>
-              ) : loans.length === 0 ? (
+              ) : loansViewSubTab === "savings" && activeMember ? (
+                <MemberSavingsView
+                  activeMember={activeMember}
+                  onToast={showToast}
+                  onOpenAddModalDirect={triggerAddSavings}
+                  onResetOpenAddModal={() => {
+                    setTriggerAddSavings(false);
+                    if (activeMemberId) loadSavingsSummary(activeMemberId);
+                  }}
+                />
+              ) : unifiedObligations.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center space-y-3">
                   <div className="h-12 w-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mx-auto">
-                    <CreditCard className="h-6 w-6" />
+                    <Landmark className="h-6 w-6" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900">No Loans or Borrowings Recorded</h3>
+                    <h3 className="text-sm font-bold text-slate-900">No Financial Obligations Recorded</h3>
                     <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                      Keep track of car loans, personal EMIs, bank borrowings, or loans taken from relatives. Add your repayments in flexible segments whenever you pay.
+                      Keep all your Consumer EMIs, Credit Card Bills, Bank Loans, and DPS / FDR savings under one roof with automated tracking.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={openAddLoanModal}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>Add First Loan (e.g. Car Loan)</span>
-                  </button>
+                  <div className="flex items-center justify-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={openAddLoanModal}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Add EMI / Loan</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoansViewSubTab("savings");
+                        setTriggerAddSavings(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Add DPS / FDR</span>
+                    </button>
+                  </div>
+                </div>
+              ) : loansViewSubTab === "dashboard" ? (
+                <div className="space-y-4">
+                  {/* Horizontal Scrollable Filter Chips (matching mockup) */}
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+                    {[
+                      { id: "ALL", label: "All", count: unifiedObligations.length },
+                      { id: "EMI", label: "EMIs", count: bankingMetrics.emiCount },
+                      { id: "CARD", label: "Credit Cards", count: bankingMetrics.cardCount },
+                      { id: "LOAN", label: "Loans", count: bankingMetrics.loanCount },
+                      { id: "SAVINGS", label: "Savings", count: bankingMetrics.savingsCount },
+                    ].map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setBankingFilter(item.id as any)}
+                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition cursor-pointer select-none ${
+                          bankingFilter === item.id
+                            ? "bg-[#064e3b] text-white shadow-xs"
+                            : "bg-white border border-slate-200/90 text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span>{item.label}</span>
+                        <span
+                          className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                            bankingFilter === item.id
+                              ? "bg-emerald-700 text-white"
+                              : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
+                          {item.count}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                    <div className="p-3.5 sm:p-4 border-b border-slate-100 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Table className="w-4 h-4 text-slate-500 shrink-0" />
+                        <h3 className="text-sm font-bold text-slate-900">
+                          Obligations
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openCategoryTrend("Loan & EMI Repayment")}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#064e3b] border border-emerald-200/80 text-xs font-bold transition cursor-pointer shadow-2xs"
+                          title="Compare Trends"
+                        >
+                          <LineChart className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Compare</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                          title="Sort"
+                        >
+                          <ArrowUpDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Mobile Obligations Cards List (sm:hidden, matching user mockup) */}
+                    <div className="sm:hidden divide-y divide-slate-100">
+                      {filteredObligations.length === 0 ? (
+                        <div className="py-12 text-center text-xs text-slate-400">
+                          No financial obligations match the selected filter.
+                        </div>
+                      ) : (
+                        filteredObligations.map((item) => {
+                          const iconCfg = getObligationIcon(item.title, item.typeCategory);
+                          const IconComp = iconCfg.icon;
+                          const pct =
+                            item.totalTarget > 0
+                              ? Math.min(100, Math.round((item.cumulativePaid / item.totalTarget) * 100))
+                              : 0;
+
+                          return (
+                            <div
+                              key={`${item.kind}-${item.id}`}
+                              onClick={() => navigate(item.targetUrl)}
+                              className="p-3.5 flex items-center gap-3 hover:bg-slate-50/80 active:bg-slate-100 transition cursor-pointer"
+                            >
+                              {/* Left Icon Box */}
+                              <div className={`h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 border ${iconCfg.bg}`}>
+                                <IconComp className="h-5 w-5" />
+                              </div>
+
+                              {/* Middle: Title, Subtitle, Progress Bar */}
+                              <div className="flex-1 min-w-0">
+                                <div className="font-bold text-sm text-slate-900 truncate">
+                                  {item.title}
+                                </div>
+                                <div className="text-xs text-slate-400 mt-0.5 truncate">
+                                  {item.institution} • {item.typeLabel}
+                                </div>
+                                {/* Progress bar */}
+                                <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
+                                  <div
+                                    className="bg-emerald-500 h-1.5 rounded-full transition-all duration-300"
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Right: Monthly Due, % badge, Chevron */}
+                              <div className="flex items-center gap-2 shrink-0">
+                                <div className="text-right">
+                                  <div className="text-xs font-bold font-mono text-amber-600">
+                                    {item.monthlyDue > 0 ? `৳${item.monthlyDue.toLocaleString()}` : `৳${item.totalTarget.toLocaleString()}`}
+                                  </div>
+                                  <div className="mt-0.5">
+                                    <span
+                                      className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                        pct >= 100
+                                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                                          : "bg-amber-50 text-amber-600 border border-amber-200/60"
+                                      }`}
+                                    >
+                                      {pct}%
+                                    </span>
+                                  </div>
+                                </div>
+                                <ChevronRight className="h-4 w-4 text-slate-300" />
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Desktop Obligations Table (hidden sm:block) */}
+                    <div className="hidden sm:block overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <th className="py-3 px-3 text-center w-10">#</th>
+                            <th className="py-3 px-4">Title & Commitment</th>
+                            <th className="py-3 px-3">Institution / Lender</th>
+                            <th className="py-3 px-3 text-center">Type</th>
+                            <th className="py-3 px-3 text-center">Tenure</th>
+                            <th className="py-3 px-3 text-right">Monthly Due</th>
+                            <th className="py-3 px-4 text-right">Total Commitment</th>
+                            <th className="py-3 px-4 text-right">Cumulative Paid</th>
+                            <th className="py-3 px-4 text-right">Remaining Balance</th>
+                            <th className="py-3 px-3 text-center">Status</th>
+                            <th className="py-3 px-4 text-right w-24">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredObligations.length === 0 ? (
+                            <tr>
+                              <td colSpan={11} className="py-12 text-center text-slate-400">
+                                No financial obligations match the selected filter.
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredObligations.map((item, idx) => {
+                              const typeColor: ChipColor =
+                                item.typeCategory === "CARD"
+                                  ? "rose"
+                                  : item.typeCategory === "EMI"
+                                  ? "emerald"
+                                  : item.typeCategory === "SAVINGS"
+                                  ? "blue"
+                                  : "amber";
+
+                              return (
+                                <tr
+                                  key={`${item.kind}-${item.id}`}
+                                  onClick={() => navigate(item.targetUrl)}
+                                  className="hover:bg-slate-50/80 transition cursor-pointer group"
+                                >
+                                  <td className="py-3 px-3 text-center text-slate-400 font-mono text-[11px]">
+                                    {idx + 1}
+                                  </td>
+                                  <td className="py-3 px-4 font-bold text-slate-900 group-hover:text-emerald-700 transition">
+                                    <div className="flex items-center gap-1.5">
+                                      <span>{item.title}</span>
+                                      <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3 text-slate-600">
+                                    {item.institution}
+                                  </td>
+                                  <td className="py-3 px-3 text-center">
+                                    <Chip
+                                      size="sm"
+                                      color={typeColor}
+                                      label={item.typeLabel}
+                                      className="border border-current/20"
+                                    />
+                                  </td>
+                                  <td className="py-3 px-3 text-center font-mono">
+                                    <Chip
+                                      size="sm"
+                                      color="slate"
+                                      label={item.tenureText}
+                                      className="border border-slate-200/80 font-mono"
+                                    />
+                                  </td>
+                                  <td className="py-3 px-3 text-right font-mono font-bold text-slate-800">
+                                    {item.monthlyDue > 0 ? `৳${item.monthlyDue.toLocaleString()}` : "—"}
+                                  </td>
+                                  <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                                    ৳{item.totalTarget.toLocaleString()}
+                                  </td>
+                                  <td className="py-3 px-4 text-right font-mono font-bold text-emerald-600">
+                                    ৳{item.cumulativePaid.toLocaleString()}
+                                  </td>
+                                  <td className="py-3 px-4 text-right font-mono font-bold text-amber-700">
+                                    ৳{item.remaining.toLocaleString()}
+                                  </td>
+                                  <td className="py-3 px-3 text-center">
+                                    <Chip
+                                      size="sm"
+                                      color={item.isCleared ? "emerald" : "amber"}
+                                      label={`${item.status} (${item.pct}%)`}
+                                      className="border border-current/20 font-bold"
+                                    />
+                                  </td>
+                                  <td className="py-3 px-4 text-right">
+                                    <TableRowActions
+                                      title={item.title}
+                                      subtitle={`${item.typeLabel} • ${item.institution}`}
+                                      actions={[
+                                        {
+                                          label: "View Schedule & Ledger",
+                                          description: "Open breakdown, installments & records",
+                                          icon: ExternalLink,
+                                          onClick: () => navigate(item.targetUrl),
+                                        },
+                                        ...(item.kind === "LOAN" && item.rawLoan
+                                          ? [
+                                              {
+                                                label: "Edit Obligation Details",
+                                                description: "Update principal, tenure, lender or notes",
+                                                icon: Pencil,
+                                                onClick: () => openEditLoanModal(item.rawLoan!),
+                                              },
+                                              {
+                                                label: "Delete Obligation",
+                                                description: "Permanently delete this loan & all segments",
+                                                icon: Trash2,
+                                                variant: "danger" as const,
+                                                onClick: () => setLoanToDelete(item.rawLoan!),
+                                              },
+                                            ]
+                                          : item.kind === "SAVINGS" && item.rawSaving
+                                          ? [
+                                              {
+                                                label: "View & Edit Scheme",
+                                                description: "Open savings milestones & ledger",
+                                                icon: ExternalLink,
+                                                onClick: () => navigate(item.targetUrl),
+                                              },
+                                              {
+                                                label: "Delete Savings Scheme",
+                                                description: "Permanently delete this savings scheme",
+                                                icon: Trash2,
+                                                variant: "danger" as const,
+                                                onClick: () => setSavingToDelete(item.rawSaving!),
+                                              },
+                                            ]
+                                          : []),
+                                      ]}
+                                    />
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                        {filteredObligations.length > 0 && (
+                          <tfoot>
+                            <tr className="bg-slate-100/90 text-slate-900 font-bold border-t-2 border-slate-300">
+                              <td className="py-3.5 px-4 uppercase tracking-wider text-[11px] text-slate-800 font-black" colSpan={4}>
+                                Filtered Total ({filteredObligations.length} items)
+                              </td>
+                              <td className="py-3.5 px-3 text-center font-mono text-slate-700 font-bold">
+                                —
+                              </td>
+                              <td className="py-3.5 px-3 text-right font-mono text-slate-900 text-xs font-black">
+                                ৳{filteredObligations.reduce((sum, o) => sum + o.monthlyDue, 0).toLocaleString()}
+                              </td>
+                              <td className="py-3.5 px-4 text-right font-mono text-slate-900 text-sm font-black">
+                                ৳{filteredObligations.reduce((sum, o) => sum + o.totalTarget, 0).toLocaleString()}
+                              </td>
+                              <td className="py-3.5 px-4 text-right font-mono text-emerald-700 text-sm font-black">
+                                ৳{filteredObligations.reduce((sum, o) => sum + o.cumulativePaid, 0).toLocaleString()}
+                              </td>
+                              <td className="py-3.5 px-4 text-right font-mono text-amber-800 text-sm font-black">
+                                ৳{filteredObligations.reduce((sum, o) => sum + o.remaining, 0).toLocaleString()}
+                              </td>
+                              <td className="py-3.5 px-3 text-center text-emerald-700 font-mono text-xs font-bold">
+                                {(() => {
+                                  const totalT = filteredObligations.reduce((sum, o) => sum + o.totalTarget, 0);
+                                  const totalP = filteredObligations.reduce((sum, o) => sum + o.cumulativePaid, 0);
+                                  return totalT > 0 ? Math.min(100, Math.round((totalP / totalT) * 100)) : 0;
+                                })()}%
+                              </td>
+                              <td className="py-3.5 px-4 text-right font-mono text-xs text-slate-500">
+                                —
+                              </td>
+                            </tr>
+                          </tfoot>
+                        )}
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* ========================================================= */}
+                  {/* 2. TENURE COMMITMENT SUMMARY (For Loans & EMIs)           */}
+                  {/* ========================================================= */}
+                  {loans.length > 0 && (
+                    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                      <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                        <div>
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                            <Table className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Tenure Commitment Summary</span>
+                          </h3>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Aggregate breakdown of 12-month, 6-month, and 3-month commitments
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openCategoryTrend("Loan & EMI Repayment")}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-semibold transition cursor-pointer shadow-2xs"
+                          title="Compare EMI Trends"
+                        >
+                          <LineChart className="w-3.5 h-3.5 text-teal-600" />
+                          <span>Trend Analysis</span>
+                        </button>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                              <th className="py-3 px-4">Tenure Category</th>
+                              <th className="py-3 px-3 text-center">Active EMIs</th>
+                              <th className="py-3 px-4 text-right">Total Commitment</th>
+                              <th className="py-3 px-4 text-right">Total Paid So Far</th>
+                              <th className="py-3 px-4 text-right">Remaining Balance</th>
+                              <th className="py-3 px-4 text-right">Status / Cleared</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {tenureSummary.groups.map((group) => {
+                              if (group.count === 0 && group.commitment === 0) return null;
+                              const pct = group.commitment > 0 ? Math.min(100, Math.round((group.paid / group.commitment) * 100)) : 0;
+                              return (
+                                <tr key={group.category} className="hover:bg-slate-50/60 transition">
+                                  <td className="py-3 px-4 font-bold text-slate-800">
+                                    {group.category}
+                                  </td>
+                                  <td className="py-3 px-3 text-center font-mono text-slate-600">
+                                    {group.count}
+                                  </td>
+                                  <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                                    ৳{group.commitment.toLocaleString()}
+                                  </td>
+                                  <td className="py-3 px-4 text-right font-mono font-bold text-emerald-600">
+                                    ৳{group.paid.toLocaleString()}
+                                  </td>
+                                  <td className="py-3 px-4 text-right font-mono font-bold text-amber-700">
+                                    ৳{group.remaining.toLocaleString()}
+                                  </td>
+                                  <td className="py-3 px-4 text-right font-semibold">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <div className="w-16 h-2 rounded-full bg-slate-100 overflow-hidden">
+                                        <div
+                                          className="h-full rounded-full bg-emerald-500"
+                                          style={{ width: `${pct}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-[11px] font-mono text-slate-600 w-9 text-right">{pct}%</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                          <tfoot>
+                            <tr className="bg-slate-100/90 text-slate-900 font-bold border-t-2 border-slate-300">
+                              <td className="py-3.5 px-4 uppercase tracking-wider text-[11px] text-slate-800 font-black">
+                                Total Combined
+                              </td>
+                              <td className="py-3.5 px-3 text-center font-mono text-slate-700 font-bold">
+                                {loans.length}
+                              </td>
+                              <td className="py-3.5 px-4 text-right font-mono text-slate-900 text-sm font-black">
+                                ৳{tenureSummary.totalCombinedCommitment.toLocaleString()}
+                              </td>
+                              <td className="py-3.5 px-4 text-right font-mono text-emerald-700 text-sm font-black">
+                                ৳{tenureSummary.totalCombinedPaid.toLocaleString()}
+                              </td>
+                              <td className="py-3.5 px-4 text-right font-mono text-amber-800 text-sm font-black">
+                                ৳{tenureSummary.totalCombinedRemaining.toLocaleString()}
+                              </td>
+                              <td className="py-3.5 px-4 text-right text-emerald-700 font-mono text-xs font-bold">
+                                {tenureSummary.totalCombinedCommitment > 0
+                                  ? Math.min(
+                                      100,
+                                      Math.round(
+                                        (tenureSummary.totalCombinedPaid /
+                                          tenureSummary.totalCombinedCommitment) *
+                                          100
+                                      )
+                                    )
+                                  : 0}
+                                % Paid
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ========================================================= */}
+                  {/* 3. MONTHLY OBLIGATION MATRIX: Exact Spreadsheet Mirror    */}
+                  {/* ========================================================= */}
+                  {emiMatrixData.rows.length > 0 && (
+                    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                      <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                        <div>
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                            <CalendarRange className="w-3.5 h-3.5 text-teal-600" />
+                            <span>Monthly Cashflow & Obligation Matrix</span>
+                          </h3>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Spreadsheet timeline of all monthly installments. Click any cell to toggle payment!
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openCategoryTrend("Loan & EMI Repayment")}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-semibold transition cursor-pointer shadow-2xs"
+                          title="Monthly Obligation Trend Analysis"
+                        >
+                          <LineChart className="w-3.5 h-3.5 text-teal-600" />
+                          <span>Obligation Trends</span>
+                        </button>
+                      </div>
+
+                      <div className="overflow-x-auto max-h-[500px]">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead className="sticky top-0 z-10 bg-slate-100 border-b border-slate-200">
+                            <tr className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                              <th className="py-3 px-4 sticky left-0 bg-slate-100 z-20 shadow-xs border-r border-slate-200 w-36">
+                                Month / Year
+                              </th>
+                              {emiMatrixData.activeLoans.map((loan) => (
+                                <th
+                                  key={loan.id}
+                                  className="py-3 px-3 text-center border-r border-slate-200 min-w-[130px]"
+                                >
+                                  <div
+                                    onClick={() => navigate(`/my-life/expenses/loans/${loan.id}`)}
+                                    className="font-bold text-slate-800 hover:text-teal-700 cursor-pointer truncate max-w-[140px]"
+                                    title={loan.loanTitle}
+                                  >
+                                    {loan.loanTitle}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 font-normal">
+                                    {loan.tenureMonths ? `${loan.tenureMonths}m` : ""} • ৳{(loan.monthlyEmiAmount || 0).toLocaleString()}
+                                  </div>
+                                </th>
+                              ))}
+                              <th className="py-3 px-4 text-right bg-teal-50/80 font-black text-teal-900 border-l border-teal-200 min-w-[120px]">
+                                Monthly Total
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {emiMatrixData.rows.map((row) => (
+                              <tr key={row.monthLabel} className="hover:bg-slate-50/80 transition">
+                                {/* Month Label (Sticky Left) */}
+                                <td className="py-3 px-4 sticky left-0 bg-white font-bold text-slate-900 border-r border-slate-200 z-10 shadow-xs">
+                                  {row.monthLabel}
+                                </td>
+
+                                {/* Cells for each active EMI */}
+                                {emiMatrixData.activeLoans.map((loan) => {
+                                  const cell = row.loanCells[loan.id];
+                                  if (!cell || cell.amount <= 0 || !cell.segment) {
+                                    return (
+                                      <td
+                                        key={loan.id}
+                                        className="py-3 px-3 text-center text-slate-300 font-mono border-r border-slate-100"
+                                      >
+                                        —
+                                      </td>
+                                    );
+                                  }
+
+                                  return (
+                                    <td
+                                      key={loan.id}
+                                      className="py-2 px-2 text-center border-r border-slate-100"
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          cell.segment && handleToggleMatrixCell(loan.id, cell.segment.id)
+                                        }
+                                        className={`w-full py-1.5 px-2 rounded-xl text-xs font-mono font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                                          cell.isPaid
+                                            ? "bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300"
+                                            : "bg-slate-100 hover:bg-teal-50 hover:border-teal-300 text-slate-800 border border-slate-200"
+                                        }`}
+                                        title={
+                                          cell.isPaid
+                                            ? "Paid! Click to mark as unpaid"
+                                            : "Click to mark as paid"
+                                        }
+                                      >
+                                        {cell.isPaid ? (
+                                          <>
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                            <span>৳{cell.amount.toLocaleString()}</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Circle className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                            <span>৳{cell.amount.toLocaleString()}</span>
+                                          </>
+                                        )}
+                                      </button>
+                                    </td>
+                                  );
+                                })}
+
+                                {/* Monthly Total (Rightmost Column) */}
+                                <td className="py-3 px-4 text-right font-mono font-black text-sm text-teal-800 bg-teal-50/50 border-l border-teal-100">
+                                  ৳{row.rowTotal.toLocaleString()}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : loansViewSubTab === "matrix" ? (
+                <div className="space-y-6">
+                  {emiMatrixData.rows.length > 0 ? (
+                    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                      <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                        <div>
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                            <CalendarRange className="w-3.5 h-3.5 text-teal-600" />
+                            <span>Monthly Cashflow & Obligation Matrix</span>
+                          </h3>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Spreadsheet timeline of all monthly installments. Click any cell to toggle payment!
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openCategoryTrend("Loan & EMI Repayment")}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-semibold transition cursor-pointer shadow-2xs"
+                          title="Monthly Obligation Trend Analysis"
+                        >
+                          <LineChart className="w-3.5 h-3.5 text-teal-600" />
+                          <span>Obligation Trends</span>
+                        </button>
+                      </div>
+
+                      <div className="overflow-x-auto max-h-[600px]">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead className="sticky top-0 z-10 bg-slate-100 border-b border-slate-200">
+                            <tr className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                              <th className="py-3 px-4 sticky left-0 bg-slate-100 z-20 shadow-xs border-r border-slate-200 w-36">
+                                Month / Year
+                              </th>
+                              {emiMatrixData.activeLoans.map((loan) => (
+                                <th
+                                  key={loan.id}
+                                  className="py-3 px-3 text-center border-r border-slate-200 min-w-[130px]"
+                                >
+                                  <div
+                                    onClick={() => navigate(`/my-life/expenses/loans/${loan.id}`)}
+                                    className="font-bold text-slate-800 hover:text-teal-700 cursor-pointer truncate max-w-[140px]"
+                                    title={loan.loanTitle}
+                                  >
+                                    {loan.loanTitle}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 font-normal">
+                                    {loan.tenureMonths ? `${loan.tenureMonths}m` : ""} • ৳{(loan.monthlyEmiAmount || 0).toLocaleString()}
+                                  </div>
+                                </th>
+                              ))}
+                              <th className="py-3 px-4 text-right bg-teal-50/80 font-black text-teal-900 border-l border-teal-200 min-w-[120px]">
+                                Monthly Total
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {emiMatrixData.rows.map((row) => (
+                              <tr key={row.monthLabel} className="hover:bg-slate-50/80 transition">
+                                <td className="py-3 px-4 sticky left-0 bg-white font-bold text-slate-900 border-r border-slate-200 z-10 shadow-xs">
+                                  {row.monthLabel}
+                                </td>
+                                {emiMatrixData.activeLoans.map((loan) => {
+                                  const cell = row.loanCells[loan.id];
+                                  if (!cell || cell.amount <= 0 || !cell.segment) {
+                                    return (
+                                      <td
+                                        key={loan.id}
+                                        className="py-3 px-3 text-center text-slate-300 font-mono border-r border-slate-100"
+                                      >
+                                        —
+                                      </td>
+                                    );
+                                  }
+
+                                  return (
+                                    <td
+                                      key={loan.id}
+                                      className="py-2 px-2 text-center border-r border-slate-100"
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          cell.segment && handleToggleMatrixCell(loan.id, cell.segment.id)
+                                        }
+                                        className={`w-full py-1.5 px-2 rounded-xl text-xs font-mono font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                                          cell.isPaid
+                                            ? "bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300"
+                                            : "bg-slate-100 hover:bg-teal-50 hover:border-teal-300 text-slate-800 border border-slate-200"
+                                        }`}
+                                        title={
+                                          cell.isPaid
+                                            ? "Paid! Click to mark as unpaid"
+                                            : "Click to mark as paid"
+                                        }
+                                      >
+                                        {cell.isPaid ? (
+                                          <>
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                            <span>৳{cell.amount.toLocaleString()}</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Circle className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                            <span>৳{cell.amount.toLocaleString()}</span>
+                                          </>
+                                        )}
+                                      </button>
+                                    </td>
+                                  );
+                                })}
+                                <td className="py-3 px-4 text-right font-mono font-black text-sm text-teal-800 bg-teal-50/50 border-l border-teal-100">
+                                  ৳{row.rowTotal.toLocaleString()}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center text-xs text-slate-500">
+                      No active installments found for monthly cashflow matrix.
+                    </div>
+                  )}
                 </div>
               ) : (
+                /* Cards View */
                 <div className="space-y-4">
                   {loans.map((loan) => {
-                    const isExpanded = expandedLoanIds.has(loan.id);
                     const totalPrincipal = loan.totalRepayableAmount || loan.principalAmount || 0;
-                    const repaidAmount = (loan.repayments || []).reduce(
-                      (acc, r) => acc + r.amount,
-                      0
-                    );
+                    const repaidAmount = (loan.repayments || []).filter((r) => r.isPaid).reduce((acc, r) => acc + r.amount, 0);
                     const remainingAmount = Math.max(0, totalPrincipal - repaidAmount);
-                    const pct =
-                      totalPrincipal > 0
-                        ? Math.min(100, Math.round((repaidAmount / totalPrincipal) * 100))
-                        : 0;
                     const isFullyPaid = loan.status === "PAID_OFF" || remainingAmount <= 0;
 
                     return (
@@ -1680,12 +3596,15 @@ export function DailyExpensesPage() {
                         key={loan.id}
                         className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs space-y-4"
                       >
-                        {/* Top row: Title, type, lender, status */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-bold text-slate-900">
+                              <span
+                                onClick={() => navigate(`/my-life/expenses/loans/${loan.id}`)}
+                                className="text-sm font-bold text-slate-900 hover:text-teal-700 cursor-pointer flex items-center gap-1.5"
+                              >
                                 {loan.loanTitle}
+                                <ExternalLink className="w-3 h-3 text-slate-400" />
                               </span>
                               <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                                 {loan.loanType}
@@ -1701,69 +3620,29 @@ export function DailyExpensesPage() {
                               </span>
                             </div>
                             <div className="text-xs text-slate-500 flex items-center gap-2">
-                              <span>
-                                Lender / Bank:{" "}
-                                <strong className="text-slate-800 font-semibold">{loan.lenderName}</strong>
-                              </span>
-                              <span>·</span>
+                              <span>Lender: <strong>{loan.lenderName}</strong></span>
+                              <span>•</span>
                               <span>Started: {loan.startDate}</span>
-                              {loan.targetEndDate && (
-                                <>
-                                  <span>·</span>
-                                  <span>Target: {loan.targetEndDate}</span>
-                                </>
-                              )}
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 self-start sm:self-center flex-wrap">
-                            {!isFullyPaid && (
-                              <button
-                                type="button"
-                                onClick={() => openPaySegmentModal(loan)}
-                                className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 transition shadow-xs cursor-pointer"
-                              >
-                                <Plus className="h-3.5 w-3.5" />
-                                <span>Pay Segment</span>
-                              </button>
-                            )}
-
-                            {/* View Segments in Separate Dedicated Window */}
+                          <div className="flex items-center gap-2">
                             <button
                               type="button"
-                              onClick={() => setViewingLoanSegments(loan)}
-                              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition cursor-pointer"
-                              title="Open dedicated separate view to see and manage all segments"
+                              onClick={() => navigate(`/my-life/expenses/loans/${loan.id}`)}
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-teal-50 border border-teal-200 text-teal-700 px-3 py-1.5 text-xs font-bold hover:bg-teal-100 transition cursor-pointer"
                             >
-                              <span>Segments ({loan.repayments?.length || 0})</span>
-                              <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
+                              <span>View Schedule</span>
+                              <ExternalLink className="h-3.5 w-3.5" />
                             </button>
-
-                            {/* Quick Inline Accordion Toggle */}
-                            <button
-                              type="button"
-                              onClick={() => toggleLoanExpanded(loan.id)}
-                              className="rounded-xl border border-slate-200 p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition cursor-pointer"
-                              title={isExpanded ? "Collapse inline preview" : "Expand inline preview"}
-                            >
-                              {isExpanded ? (
-                                <ChevronUp className="h-3.5 w-3.5" />
-                              ) : (
-                                <ChevronDown className="h-3.5 w-3.5" />
-                              )}
-                            </button>
-
-                            {/* Edit Loan Details */}
                             <button
                               type="button"
                               onClick={() => openEditLoanModal(loan)}
                               className="rounded-xl border border-slate-200 p-1.5 text-slate-500 hover:text-amber-700 hover:bg-amber-50 transition cursor-pointer"
-                              title="Edit Loan Details"
+                              title="Edit Loan"
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
-
-                            {/* Delete Loan */}
                             <button
                               type="button"
                               onClick={() => setLoanToDelete(loan)}
@@ -1775,178 +3654,24 @@ export function DailyExpensesPage() {
                           </div>
                         </div>
 
-                        {/* Financial Figures Bar */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
                           <div>
-                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              Total Principal
-                            </div>
-                            <div className="font-mono text-sm sm:text-base font-bold text-slate-900 mt-0.5">
-                              ৳{totalPrincipal.toLocaleString()}
-                            </div>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Commitment</div>
+                            <div className="font-mono text-sm sm:text-base font-bold text-slate-900 mt-0.5">৳{totalPrincipal.toLocaleString()}</div>
                           </div>
-
                           <div>
-                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              Total Repaid
-                            </div>
-                            <div className="font-mono text-sm sm:text-base font-bold text-emerald-600 mt-0.5">
-                              ৳{repaidAmount.toLocaleString()}
-                            </div>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Repaid</div>
+                            <div className="font-mono text-sm sm:text-base font-bold text-emerald-600 mt-0.5">৳{repaidAmount.toLocaleString()}</div>
                           </div>
-
                           <div>
-                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              Remaining Balance
-                            </div>
-                            <div className="font-mono text-sm sm:text-base font-bold text-amber-700 mt-0.5">
-                              ৳{remainingAmount.toLocaleString()}
-                            </div>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Remaining Balance</div>
+                            <div className="font-mono text-sm sm:text-base font-bold text-amber-700 mt-0.5">৳{remainingAmount.toLocaleString()}</div>
                           </div>
-
                           <div>
-                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              Monthly EMI / Rate
-                            </div>
-                            <div className="text-xs font-semibold text-slate-800 mt-1">
-                              {loan.monthlyEmiAmount
-                                ? `৳${loan.monthlyEmiAmount.toLocaleString()}/mo`
-                                : "Flexible"}
-                              {loan.interestRate ? ` (${loan.interestRate}%)` : ""}
-                            </div>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Monthly EMI</div>
+                            <div className="text-xs font-semibold text-slate-800 mt-1">৳{(loan.monthlyEmiAmount || 0).toLocaleString()}/mo</div>
                           </div>
                         </div>
-
-                        {/* Progress Bar */}
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-semibold text-slate-700">
-                              Repayment Progress
-                            </span>
-                            <span className="font-mono font-bold text-slate-900">
-                              {pct}% ({loan.repayments?.length || 0} segments paid)
-                            </span>
-                          </div>
-                          <div className="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden border border-slate-200/50">
-                            <div
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                isFullyPaid
-                                  ? "bg-emerald-500"
-                                  : "bg-gradient-to-r from-amber-500 to-emerald-500"
-                              }`}
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        {loan.notes && (
-                          <div className="text-xs text-slate-500 italic bg-amber-50/40 p-2.5 rounded-lg border border-amber-100/60">
-                            "{loan.notes}"
-                          </div>
-                        )}
-
-                        {/* Expanded Segments Table */}
-                        {isExpanded && (
-                          <div className="border-t border-slate-100 pt-3 space-y-2 animate-in fade-in duration-150">
-                            <div className="flex items-center justify-between">
-                              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                                Segment Repayment Records
-                              </h4>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setViewingLoanSegments(loan)}
-                                  className="text-xs text-slate-600 font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
-                                >
-                                  <span>Open in Separate View</span>
-                                  <ExternalLink className="h-3 w-3" />
-                                </button>
-                                {!isFullyPaid && (
-                                  <>
-                                    <span className="text-slate-300">·</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => openPaySegmentModal(loan)}
-                                      className="text-xs text-amber-700 font-bold hover:underline cursor-pointer"
-                                    >
-                                      + Record Repayment
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-
-                            {!loan.repayments || loan.repayments.length === 0 ? (
-                              <div className="text-xs text-slate-400 p-4 text-center bg-slate-50 rounded-xl">
-                                No repayment segments logged yet. Click "Pay Segment" to add installment payments.
-                              </div>
-                            ) : (
-                              <div className="overflow-x-auto rounded-xl border border-slate-200">
-                                <table className="w-full text-left text-xs">
-                                  <thead className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-semibold text-slate-600">
-                                    <tr>
-                                      <th className="px-3.5 py-2">Payment Date</th>
-                                      <th className="px-3.5 py-2 font-mono">Amount Repaid</th>
-                                      <th className="px-3.5 py-2">Method</th>
-                                      <th className="px-3.5 py-2">Notes / Details</th>
-                                      <th className="px-3.5 py-2 text-right">Actions</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-slate-100 bg-white">
-                                    {loan.repayments.map((segment: LoanRepaymentSegment, idx: number) => (
-                                      <tr
-                                        key={segment.id || idx}
-                                        onClick={() => openEditSegmentModal(loan.id, segment)}
-                                        className="hover:bg-slate-50/80 cursor-pointer transition group"
-                                      >
-                                        <td className="px-3.5 py-2 font-medium text-slate-900">
-                                          {segment.paymentDate}
-                                        </td>
-                                        <td className="px-3.5 py-2 font-mono font-bold text-emerald-600">
-                                          ৳{segment.amount.toLocaleString()}
-                                        </td>
-                                        <td className="px-3.5 py-2">
-                                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">
-                                            {segment.paymentMethod}
-                                          </span>
-                                        </td>
-                                        <td className="px-3.5 py-2 text-slate-600">
-                                          {segment.notes || `Installment #${idx + 1}`}
-                                        </td>
-                                        <td className="px-3.5 py-2 text-right">
-                                          <div className="flex items-center justify-end gap-1">
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                openEditSegmentModal(loan.id, segment);
-                                              }}
-                                              className="p-1 text-slate-400 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition cursor-pointer"
-                                              title="Edit Segment"
-                                            >
-                                              <Pencil className="h-3.5 w-3.5" />
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSegmentToDelete({ loanId: loan.id, segment });
-                                              }}
-                                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                                              title="Delete Segment"
-                                            >
-                                              <Trash2 className="h-3.5 w-3.5" />
-                                            </button>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </div>
                     );
                   })}
@@ -1955,18 +3680,168 @@ export function DailyExpensesPage() {
             </div>
           )}
 
-          {/* DPS & FDR SAVINGS VIEW */}
-          {activeTab === "savings" && activeMember && (
-            <MemberSavingsView
-              activeMember={activeMember}
-              onToast={showToast}
-              onOpenAddModalDirect={triggerAddSavings}
-              onResetOpenAddModal={() => {
-                setTriggerAddSavings(false);
-                if (activeMemberId) loadSavingsSummary(activeMemberId);
-              }}
-            />
-          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 3.5 MODAL: VIEW EXPENSE DETAIL                                           */}
+      {/* ========================================================================= */}
+      {viewingExpenseDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-md max-h-[92dvh] flex flex-col rounded-2xl sm:rounded-3xl border border-slate-200 bg-white text-slate-800 shadow-2xl my-auto animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 p-4 sm:p-5 shrink-0 bg-white">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 font-bold shrink-0">
+                  ৳
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Expense Details</h3>
+                  <p className="text-xs text-slate-500">
+                    Recorded for <span className="font-semibold">{activeMember?.fullName}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingExpenseDetail(null)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+              {/* Main Amount Card */}
+              <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/80 text-center">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Expense Amount</div>
+                <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900 mt-1">
+                  ৳{viewingExpenseDetail.amount.toLocaleString()}
+                </div>
+                <div className="mt-2 flex items-center justify-center gap-2 flex-wrap">
+                  {(() => {
+                    const cat = getCategoryBadge(viewingExpenseDetail.category);
+                    return (
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${cat.bg} ${cat.color}`}>
+                        {viewingExpenseDetail.category}
+                      </span>
+                    );
+                  })()}
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-white text-slate-700 border border-slate-200">
+                    {viewingExpenseDetail.paymentMethod}
+                  </span>
+                </div>
+              </div>
+
+              {/* Details List */}
+              <div className="space-y-3 bg-white rounded-xl border border-slate-100 p-3.5">
+                <div className="flex items-start justify-between gap-3 text-xs border-b border-slate-100 pb-2.5">
+                  <span className="text-slate-400 font-medium">Description</span>
+                  <span className="text-slate-900 font-bold text-right">
+                    {viewingExpenseDetail.description || "Daily Expense"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs border-b border-slate-100 pb-2.5">
+                  <span className="text-slate-400 font-medium">Expense Date</span>
+                  <span className="font-mono text-slate-800 font-semibold">{viewingExpenseDetail.date}</span>
+                </div>
+                {viewingExpenseDetail.merchant && (
+                  <div className="flex items-center justify-between text-xs border-b border-slate-100 pb-2.5">
+                    <span className="text-slate-400 font-medium">Store / Merchant</span>
+                    <span className="text-slate-800 font-semibold">{viewingExpenseDetail.merchant}</span>
+                  </div>
+                )}
+                {viewingExpenseDetail.notes && (
+                  <div className="text-xs pt-1">
+                    <span className="text-slate-400 font-medium block mb-1">Notes</span>
+                    <p className="text-slate-700 bg-slate-50 p-2.5 rounded-xl border border-slate-100 whitespace-pre-wrap">
+                      {viewingExpenseDetail.notes}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Linked Financial Obligation Navigation */}
+              {(() => {
+                const linkedLoan = loans.find(
+                  (l) => viewingExpenseDetail.linkedLoanId === l.id || viewingExpenseDetail.description?.includes(l.loanTitle)
+                );
+                if (!linkedLoan) return null;
+                return (
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setViewingExpenseDetail(null);
+                        navigate(`/my-life/expenses/loans/${linkedLoan.id}`);
+                      }}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-800 font-bold text-xs transition cursor-pointer shadow-2xs"
+                    >
+                      <ExternalLink className="w-4 h-4 text-teal-600" />
+                      <span>View Linked EMI / Loan Schedule ({linkedLoan.loanTitle})</span>
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {(() => {
+                const linkedSaving = savingsList.find(
+                  (s) => viewingExpenseDetail.linkedSavingsId === s.id || viewingExpenseDetail.description?.includes(s.title)
+                );
+                if (!linkedSaving) return null;
+                return (
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setViewingExpenseDetail(null);
+                        navigate(`/my-life/expenses/savings/${linkedSaving.id}`);
+                      }}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 font-bold text-xs transition cursor-pointer shadow-2xs"
+                    >
+                      <ExternalLink className="w-4 h-4 text-emerald-700" />
+                      <span>View Linked DPS / Savings Schedule ({linkedSaving.title})</span>
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="flex items-center justify-between gap-2 border-t border-slate-100 p-4 shrink-0 bg-slate-50/60">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const exp = viewingExpenseDetail;
+                    setViewingExpenseDetail(null);
+                    openEditModal(exp);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold transition cursor-pointer shadow-2xs"
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                  <span>Edit</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const exp = viewingExpenseDetail;
+                    setViewingExpenseDetail(null);
+                    setExpenseToDelete(exp);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-semibold transition cursor-pointer shadow-2xs"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Delete</span>
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingExpenseDetail(null)}
+                className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition shadow-xs cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1974,11 +3849,11 @@ export function DailyExpensesPage() {
       {/* 4. MODAL: PIN INPUT / SETUP                                              */}
       {/* ========================================================================= */}
       {pinTargetMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-sm max-h-[92dvh] overflow-y-auto my-auto rounded-2xl sm:rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 text-slate-800 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="text-center space-y-1">
-              <div className="mx-auto h-12 w-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mb-2">
-                <Lock className="h-6 w-6" />
+              <div className="mx-auto h-12 w-12 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center mb-2 shadow-2xs">
+                <Lock className="h-6 w-6 text-emerald-600" />
               </div>
               <h3 className="text-base font-bold text-slate-900">
                 {hasMemberPin(pinTargetMember.id, pinTargetMember.fullName)
@@ -1999,6 +3874,8 @@ export function DailyExpensesPage() {
                 </label>
                 <input
                   type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   maxLength={4}
                   autoFocus
                   required
@@ -2009,7 +3886,7 @@ export function DailyExpensesPage() {
                     setPinInput(clean);
                     setPinError("");
                   }}
-                  className="w-full text-center text-2xl font-mono tracking-widest rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 outline-none focus:border-amber-500 focus:bg-white"
+                  className="w-full text-center text-2xl font-mono tracking-widest rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition"
                 />
               </div>
 
@@ -2020,6 +3897,8 @@ export function DailyExpensesPage() {
                   </label>
                   <input
                     type="password"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     maxLength={4}
                     required
                     placeholder="••••"
@@ -2029,7 +3908,7 @@ export function DailyExpensesPage() {
                       setPinConfirmInput(clean);
                       setPinError("");
                     }}
-                    className="w-full text-center text-2xl font-mono tracking-widest rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 outline-none focus:border-amber-500 focus:bg-white"
+                    className="w-full text-center text-2xl font-mono tracking-widest rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition"
                   />
                 </div>
               )}
@@ -2050,11 +3929,30 @@ export function DailyExpensesPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 rounded-xl bg-slate-900 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition shadow-xs cursor-pointer"
+                  className="flex-1 rounded-xl bg-gradient-to-tr from-[#064e3b] to-[#0d825c] py-2.5 text-xs font-semibold text-white hover:from-[#073f30] hover:to-[#0b6e4e] transition shadow-xs cursor-pointer"
                 >
                   {hasMemberPin(pinTargetMember.id, pinTargetMember.fullName) ? "Unlock Ledger" : "Set & Unlock"}
                 </button>
               </div>
+
+              {!hasMemberPin(pinTargetMember.id, pinTargetMember.fullName) && (
+                <div className="text-center pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveMemberId(pinTargetMember.id);
+                      try {
+                        sessionStorage.setItem("lifenest_unlocked_expense_member", pinTargetMember.id);
+                      } catch {}
+                      setPinTargetMember(null);
+                      showToast(`Welcome, ${pinTargetMember.fullName}!`);
+                    }}
+                    className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 hover:underline cursor-pointer"
+                  >
+                    Skip & Open Without PIN
+                  </button>
+                </div>
+              )}
             </form>
           </div>
         </div>
@@ -2064,11 +3962,11 @@ export function DailyExpensesPage() {
       {/* 5. MODAL: LOG / EDIT EXPENSE                                             */}
       {/* ========================================================================= */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-md max-h-[92dvh] sm:max-h-[88dvh] flex flex-col rounded-2xl sm:rounded-3xl border border-slate-200 bg-white text-slate-800 shadow-2xl my-auto animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 p-4 sm:p-5 shrink-0 bg-white">
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 font-bold">
+                <div className="h-9 w-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 font-bold shrink-0">
                   ৳
                 </div>
                 <div>
@@ -2083,30 +3981,31 @@ export function DailyExpensesPage() {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveExpense} className="space-y-3.5">
+            <form onSubmit={handleSaveExpense} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 overscroll-contain">
               {/* Amount */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Amount (৳ BDT) *
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-base text-slate-400 font-mono">
+                  <span className="pointer-events-none select-none absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-base text-slate-400 font-mono">
                     ৳
                   </span>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     required
                     autoFocus
-                    placeholder="e.g. 500"
+                    placeholder="0.00"
                     value={formAmount}
-                    onChange={(e) => setFormAmount(e.target.value ? Number(e.target.value) : "")}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-8 pr-4 py-2.5 text-base font-bold font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                    onChange={(e) => setFormAmount(normalizeNumericInput(e.target.value))}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-9 pr-4 py-2.5 text-base font-bold font-mono text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
                   />
                 </div>
               </div>
@@ -2116,37 +4015,44 @@ export function DailyExpensesPage() {
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Category *
                 </label>
-                <select
-                  value={formCategory}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setFormCategory(val);
-                    if (val !== "Others") {
-                      setCustomCategoryInput("");
-                    }
-                  }}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white font-medium cursor-pointer"
-                >
-                  {CATEGORIES.filter((c) => c.label !== "Others").map((c) => (
-                    <option key={c.label} value={c.label}>
-                      {c.label}
-                    </option>
-                  ))}
-                  {allCategoryOptions.length > 0 && (
-                    <optgroup label="Your Custom Categories">
-                      {allCategoryOptions.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  <option value="Others">Others (Add Custom Category)</option>
-                </select>
+                <FormControl size="small" fullWidth>
+                  <Select
+                    value={formCategory}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormCategory(val);
+                      if (val !== "Others") {
+                        setCustomCategoryInput("");
+                      }
+                    }}
+                    sx={{
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      fontFamily: '"Plus Jakarta Sans", sans-serif',
+                      borderRadius: "0.75rem",
+                      backgroundColor: "#f8fafc",
+                      "& .MuiSelect-select": { py: "8px" },
+                    }}
+                  >
+                    {CATEGORIES.filter((c) => c.label !== "Others").map((c) => (
+                      <MenuItem key={c.label} value={c.label} sx={{ fontSize: "0.75rem" }}>
+                        {c.label}
+                      </MenuItem>
+                    ))}
+                    {allCategoryOptions.map((opt) => (
+                      <MenuItem key={opt} value={opt} sx={{ fontSize: "0.75rem" }}>
+                        🏷️ {opt}
+                      </MenuItem>
+                    ))}
+                    <MenuItem value="Others" sx={{ fontSize: "0.75rem", fontWeight: 700 }}>
+                      Others (Add Custom Category)
+                    </MenuItem>
+                  </Select>
+                </FormControl>
 
                 {formCategory === "Others" && (
-                  <div className="mt-2.5 p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/40 animate-in fade-in slide-in-from-top-1 duration-150">
-                    <label className="block text-[11px] font-bold text-indigo-900 mb-1">
+                  <div className="mt-2.5 p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <label className="block text-[11px] font-bold text-emerald-950 mb-1">
                       Enter Custom Category Name *
                     </label>
                     <input
@@ -2156,9 +4062,9 @@ export function DailyExpensesPage() {
                       placeholder="e.g. Pet Care, Donation, Gym, Subscriptions"
                       value={customCategoryInput}
                       onChange={(e) => setCustomCategoryInput(e.target.value)}
-                      className="w-full rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-500 shadow-2xs"
+                      className="w-full rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 shadow-2xs"
                     />
-                    <p className="mt-1 text-[10px] text-indigo-600/80">
+                    <p className="mt-1 text-[10px] text-emerald-700/90">
                       This category will be saved and available in your category list for future expenses.
                     </p>
                   </div>
@@ -2176,27 +4082,44 @@ export function DailyExpensesPage() {
                     required
                     value={formDate}
                     onChange={(e) => setFormDate(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Payment Method
+                    Payment Method *
                   </label>
-                  <select
-                    value={formPaymentMethod}
-                    onChange={(e) =>
-                      setFormPaymentMethod(e.target.value as DailyExpensePaymentMethod)
-                    }
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
-                  >
-                    {PAYMENT_METHODS.map((method) => (
-                      <option key={method} value={method}>
-                        {method}
-                      </option>
-                    ))}
-                  </select>
+                  <FormControl size="small" fullWidth>
+                    <Select
+                      value={formPaymentMethod}
+                      onChange={(e) =>
+                        setFormPaymentMethod(e.target.value as DailyExpensePaymentMethod)
+                      }
+                      renderValue={(selected) => (
+                        <div className="flex items-center gap-2">
+                          {getPaymentMethodIcon(selected as DailyExpensePaymentMethod)}
+                          <span className="font-semibold text-xs text-slate-900">{selected}</span>
+                        </div>
+                      )}
+                      sx={{
+                        fontSize: "0.75rem",
+                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        borderRadius: "0.75rem",
+                        backgroundColor: "#f8fafc",
+                        "& .MuiSelect-select": { py: "6px", px: "8px" },
+                      }}
+                    >
+                      {PAYMENT_METHODS.map((method) => (
+                        <MenuItem key={method} value={method} sx={{ fontSize: "0.75rem" }}>
+                          <div className="flex items-center gap-2.5 py-0.5">
+                            {getPaymentMethodIcon(method)}
+                            <span className="font-semibold text-xs text-slate-800">{method}</span>
+                          </div>
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 </div>
               </div>
 
@@ -2211,7 +4134,7 @@ export function DailyExpensesPage() {
                   placeholder="e.g. Lunch with colleagues, Rice & Cooking Oil"
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
                 />
               </div>
 
@@ -2224,7 +4147,7 @@ export function DailyExpensesPage() {
                   placeholder="e.g. Shwapno, Meena Bazar, Rickshaw, Star Kabab"
                   value={formMerchant}
                   onChange={(e) => setFormMerchant(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
                 />
               </div>
 
@@ -2233,14 +4156,14 @@ export function DailyExpensesPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingExpense}
-                  className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition shadow-xs cursor-pointer"
+                  className="rounded-xl bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-5 py-2.5 text-xs font-bold text-white hover:from-[#073f30] hover:to-[#0b6e4e] disabled:opacity-50 transition shadow-sm cursor-pointer"
                 >
                   {savingExpense ? "Saving..." : editingExpense ? "Save Changes" : "Record Expense"}
                 </button>
@@ -2254,8 +4177,8 @@ export function DailyExpensesPage() {
       {/* 6. MODAL: DELETE CONFIRMATION                                            */}
       {/* ========================================================================= */}
       {expenseToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-sm max-h-[92dvh] overflow-y-auto my-auto rounded-2xl sm:rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 text-slate-800 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-start gap-3">
               <div className="h-10 w-10 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0">
                 <Trash2 className="h-5 w-5" />
@@ -2292,11 +4215,11 @@ export function DailyExpensesPage() {
       {/* 7. MODAL: ADD LOAN / BORROWING                                            */}
       {/* ========================================================================= */}
       {isAddLoanModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-lg max-h-[92dvh] sm:max-h-[88dvh] flex flex-col rounded-2xl sm:rounded-3xl border border-slate-200 bg-white text-slate-800 shadow-2xl my-auto animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 p-4 sm:p-5 shrink-0 bg-white">
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 font-bold">
+                <div className="h-9 w-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 font-bold shrink-0">
                   <CreditCard className="h-5 w-5" />
                 </div>
                 <div>
@@ -2311,13 +4234,13 @@ export function DailyExpensesPage() {
               <button
                 type="button"
                 onClick={() => setIsAddLoanModalOpen(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveLoan} className="space-y-3.5">
+            <form onSubmit={handleSaveLoan} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 overscroll-contain">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Loan / Debt Title *
@@ -2350,81 +4273,92 @@ export function DailyExpensesPage() {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Loan Type *
+                    Loan / EMI Type *
                   </label>
-                  <select
-                    value={loanType}
-                    onChange={(e) => setLoanType(e.target.value as MemberLoan["loanType"])}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
-                  >
-                    <option value="Car Loan">Car Loan</option>
-                    <option value="Home Loan">Home Loan</option>
-                    <option value="Personal Loan">Personal Loan</option>
-                    <option value="Business Loan">Business Loan</option>
-                    <option value="Borrowed from Family/Friend">Borrowed from Family/Friend</option>
-                    <option value="Other">Other</option>
-                  </select>
+                  <FormControl size="small" fullWidth>
+                    <Select
+                      value={loanType}
+                      onChange={(e) => setLoanType(e.target.value as MemberLoan["loanType"])}
+                      sx={{
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        borderRadius: "0.75rem",
+                        backgroundColor: "#f8fafc",
+                        "& .MuiSelect-select": { py: "8px" },
+                      }}
+                    >
+                      <MenuItem value="Consumer EMI" sx={{ fontSize: "0.75rem" }}>Consumer EMI (Phone, Gadget, Camera)</MenuItem>
+                      <MenuItem value="Credit Card Bill" sx={{ fontSize: "0.75rem" }}>Credit Card Bill (Monthly Statement)</MenuItem>
+                      <MenuItem value="Credit Card EMI" sx={{ fontSize: "0.75rem" }}>Credit Card EMI (Zero or Flat)</MenuItem>
+                      <MenuItem value="Car Loan" sx={{ fontSize: "0.75rem" }}>Car Loan</MenuItem>
+                      <MenuItem value="Home Loan" sx={{ fontSize: "0.75rem" }}>Home Loan</MenuItem>
+                      <MenuItem value="Personal Loan" sx={{ fontSize: "0.75rem" }}>Personal Loan</MenuItem>
+                      <MenuItem value="Business Loan" sx={{ fontSize: "0.75rem" }}>Business Loan</MenuItem>
+                      <MenuItem value="Borrowed from Family/Friend" sx={{ fontSize: "0.75rem" }}>Borrowed from Family/Friend</MenuItem>
+                      <MenuItem value="Other" sx={{ fontSize: "0.75rem" }}>Other</MenuItem>
+                    </Select>
+                  </FormControl>
                 </div>
               </div>
 
-              {/* Total Principal */}
+              {/* Total Principal Amount */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Total Principal Borrowed (৳ BDT) *
+                  Total Principal / Purchase Amount (৳ BDT) *
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-base text-slate-400 font-mono">
+                  <span className="pointer-events-none select-none absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-base text-slate-400 font-mono">
                     ৳
                   </span>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     required
-                    min="1"
-                    placeholder="e.g. 500000"
+                    placeholder="0.00"
                     value={totalPrincipal}
-                    onChange={(e) => setTotalPrincipal(e.target.value ? Number(e.target.value) : "")}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-8 pr-4 py-2.5 text-base font-bold font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                    onChange={(e) => setTotalPrincipal(normalizeNumericInput(e.target.value))}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-9 pr-4 py-2.5 text-base font-bold font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
                   />
                 </div>
               </div>
 
-              {/* Monthly EMI & Interest Rate */}
+              {/* Tenure Selection */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Tenure / Duration (Months) *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="120"
+                  value={tenureMonthsInput}
+                  onChange={(e) => setTenureMonthsInput(Math.max(1, Number(e.target.value) || 1))}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs font-mono font-bold text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                  placeholder="e.g. 12"
+                />
+              </div>
+
+              {/* Interest Rate & Start Date */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Monthly EMI / Installment (৳)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 25000 (Optional)"
-                    value={monthlyEmiAmount}
-                    onChange={(e) => setMonthlyEmiAmount(e.target.value ? Number(e.target.value) : "")}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Interest Rate % (Optional)
+                    Interest Rate %
                   </label>
                   <input
                     type="number"
                     step="0.1"
                     min="0"
-                    placeholder="e.g. 9.5"
+                    placeholder="0% if interest-free"
                     value={interestRatePercent}
                     onChange={(e) => setInterestRatePercent(e.target.value ? Number(e.target.value) : "")}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white font-mono"
                   />
                 </div>
-              </div>
 
-              {/* Dates */}
-              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Start / Borrow Date *
+                    Start Month Date *
                   </label>
                   <input
                     type="date"
@@ -2434,19 +4368,43 @@ export function DailyExpensesPage() {
                     className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Target Payoff Date
-                  </label>
-                  <input
-                    type="date"
-                    value={targetEndDate}
-                    onChange={(e) => setTargetEndDate(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
-                  />
-                </div>
               </div>
+
+              {/* Real-time Calculated EMI Preview Box */}
+              {totalPrincipal !== "" && Number(totalPrincipal) > 0 && (
+                <div className="p-3.5 bg-teal-50/80 rounded-2xl border border-teal-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-teal-900">
+                      Auto-Calculated Installment
+                    </span>
+                    <span className="text-xs font-bold font-mono text-teal-700">
+                      {interestRatePercent ? `${interestRatePercent}% Interest` : "0% Interest EMI"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-teal-800/80 block">
+                        Monthly Payment
+                      </span>
+                      <span className="text-lg font-black font-mono text-teal-700">
+                        ৳{calculatedAddEmi.monthlyEmi.toLocaleString()}
+                        <span className="text-xs font-normal text-teal-900">/mo</span>
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-teal-800/80 block">
+                        Total Repayable
+                      </span>
+                      <span className="text-lg font-black font-mono text-teal-900">
+                        ৳{calculatedAddEmi.totalRepayable.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-teal-700 font-medium pt-1 border-t border-teal-200/60">
+                    ✓ Will automatically generate {calculatedAddEmi.segments.length} monthly segment rows with checkmark tracking
+                  </p>
+                </div>
+              )}
 
               {/* Notes */}
               <div>
@@ -2463,7 +4421,7 @@ export function DailyExpensesPage() {
               </div>
 
               {/* Actions */}
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="sticky -bottom-4 sm:-bottom-5 -mx-4 sm:-mx-5 bg-white/95 backdrop-blur-xs border-t border-slate-100 p-3 sm:p-4 flex items-center justify-end gap-2 shrink-0 mt-4">
                 <button
                   type="button"
                   onClick={() => setIsAddLoanModalOpen(false)}
@@ -2488,11 +4446,11 @@ export function DailyExpensesPage() {
       {/* 8. MODAL: PAY REPAYMENT SEGMENT                                           */}
       {/* ========================================================================= */}
       {isPaySegmentModalOpen && selectedLoanForSegment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-md max-h-[92dvh] sm:max-h-[88dvh] flex flex-col rounded-2xl sm:rounded-3xl border border-slate-200 bg-white text-slate-800 shadow-2xl my-auto animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 p-4 sm:p-5 shrink-0 bg-white">
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 font-bold">
+                <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 font-bold shrink-0">
                   ৳
                 </div>
                 <div>
@@ -2507,11 +4465,13 @@ export function DailyExpensesPage() {
               <button
                 type="button"
                 onClick={() => setIsPaySegmentModalOpen(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
+
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 overscroll-contain">
 
             {/* Current Loan Balance Summary */}
             {(() => {
@@ -2552,18 +4512,18 @@ export function DailyExpensesPage() {
                   Repayment Segment Amount (৳ BDT) *
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-base text-slate-400 font-mono">
+                  <span className="pointer-events-none select-none absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-base text-slate-400 font-mono">
                     ৳
                   </span>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     required
                     autoFocus
-                    min="1"
-                    placeholder="e.g. 25000"
+                    placeholder="0.00"
                     value={segmentAmount}
-                    onChange={(e) => setSegmentAmount(e.target.value ? Number(e.target.value) : "")}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-8 pr-4 py-2.5 text-base font-bold font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                    onChange={(e) => setSegmentAmount(normalizeNumericInput(e.target.value))}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-9 pr-4 py-2.5 text-base font-bold font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
                   />
                 </div>
               </div>
@@ -2586,17 +4546,25 @@ export function DailyExpensesPage() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Payment Method
                   </label>
-                  <select
-                    value={segmentMethod}
-                    onChange={(e) => setSegmentMethod(e.target.value as DailyExpensePaymentMethod)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
-                  >
-                    {PAYMENT_METHODS.map((method) => (
-                      <option key={method} value={method}>
-                        {method}
-                      </option>
-                    ))}
-                  </select>
+                  <FormControl size="small" fullWidth>
+                    <Select
+                      value={segmentMethod}
+                      onChange={(e) => setSegmentMethod(e.target.value as DailyExpensePaymentMethod)}
+                      sx={{
+                        fontSize: "0.75rem",
+                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        borderRadius: "0.75rem",
+                        backgroundColor: "#f8fafc",
+                        "& .MuiSelect-select": { py: "8px" },
+                      }}
+                    >
+                      {PAYMENT_METHODS.map((method) => (
+                        <MenuItem key={method} value={method} sx={{ fontSize: "0.75rem" }}>
+                          {method}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 </div>
               </div>
 
@@ -2649,6 +4617,7 @@ export function DailyExpensesPage() {
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}
@@ -2657,48 +4626,52 @@ export function DailyExpensesPage() {
       {/* 9. MODAL: DELETE LOAN CONFIRMATION                                        */}
       {/* ========================================================================= */}
       {loanToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0">
-                <Trash2 className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Delete Loan Record?</h3>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Are you sure you want to delete{" "}
-                  <span className="font-semibold text-slate-800">
-                    {loanToDelete.loanTitle} (৳
-                    {(
-                      loanToDelete.totalRepayableAmount ||
-                      loanToDelete.principalAmount ||
-                      0
-                    ).toLocaleString()}
-                    )
-                  </span>{" "}
-                  along with all {loanToDelete.repayments?.length || 0} repayment segments?
-                </p>
-              </div>
-            </div>
+        <ConfirmationModal
+          isOpen={!!loanToDelete}
+          onClose={() => setLoanToDelete(null)}
+          onConfirm={handleConfirmDeleteLoan}
+          title="Delete Loan Record?"
+          description={
+            <>
+              Are you sure you want to delete{" "}
+              <strong className="text-slate-800">
+                {loanToDelete.loanTitle} (৳
+                {(
+                  loanToDelete.totalRepayableAmount ||
+                  loanToDelete.principalAmount ||
+                  0
+                ).toLocaleString()}
+                )
+              </strong>{" "}
+              along with all {loanToDelete.repayments?.length || 0} repayment segments?
+            </>
+          }
+          confirmText="Delete Loan"
+          variant="danger"
+          size="sm"
+        />
+      )}
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setLoanToDelete(null)}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmDeleteLoan}
-                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 cursor-pointer shadow-xs"
-              >
-                Delete Loan
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* MODAL: DELETE SAVINGS CONFIRMATION */}
+      {savingToDelete && (
+        <ConfirmationModal
+          isOpen={!!savingToDelete}
+          onClose={() => setSavingToDelete(null)}
+          onConfirm={handleConfirmDeleteSaving}
+          title="Delete Savings Scheme?"
+          description={
+            <>
+              Are you sure you want to delete{" "}
+              <strong className="text-slate-800">
+                {savingToDelete.title} ({savingToDelete.type})
+              </strong>{" "}
+              along with all recorded deposit history?
+            </>
+          }
+          confirmText="Delete Scheme"
+          variant="danger"
+          size="sm"
+        />
       )}
 
       {/* ========================================================================= */}
@@ -2706,9 +4679,9 @@ export function DailyExpensesPage() {
       {/* ========================================================================= */}
       {viewingLoanSegments && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-          <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 text-slate-800 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+          <div className="w-full max-w-2xl max-h-[92dvh] sm:max-h-[88dvh] flex flex-col rounded-2xl sm:rounded-3xl border border-slate-200 bg-white text-slate-800 shadow-2xl my-auto animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
+            <div className="flex items-center justify-between border-b border-slate-100 p-4 sm:p-5 shrink-0 bg-white">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="h-9 w-9 shrink-0 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 font-bold">
                   <CreditCard className="h-5 w-5" />
@@ -2758,7 +4731,9 @@ export function DailyExpensesPage() {
               </div>
             </div>
 
-            {/* Loan Financial Summary Bar */}
+            {/* Scrollable Body */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 overscroll-contain">
+              {/* Loan Financial Summary Bar */}
             {(() => {
               const totalP =
                 viewingLoanSegments.totalRepayableAmount || viewingLoanSegments.principalAmount || 0;
@@ -2906,9 +4881,10 @@ export function DailyExpensesPage() {
                 ))
               )}
             </div>
+            </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100 shrink-0">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-t border-slate-100 shrink-0 bg-white">
               <span className="text-[11px] text-slate-400">
                 Click on any segment to edit or adjust details.
               </span>
@@ -2928,11 +4904,11 @@ export function DailyExpensesPage() {
       {/* 11. MODAL: EDIT LOAN / BORROWING                                         */}
       {/* ========================================================================= */}
       {editingLoan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-lg max-h-[92dvh] sm:max-h-[88dvh] flex flex-col rounded-2xl sm:rounded-3xl border border-slate-200 bg-white text-slate-800 shadow-2xl my-auto animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 p-4 sm:p-5 shrink-0 bg-white">
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 font-bold">
+                <div className="h-9 w-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 font-bold shrink-0">
                   <Pencil className="h-4 w-4" />
                 </div>
                 <div>
@@ -2947,13 +4923,13 @@ export function DailyExpensesPage() {
               <button
                 type="button"
                 onClick={() => setEditingLoan(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEditLoan} className="space-y-3.5">
+            <form onSubmit={handleSaveEditLoan} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 overscroll-contain">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Loan / Debt Title *
@@ -2985,18 +4961,29 @@ export function DailyExpensesPage() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Loan Type *
                   </label>
-                  <select
-                    value={editLoanType}
-                    onChange={(e) => setEditLoanType(e.target.value as MemberLoan["loanType"])}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
-                  >
-                    <option value="Car Loan">Car Loan</option>
-                    <option value="Home Loan">Home Loan</option>
-                    <option value="Personal Loan">Personal Loan</option>
-                    <option value="Business Loan">Business Loan</option>
-                    <option value="Borrowed from Family/Friend">Borrowed from Family/Friend</option>
-                    <option value="Other">Other</option>
-                  </select>
+                  <FormControl size="small" fullWidth>
+                    <Select
+                      value={editLoanType}
+                      onChange={(e) => setEditLoanType(e.target.value as MemberLoan["loanType"])}
+                      sx={{
+                        fontSize: "0.75rem",
+                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        borderRadius: "0.75rem",
+                        backgroundColor: "#f8fafc",
+                        "& .MuiSelect-select": { py: "8px" },
+                      }}
+                    >
+                      <MenuItem value="Consumer EMI" sx={{ fontSize: "0.75rem" }}>Consumer EMI</MenuItem>
+                      <MenuItem value="Credit Card Bill" sx={{ fontSize: "0.75rem" }}>Credit Card Bill (Monthly Statement)</MenuItem>
+                      <MenuItem value="Credit Card EMI" sx={{ fontSize: "0.75rem" }}>Credit Card EMI</MenuItem>
+                      <MenuItem value="Car Loan" sx={{ fontSize: "0.75rem" }}>Car Loan</MenuItem>
+                      <MenuItem value="Home Loan" sx={{ fontSize: "0.75rem" }}>Home Loan</MenuItem>
+                      <MenuItem value="Personal Loan" sx={{ fontSize: "0.75rem" }}>Personal Loan</MenuItem>
+                      <MenuItem value="Business Loan" sx={{ fontSize: "0.75rem" }}>Business Loan</MenuItem>
+                      <MenuItem value="Borrowed from Family/Friend" sx={{ fontSize: "0.75rem" }}>Borrowed from Family/Friend</MenuItem>
+                      <MenuItem value="Other" sx={{ fontSize: "0.75rem" }}>Other</MenuItem>
+                    </Select>
+                  </FormControl>
                 </div>
               </div>
 
@@ -3006,11 +4993,12 @@ export function DailyExpensesPage() {
                     Total Principal Borrowed (৳) *
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     required
-                    min="1"
+                    placeholder="0.00"
                     value={editTotalPrincipal}
-                    onChange={(e) => setEditTotalPrincipal(e.target.value ? Number(e.target.value) : "")}
+                    onChange={(e) => setEditTotalPrincipal(normalizeNumericInput(e.target.value))}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs font-bold font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
                   />
                 </div>
@@ -3019,15 +5007,24 @@ export function DailyExpensesPage() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Status *
                   </label>
-                  <select
-                    value={editLoanStatus}
-                    onChange={(e) => setEditLoanStatus(e.target.value as MemberLoan["status"])}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white font-medium"
-                  >
-                    <option value="ACTIVE">Active Repayment</option>
-                    <option value="PAID_OFF">Fully Repaid</option>
-                    <option value="DEFAULTED">Defaulted / Written Off</option>
-                  </select>
+                  <FormControl size="small" fullWidth>
+                    <Select
+                      value={editLoanStatus}
+                      onChange={(e) => setEditLoanStatus(e.target.value as MemberLoan["status"])}
+                      sx={{
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        borderRadius: "0.75rem",
+                        backgroundColor: "#f8fafc",
+                        "& .MuiSelect-select": { py: "8px" },
+                      }}
+                    >
+                      <MenuItem value="ACTIVE" sx={{ fontSize: "0.75rem" }}>Active Repayment</MenuItem>
+                      <MenuItem value="PAID_OFF" sx={{ fontSize: "0.75rem" }}>Fully Repaid</MenuItem>
+                      <MenuItem value="DEFAULTED" sx={{ fontSize: "0.75rem" }}>Defaulted / Written Off</MenuItem>
+                    </Select>
+                  </FormControl>
                 </div>
               </div>
 
@@ -3125,11 +5122,11 @@ export function DailyExpensesPage() {
       {/* 12. MODAL: EDIT REPAYMENT SEGMENT                                         */}
       {/* ========================================================================= */}
       {editingSegment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl space-y-4 my-8 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-md max-h-[92dvh] sm:max-h-[88dvh] flex flex-col rounded-2xl sm:rounded-3xl border border-slate-200 bg-white text-slate-800 shadow-2xl my-auto animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 p-4 sm:p-5 shrink-0 bg-white">
               <div className="flex items-center gap-2.5">
-                <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 font-bold">
+                <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 font-bold shrink-0">
                   <Pencil className="h-4 w-4" />
                 </div>
                 <div>
@@ -3144,29 +5141,30 @@ export function DailyExpensesPage() {
               <button
                 type="button"
                 onClick={() => setEditingSegment(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEditSegment} className="space-y-3.5">
+            <form onSubmit={handleSaveEditSegment} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 overscroll-contain">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Repayment Amount (৳ BDT) *
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-base text-slate-400 font-mono">
+                  <span className="pointer-events-none select-none absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-base text-slate-400 font-mono">
                     ৳
                   </span>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     required
                     autoFocus
-                    min="1"
+                    placeholder="0.00"
                     value={editSegmentAmount}
-                    onChange={(e) => setEditSegmentAmount(e.target.value ? Number(e.target.value) : "")}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-8 pr-4 py-2.5 text-base font-bold font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
+                    onChange={(e) => setEditSegmentAmount(normalizeNumericInput(e.target.value))}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-9 pr-4 py-2.5 text-base font-bold font-mono text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
                   />
                 </div>
               </div>
@@ -3189,17 +5187,25 @@ export function DailyExpensesPage() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Payment Method
                   </label>
-                  <select
-                    value={editSegmentMethod}
-                    onChange={(e) => setEditSegmentMethod(e.target.value as DailyExpensePaymentMethod)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none focus:border-slate-900 focus:bg-white"
-                  >
-                    {PAYMENT_METHODS.map((method) => (
-                      <option key={method} value={method}>
-                        {method}
-                      </option>
-                    ))}
-                  </select>
+                  <FormControl size="small" fullWidth>
+                    <Select
+                      value={editSegmentMethod}
+                      onChange={(e) => setEditSegmentMethod(e.target.value as DailyExpensePaymentMethod)}
+                      sx={{
+                        fontSize: "0.75rem",
+                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        borderRadius: "0.75rem",
+                        backgroundColor: "#f8fafc",
+                        "& .MuiSelect-select": { py: "8px" },
+                      }}
+                    >
+                      {PAYMENT_METHODS.map((method) => (
+                        <MenuItem key={method} value={method} sx={{ fontSize: "0.75rem" }}>
+                          {method}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 </div>
               </div>
 
@@ -3241,8 +5247,8 @@ export function DailyExpensesPage() {
       {/* 13. MODAL: DELETE REPAYMENT SEGMENT CONFIRMATION                          */}
       {/* ========================================================================= */}
       {segmentToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-sm max-h-[92dvh] overflow-y-auto my-auto rounded-2xl sm:rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 text-slate-800 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="text-center space-y-2">
               <div className="mx-auto h-12 w-12 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center">
                 <Trash2 className="h-6 w-6" />

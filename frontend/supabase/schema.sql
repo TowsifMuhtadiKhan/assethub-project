@@ -164,7 +164,7 @@ create table if not exists public.lifenest_vehicles (
   registration_number text not null default '',
   chassis_number text not null default '',
   engine_number text not null default '',
-  mileage integer not null default 0,
+  mileage numeric(10, 2) not null default 0,
   purchase_date date,
   purchase_price numeric(14, 2) not null default 0,
   color text not null default '',
@@ -204,7 +204,7 @@ create table if not exists public.lifenest_vehicle_expenses (
   fuel_liters numeric(10, 2),
   price_per_unit numeric(10, 2),
   amount numeric(14, 2) not null default 0,
-  mileage integer not null default 0,
+  mileage numeric(10, 2) not null default 0,
   fuel_station text not null default '',
   description text not null default '',
   receipt_url text,
@@ -230,7 +230,7 @@ create table if not exists public.lifenest_vehicle_services (
   vehicle_id uuid not null references public.lifenest_vehicles(id) on delete cascade,
   service_type text not null,
   service_date date not null default current_date,
-  mileage_at_service integer not null default 0,
+  mileage_at_service numeric(10, 2) not null default 0,
   workshop_name text not null default '',
   workshop_location text not null default '',
   mechanic_name text not null default '',
@@ -241,7 +241,7 @@ create table if not exists public.lifenest_vehicle_services (
   description text not null default '',
   notes text not null default '',
   next_service_date date,
-  next_service_mileage integer not null default 0,
+  next_service_mileage numeric(10, 2) not null default 0,
   reminder_enabled boolean not null default true,
   receipt_url text,
   created_at timestamptz not null default now()
@@ -510,6 +510,7 @@ create table if not exists public.lifenest_member_loans (
   principal_amount numeric(14,2) not null check (principal_amount >= 0),
   total_repayable_amount numeric(14,2) not null check (total_repayable_amount >= 0),
   interest_rate numeric(8,2),
+  tenure_months integer,
   start_date date not null default current_date,
   target_end_date date,
   monthly_emi_amount numeric(14,2),
@@ -546,3 +547,46 @@ alter table public.lifenest_vehicles
   add column if not exists tax_token_expiry date,
   add column if not exists insurance_expiry date,
   add column if not exists route_permit_expiry date;
+
+-- 18. MEMBER SAVINGS, DPS & TERM DEPOSITS (FDR, Sanchayapatra)
+create table if not exists public.lifenest_member_savings (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  family_member_id text not null default '',
+  family_member_name text not null default '',
+  title text not null default 'Monthly DPS',
+  type text not null default 'DPS',
+  institution_name text not null default '',
+  account_number text not null default '',
+  monthly_installment numeric(14,2),
+  principal_amount numeric(14,2),
+  tenure_years numeric(6,2),
+  tenure_months integer,
+  start_date date not null default current_date,
+  maturity_date date,
+  interest_rate numeric(8,2),
+  maturity_amount numeric(14,2),
+  deposit_day_of_month integer,
+  profit_payout_frequency text not null default 'Monthly',
+  deposit_logs jsonb not null default '[]'::jsonb check (jsonb_typeof(deposit_logs) = 'array'),
+  status text not null default 'ACTIVE' check (status in ('ACTIVE', 'MATURED', 'CLOSED')),
+  nominee_name text not null default '',
+  notes text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.lifenest_member_savings enable row level security;
+drop policy if exists "lifenest_member_savings_policy" on public.lifenest_member_savings;
+create policy "lifenest_member_savings_policy"
+  on public.lifenest_member_savings for all
+  to authenticated
+  using (owner_id = auth.uid())
+  with check (owner_id = auth.uid());
+
+create index if not exists lifenest_member_savings_owner_status_idx
+  on public.lifenest_member_savings (owner_id, status);
+
+create index if not exists lifenest_member_savings_member_idx
+  on public.lifenest_member_savings (owner_id, family_member_id);
+

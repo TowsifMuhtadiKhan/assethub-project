@@ -18,6 +18,8 @@ import {
   X,
   KeyRound,
 } from "lucide-react";
+import { FormControl, Select, MenuItem } from "@mui/material";
+import { BrandLogoLoader } from "../components/common/LoadingStates";
 import {
   listFamilyMembers,
   createFamilyMember,
@@ -95,8 +97,13 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
 
   const getInviteText = (m: FamilyMember) => {
     const roleName = (m.access?.loginRole || "Vehicle_Manager").replace("_", " ");
-    const origin = window.location.origin;
-    return `Hi ${m.fullName},\n\nYou have been invited to join our family workspace on LifeNest (${roleName})!\n\n🔑 How to sign in:\n1. Open LifeNest: ${origin}\n2. If it's your first time, click "Create your LifeNest account" (Sign Up).\n3. Enter your email: ${m.email} and set your own password.\n4. You will automatically have access to our family vehicles and records!\n\nNeed help? Let me know!`;
+    const origin =
+      typeof window !== "undefined" &&
+      !window.location.origin.includes("localhost") &&
+      !window.location.origin.includes("capacitor")
+        ? window.location.origin
+        : "https://likherakho.vercel.app";
+    return `Hi ${m.fullName},\n\nYou have been invited to join our family workspace on Likhe Rakho (${roleName})!\n\n🔑 How to sign in:\n1. Open Likhe Rakho: ${origin}\n2. If it's your first time, click "Sign Up" (Create Free Account).\n3. Enter your email: ${m.email} and set your own password.\n4. You will automatically have access to our family vehicles and records!\n\nNeed help? Let me know!`;
   };
 
   const handleCopyInvite = (m: FamilyMember) => {
@@ -281,7 +288,7 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                 <button
                   type="button"
                   onClick={openAddModal}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] active:scale-95 transition cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   <span>Add Member</span>
@@ -363,10 +370,10 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
 
       {/* Family Directory Grid */}
       {loading ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500 shadow-2xs">
-          <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-slate-300 border-t-slate-800 mb-3" />
-          <p className="text-xs">Loading family profiles & permissions...</p>
-        </div>
+        <BrandLogoLoader
+          message="Loading Family & Profiles..."
+          subtitle="Syncing access permissions and member ledgers"
+        />
       ) : members.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 bg-white p-12 text-center">
           <Users className="h-9 w-9 text-slate-300 mx-auto mb-2" />
@@ -400,7 +407,7 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                   {/* Top Bar with Avatar & Relationship */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2.5">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-sm font-bold text-white shadow-2xs">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-700 to-[#064e3b] text-sm font-bold text-white shadow-2xs">
                         {member.fullName.slice(0, 2).toUpperCase()}
                       </div>
                       <div>
@@ -453,7 +460,7 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                   <div className="mt-3.5 rounded-xl border border-slate-100 bg-slate-50/70 p-3 space-y-2">
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="font-bold text-slate-700 flex items-center gap-1">
-                        <Shield className="h-3 w-3 text-indigo-600" /> System Role:
+                        <Shield className="h-3 w-3 text-emerald-600" /> System Role:
                       </span>
                       <span
                         className={`font-semibold rounded px-1.5 py-0.2 text-[10px] ${
@@ -536,7 +543,7 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                   <button
                     type="button"
                     onClick={() => openEditModal(member)}
-                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                    className="text-xs font-semibold text-emerald-600 hover:text-emerald-800 cursor-pointer"
                   >
                     Configure Access &rarr;
                   </button>
@@ -597,17 +604,25 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Relationship <span className="text-rose-500">*</span>
                   </label>
-                  <select
-                    value={relationship}
-                    onChange={(e) => setRelationship(e.target.value as RelationshipType)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
-                  >
-                    {RELATIONSHIPS.map((rel) => (
-                      <option key={rel} value={rel}>
-                        {rel}
-                      </option>
-                    ))}
-                  </select>
+                  <FormControl size="small" fullWidth>
+                    <Select
+                      value={relationship}
+                      onChange={(e) => setRelationship(e.target.value as RelationshipType)}
+                      sx={{
+                        fontSize: "0.75rem",
+                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        borderRadius: "0.75rem",
+                        backgroundColor: "#f8fafc",
+                        "& .MuiSelect-select": { py: "8px" },
+                      }}
+                    >
+                      {RELATIONSHIPS.map((rel) => (
+                        <MenuItem key={rel} value={rel} sx={{ fontSize: "0.75rem" }}>
+                          {rel}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 </div>
 
                 <div>
@@ -638,10 +653,10 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
               </div>
 
               {/* Granular Access Control Section */}
-              <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4 space-y-3.5">
-                <div className="flex items-center justify-between border-b border-indigo-100 pb-2">
-                  <div className="flex items-center gap-1.5 font-bold text-xs text-indigo-950">
-                    <Shield className="h-4 w-4 text-indigo-600" />
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4 space-y-3.5">
+                <div className="flex items-center justify-between border-b border-emerald-100 pb-2">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-950">
+                    <Shield className="h-4 w-4 text-emerald-600" />
                     Access Control & Section Visibility
                   </div>
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -650,7 +665,7 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                       type="checkbox"
                       checked={canLogin}
                       onChange={(e) => setCanLogin(e.target.checked)}
-                      className="h-4 w-4 rounded text-indigo-600"
+                      className="h-4 w-4 rounded text-emerald-600"
                     />
                   </label>
                 </div>
@@ -658,18 +673,18 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                 {canLogin && (
                   <div className="space-y-3">
                     {/* Information about setting password & sign in */}
-                    <div className="rounded-xl bg-indigo-50/70 border border-indigo-200/80 p-3 text-[11px] text-indigo-900 space-y-1">
-                      <div className="font-bold flex items-center gap-1.5 text-indigo-950">
-                        <KeyRound className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                    <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/80 p-3 text-[11px] text-emerald-900 space-y-1">
+                      <div className="font-bold flex items-center gap-1.5 text-emerald-950">
+                        <KeyRound className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
                         <span>How will this member get their password?</span>
                       </div>
-                      <p className="text-indigo-800/90 leading-relaxed">
+                      <p className="text-emerald-800/90 leading-relaxed">
                         1. The member uses their email: <strong>{email || "(enter email above)"}</strong>.
                       </p>
-                      <p className="text-indigo-800/90 leading-relaxed">
-                        2. On their first visit, they simply click <strong>"Create your LifeNest account"</strong> (Sign up) on the login screen using this exact email and choose their password.
+                      <p className="text-emerald-800/90 leading-relaxed">
+                        2. On their first visit, they simply click <strong>"Sign Up"</strong> on the login screen using this exact email and choose their password.
                       </p>
-                      <p className="text-indigo-800/90 leading-relaxed">
+                      <p className="text-emerald-800/90 leading-relaxed">
                         3. You can click <strong>"Send Invite"</strong> on their profile card anytime to share a pre-formatted invite link via WhatsApp or copy instructions!
                       </p>
                     </div>
@@ -677,37 +692,45 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
                         Assigned Role
                       </label>
-                      <select
-                        value={loginRole}
-                        onChange={(e) => {
-                          const r = e.target.value as FamilyMemberAccess["loginRole"];
-                          setLoginRole(r);
-                          if (r === "Vehicle_Manager") {
-                            setCanAccessVehicles(true);
-                            setCanWriteFuel(true);
-                            setCanWriteMaintenance(true);
-                            setCanAccessVault(false);
-                            setCanAccessProperties(false);
-                          } else if (r === "Admin") {
-                            setCanAccessVehicles(true);
-                            setCanWriteFuel(true);
-                            setCanWriteMaintenance(true);
-                            setCanAccessVault(true);
-                            setCanAccessProperties(true);
-                          }
-                        }}
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-indigo-600"
-                      >
-                        <option value="Vehicle_Manager">
-                          🚗 Vehicle Manager (Can view assigned cars & log fuel/maintenance)
-                        </option>
-                        <option value="Viewer">
-                          👁️ Viewer (Read-only access to assigned assets)
-                        </option>
-                        <option value="Admin">
-                          👑 Administrator (Full access to all modules)
-                        </option>
-                      </select>
+                      <FormControl size="small" fullWidth>
+                        <Select
+                          value={loginRole}
+                          onChange={(e) => {
+                            const r = e.target.value as FamilyMemberAccess["loginRole"];
+                            setLoginRole(r);
+                            if (r === "Vehicle_Manager") {
+                              setCanAccessVehicles(true);
+                              setCanWriteFuel(true);
+                              setCanWriteMaintenance(true);
+                              setCanAccessVault(false);
+                              setCanAccessProperties(false);
+                            } else if (r === "Admin") {
+                              setCanAccessVehicles(true);
+                              setCanWriteFuel(true);
+                              setCanWriteMaintenance(true);
+                              setCanAccessVault(true);
+                              setCanAccessProperties(true);
+                            }
+                          }}
+                          sx={{
+                            fontSize: "0.75rem",
+                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            borderRadius: "0.75rem",
+                            backgroundColor: "#ffffff",
+                            "& .MuiSelect-select": { py: "8px" },
+                          }}
+                        >
+                          <MenuItem value="Vehicle_Manager" sx={{ fontSize: "0.75rem" }}>
+                            🚗 Vehicle Manager (Can view assigned cars & log fuel/maintenance)
+                          </MenuItem>
+                          <MenuItem value="Viewer" sx={{ fontSize: "0.75rem" }}>
+                            👁️ Viewer (Read-only access to assigned assets)
+                          </MenuItem>
+                          <MenuItem value="Admin" sx={{ fontSize: "0.75rem" }}>
+                            👑 Administrator (Full access to all modules)
+                          </MenuItem>
+                        </Select>
+                      </FormControl>
                     </div>
 
                     {/* Specific Vehicle Assignment */}
@@ -766,7 +789,7 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                                     type="checkbox"
                                     checked={isChecked}
                                     onChange={() => toggleVehicleSelection(v.id)}
-                                    className="h-4 w-4 rounded text-indigo-600"
+                                    className="h-4 w-4 rounded text-emerald-600"
                                   />
                                 </label>
                               );
@@ -783,7 +806,7 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                           type="checkbox"
                           checked={canWriteFuel}
                           onChange={(e) => setCanWriteFuel(e.target.checked)}
-                          className="h-4 w-4 rounded text-indigo-600"
+                          className="h-4 w-4 rounded text-emerald-600"
                         />
                         <span className="font-semibold text-slate-800">Can Record Fuel</span>
                       </label>
@@ -793,7 +816,7 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                           type="checkbox"
                           checked={canWriteMaintenance}
                           onChange={(e) => setCanWriteMaintenance(e.target.checked)}
-                          className="h-4 w-4 rounded text-indigo-600"
+                          className="h-4 w-4 rounded text-emerald-600"
                         />
                         <span className="font-semibold text-slate-800">Can Log Maintenance</span>
                       </label>
@@ -803,7 +826,7 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                           type="checkbox"
                           checked={canWriteDocuments}
                           onChange={(e) => setCanWriteDocuments(e.target.checked)}
-                          className="h-4 w-4 rounded text-indigo-600"
+                          className="h-4 w-4 rounded text-emerald-600"
                         />
                         <span className="font-semibold text-slate-800">Upload BRTA Docs</span>
                       </label>
@@ -813,14 +836,14 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                           type="checkbox"
                           checked={canAccessWarranties}
                           onChange={(e) => setCanAccessWarranties(e.target.checked)}
-                          className="h-4 w-4 rounded text-indigo-600"
+                          className="h-4 w-4 rounded text-emerald-600"
                         />
                         <span className="font-semibold text-slate-800">View Warranties</span>
                       </label>
                     </div>
 
                     {/* Section Restrictions */}
-                    <div className="border-t border-indigo-100 pt-2 text-[11px] text-slate-500 flex items-center justify-between">
+                    <div className="border-t border-emerald-100 pt-2 text-[11px] text-slate-500 flex items-center justify-between">
                       <span>Confidential Vault & Rental sections:</span>
                       <span className="font-bold text-slate-700">
                         {canAccessVault ? "Visible" : "Hidden (Restricted)"}
@@ -886,7 +909,7 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                 </div>
                 <div className="flex justify-between py-0.5">
                   <span className="text-slate-500">Authorized Email:</span>
-                  <span className="font-mono font-semibold text-indigo-700">{inviteMember.email}</span>
+                  <span className="font-mono font-semibold text-emerald-700">{inviteMember.email}</span>
                 </div>
                 <div className="flex justify-between py-0.5">
                   <span className="text-slate-500">System Role:</span>
@@ -907,10 +930,10 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                   <span>How will {inviteMember.fullName} get their password?</span>
                 </div>
                 <p>
-                  1. LifeNest uses self-serve password setup. Send them the invitation below.
+                  1. Likhe Rakho uses self-serve password setup. Send them the invitation below.
                 </p>
                 <p>
-                  2. They open the LifeNest link, click <strong>"Create your LifeNest account"</strong> (Sign up), enter <strong>{inviteMember.email}</strong>, and choose their own password.
+                  2. They open the Likhe Rakho link, click <strong>"Sign Up"</strong>, enter <strong>{inviteMember.email}</strong>, and choose their own password.
                 </p>
                 <p>
                   3. If an account is already created, they simply log in with their password (or click "Forgot Password").

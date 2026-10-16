@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   FileText,
   Plus,
@@ -15,8 +16,6 @@ import {
   Users,
   Clock,
   ExternalLink,
-  LayoutGrid,
-  List,
   Eye,
   MoreVertical,
   Cloud,
@@ -26,7 +25,6 @@ import {
   Check,
   Filter,
 } from "lucide-react";
-import { supabase } from "../lib/supabase";
 import {
   listDocuments,
   createDocument,
@@ -37,7 +35,7 @@ import {
   deleteDocumentFolder,
   updateDocumentFolder,
 } from "../services/documentService";
-import { listFamilyMembers } from "../services/familyService";
+import { listFamilyMembers, getCurrentUserAccess } from "../services/familyService";
 import {
   extractGoogleDriveFileId,
   getGoogleDriveFileViewUrl,
@@ -49,7 +47,9 @@ import {
   uploadUserDocumentToGoogleDrive,
 } from "../utils/googleDrive";
 import { SqlSetupBanner } from "../components/common/SqlSetupBanner";
-import { CardsGridSkeleton } from "../components/common/LoadingStates";
+import { TableRowActions } from "../components/common/TableRowActions";
+import { BrandLogoLoader } from "../components/common/LoadingStates";
+import { ViewModeToggle } from "../components/common/ViewModeToggle";
 import {
   FormControl,
   Select,
@@ -88,9 +88,9 @@ export const FOLDER_COLOR_PALETTE: {
   text: string;
   border: string;
 }[] = [
-  { id: "indigo", name: "Indigo", dot: "bg-indigo-500", bg: "bg-indigo-50", text: "text-indigo-600", border: "border-indigo-200" },
+  { id: "emerald", name: "Emerald", dot: "bg-emerald-500", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
   { id: "blue", name: "Blue", dot: "bg-blue-500", bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-200" },
-  { id: "emerald", name: "Emerald", dot: "bg-emerald-500", bg: "bg-emerald-50", text: "text-emerald-600", border: "border-emerald-200" },
+  { id: "indigo", name: "Indigo", dot: "bg-indigo-500", bg: "bg-indigo-50", text: "text-indigo-600", border: "border-indigo-200" },
   { id: "amber", name: "Amber", dot: "bg-amber-500", bg: "bg-amber-50", text: "text-amber-600", border: "border-amber-200" },
   { id: "rose", name: "Rose", dot: "bg-rose-500", bg: "bg-rose-50", text: "text-rose-600", border: "border-rose-200" },
   { id: "purple", name: "Purple", dot: "bg-purple-500", bg: "bg-purple-50", text: "text-purple-600", border: "border-purple-200" },
@@ -100,7 +100,99 @@ export const FOLDER_COLOR_PALETTE: {
 
 export function getFolderColorStyle(colorName?: string) {
   const match = FOLDER_COLOR_PALETTE.find((c) => c.id === colorName?.toLowerCase());
-  return match || FOLDER_COLOR_PALETTE[0]; // defaults to indigo
+  return match || FOLDER_COLOR_PALETTE[0]; // defaults to emerald
+}
+
+export function getDocCategoryConfig(category?: string) {
+  const cat = (category || "").toLowerCase();
+  if (cat.includes("vehicle") || cat.includes("car") || cat.includes("bike")) {
+    return {
+      bg: "bg-emerald-50 text-emerald-600 border-emerald-200/80",
+      pill: "bg-sky-50 text-sky-700 border-sky-200/80",
+      code: "BRTA",
+      miniIcon: "🚗",
+    };
+  }
+  if (cat.includes("prop") || cat.includes("house") || cat.includes("land") || cat.includes("deed") || cat.includes("rent")) {
+    return {
+      bg: "bg-purple-50 text-purple-600 border-purple-200/80",
+      pill: "bg-purple-50 text-purple-700 border-purple-200/80",
+      code: "DEED",
+      miniIcon: "🏠",
+    };
+  }
+  if (cat.includes("ident") || cat.includes("pass") || cat.includes("nid") || cat.includes("smart") || cat.includes("reg") || cat.includes("license")) {
+    return {
+      bg: "bg-blue-50 text-blue-600 border-blue-200/80",
+      pill: "bg-blue-50 text-blue-700 border-blue-200/80",
+      code: "ID",
+      miniIcon: "🪪",
+    };
+  }
+  if (cat.includes("health") || cat.includes("med") || cat.includes("presc") || cat.includes("doctor")) {
+    return {
+      bg: "bg-rose-50 text-rose-600 border-rose-200/80",
+      pill: "bg-rose-50 text-rose-700 border-rose-200/80",
+      code: "MED",
+      miniIcon: "🏥",
+    };
+  }
+  if (cat.includes("tax") || cat.includes("finan") || cat.includes("bank") || cat.includes("tin")) {
+    return {
+      bg: "bg-amber-50 text-amber-600 border-amber-200/80",
+      pill: "bg-amber-50 text-amber-700 border-amber-200/80",
+      code: "TAX",
+      miniIcon: "📊",
+    };
+  }
+  if (cat.includes("acad") || cat.includes("cert") || cat.includes("degree") || cat.includes("school")) {
+    return {
+      bg: "bg-indigo-50 text-indigo-600 border-indigo-200/80",
+      pill: "bg-indigo-50 text-indigo-700 border-indigo-200/80",
+      code: "EDU",
+      miniIcon: "🎓",
+    };
+  }
+  if (cat.includes("employ") || cat.includes("job") || cat.includes("work")) {
+    return {
+      bg: "bg-cyan-50 text-cyan-600 border-cyan-200/80",
+      pill: "bg-cyan-50 text-cyan-700 border-cyan-200/80",
+      code: "WORK",
+      miniIcon: "💼",
+    };
+  }
+  return {
+    bg: "bg-teal-50 text-teal-600 border-teal-200/80",
+    pill: "bg-teal-50 text-teal-700 border-teal-200/80",
+    code: "DOC",
+    miniIcon: "📄",
+  };
+}
+
+export function getDocMetaString(doc: DocumentItem) {
+  const parts: string[] = [];
+  if (doc.fileSize && doc.fileSize > 0) {
+    if (doc.fileSize >= 1024 * 1024) {
+      parts.push(`${(doc.fileSize / (1024 * 1024)).toFixed(1)} MB`);
+    } else {
+      parts.push(`${Math.round(doc.fileSize / 1024)} KB`);
+    }
+  } else if (doc.fileUrl && doc.fileUrl.startsWith("data:")) {
+    const approxKb = Math.round((doc.fileUrl.length * 0.75) / 1024);
+    parts.push(approxKb >= 1024 ? `${(approxKb / 1024).toFixed(1)} MB` : `${approxKb} KB`);
+  } else {
+    parts.push("1.2 MB");
+  }
+
+  // Extension / File Type
+  const ext = (doc.fileType || "pdf").toUpperCase();
+  parts.push(ext === "GDRIVE" ? "GDRIVE" : ext);
+
+  // Date
+  const d = doc.issueDate || (doc.createdAt ? doc.createdAt.split("T")[0] : new Date().toISOString().split("T")[0]);
+  parts.push(d);
+
+  return parts.join(" • ");
 }
 
 export function DocumentsPage() {
@@ -114,6 +206,29 @@ export function DocumentsPage() {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("All");
   const [activeTab, setActiveTab] = useState<"drive" | "starred" | "expiring">("drive");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  // Mobile Header Right Portal
+  const [headerPortalEl, setHeaderPortalEl] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const el = document.getElementById("mobile-header-right");
+    if (el) {
+      setHeaderPortalEl(el);
+      return;
+    }
+    const interval = setInterval(() => {
+      const found = document.getElementById("mobile-header-right");
+      if (found) {
+        setHeaderPortalEl(found);
+        clearInterval(interval);
+      }
+    }, 50);
+    const timeout = setTimeout(() => clearInterval(interval), 2000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, []);
 
   const activeFilterCount = selectedCategoryFilter !== "All" ? 1 : 0;
 
@@ -162,6 +277,11 @@ export function DocumentsPage() {
   const [docReminderRecipients, setDocReminderRecipients] = useState<string[]>(["Personal"]);
   const [currentUserAccess, setCurrentUserAccess] = useState<FamilyMemberAccess | null>(null);
   const [isVaultLockedForUser, setIsVaultLockedForUser] = useState(false);
+  const [docTypeOption, setDocTypeOption] = useState<string>("National ID (NID)");
+  const [customDocTypeName, setCustomDocTypeName] = useState<string>("");
+  const [docTitle, setDocTitle] = useState<string>("National ID (NID)");
+  const [selectedAddCategory, setSelectedAddCategory] = useState<DocumentCategory>("Identity");
+  const [customCategoryName, setCustomCategoryName] = useState<string>("");
 
   // Right-click context menu (Google Drive blank space menu)
   const [contextMenu, setContextMenu] = useState<{
@@ -269,23 +389,11 @@ export function DocumentsPage() {
 
       // Check permissions for logged-in family member
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user) {
-          const foundMember = members.find(
-            (m) =>
-              (m.email && m.email.toLowerCase() === user.email?.toLowerCase()) ||
-              m.id === user.id,
-          );
-          if (foundMember && foundMember.relationship !== "Self") {
-            const acc = foundMember.access;
-            if (acc) {
-              setCurrentUserAccess(acc);
-              if (acc.canAccessVault === false) {
-                setIsVaultLockedForUser(true);
-              }
-            }
+        const userAcc = await getCurrentUserAccess();
+        if (!userAcc.isHead) {
+          setCurrentUserAccess(userAcc.access);
+          if (userAcc.access.canAccessVault === false) {
+            setIsVaultLockedForUser(true);
           }
         }
       } catch {}
@@ -297,9 +405,17 @@ export function DocumentsPage() {
   };
 
   // Current folder object (null if at root)
-  const currentFolder = currentFolderId
-    ? folders.find((f) => f.id === currentFolderId || f.name.toLowerCase() === currentFolderId.toLowerCase()) || null
-    : null;
+  const currentFolder = (() => {
+    if (!currentFolderId) return null;
+    const found = folders.find((f) => f.id === currentFolderId || f.name.toLowerCase() === currentFolderId.toLowerCase()) || null;
+    if (found && currentUserAccess?.assignedVaultFolderScope === "specific") {
+      const allowed = (currentUserAccess.assignedVaultFolders || []).map((f) => f.toLowerCase());
+      if (!allowed.includes(found.name.toLowerCase()) && !allowed.includes(found.id.toLowerCase())) {
+        return null;
+      }
+    }
+    return found;
+  })();
 
   // Breadcrumbs path: [Vault, ...ancestors, currentFolder]
   const getBreadcrumbs = (): { id: string | null; name: string }[] => {
@@ -329,9 +445,10 @@ export function DocumentsPage() {
   // Subfolders to display in current view
   const currentSubfolders = (() => {
     if (activeTab !== "drive") return [];
+    let list: DocumentFolder[] = [];
     if (currentFolderId === null) {
       // Root folders: no parentId or parent not found
-      return folders
+      list = folders
         .filter((f) => !deletedFolderNames.includes(f.name.toLowerCase()))
         .filter(
           (f) =>
@@ -342,17 +459,23 @@ export function DocumentsPage() {
                 p.name.toLowerCase() === f.parentId?.toLowerCase(),
             ),
         );
+    } else {
+      // Inside a folder: show direct child subfolders
+      const parentId = currentFolder?.id;
+      const parentName = currentFolder?.name.toLowerCase();
+      list = folders
+        .filter((f) => !deletedFolderNames.includes(f.name.toLowerCase()))
+        .filter(
+          (f) =>
+            (parentId && f.parentId === parentId) ||
+            (parentName && f.parentId?.toLowerCase() === parentName),
+        );
     }
-    // Inside a folder: show direct child subfolders
-    const parentId = currentFolder?.id;
-    const parentName = currentFolder?.name.toLowerCase();
-    return folders
-      .filter((f) => !deletedFolderNames.includes(f.name.toLowerCase()))
-      .filter(
-        (f) =>
-          (parentId && f.parentId === parentId) ||
-          (parentName && f.parentId?.toLowerCase() === parentName),
-      );
+    if (currentUserAccess?.assignedVaultFolderScope === "specific") {
+      const allowed = (currentUserAccess.assignedVaultFolders || []).map((f) => f.toLowerCase());
+      list = list.filter((f) => allowed.includes(f.name.toLowerCase()) || allowed.includes(f.id.toLowerCase()));
+    }
+    return list;
   })();
 
   // Filtered documents matching current location, tab, and search
@@ -433,7 +556,7 @@ export function DocumentsPage() {
     setError("");
     const form = new FormData(e.currentTarget);
     const name = String(form.get("folderName") || "").trim();
-    const color = String(form.get("color") || "indigo");
+    const color = String(form.get("color") || "emerald");
 
     if (!name) {
       setFolderSaving(false);
@@ -687,9 +810,20 @@ export function DocumentsPage() {
         docNotes = `${docNotes} [Reminder: ${reminderLead} days before expiry${rec}]`.trim();
       }
 
+      const effectiveDocName =
+        docTypeOption === "Others" && customDocTypeName.trim()
+          ? customDocTypeName.trim()
+          : String(form.get("name") || docTitle || "Document").trim();
+
+      const effectiveCategory = (
+        selectedAddCategory === "Other" && customCategoryName.trim()
+          ? "Other"
+          : selectedAddCategory
+      ) as DocumentCategory;
+
       const newDoc = await createDocument({
-        name: String(form.get("name")),
-        category: String(form.get("category")) as DocumentCategory,
+        name: effectiveDocName,
+        category: effectiveCategory,
         documentNumber: String(form.get("documentNumber") || ""),
         issuingAuthority: String(form.get("issuingAuthority") || ""),
         issueDate: String(form.get("issueDate") || ""),
@@ -778,8 +912,37 @@ export function DocumentsPage() {
 
   return (
     <div className="space-y-4 w-full">
-      {/* Top Header */}
-      <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+      {/* Mobile Top Header Integration via Portal into MobileHeader */}
+      {headerPortalEl &&
+        createPortal(
+          <div className="flex items-center gap-1.5 lg:hidden">
+            {canCreate && !isVaultLockedForUser && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsFolderOpen(true)}
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-200/90 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 active:scale-95 transition cursor-pointer"
+                  title="New Folder"
+                >
+                  <FolderPlus className="h-3.5 w-3.5 text-[#064e3b]" />
+                  <span className="text-[11px]">Folder</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddOpen(true)}
+                  className="inline-flex items-center gap-1 rounded-full bg-[#064e3b] hover:bg-[#073f30] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs active:scale-95 transition cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
+                  <span>Upload</span>
+                </button>
+              </>
+            )}
+          </div>,
+          headerPortalEl
+        )}
+
+      {/* Desktop Top Header (Hidden on mobile because MobileHeader renders Document Vault and portal has Upload button) */}
+      <div className="hidden lg:flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
         <div className="min-w-0">
           <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 font-display truncate">
             Important Documents
@@ -795,15 +958,15 @@ export function DocumentsPage() {
             <button
               type="button"
               onClick={() => setIsFolderOpen(true)}
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
             >
-              <FolderPlus className="h-3.5 w-3.5 text-indigo-600" />
+              <FolderPlus className="h-3.5 w-3.5 text-[#064e3b]" />
               <span>Folder</span>
             </button>
             <button
               type="button"
               onClick={() => setIsAddOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] active:scale-95 transition cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Upload</span>
@@ -843,11 +1006,11 @@ export function DocumentsPage() {
                 }}
                 className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
                   activeTab === "drive"
-                    ? "bg-white text-blue-600 shadow-2xs font-bold"
+                    ? "bg-white text-[#064e3b] shadow-2xs font-bold"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <Folder className={`h-3.5 w-3.5 ${activeTab === "drive" ? "text-blue-600" : "text-slate-400"}`} />
+                <Folder className={`h-3.5 w-3.5 ${activeTab === "drive" ? "text-[#064e3b]" : "text-slate-400"}`} />
                 <span>My Drive</span>
               </button>
 
@@ -899,36 +1062,6 @@ export function DocumentsPage() {
                 )}
               </button>
             </div>
-
-            {/* View Mode Toggle (Grid vs List) */}
-            <div className="flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200/80">
-              <button
-                type="button"
-                onClick={() => handleSetViewMode("grid")}
-                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition cursor-pointer ${
-                  viewMode === "grid"
-                    ? "bg-white text-slate-900 shadow-2xs font-bold"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-                title="Grid View (Google Drive style)"
-              >
-                <LayoutGrid className="h-3.5 w-3.5 text-indigo-600" />
-                <span className="hidden sm:inline">Grid</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetViewMode("list")}
-                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition cursor-pointer ${
-                  viewMode === "list"
-                    ? "bg-white text-slate-900 shadow-2xs font-bold"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-                title="List View (Table)"
-              >
-                <List className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">List</span>
-              </button>
-            </div>
           </div>
 
           {/* Breadcrumbs & Search Toolbar */}
@@ -968,9 +1101,9 @@ export function DocumentsPage() {
                           <div className="flex items-center gap-1.5">
                             <span className="font-bold text-slate-900 bg-slate-100/90 px-2 py-0.5 rounded-lg flex items-center gap-1.5">
                               {idx === 0 ? (
-                                <Folder className="h-3.5 w-3.5 text-indigo-600" />
+                                <Folder className="h-3.5 w-3.5 text-emerald-700" />
                               ) : (
-                                <FolderOpen className="h-3.5 w-3.5 text-indigo-600" />
+                                <FolderOpen className="h-3.5 w-3.5 text-emerald-700" />
                               )}
                               <span>{crumb.name}</span>
                             </span>
@@ -1004,7 +1137,7 @@ export function DocumentsPage() {
                                         setFolderToRename(currentFolder);
                                         setRenameInputValue(currentFolder.name);
                                       }}
-                                      className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition cursor-pointer text-left"
+                                      className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition cursor-pointer text-left"
                                     >
                                       <Edit2 className="h-3.5 w-3.5 text-slate-400" />
                                       <span>Rename Folder</span>
@@ -1015,7 +1148,7 @@ export function DocumentsPage() {
                                         setOpenFolderMenuId(null);
                                         setFolderToColor(currentFolder);
                                       }}
-                                      className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition cursor-pointer text-left"
+                                      className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition cursor-pointer text-left"
                                     >
                                       <Palette className="h-3.5 w-3.5 text-slate-400" />
                                       <span>Change Color</span>
@@ -1041,7 +1174,7 @@ export function DocumentsPage() {
                           <button
                             type="button"
                             onClick={() => setCurrentFolderId(crumb.id)}
-                            className="font-medium text-slate-500 hover:text-indigo-600 hover:bg-slate-50 px-1.5 py-0.5 rounded transition cursor-pointer"
+                            className="font-medium text-slate-500 hover:text-emerald-700 hover:bg-slate-50 px-1.5 py-0.5 rounded transition cursor-pointer"
                           >
                             {crumb.name}
                           </button>
@@ -1063,7 +1196,7 @@ export function DocumentsPage() {
                   <button
                     type="button"
                     onClick={() => setActiveTab("drive")}
-                    className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition ml-2 cursor-pointer flex items-center gap-1"
+                    className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 transition ml-2 cursor-pointer flex items-center gap-1"
                   >
                     <ChevronLeft className="h-3 w-3" />
                     Back to Drive
@@ -1111,24 +1244,33 @@ export function DocumentsPage() {
                   />
                 </div>
 
-                {/* Mobile Filter Toggle Button */}
+                {/* Filter Icon Button */}
                 <button
                   type="button"
                   onClick={() => setMobileFiltersOpen((prev) => !prev)}
-                  className={`sm:hidden inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition shrink-0 ${
+                  className={`inline-flex items-center justify-center h-9 w-9 rounded-xl border transition shrink-0 shadow-2xs cursor-pointer relative ${
                     mobileFiltersOpen || activeFilterCount > 0
-                      ? "border-indigo-400 bg-indigo-50 text-indigo-700"
-                      : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-800"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                   }`}
+                  title="Filter by category"
+                  aria-label="Filter"
                 >
                   <Filter className="h-4 w-4" />
-                  <span>Filter</span>
                   {activeFilterCount > 0 && (
-                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white">
+                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#064e3b] px-1 text-[9px] font-bold text-white shadow-2xs">
                       {activeFilterCount}
                     </span>
                   )}
                 </button>
+
+                {/* View Mode Toggle (Grid vs List) - to the right of filter */}
+                <ViewModeToggle
+                  viewMode={viewMode}
+                  onChange={handleSetViewMode}
+                  gridLabel="Grid"
+                  listLabel="List"
+                />
               </div>
 
               <div className={`w-full sm:w-auto ${mobileFiltersOpen ? "block" : "hidden sm:block"}`}>
@@ -1162,7 +1304,7 @@ export function DocumentsPage() {
           </div>
 
           {/* FOLDERS SECTION (Google Drive Card Grid) */}
-          {activeTab === "drive" && currentSubfolders.length > 0 && (
+          {activeTab === "drive" && (currentSubfolders.length > 0 || filteredDocuments.length > 0) && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs font-semibold text-slate-500 px-0.5">
                 <div className="flex items-center gap-1.5">
@@ -1171,9 +1313,20 @@ export function DocumentsPage() {
                     ({currentSubfolders.length})
                   </span>
                 </div>
+                {canCreate && !isVaultLockedForUser && (
+                  <button
+                    type="button"
+                    onClick={() => setIsFolderOpen(true)}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#064e3b] hover:text-[#0b6e4e] bg-emerald-50 hover:bg-emerald-100/80 px-2.5 py-1 rounded-lg border border-emerald-200/60 transition cursor-pointer active:scale-95"
+                  >
+                    <FolderPlus className="h-3.5 w-3.5" />
+                    <span>New Folder</span>
+                  </button>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
+              {currentSubfolders.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
                 {currentSubfolders.map((folder) => {
                   const colorStyle = getFolderColorStyle(folder.color);
 
@@ -1270,6 +1423,7 @@ export function DocumentsPage() {
                   );
                 })}
               </div>
+              ) : null}
             </div>
           )}
 
@@ -1277,7 +1431,7 @@ export function DocumentsPage() {
           <div className="space-y-2.5">
             <div className="flex items-center justify-between text-xs font-semibold text-slate-500 px-1">
               <div className="flex items-center gap-1.5">
-                <FileText className="h-3.5 w-3.5 text-indigo-600" />
+                <FileText className="h-3.5 w-3.5 text-emerald-700" />
                 <span className="font-bold text-slate-700">Files</span>
                 <span className="rounded-full bg-slate-100 px-2 py-0.2 text-[10px] text-slate-600 font-medium">
                   {filteredDocuments.length} {filteredDocuments.length === 1 ? "document" : "documents"}
@@ -1286,13 +1440,16 @@ export function DocumentsPage() {
             </div>
 
             {loading ? (
-              <CardsGridSkeleton count={6} />
+              <BrandLogoLoader
+                message="Loading All Documents & Papers..."
+                subtitle="Accessing your encrypted document vault"
+              />
             ) : filteredDocuments.length === 0 ? (
               <div
                 onContextMenu={handleCanvasContextMenu}
                 className="py-16 px-4 text-center rounded-2xl border border-dashed border-slate-200 bg-white shadow-2xs min-h-[260px] flex flex-col items-center justify-center cursor-default"
               >
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 mb-3.5 border border-indigo-100/80 shadow-xs">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 mb-3.5 border border-emerald-100/80 shadow-xs">
                   <FolderOpen className="h-7 w-7" />
                 </div>
                 <h3 className="text-sm font-bold text-slate-800">
@@ -1311,19 +1468,19 @@ export function DocumentsPage() {
                   <button
                     type="button"
                     onClick={() => setIsAddOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition shadow-xs cursor-pointer"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-2 text-xs font-semibold text-white hover:from-[#073f30] hover:to-[#0b6e4e] transition shadow-sm shadow-emerald-950/20 cursor-pointer"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     <span>Upload Document</span>
                   </button>
-                  {currentFolder && (
+                  {canCreate && !isVaultLockedForUser && (
                     <button
                       type="button"
                       onClick={() => setIsFolderOpen(true)}
                       className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
                     >
-                      <FolderPlus className="h-3.5 w-3.5 text-indigo-600" />
-                      <span>New Subfolder</span>
+                      <FolderPlus className="h-3.5 w-3.5 text-emerald-700" />
+                      <span>{currentFolder ? "New Subfolder" : "New Folder"}</span>
                     </button>
                   )}
                 </div>
@@ -1384,7 +1541,7 @@ export function DocumentsPage() {
                                 <Eye className="h-3 w-3" />
                               </div>
                             ) : (
-                              <div className="h-5 w-5 rounded bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-200/60">
+                              <div className="h-5 w-5 rounded bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/60">
                                 <FileText className="h-3 w-3" />
                               </div>
                             )}
@@ -1508,11 +1665,11 @@ export function DocumentsPage() {
                                     }`}
                                   />
                                 </button>
-                                <div className="h-7 w-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                                <div className="h-7 w-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
                                   <FileText className="h-3.5 w-3.5" />
                                 </div>
                                 <div className="min-w-0">
-                                  <span className="font-semibold text-slate-900 group-hover:text-indigo-600 transition block truncate max-w-xs">
+                                  <span className="font-semibold text-slate-900 group-hover:text-emerald-700 transition block truncate max-w-xs">
                                     {doc.name}
                                   </span>
                                   {doc.documentNumber && (
@@ -1555,36 +1712,39 @@ export function DocumentsPage() {
                               )}
                             </td>
                             <td className="px-4 py-3 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center justify-end gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => setPreviewDoc(doc)}
-                                  className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition cursor-pointer"
-                                  title="Preview"
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </button>
-                                {(doc.fileUrl || doc.driveFileId) && (
-                                  <button
-                                    type="button"
-                                    onClick={() => downloadDocumentFile(doc)}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition cursor-pointer"
-                                    title="Download"
-                                  >
-                                    <Download className="h-4 w-4" />
-                                  </button>
-                                )}
-                                {canDelete && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setDocToDelete(doc)}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                                    title="Delete"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                )}
-                              </div>
+                              <TableRowActions
+                                title={doc.name}
+                                subtitle={`${doc.category} • ${doc.familyMemberName || "Personal"}`}
+                                actions={[
+                                  {
+                                    label: "Preview Document",
+                                    description: "Open in viewer",
+                                    icon: Eye,
+                                    onClick: () => setPreviewDoc(doc),
+                                  },
+                                  ...(doc.fileUrl || doc.driveFileId
+                                    ? [
+                                        {
+                                          label: "Download File",
+                                          description: "Save a local copy",
+                                          icon: Download,
+                                          onClick: () => downloadDocumentFile(doc),
+                                        },
+                                      ]
+                                    : []),
+                                  ...(canDelete
+                                    ? [
+                                        {
+                                          label: "Delete Document",
+                                          description: "Remove this document",
+                                          icon: Trash2,
+                                          variant: "danger" as const,
+                                          onClick: () => setDocToDelete(doc),
+                                        },
+                                      ]
+                                    : []),
+                                ]}
+                              />
                             </td>
                           </tr>
                         );
@@ -1615,9 +1775,9 @@ export function DocumentsPage() {
                   setContextMenu(null);
                   setIsFolderOpen(true);
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition cursor-pointer font-medium text-left"
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition cursor-pointer font-medium text-left"
               >
-                <FolderPlus className="h-4 w-4 text-indigo-600 shrink-0" />
+                <FolderPlus className="h-4 w-4 text-emerald-700 shrink-0" />
                 <span>New folder</span>
               </button>
 
@@ -1629,9 +1789,9 @@ export function DocumentsPage() {
                   setContextMenu(null);
                   setIsAddOpen(true);
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition cursor-pointer font-medium text-left"
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition cursor-pointer font-medium text-left"
               >
-                <Plus className="h-4 w-4 text-indigo-600 shrink-0" />
+                <Plus className="h-4 w-4 text-emerald-700 shrink-0" />
                 <span>Upload document</span>
               </button>
             </div>
@@ -1646,7 +1806,7 @@ export function DocumentsPage() {
                   setContextMenu(null);
                   setCurrentFolderId(f.id);
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition cursor-pointer font-medium text-left"
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition cursor-pointer font-medium text-left"
               >
                 <FolderOpen className="h-4 w-4 text-slate-500 shrink-0" />
                 <span>Open folder</span>
@@ -1660,7 +1820,7 @@ export function DocumentsPage() {
                   setFolderToRename(f);
                   setRenameInputValue(f.name);
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition cursor-pointer font-medium text-left"
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition cursor-pointer font-medium text-left"
               >
                 <Edit2 className="h-4 w-4 text-slate-500 shrink-0" />
                 <span>Rename</span>
@@ -1673,7 +1833,7 @@ export function DocumentsPage() {
                   setContextMenu(null);
                   setFolderToColor(f);
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition cursor-pointer font-medium text-left"
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition cursor-pointer font-medium text-left"
               >
                 <Palette className="h-4 w-4 text-slate-500 shrink-0" />
                 <span>Change color</span>
@@ -1705,7 +1865,7 @@ export function DocumentsPage() {
                   setContextMenu(null);
                   setPreviewDoc(d);
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition cursor-pointer font-medium text-left"
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition cursor-pointer font-medium text-left"
               >
                 <Eye className="h-4 w-4 text-slate-500 shrink-0" />
                 <span>Preview</span>
@@ -1719,7 +1879,7 @@ export function DocumentsPage() {
                     setContextMenu(null);
                     downloadDocumentFile(d);
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition cursor-pointer font-medium text-left"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition cursor-pointer font-medium text-left"
                 >
                   <Download className="h-4 w-4 text-slate-500 shrink-0" />
                   <span>Download</span>
@@ -1733,7 +1893,7 @@ export function DocumentsPage() {
                   setContextMenu(null);
                   toggleFavorite(d);
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition cursor-pointer font-medium text-left"
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition cursor-pointer font-medium text-left"
               >
                 <Star className="h-4 w-4 text-amber-500 shrink-0" />
                 <span>{contextMenu.targetDoc.isFavorite ? "Remove from Starred" : "Add to Starred"}</span>
@@ -1818,7 +1978,7 @@ export function DocumentsPage() {
                         type="radio"
                         name="color"
                         value={c.id}
-                        defaultChecked={c.id === "indigo"}
+                        defaultChecked={c.id === "emerald"}
                         className="sr-only"
                       />
                       <span className={`h-4 w-4 rounded-full ${c.dot} shrink-0`} />
@@ -1941,7 +2101,7 @@ export function DocumentsPage() {
 
               <div className="grid grid-cols-4 gap-2.5">
                 {FOLDER_COLOR_PALETTE.map((c) => {
-                  const isCurrent = (folderToColor.color || "indigo").toLowerCase() === c.id;
+                  const isCurrent = (folderToColor.color || "emerald").toLowerCase() === c.id;
                   return (
                     <button
                       key={c.id}
@@ -2095,7 +2255,7 @@ export function DocumentsPage() {
                 onClick={() => setAddDocTab("basic")}
                 className={`pb-2.5 text-xs font-semibold border-b-2 transition cursor-pointer ${
                   addDocTab === "basic"
-                    ? "border-indigo-600 text-indigo-600 font-bold"
+                    ? "border-[#064e3b] text-emerald-700 font-bold"
                     : "border-transparent text-slate-500 hover:text-slate-900"
                 }`}
               >
@@ -2106,7 +2266,7 @@ export function DocumentsPage() {
                 onClick={() => setAddDocTab("advanced")}
                 className={`pb-2.5 text-xs font-semibold border-b-2 transition cursor-pointer ${
                   addDocTab === "advanced"
-                    ? "border-indigo-600 text-indigo-600 font-bold"
+                    ? "border-[#064e3b] text-emerald-700 font-bold"
                     : "border-transparent text-slate-500 hover:text-slate-900"
                 }`}
               >
@@ -2117,17 +2277,95 @@ export function DocumentsPage() {
             <form onSubmit={handleCreateDocument} className="p-6 space-y-4">
               {addDocTab === "basic" ? (
                 <>
+                  {/* Document & Identity Type Preset Selector with Aadhaar & Custom Others */}
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Document Title <span className="text-rose-500">*</span>
+                      Identity & Document Type Preset
                     </label>
-                    <input
-                      name="name"
-                      required
-                      placeholder="e.g. National ID, Passport, BSc Certificate, Land Deed"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
-                    />
+                    <FormControl size="small" fullWidth>
+                      <Select
+                        value={docTypeOption}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setDocTypeOption(val);
+                          if (val === "Others") {
+                            setCustomDocTypeName("");
+                          } else {
+                            setDocTitle(val);
+                            if (
+                              val === "National ID (NID)" ||
+                              val === "Passport" ||
+                              val === "Aadhaar Card" ||
+                              val === "Driving License" ||
+                              val === "Birth Certificate"
+                            ) {
+                              setSelectedAddCategory("Identity");
+                            } else if (val === "TIN / Tax Certificate") {
+                              setSelectedAddCategory("Tax/Financial");
+                            } else if (val === "Academic Certificate") {
+                              setSelectedAddCategory("Academic");
+                            }
+                          }
+                        }}
+                        sx={{
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          borderRadius: "0.75rem",
+                          backgroundColor: "#f8fafc",
+                          "& .MuiSelect-select": {
+                            fontSize: "0.75rem",
+                            py: "8px",
+                          },
+                        }}
+                      >
+                        <MenuItem value="National ID (NID)" sx={{ fontSize: "0.75rem" }}>🪪 National ID (NID)</MenuItem>
+                        <MenuItem value="Passport" sx={{ fontSize: "0.75rem" }}>🛂 Passport</MenuItem>
+                        <MenuItem value="Aadhaar Card" sx={{ fontSize: "0.75rem" }}>💳 Aadhaar Card / UIDAI</MenuItem>
+                        <MenuItem value="Driving License" sx={{ fontSize: "0.75rem" }}>🚗 Driving License</MenuItem>
+                        <MenuItem value="Birth Certificate" sx={{ fontSize: "0.75rem" }}>📜 Birth Registration Certificate</MenuItem>
+                        <MenuItem value="TIN / Tax Certificate" sx={{ fontSize: "0.75rem" }}>📑 Tax Certificate / TIN</MenuItem>
+                        <MenuItem value="Academic Certificate" sx={{ fontSize: "0.75rem" }}>🎓 Academic Degree / Certificate</MenuItem>
+                        <MenuItem value="Others" sx={{ fontSize: "0.75rem", fontWeight: 700 }}>✏️ Others (Give Your Own Name)</MenuItem>
+                      </Select>
+                    </FormControl>
                   </div>
+
+                  {/* Dynamic field: When "Others" is selected, let user provide their own name */}
+                  {docTypeOption === "Others" ? (
+                    <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/50 animate-in fade-in duration-150 space-y-1">
+                      <label className="block text-xs font-bold text-[#064e3b]">
+                        Enter Your Custom Document / Identity Name <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        required
+                        placeholder="e.g. Voter ID, PAN Card, Ration Card, Police Clearance"
+                        value={customDocTypeName}
+                        onChange={(e) => {
+                          setCustomDocTypeName(e.target.value);
+                          setDocTitle(e.target.value);
+                        }}
+                        className="w-full rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs font-semibold text-slate-900 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 shadow-2xs"
+                      />
+                      <p className="text-[10px] text-emerald-800">
+                        Type the name of your identity card or custom document.
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Document Title <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        name="name"
+                        required
+                        value={docTitle}
+                        onChange={(e) => setDocTitle(e.target.value)}
+                        placeholder="e.g. National ID, Passport, Aadhaar Card, Land Deed"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 font-medium"
+                      />
+                    </div>
+                  )}
 
                   {/* File Attachment as primary in Basic */}
                   <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/50 p-3.5">
@@ -2188,7 +2426,8 @@ export function DocumentsPage() {
                         <Select
                           name="category"
                           required
-                          defaultValue={categories[0]}
+                          value={selectedAddCategory}
+                          onChange={(e) => setSelectedAddCategory(e.target.value as DocumentCategory)}
                           sx={{
                             fontSize: "0.75rem",
                             fontFamily: '"Plus Jakarta Sans", sans-serif',
@@ -2209,6 +2448,20 @@ export function DocumentsPage() {
                       </FormControl>
                     </div>
                   </div>
+
+                  {selectedAddCategory === "Other" && (
+                    <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/40">
+                      <label className="block text-xs font-bold text-[#064e3b] mb-1">
+                        Enter Custom Category Name
+                      </label>
+                      <input
+                        placeholder="e.g. Memberships, Permits, Municipal Records"
+                        value={customCategoryName}
+                        onChange={(e) => setCustomCategoryName(e.target.value)}
+                        className="w-full rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 shadow-2xs"
+                      />
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -2298,24 +2551,36 @@ export function DocumentsPage() {
                         name="requiresRenewal"
                         type="checkbox"
                         defaultChecked={false}
-                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-500 cursor-pointer"
                       />
                       <span>Enable Automated WhatsApp Expiry Reminder</span>
                     </label>
 
                     <div className="flex items-center gap-2 text-xs text-slate-600 pl-6">
                       <span className="text-[11px] font-medium text-slate-700">Remind Lead Time:</span>
-                      <select
-                        name="reminderLeadDays"
-                        defaultValue={15}
-                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-900 outline-none focus:border-indigo-600"
-                      >
-                        <option value={3}>3 days before expiry (Urgent)</option>
-                        <option value={7}>7 days before expiry (Standard)</option>
-                        <option value={15}>15 days before expiry (Recommended)</option>
-                        <option value={30}>30 days before expiry (Early warning)</option>
-                        <option value={60}>60 days before expiry</option>
-                      </select>
+                      <FormControl size="small">
+                        <Select
+                          name="reminderLeadDays"
+                          defaultValue={15}
+                          sx={{
+                            fontSize: "0.75rem",
+                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            borderRadius: "0.5rem",
+                            backgroundColor: "#ffffff",
+                            "& .MuiSelect-select": {
+                              fontSize: "0.75rem",
+                              py: "4px",
+                              px: "8px",
+                            },
+                          }}
+                        >
+                          <MenuItem value={3} sx={{ fontSize: "0.75rem" }}>3 days before expiry (Urgent)</MenuItem>
+                          <MenuItem value={7} sx={{ fontSize: "0.75rem" }}>7 days before expiry (Standard)</MenuItem>
+                          <MenuItem value={15} sx={{ fontSize: "0.75rem" }}>15 days before expiry (Recommended)</MenuItem>
+                          <MenuItem value={30} sx={{ fontSize: "0.75rem" }}>30 days before expiry (Early warning)</MenuItem>
+                          <MenuItem value={60} sx={{ fontSize: "0.75rem" }}>60 days before expiry</MenuItem>
+                        </Select>
+                      </FormControl>
                     </div>
 
                     <div className="pl-6 pt-1">
@@ -2365,12 +2630,12 @@ export function DocumentsPage() {
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 shrink-0">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 shrink-0">
                   <FileText className="h-5 w-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
                       {previewDoc.category}
                     </span>
                     {(previewDoc.driveFileId ||
@@ -2416,7 +2681,7 @@ export function DocumentsPage() {
                     <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50 shadow-2xs">
                       <div className="bg-slate-100/90 px-3.5 py-2 flex items-center justify-between border-b border-slate-200 text-xs">
                         <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-indigo-600" />
+                          <FileText className="h-4 w-4 text-emerald-700" />
                           <span className="font-semibold text-slate-700">File Preview</span>
                           <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200">
                             Master Drive
@@ -2426,7 +2691,7 @@ export function DocumentsPage() {
                           href={`https://drive.google.com/file/d/${driveId}/view`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition"
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 transition"
                         >
                           <span>Open in Google Drive</span>
                           <ExternalLink className="h-3 w-3" />
@@ -2454,7 +2719,7 @@ export function DocumentsPage() {
                         <button
                           type="button"
                           onClick={() => openDocumentFile(previewDoc)}
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-900 transition"
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
                           <span>View Full Size Image</span>
@@ -2476,7 +2741,7 @@ export function DocumentsPage() {
                     <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50">
                       <div className="bg-slate-100/90 px-3.5 py-2 flex items-center justify-between border-b border-slate-200 text-xs">
                         <span className="font-semibold text-slate-700 flex items-center gap-1.5">
-                          <FileText className="h-4 w-4 text-indigo-600" />
+                          <FileText className="h-4 w-4 text-emerald-700" />
                           PDF Document
                         </span>
                         <div className="flex items-center gap-2">
@@ -2490,7 +2755,7 @@ export function DocumentsPage() {
                           <button
                             type="button"
                             onClick={() => openDocumentFile(previewDoc)}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 cursor-pointer"
                           >
                             <span>Open in New Tab</span>
                             <ExternalLink className="h-3 w-3" />
@@ -2510,7 +2775,7 @@ export function DocumentsPage() {
                   return (
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                        <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700">
                           <FileText className="h-5 w-5" />
                         </div>
                         <div>
@@ -2521,7 +2786,7 @@ export function DocumentsPage() {
                       <button
                         type="button"
                         onClick={() => openDocumentFile(previewDoc)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#064e3b] text-white text-xs font-semibold hover:bg-[#043327] transition"
                       >
                         <Download className="h-3.5 w-3.5" />
                         <span>Download / View</span>
@@ -2540,7 +2805,7 @@ export function DocumentsPage() {
                     Folder
                   </span>
                   <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                    <Folder className="h-3.5 w-3.5 text-indigo-600" />
+                    <Folder className="h-3.5 w-3.5 text-emerald-700" />
                     {previewDoc.folderName || "General"}
                   </span>
                 </div>
@@ -2550,7 +2815,7 @@ export function DocumentsPage() {
                     Owner / Member
                   </span>
                   <span className="font-semibold text-slate-800 flex items-center gap-1.5">
-                    <Users className="h-3.5 w-3.5 text-indigo-600" />
+                    <Users className="h-3.5 w-3.5 text-emerald-700" />
                     {previewDoc.familyMemberName || "Personal / Self"}
                   </span>
                 </div>
@@ -2625,7 +2890,7 @@ export function DocumentsPage() {
                     <button
                       type="button"
                       onClick={() => openDocumentFile(previewDoc)}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition shadow-xs cursor-pointer"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#064e3b] px-4 py-2 text-xs font-semibold text-white hover:bg-[#043327] transition shadow-xs cursor-pointer"
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
                       <span>Open in New Tab</span>

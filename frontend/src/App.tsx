@@ -12,6 +12,8 @@ import { DocumentsPage } from "./pages/DocumentsPage";
 import { TasksPage } from "./pages/TasksPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { DailyExpensesPage } from "./pages/DailyExpensesPage";
+import { EmiDetailPage } from "./pages/EmiDetailPage";
+import { DpsFdrDetailPage } from "./pages/DpsFdrDetailPage";
 import { WarrantiesPage } from "./pages/WarrantiesPage";
 import { LicensesPage } from "./pages/LicensesPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -65,6 +67,8 @@ function App() {
               <Route path="/my-life/tasks" element={<TasksPage />} />
               <Route path="/my-life/calendar" element={<CalendarPage />} />
               <Route path="/my-life/expenses" element={<DailyExpensesPage />} />
+              <Route path="/my-life/expenses/loans/:loanId" element={<EmiDetailPage />} />
+              <Route path="/my-life/expenses/savings/:savingsId" element={<DpsFdrDetailPage />} />
               <Route path="/expenses" element={<Navigate to="/my-life/expenses" replace />} />
               <Route path="/daily-expenses" element={<Navigate to="/my-life/expenses" replace />} />
 

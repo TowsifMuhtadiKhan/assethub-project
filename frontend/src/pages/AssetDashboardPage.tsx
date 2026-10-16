@@ -225,7 +225,7 @@ export function AssetDashboardPage({ kind }: { kind: "vehicle" | "property" }) {
         <div className="print:hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-200/60 text-indigo-600">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 border border-emerald-200/60 text-emerald-800">
                 <BarChart3 className="h-4 w-4" />
               </div>
               <div>

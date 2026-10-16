@@ -26,12 +26,19 @@ import type { UserSettings } from "../types";
 import { WhatsAppContactsManager } from "../components/common/WhatsAppContactsManager";
 import { FamilyPage } from "./FamilyPage";
 import { AccessControlPage } from "./AccessControlPage";
+import {
+  getCurrentUserAccess,
+  type CurrentUserAccessResult,
+} from "../services/familyService";
 
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { language, setLanguage } = useLanguage();
   const tabParam = searchParams.get("tab");
+  const [userAccess, setUserAccess] = useState<CurrentUserAccessResult | null>(
+    null,
+  );
 
   const [settings, setSettings] = useState<UserSettings>({
     fullName: "",
@@ -43,9 +50,12 @@ export function SettingsPage() {
     callmebotApiKey: "",
   });
 
-  const [activeTab, setActiveTab] = useState<"profile" | "access" | "notifications">(() => {
+  const [activeTab, setActiveTab] = useState<
+    "profile" | "access" | "notifications"
+  >(() => {
     if (tabParam === "access" || tabParam === "permissions") return "access";
-    if (tabParam === "notifications" || tabParam === "whatsapp") return "notifications";
+    if (tabParam === "notifications" || tabParam === "whatsapp")
+      return "notifications";
     return "profile";
   });
 
@@ -98,7 +108,12 @@ export function SettingsPage() {
         if (raw) setAlertTriggers(JSON.parse(raw));
       } catch {}
     });
-    getWhatsAppSystemStatus().then((s) => setSystemWhatsApp(s)).catch(() => {});
+    getWhatsAppSystemStatus()
+      .then((s) => setSystemWhatsApp(s))
+      .catch(() => {});
+    getCurrentUserAccess()
+      .then((a) => setUserAccess(a))
+      .catch(() => {});
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -106,14 +121,20 @@ export function SettingsPage() {
     const updated = await saveUserSettings(settings);
     setSettings(updated);
     try {
-      localStorage.setItem("lifenest_alert_triggers", JSON.stringify(alertTriggers));
+      localStorage.setItem(
+        "lifenest_alert_triggers",
+        JSON.stringify(alertTriggers),
+      );
     } catch {}
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
 
   const handleSendTestAlert = async () => {
-    const fullNumber = formatRecipientNumber(settings.countryCode || "+880", settings.whatsappNumber || "");
+    const fullNumber = formatRecipientNumber(
+      settings.countryCode || "+880",
+      settings.whatsappNumber || "",
+    );
     if (!fullNumber || fullNumber.length < 8) {
       alert("Please enter a valid recipient WhatsApp number first.");
       return;
@@ -122,7 +143,8 @@ export function SettingsPage() {
     if (!systemWhatsApp.configured && systemWhatsApp.status !== "connected") {
       setTestResponse({
         success: false,
-        error: "WhatsApp Web Gateway is not linked yet. Scan the QR code below using WhatsApp on your phone first (or click 'Open in WhatsApp' to test dispatch right away).",
+        error:
+          "WhatsApp Web Gateway is not linked yet. Scan the QR code below using WhatsApp on your phone first (or click 'Open in WhatsApp' to test dispatch right away).",
       });
       return;
     }
@@ -130,7 +152,7 @@ export function SettingsPage() {
     setSendingTest(true);
     setTestResponse(null);
     try {
-      const sampleAlertText = `🔔 *LifeNest Automated Alert Test*\n\nHello ${settings.fullName || "User"},\nThis is a test notification from your LifeNest Personal Life OS.\n\n• Document: BRTA Tax Token / Driving License checks active\n• Tasks: High-priority deadlines tracked\n• Rent: Monthly unit collection reminders active\n\nYour WhatsApp alert integration is active and verified!`;
+      const sampleAlertText = `🌿 *লিখে রাখো (Likhe Rakho)*\n\nমনে রাখার ঝামেলা শেষ, লিখে রাখো।\n\nআসসালামু আলাইকুম ${settings.fullName || "সুধী"}, শুভেচ্ছা নিন।\nলিখে রাখো স্মার্ট পারিবারিক সহকারীর স্বয়ংক্রিয় হোয়াটসঅ্যাপ নোটিফিকেশন সেবা সফলভাবে সংযুক্ত ও সক্রিয় হয়েছে।\n\n*সেবার অবস্থা:* সক্রিয় ও প্রস্তুত\n*স্বয়ংক্রিয় নোটিশ:* জরুরি কাজ, বাড়ি ভাড়া ও গাড়ির বিআরটিএ নথিপত্র\n*যাচাইয়ের সময়:* ${new Date().toLocaleDateString("bn-BD", { day: "numeric", month: "long", year: "numeric" }) || "আজ"}\n\nআপনার সব গুরুত্বপূর্ণ নোটিফিকেশন সময়মতো এই নম্বরে পৌঁছে দেওয়া হবে।\n— *লিখে রাখো*`;
 
       const result = await sendSystemWhatsAppAlert({
         to: fullNumber,
@@ -151,7 +173,10 @@ export function SettingsPage() {
     } catch (err) {
       setTestResponse({
         success: false,
-        error: err instanceof Error ? err.message : "Failed to connect to backend WhatsApp service",
+        error:
+          err instanceof Error
+            ? err.message
+            : "Failed to connect to backend WhatsApp service",
       });
     } finally {
       setSendingTest(false);
@@ -159,16 +184,23 @@ export function SettingsPage() {
   };
 
   const handleLaunchWhatsApp = () => {
-    const fullNumber = formatRecipientNumber(settings.countryCode || "+880", settings.whatsappNumber || "");
+    const fullNumber = formatRecipientNumber(
+      settings.countryCode || "+880",
+      settings.whatsappNumber || "",
+    );
     if (!fullNumber || fullNumber.length < 8) {
       alert("Please enter a valid recipient WhatsApp number first.");
       return;
     }
-    const sampleAlertText = `🔔 *LifeNest Automated Alert Test*\n\nHello ${settings.fullName || "User"},\nThis is a test notification from your LifeNest Personal Life OS.\n\n• Document: BRTA Tax Token / Driving License checks active\n• Tasks: High-priority deadlines tracked\n• Rent: Monthly unit collection reminders active\n\nYour WhatsApp alert integration is active and verified!`;
+    const sampleAlertText = `🌿 *Aponjon* (Family Assistant)\n\nHi ${settings.fullName || "there"}, this is a test notification from your family assistant.\nYour automated WhatsApp reminder service is connected and ready.\n\nVerified on *${new Date().toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}*\nImportant task reminders, rent updates, and vehicle document renewals will be delivered to you here.\n\nHave a great day!`;
     const encoded = encodeURIComponent(sampleAlertText);
     const waUrl = `https://wa.me/${fullNumber}?text=${encoded}`;
     window.open(waUrl, "_blank");
   };
+
+  const canManageAccess = userAccess
+    ? userAccess.isHead || userAccess.access?.loginRole === "Admin"
+    : true;
 
   return (
     <div className="space-y-4 w-full">
@@ -198,18 +230,20 @@ export function SettingsPage() {
             <span>Profile</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => switchTab("access")}
-            className={`inline-flex items-center gap-1.5 pb-2.5 pt-1 border-b-2 transition cursor-pointer ${
-              activeTab === "access"
-                ? "border-orange-600 text-orange-700 font-bold"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <KeyRound className="h-4 w-4" />
-            <span>Access</span>
-          </button>
+          {canManageAccess && (
+            <button
+              type="button"
+              onClick={() => switchTab("access")}
+              className={`inline-flex items-center gap-1.5 pb-2.5 pt-1 border-b-2 transition cursor-pointer ${
+                activeTab === "access"
+                  ? "border-orange-600 text-orange-700 font-bold"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <KeyRound className="h-4 w-4" />
+              <span>Access</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -239,7 +273,10 @@ export function SettingsPage() {
       {activeTab === "profile" && (
         <div className="space-y-6">
           {/* Primary Account Owner Card */}
-          <form onSubmit={handleSave} className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs space-y-4">
+          <form
+            onSubmit={handleSave}
+            className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs space-y-4"
+          >
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">
@@ -276,7 +313,9 @@ export function SettingsPage() {
                 </label>
                 <input
                   value={settings.fullName}
-                  onChange={(e) => setSettings({ ...settings, fullName: e.target.value })}
+                  onChange={(e) =>
+                    setSettings({ ...settings, fullName: e.target.value })
+                  }
                   placeholder="e.g. Towsif Khan"
                   className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
                 />
@@ -288,7 +327,7 @@ export function SettingsPage() {
           <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs space-y-4">
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200/80 shrink-0">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/80 shrink-0">
                   <Globe className="h-5 w-5" />
                 </div>
                 <div>
@@ -296,7 +335,8 @@ export function SettingsPage() {
                     Language Preference
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Choose your primary language for LifeNest navigation and dashboard.
+                    Choose your primary language for Likhe Rakho navigation and
+                    dashboard.
                   </p>
                 </div>
               </div>
@@ -308,16 +348,20 @@ export function SettingsPage() {
                 onClick={() => setLanguage("en")}
                 className={`flex items-center justify-between rounded-xl border p-4 transition text-left cursor-pointer ${
                   language === "en"
-                    ? "border-indigo-600 bg-indigo-50/40 text-indigo-950 ring-2 ring-indigo-600/20"
+                    ? "border-emerald-600 bg-emerald-50/40 text-emerald-950 ring-2 ring-emerald-600/20"
                     : "border-slate-200 hover:border-slate-300 bg-white text-slate-700"
                 }`}
               >
                 <div>
-                  <div className="text-xs font-bold text-slate-900">English (US)</div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">Default system interface & terms</div>
+                  <div className="text-xs font-bold text-slate-900">
+                    English (US)
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    Default system interface & terms
+                  </div>
                 </div>
                 {language === "en" && (
-                  <CheckCircle2 className="h-4 w-4 text-indigo-600 shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                 )}
               </button>
 
@@ -326,16 +370,20 @@ export function SettingsPage() {
                 onClick={() => setLanguage("bn")}
                 className={`flex items-center justify-between rounded-xl border p-4 transition text-left cursor-pointer ${
                   language === "bn"
-                    ? "border-indigo-600 bg-indigo-50/40 text-indigo-950 ring-2 ring-indigo-600/20"
+                    ? "border-emerald-600 bg-emerald-50/40 text-emerald-950 ring-2 ring-emerald-600/20"
                     : "border-slate-200 hover:border-slate-300 bg-white text-slate-700"
                 }`}
               >
                 <div>
-                  <div className="text-xs font-bold text-slate-900">বাংলা (Bengali)</div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">সহজ বাংলা মেনু, টাস্ক ও ড্যাশবোর্ড</div>
+                  <div className="text-xs font-bold text-slate-900">
+                    বাংলা (Bengali)
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    সহজ বাংলা মেনু, টাস্ক ও ড্যাশবোর্ড
+                  </div>
                 </div>
                 {language === "bn" && (
-                  <CheckCircle2 className="h-4 w-4 text-indigo-600 shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                 )}
               </button>
             </div>
@@ -349,7 +397,7 @@ export function SettingsPage() {
       {/* ========================================================================= */}
       {/* TAB 2: ACCESS CONTROL & PERMISSIONS                                       */}
       {/* ========================================================================= */}
-      {activeTab === "access" && (
+      {activeTab === "access" && canManageAccess && (
         <div className="pt-1">
           <AccessControlPage embedMode />
         </div>
@@ -383,7 +431,8 @@ export function SettingsPage() {
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Automated reminders for expiring vehicle papers, upcoming rent, and tasks.
+                    Automated reminders for expiring vehicle papers, upcoming
+                    rent, and tasks.
                   </p>
                 </div>
               </div>
@@ -404,7 +453,10 @@ export function SettingsPage() {
                     type="checkbox"
                     checked={settings.whatsappEnabled}
                     onChange={(e) =>
-                      setSettings({ ...settings, whatsappEnabled: e.target.checked })
+                      setSettings({
+                        ...settings,
+                        whatsappEnabled: e.target.checked,
+                      })
                     }
                     className="sr-only peer"
                   />
@@ -435,7 +487,9 @@ export function SettingsPage() {
                 </div>
                 {!testResponse.success && (
                   <div className="flex items-center justify-between gap-2 pt-1 border-t border-rose-100 text-[11px]">
-                    <span className="text-rose-700">Send test alert via direct web link:</span>
+                    <span className="text-rose-700">
+                      Send test alert via direct web link:
+                    </span>
                     <button
                       type="button"
                       onClick={handleLaunchWhatsApp}
@@ -452,7 +506,9 @@ export function SettingsPage() {
             <WhatsAppContactsManager
               contacts={settings.whatsappContacts || []}
               onChange={(updatedContacts) => {
-                const personal = updatedContacts.find((c) => c.alias.toLowerCase() === "personal");
+                const personal = updatedContacts.find(
+                  (c) => c.alias.toLowerCase() === "personal",
+                );
                 setSettings((prev) => ({
                   ...prev,
                   whatsappContacts: updatedContacts,
@@ -461,7 +517,9 @@ export function SettingsPage() {
                 }));
               }}
               onAutoSave={(updatedContacts) => {
-                const personal = updatedContacts.find((c) => c.alias.toLowerCase() === "personal");
+                const personal = updatedContacts.find(
+                  (c) => c.alias.toLowerCase() === "personal",
+                );
                 const toSave = {
                   ...settings,
                   whatsappContacts: updatedContacts,
@@ -475,7 +533,9 @@ export function SettingsPage() {
             {/* Configurable Alert Triggers (Clean, No Emojis, No AI-shouting) */}
             <div className="space-y-2.5 pt-2 border-t border-slate-100">
               <div>
-                <h3 className="text-xs font-bold text-slate-900">Alert Triggers</h3>
+                <h3 className="text-xs font-bold text-slate-900">
+                  Alert Triggers
+                </h3>
                 <p className="text-[11px] text-slate-500">
                   Select which automated alerts are dispatched to recipients.
                 </p>
@@ -497,7 +557,10 @@ export function SettingsPage() {
                     desc: "Periodic engine oil change and scheduled maintenance reminders based on mileage.",
                     checked: alertTriggers.vehicleMaintenance,
                     setter: (v: boolean) =>
-                      setAlertTriggers({ ...alertTriggers, vehicleMaintenance: v }),
+                      setAlertTriggers({
+                        ...alertTriggers,
+                        vehicleMaintenance: v,
+                      }),
                   },
                   {
                     key: "rentDue",
@@ -529,8 +592,12 @@ export function SettingsPage() {
                     className="flex items-center justify-between p-3 hover:bg-slate-50/70 transition cursor-pointer select-none"
                   >
                     <div className="pr-4">
-                      <div className="text-xs font-semibold text-slate-900">{item.title}</div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">{item.desc}</div>
+                      <div className="text-xs font-semibold text-slate-900">
+                        {item.title}
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        {item.desc}
+                      </div>
                     </div>
                     <input
                       type="checkbox"
@@ -561,7 +628,10 @@ export function SettingsPage() {
       <div className="mt-8 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-500">
         <div className="flex items-center gap-2.5 text-slate-700 font-medium">
           <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
-          <span>Mobile App & APK distribution, WhatsApp Gateways, and System Queues are managed exclusively in the Core Command Console.</span>
+          <span>
+            Mobile App & APK distribution, WhatsApp Gateways, and System Queues
+            are managed exclusively in the Core Command Console.
+          </span>
         </div>
         <Link
           to="/admin?tab=apk"

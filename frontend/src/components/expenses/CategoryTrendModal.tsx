@@ -6,7 +6,9 @@ import {
   Minus,
   ArrowDownRight,
   ArrowUpRight,
+  LineChart,
 } from "lucide-react";
+import { FormControl, Select, MenuItem } from "@mui/material";
 import type { DailyExpense } from "../../types";
 
 type CategoryTrendModalProps = {
@@ -37,16 +39,16 @@ export function getCategoryEmoji(category: string): string {
   return "🏷️";
 }
 
-// Generate pastel / distinct badge colors for percentages matching the screenshot
+// Generate pastel / distinct badge colors for percentages
 function getPercentageBadgeColor(index: number) {
   const colors = [
-    "bg-rose-500/90 text-white", // 69% - salmon/rose
-    "bg-amber-500/90 text-white", // 17% - orange
-    "bg-yellow-500/90 text-slate-900 font-bold", // 14% - yellow
-    "bg-emerald-500/80 text-white",
-    "bg-sky-500/80 text-white",
-    "bg-purple-500/80 text-white",
-    "bg-indigo-500/80 text-white",
+    "bg-rose-100 text-rose-800 border border-rose-200/80",
+    "bg-amber-100 text-amber-800 border border-amber-200/80",
+    "bg-teal-100 text-teal-800 border border-teal-200/80",
+    "bg-emerald-100 text-emerald-800 border border-emerald-200/80",
+    "bg-sky-100 text-sky-800 border border-sky-200/80",
+    "bg-purple-100 text-purple-800 border border-purple-200/80",
+    "bg-indigo-100 text-indigo-800 border border-indigo-200/80",
   ];
   return colors[index % colors.length];
 }
@@ -91,10 +93,9 @@ export function CategoryTrendModal({
     }
   };
 
-  // 7-month trend calculation centered around the selected month (e.g. 4 months before, selected month, 2 months after)
+  // 7-month trend calculation centered around the selected month (4 months before, selected month, 2 months after)
   const monthList = useMemo(() => {
     const list: { label: string; year: number; month: number; isSelected: boolean }[] = [];
-    // 4 months before viewMonth, selected month, and 2 months after
     for (let offset = -4; offset <= 2; offset++) {
       const d = new Date(viewYear, viewMonth + offset, 1);
       list.push({
@@ -155,7 +156,6 @@ export function CategoryTrendModal({
   const subItemBreakdown = useMemo(() => {
     const map: Record<string, number> = {};
     for (const exp of currentMonthExpenses) {
-      // Prioritize merchant if exists, else description
       const key = (exp.merchant || exp.description || "General").trim();
       map[key] = (map[key] || 0) + Number(exp.amount);
     }
@@ -186,7 +186,6 @@ export function CategoryTrendModal({
 
   const getCoordinates = (index: number, total: number) => {
     const x = paddingX + (index / (trendPoints.length - 1)) * (chartWidth - paddingX * 2);
-    // Inverted Y: 0 total at bottom, maxSpend near top
     const availableHeight = chartHeight - paddingTop - paddingBottom;
     const y = chartHeight - paddingBottom - (total / maxSpend) * availableHeight;
     return { x, y };
@@ -197,7 +196,7 @@ export function CategoryTrendModal({
     ...getCoordinates(i, p.total),
   }));
 
-  // SVG Path generator (straight polyline or subtle curved)
+  // SVG Path generator
   const pathD = pointsCoordinates.reduce((acc, pt, i) => {
     return i === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`;
   }, "");
@@ -217,49 +216,107 @@ export function CategoryTrendModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-2 sm:p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-2 sm:p-4 animate-in fade-in duration-200 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-md rounded-3xl bg-[#121316] text-white shadow-2xl border border-slate-800 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150"
+        className="relative w-full max-w-md rounded-2xl sm:rounded-3xl bg-white text-slate-900 shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88dvh] my-auto animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ========================================================================= */}
-        {/* 1. TOP HEADER & NAVIGATION                                                */}
+        {/* 1. TOP HEADER & NAVIGATION (Light Theme & Proper MUI Dropdown)           */}
         {/* ========================================================================= */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/80 bg-[#16171b]">
+        <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-b border-slate-100 bg-slate-50/70 gap-2 shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center gap-1 text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer select-none active:scale-95"
+            className="flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900 transition cursor-pointer select-none active:scale-95 shrink-0"
           >
             <ChevronLeft className="h-4 w-4" />
-            <span>Back</span>
+            <span className="hidden xs:inline">Back</span>
           </button>
 
-          {/* Category Dropdown Picker */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-base">{categoryEmoji}</span>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="bg-transparent text-sm font-bold text-white outline-none cursor-pointer max-w-[170px] truncate"
-            >
-              <option value="all" className="bg-slate-900 text-white">
-                All Expenses
-              </option>
-              {availableCategories.map((cat) => (
-                <option key={cat} value={cat} className="bg-slate-900 text-white">
-                  {cat}
-                </option>
-              ))}
-            </select>
+          {/* Proper MUI Category Dropdown Picker */}
+          <div className="flex items-center min-w-0 flex-1 justify-center px-1">
+            <FormControl size="small" sx={{ maxWidth: { xs: 200, sm: 260 }, width: "auto" }}>
+              <Select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                displayEmpty
+                renderValue={(selected) => {
+                  const raw = selected === "all" ? "All Expenses" : selected;
+                  // For compact display on mobile, give a clean concise title if overly long
+                  const shortName =
+                    raw === "Loan & EMI Repayment"
+                      ? "Loan & EMI"
+                      : raw === "DPS & Savings Deposit"
+                      ? "DPS & Savings"
+                      : raw === "Healthcare & Medicine"
+                      ? "Healthcare"
+                      : raw === "Transport & Commute"
+                      ? "Transport"
+                      : raw === "Shopping & Personal"
+                      ? "Shopping"
+                      : raw === "Groceries & Market"
+                      ? "Groceries"
+                      : raw;
+                  const emoji = selected === "all" ? "📊" : getCategoryEmoji(selected);
+                  return (
+                    <div className="flex items-center gap-1.5 min-w-0 overflow-hidden pr-0.5">
+                      <span className="shrink-0 text-sm leading-none">{emoji}</span>
+                      <span className="truncate text-xs font-bold text-slate-800 tracking-tight leading-none">
+                        {shortName}
+                      </span>
+                    </div>
+                  );
+                }}
+                sx={{
+                  fontSize: "0.8125rem",
+                  fontWeight: 700,
+                  fontFamily: '"Plus Jakarta Sans", sans-serif',
+                  borderRadius: "9999px",
+                  backgroundColor: "#ffffff",
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#e2e8f0",
+                  },
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#cbd5e1",
+                  },
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#059669",
+                  },
+                  "& .MuiSelect-select": {
+                    py: "4px",
+                    pl: "10px",
+                    pr: "28px !important",
+                    display: "flex",
+                    alignItems: "center",
+                    minWidth: 0,
+                    overflow: "hidden",
+                  },
+                  "& .MuiSelect-icon": {
+                    right: "6px",
+                    color: "#64748b",
+                    fontSize: "1.1rem",
+                  },
+                }}
+              >
+                <MenuItem value="all" sx={{ fontSize: "0.8125rem", fontWeight: 700 }}>
+                  <span className="mr-2">📊</span> All Expenses
+                </MenuItem>
+                {availableCategories.map((cat) => (
+                  <MenuItem key={cat} value={cat} sx={{ fontSize: "0.8125rem" }}>
+                    <span className="mr-2">{getCategoryEmoji(cat)}</span> {cat}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-800/80 transition cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
             aria-label="Close"
           >
             <X className="h-4 w-4" />
@@ -269,24 +326,24 @@ export function CategoryTrendModal({
         {/* ========================================================================= */}
         {/* 2. MONTH SELECTOR (< Oct 2026 >)                                          */}
         {/* ========================================================================= */}
-        <div className="flex items-center justify-between px-6 py-2.5 bg-[#121316] border-b border-slate-800/50">
+        <div className="flex items-center justify-between px-6 py-2.5 bg-white border-b border-slate-100">
           <button
             type="button"
             onClick={handlePrevMonth}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer active:scale-90"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer active:scale-90"
             title="Previous month"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
 
-          <span className="text-xs font-bold tracking-wide text-slate-200">
+          <span className="text-xs font-bold tracking-wide text-slate-800">
             {selectedMonthName}
           </span>
 
           <button
             type="button"
             onClick={handleNextMonth}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer active:scale-90"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer active:scale-90"
             title="Next month"
           >
             <ChevronRight className="h-4 w-4" />
@@ -296,15 +353,15 @@ export function CategoryTrendModal({
         {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4">
           {/* ========================================================================= */}
-          {/* 3. NEON LIME TREND GRAPH (DARK MODE)                                      */}
+          {/* 3. CRISP EMERALD TREND GRAPH (LIGHT THEME)                                */}
           {/* ========================================================================= */}
-          <div className="rounded-2xl bg-[#191b20] border border-slate-800/80 p-2.5 pt-4 relative overflow-hidden shadow-inner">
+          <div className="rounded-2xl bg-emerald-50/30 border border-emerald-150/70 p-3 pt-4 relative overflow-hidden shadow-2xs">
             {/* Subtle background grid pattern */}
             <div
-              className="absolute inset-0 opacity-10 pointer-events-none"
+              className="absolute inset-0 opacity-40 pointer-events-none"
               style={{
                 backgroundImage:
-                  "linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)",
+                  "linear-gradient(to right, #e2e8f0 1px, transparent 1px), linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)",
                 backgroundSize: "28px 28px",
               }}
             />
@@ -314,21 +371,21 @@ export function CategoryTrendModal({
               className="w-full h-auto overflow-visible select-none"
             >
               <defs>
-                <linearGradient id="neonGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#bef264" stopOpacity="0.25" />
-                  <stop offset="100%" stopColor="#bef264" stopOpacity="0.0" />
+                <linearGradient id="lightTrendGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#059669" stopOpacity="0.22" />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
 
               {/* Area fill */}
-              <path d={areaD} fill="url(#neonGradient)" />
+              <path d={areaD} fill="url(#lightTrendGradient)" />
 
               {/* Connecting line */}
               <path
                 d={pathD}
                 fill="none"
-                stroke="#bef264"
-                strokeWidth="2.75"
+                stroke="#059669"
+                strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
@@ -343,12 +400,12 @@ export function CategoryTrendModal({
                       x={pt.x}
                       y={Math.max(pt.y - 8, 12)}
                       textAnchor="middle"
-                      fill={isCurrent ? "#bef264" : "#94a3b8"}
+                      fill={isCurrent ? "#047857" : "#64748b"}
                       fontSize={isCurrent ? "10.5" : "9"}
-                      fontWeight={isCurrent ? "bold" : "normal"}
+                      fontWeight={isCurrent ? "bold" : "600"}
                       fontFamily="monospace"
                     >
-                      {pt.total > 0 ? pt.total.toLocaleString() : "0.00"}
+                      {pt.total > 0 ? pt.total.toLocaleString() : "0"}
                     </text>
 
                     {/* Dot */}
@@ -356,9 +413,9 @@ export function CategoryTrendModal({
                       <circle
                         cx={pt.x}
                         cy={pt.y}
-                        r="6"
-                        fill="#bef264"
-                        opacity="0.35"
+                        r="6.5"
+                        fill="#10b981"
+                        opacity="0.3"
                         className="animate-pulse"
                       />
                     )}
@@ -366,9 +423,9 @@ export function CategoryTrendModal({
                       cx={pt.x}
                       cy={pt.y}
                       r={isCurrent ? "4.5" : "3.5"}
-                      fill={isCurrent ? "#bef264" : "#f8fafc"}
-                      stroke="#121316"
-                      strokeWidth="1.5"
+                      fill={isCurrent ? "#059669" : "#ffffff"}
+                      stroke="#059669"
+                      strokeWidth={isCurrent ? "2" : "1.75"}
                     />
 
                     {/* Month Label on X axis */}
@@ -376,9 +433,9 @@ export function CategoryTrendModal({
                       x={pt.x}
                       y={chartHeight - 6}
                       textAnchor="middle"
-                      fill={isCurrent ? "#fb923c" : "#64748b"}
+                      fill={isCurrent ? "#047857" : "#64748b"}
                       fontSize="9.5"
-                      fontWeight={isCurrent ? "bold" : "normal"}
+                      fontWeight={isCurrent ? "bold" : "600"}
                     >
                       {pt.label}
                     </text>
@@ -391,39 +448,39 @@ export function CategoryTrendModal({
           {/* ========================================================================= */}
           {/* 4. DIFFERENTIATION FROM LAST MONTH (User's Exact Request)                 */}
           {/* ========================================================================= */}
-          <div className="rounded-2xl p-3.5 bg-[#181a1f] border border-slate-800/80 flex items-center justify-between">
+          <div className="rounded-2xl p-3.5 bg-slate-50/80 border border-slate-200/80 flex items-center justify-between">
             <div>
-              <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                 Compare with Last Month
               </div>
               <div className="flex items-center gap-1.5 mt-1">
                 {diffAmount < 0 ? (
                   <>
-                    <span className="flex items-center gap-0.5 text-xs sm:text-sm font-bold text-emerald-400 font-mono">
-                      <ArrowDownRight className="h-4 w-4 shrink-0 text-emerald-400" />
+                    <span className="flex items-center gap-0.5 text-xs sm:text-sm font-bold text-emerald-700 font-mono">
+                      <ArrowDownRight className="h-4 w-4 shrink-0 text-emerald-600" />
                       ৳{Math.abs(diffAmount).toLocaleString()} less
                     </span>
-                    <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
+                    <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
                       {Math.abs(diffPercent).toFixed(1)}% drop
                     </span>
                   </>
                 ) : diffAmount > 0 ? (
                   <>
-                    <span className="flex items-center gap-0.5 text-xs sm:text-sm font-bold text-rose-400 font-mono">
-                      <ArrowUpRight className="h-4 w-4 shrink-0 text-rose-400" />
+                    <span className="flex items-center gap-0.5 text-xs sm:text-sm font-bold text-rose-700 font-mono">
+                      <ArrowUpRight className="h-4 w-4 shrink-0 text-rose-600" />
                       +৳{diffAmount.toLocaleString()} more
                     </span>
-                    <span className="px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold">
+                    <span className="px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 text-[10px] font-bold">
                       +{diffPercent.toFixed(1)}% jump
                     </span>
                   </>
                 ) : (
                   <>
-                    <span className="flex items-center gap-0.5 text-xs sm:text-sm font-bold text-slate-300 font-mono">
+                    <span className="flex items-center gap-0.5 text-xs sm:text-sm font-bold text-slate-700 font-mono">
                       <Minus className="h-4 w-4 text-slate-400" />
                       Same as last month
                     </span>
-                    <span className="px-1.5 py-0.2 rounded bg-slate-700 text-slate-300 text-[10px]">
+                    <span className="px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 text-[10px] font-semibold">
                       0% change
                     </span>
                   </>
@@ -432,8 +489,8 @@ export function CategoryTrendModal({
             </div>
 
             <div className="text-right">
-              <div className="text-[10px] text-slate-400">Prior Month Spent</div>
-              <div className="text-xs font-mono font-bold text-slate-300 mt-0.5">
+              <div className="text-[10px] text-slate-500 font-medium">Prior Month Spent</div>
+              <div className="text-xs font-mono font-bold text-slate-800 mt-0.5">
                 ৳{prevTotal.toLocaleString()}
               </div>
             </div>
@@ -442,27 +499,30 @@ export function CategoryTrendModal({
           {/* ========================================================================= */}
           {/* 5. CATEGORY TOTAL ROW (e.g. 🚕 Transport ৳ 2,100.00)                      */}
           {/* ========================================================================= */}
-          <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#1d1f26] border border-slate-700/60">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">{categoryEmoji}</span>
-              <span className="text-xs font-bold text-slate-100">{categoryTitle}</span>
+          <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-50 via-teal-50/40 to-slate-50 border border-emerald-200/70 gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <span className="text-lg shrink-0">{categoryEmoji}</span>
+              <span className="text-xs font-bold text-slate-900 truncate">{categoryTitle}</span>
             </div>
-            <div className="font-mono text-base font-black text-white">
+            <div className="font-mono text-base font-black text-emerald-950 shrink-0">
               ৳ {currentTotal.toLocaleString()}.00
             </div>
           </div>
 
           {/* ========================================================================= */}
-          {/* 6. SUB-ITEM PERCENTAGE BREAKDOWN (Pathao, Rickshaw, CNG, etc.)            */}
+          {/* 6. SUB-ITEM PERCENTAGE BREAKDOWN                                          */}
           {/* ========================================================================= */}
           <div className="space-y-1.5">
-            <div className="px-1 flex items-center justify-between text-[11px] font-semibold text-slate-400">
-              <span>Item & Merchant Breakdown</span>
-              <span>{subItemBreakdown.length} sub-items</span>
+            <div className="px-1 flex items-center justify-between text-[11px] font-bold text-slate-600">
+              <span className="flex items-center gap-1.5">
+                <LineChart className="w-3.5 h-3.5 text-teal-600" />
+                <span>Item & Merchant Breakdown</span>
+              </span>
+              <span className="text-slate-400 font-normal">{subItemBreakdown.length} sub-items</span>
             </div>
 
             {subItemBreakdown.length === 0 ? (
-              <div className="p-6 text-center rounded-xl bg-[#16171b] border border-slate-800 text-slate-400 text-xs">
+              <div className="p-6 text-center rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-xs">
                 No recorded expenses for this category in {selectedMonthName}.
               </div>
             ) : (
@@ -471,28 +531,28 @@ export function CategoryTrendModal({
                 return (
                   <div
                     key={item.name}
-                    className="group relative flex items-center justify-between p-3 rounded-xl bg-[#181a1f] hover:bg-[#20222a] border border-slate-800/80 transition"
+                    className="group relative flex items-center justify-between p-3 rounded-xl bg-slate-50/80 hover:bg-slate-100/90 border border-slate-200/80 transition"
                   >
                     {/* Background mini progress fill */}
                     <div
-                      className="absolute inset-y-0 left-0 bg-slate-800/40 rounded-xl pointer-events-none transition-all duration-300"
+                      className="absolute inset-y-0 left-0 bg-emerald-100/40 rounded-xl pointer-events-none transition-all duration-300"
                       style={{ width: `${Math.min(item.exactPercent, 100)}%` }}
                     />
 
                     {/* Left: Percentage pill & item name */}
                     <div className="relative flex items-center gap-2.5 min-w-0">
                       <span
-                        className={`inline-flex items-center justify-center min-w-[42px] px-2 py-0.5 rounded text-[11px] font-mono leading-none ${badgeColor}`}
+                        className={`inline-flex items-center justify-center min-w-[42px] px-2 py-0.5 rounded text-[11px] font-mono font-bold leading-none ${badgeColor}`}
                       >
                         {item.percent}%
                       </span>
-                      <span className="text-xs font-bold text-slate-200 group-hover:text-white truncate">
+                      <span className="text-xs font-bold text-slate-800 truncate">
                         {item.name}
                       </span>
                     </div>
 
                     {/* Right: Amount */}
-                    <div className="relative font-mono text-xs font-bold text-slate-100">
+                    <div className="relative font-mono text-xs font-bold text-slate-900">
                       ৳ {item.amount.toLocaleString()}.00
                     </div>
                   </div>
@@ -503,11 +563,11 @@ export function CategoryTrendModal({
         </div>
 
         {/* Modal Bottom Close Button */}
-        <div className="p-3 border-t border-slate-800/80 bg-[#141518]">
+        <div className="p-3 border-t border-slate-100 bg-slate-50/50">
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white transition cursor-pointer"
+            className="w-full py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition cursor-pointer shadow-2xs"
           >
             Close Trend View
           </button>

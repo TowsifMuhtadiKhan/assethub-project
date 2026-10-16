@@ -32,6 +32,7 @@ import {
   createFamilyMember,
   updateFamilyMember,
   getDefaultMemberAccess,
+  getCurrentUserAccess,
 } from "../services/familyService";
 import { listVehicles } from "../services/vehicleService";
 import { listProperties } from "../services/propertyService";
@@ -118,6 +119,7 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
   // Invite modal states
   const [inviteMember, setInviteMember] = useState<FamilyMember | null>(null);
   const [copiedInvite, setCopiedInvite] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
 
   const DEFAULT_VAULT_CATEGORIES = useMemo(
     () => [
@@ -142,12 +144,16 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
   const loadAllData = async () => {
     setLoading(true);
     try {
-      const [mems, vehs, props, flds] = await Promise.all([
+      const [userAcc, mems, vehs, props, flds] = await Promise.all([
+        getCurrentUserAccess(),
         listFamilyMembers(),
         listVehicles().catch(() => []),
         listProperties().catch(() => []),
         listDocumentFolders().catch(() => []),
       ]);
+      if (!userAcc.isHead && userAcc.access.loginRole !== "Admin") {
+        setIsLocked(true);
+      }
       setMembers(mems);
       setVehicles(vehs);
       setProperties(props);
@@ -1040,8 +1046,13 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
   // Invite text generator
   const getInviteText = (m: FamilyMember) => {
     const roleName = (m.access?.loginRole || "Vehicle_Manager").replace("_", " ");
-    const origin = window.location.origin;
-    return `Hi ${m.fullName},\n\nYou have been invited to join our family workspace on LifeNest (${roleName})!\n\n🔑 How to sign in:\n1. Open LifeNest: ${origin}\n2. Click "Create your LifeNest account" (Sign Up).\n3. Enter your email: ${m.email}\n4. Set your own password.\n5. You will automatically have access to all assigned vehicles, properties, and family records!\n\nNeed help? Let me know!`;
+    const origin =
+      typeof window !== "undefined" &&
+      !window.location.origin.includes("localhost") &&
+      !window.location.origin.includes("capacitor")
+        ? window.location.origin
+        : "https://likherakho.vercel.app";
+    return `Hi ${m.fullName},\n\nYou have been invited to join our family workspace on Likhe Rakho (${roleName})!\n\n🔑 How to sign in:\n1. Open Likhe Rakho: ${origin}\n2. Click "Sign Up" (Create Free Account).\n3. Enter your email: ${m.email}\n4. Set your own password.\n5. You will automatically have access to all assigned vehicles, properties, and family records!\n\nNeed help? Let me know!`;
   };
 
   const handleCopyInvite = (m: FamilyMember) => {
@@ -1096,6 +1107,20 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
     );
   }, [members, searchQuery]);
 
+  if (isLocked) {
+    return (
+      <div className="rounded-2xl border border-slate-200/90 bg-white p-12 text-center shadow-2xs space-y-3 mt-6">
+        <div className="h-14 w-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
+          <KeyRound className="h-7 w-7" />
+        </div>
+        <h2 className="text-base font-bold text-slate-900">Access Control Restricted</h2>
+        <p className="text-xs text-slate-500 max-w-md mx-auto">
+          Only the Family Head and Administrators can view or configure family permissions and access limits.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 w-full text-slate-800">
       {/* Toast Notification */}
@@ -1131,7 +1156,7 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
               </div>
               <div className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-2xs text-center">
                 <div className="text-[10px] uppercase font-bold text-slate-400">Properties</div>
-                <div className="text-sm font-extrabold text-indigo-600">{properties.length}</div>
+                <div className="text-sm font-extrabold text-emerald-600">{properties.length}</div>
               </div>
             </div>
 
@@ -1231,11 +1256,11 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
             onClick={() => setActiveTab("properties")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
               activeTab === "properties"
-                ? "bg-white text-indigo-600 shadow-2xs font-bold"
+                ? "bg-white text-emerald-600 shadow-2xs font-bold"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <Building2 className="h-3.5 w-3.5 text-indigo-500" />
+            <Building2 className="h-3.5 w-3.5 text-emerald-500" />
             <span>Houses & Rent ({properties.length})</span>
           </button>
 
@@ -1911,7 +1936,7 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
             <div className="p-4 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-indigo-600" />
+                  <Building2 className="h-4 w-4 text-emerald-600" />
                   <span>Real Estate, Rental Assets & Scope Permissions</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -1919,7 +1944,7 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 font-semibold flex items-center gap-1.5">
+                <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold flex items-center gap-1.5">
                   <Building2 className="h-3.5 w-3.5" />
                   <span>{properties.length} Properties in Portfolio</span>
                 </span>
@@ -2010,10 +2035,10 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
                                 onChange={() => toggleMemberFlag(m, "canAccessProperties")}
                                 className="sr-only peer"
                               />
-                              <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                              <div className="relative w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
                               <span
                                 className={`ms-2 text-xs font-semibold ${
-                                  isUnlocked ? "text-indigo-700" : "text-slate-400"
+                                  isUnlocked ? "text-emerald-700" : "text-slate-400"
                                 }`}
                               >
                                 {isUnlocked ? "Authorized" : "Blocked"}
@@ -2035,7 +2060,7 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
                                     onClick={() => setPropertyScope(m, "all")}
                                     className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer ${
                                       !isScopeSpecific
-                                        ? "bg-white text-indigo-800 shadow-2xs"
+                                        ? "bg-white text-emerald-800 shadow-2xs"
                                         : "text-slate-600 hover:text-slate-900"
                                     }`}
                                   >
@@ -2075,9 +2100,9 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
                                         permittedProps.slice(0, 3).map((p) => (
                                           <span
                                             key={p.id}
-                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 text-[10px] font-semibold border border-indigo-200"
+                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 text-[10px] font-semibold border border-emerald-200"
                                           >
-                                            <Building2 className="h-2.5 w-2.5 text-indigo-600" />
+                                            <Building2 className="h-2.5 w-2.5 text-emerald-600" />
                                             <span>{p.name}</span>
                                           </span>
                                         ))
@@ -2094,7 +2119,7 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
                                             prev === m.id ? null : m.id
                                           )
                                         }
-                                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 ml-1 cursor-pointer flex items-center gap-0.5"
+                                        className="text-[11px] font-bold text-emerald-600 hover:text-emerald-800 ml-1 cursor-pointer flex items-center gap-0.5"
                                       >
                                         <span>
                                           {openPropertyPickerMemberId === m.id
@@ -2119,7 +2144,7 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
                                             <button
                                               type="button"
                                               onClick={() => selectAllPropertiesForMember(m, true)}
-                                              className="text-[11px] font-bold text-indigo-600 hover:underline cursor-pointer"
+                                              className="text-[11px] font-bold text-emerald-600 hover:underline cursor-pointer"
                                             >
                                               Select All
                                             </button>
@@ -2142,7 +2167,7 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
                                                 key={p.id}
                                                 className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer transition select-none ${
                                                   isChecked
-                                                    ? "bg-white border-indigo-300 text-indigo-900 font-semibold shadow-2xs"
+                                                    ? "bg-white border-emerald-300 text-emerald-900 font-semibold shadow-2xs"
                                                     : "bg-slate-100/60 border-slate-200 text-slate-600 hover:bg-white"
                                                 }`}
                                               >
@@ -2150,11 +2175,11 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
                                                   type="checkbox"
                                                   checked={isChecked}
                                                   onChange={() => togglePropertyItemAccess(m, p.id)}
-                                                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
+                                                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 h-3.5 w-3.5"
                                                 />
                                                 <Building2
                                                   className={`h-3.5 w-3.5 shrink-0 ${
-                                                    isChecked ? "text-indigo-600" : "text-slate-400"
+                                                    isChecked ? "text-emerald-600" : "text-slate-400"
                                                   }`}
                                                 />
                                                 <div className="truncate">
@@ -2324,7 +2349,7 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
                       >
                         <div className="p-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Building2 className="h-4 w-4 text-indigo-600" />
+                            <Building2 className="h-4 w-4 text-emerald-600" />
                             <span className="font-bold text-slate-900">{p.name}</span>
                             <span className="text-xs text-slate-400">
                               ({p.location} • {p.unitsCount} Units)
@@ -3849,7 +3874,7 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
                         {!acc.canAccessProperties || permittedProperties.length === 0 ? (
                           <span className="text-slate-400 text-[11px]">Locked</span>
                         ) : permittedProperties.length === properties.length ? (
-                          <span className="inline-flex items-center gap-1 text-indigo-700 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200 text-[10px]">
+                          <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 text-[10px]">
                             All ({properties.length})
                           </span>
                         ) : (

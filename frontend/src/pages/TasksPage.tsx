@@ -38,7 +38,8 @@ import {
 } from "../services/taskService";
 import { listVehicles } from "../services/vehicleService";
 import { listProperties } from "../services/propertyService";
-import { listFamilyMembers, getCurrentUserAccess } from "../services/familyService";
+import { listFamilyMembers, getCurrentUserAccess, type CurrentUserAccessResult } from "../services/familyService";
+import { BrandLogoLoader } from "../components/common/LoadingStates";
 import type {
   TaskItem,
   TaskPriority,
@@ -204,6 +205,7 @@ export function TasksPage() {
   const [defaultAddStatus, setDefaultAddStatus] = useState<TaskStatus>("Pending");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [userAccess, setUserAccess] = useState<CurrentUserAccessResult | null>(null);
   const [taskRecipients, setTaskRecipients] = useState<string[]>(["Personal"]);
 
   // Modal Date, Time & Minute-wise Reminder Lead state
@@ -410,7 +412,7 @@ export function TasksPage() {
 
   const loadAll = async () => {
     try {
-      const [{ isHead, access }, [t, v, p, m]] = await Promise.all([
+      const [userAcc, [t, v, p, m]] = await Promise.all([
         getCurrentUserAccess(),
         Promise.all([
           listTasks(),
@@ -419,8 +421,9 @@ export function TasksPage() {
           listFamilyMembers(),
         ]),
       ]);
+      setUserAccess(userAcc);
 
-      if (!isHead && access.canAccessTasks === false) {
+      if (!userAcc.isHead && userAcc.access.canAccessTasks === false) {
         setIsLocked(true);
       }
 
@@ -598,6 +601,17 @@ export function TasksPage() {
 
   // Filter tasks based on search, priority, assignee, and flags
   const filteredTasks = tasks.filter((task) => {
+    if (userAccess && !userAccess.isHead && userAccess.access.assignedTaskScope === "specific") {
+      const memberId = userAccess.member?.id;
+      const memberName = (userAccess.member?.fullName || "").toLowerCase().trim();
+      const taskAssigneeId = task.familyMemberId;
+      const taskAssigneeName = (task.familyMemberName || "").toLowerCase().trim();
+      const isAssigned =
+        (memberId && taskAssigneeId === memberId) ||
+        (memberName && (taskAssigneeName.includes(memberName) || memberName.includes(taskAssigneeName)));
+      if (!isAssigned) return false;
+    }
+
     if (search) {
       const q = search.toLowerCase();
       const match =
@@ -638,6 +652,9 @@ export function TasksPage() {
   const completedCount = tasks.filter((t) => t.status === "Completed").length;
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
+  const canCreate = !userAccess || userAccess.isHead || userAccess.access.canCreateTasks !== false;
+  const canDelete = !userAccess || userAccess.isHead || userAccess.access.canDeleteTasks !== false;
+
   if (isLocked) {
     return (
       <div className="rounded-2xl border border-slate-200/90 bg-white p-12 text-center shadow-2xs space-y-3 mt-6">
@@ -667,14 +684,16 @@ export function TasksPage() {
 
         <div className="flex items-center gap-2 shrink-0">
           {/* Primary Create Button */}
-          <button
-            type="button"
-            onClick={() => openAddWithStatus("Pending")}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Add Task</span>
-          </button>
+          {canCreate && (
+            <button
+              type="button"
+              onClick={() => openAddWithStatus("Pending")}
+              className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] active:scale-95 transition cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add Task</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -720,14 +739,14 @@ export function TasksPage() {
               onClick={() => setMobileFiltersOpen((prev) => !prev)}
               className={`sm:hidden inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition shrink-0 ${
                 mobileFiltersOpen || activeFilterCount > 0
-                  ? "border-indigo-400 bg-indigo-50 text-indigo-700"
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-800"
                   : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
               }`}
             >
               <Filter className="h-4 w-4" />
               <span>Filter</span>
               {activeFilterCount > 0 && (
-                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white">
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 px-1 text-[10px] font-bold text-white">
                   {activeFilterCount}
                 </span>
               )}
@@ -805,7 +824,7 @@ export function TasksPage() {
         <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-end border-t lg:border-t-0 pt-2 lg:pt-0 border-slate-100">
           <div className="text-right">
             <div className="text-[11px] font-bold text-slate-700">
-              Sprint Progress: <span className="text-indigo-600">{progressPercent}%</span>
+              Sprint Progress: <span className="text-emerald-700 font-bold">{progressPercent}%</span>
             </div>
             <div className="text-[10px] text-slate-400 font-mono">
               {completedCount} of {totalCount} completed
@@ -822,7 +841,10 @@ export function TasksPage() {
 
       {/* 4-COLUMN KANBAN BOARD WITH DRAG & DROP (Segmented Tabs on Mobile, Full Grid on Desktop) */}
       {loading ? (
-        <div className="py-20 text-center text-xs text-slate-400">Loading tasks...</div>
+        <BrandLogoLoader
+          message="Loading To-Do & Tasks..."
+          subtitle="Organizing your checklist, reminders & priorities"
+        />
       ) : (
         <div className="w-full">
           {/* Mobile Status Segmented Tabs */}
@@ -843,7 +865,7 @@ export function TasksPage() {
               onClick={() => setMobileStatusTab("In Progress")}
               className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-semibold transition text-center whitespace-nowrap cursor-pointer ${
                 mobileStatusTab === "In Progress"
-                  ? "bg-white text-indigo-700 shadow-2xs font-bold"
+                  ? "bg-white text-blue-700 shadow-2xs font-bold"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
@@ -883,7 +905,7 @@ export function TasksPage() {
                 mobileStatusTab === "Pending" ? "flex" : "hidden md:flex"
               } flex-col w-full rounded-2xl border transition-all p-3 shadow-2xs min-h-[350px] md:min-h-[580px] ${
                 dragOverColumn === "Pending"
-                  ? "border-indigo-400 bg-indigo-50/60 ring-2 ring-indigo-300"
+                  ? "border-blue-400 bg-blue-50/60 ring-2 ring-blue-300"
                   : "border-slate-200/90 bg-slate-100/70"
               }`}
             >
@@ -898,14 +920,16 @@ export function TasksPage() {
                     {todoTasks.length}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => openAddWithStatus("Pending")}
-                  className="rounded-lg p-1 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition cursor-pointer"
-                  title="Add task to To Do"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
+                {canCreate && (
+                  <button
+                    type="button"
+                    onClick={() => openAddWithStatus("Pending")}
+                    className="rounded-lg p-1 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition cursor-pointer"
+                    title="Add task to To Do"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                )}
               </div>
 
               {/* Column Cards */}
@@ -923,7 +947,7 @@ export function TasksPage() {
                       task={task}
                       index={idx}
                       onStatusChange={handleStatusChange}
-                      onDelete={handleDelete}
+                      onDelete={canDelete ? handleDelete : undefined}
                       onSelect={openTaskDetails}
                       onSendWhatsApp={handleSendTaskWhatsApp}
                       isSendingWA={sendingTaskId === task.id}
@@ -947,38 +971,40 @@ export function TasksPage() {
                 mobileStatusTab === "In Progress" ? "flex" : "hidden md:flex"
               } flex-col w-full rounded-2xl border transition-all p-3 shadow-2xs min-h-[350px] md:min-h-[580px] ${
                 dragOverColumn === "In Progress"
-                  ? "border-indigo-500 bg-indigo-100/70 ring-2 ring-indigo-400"
-                  : "border-indigo-200/90 bg-indigo-50/40"
+                  ? "border-blue-500 bg-blue-100/70 ring-2 ring-blue-400"
+                  : "border-blue-200/90 bg-blue-50/40"
               }`}
             >
               {/* Column Header */}
               <div className="flex items-center justify-between pb-3 px-1">
                 <div className="flex items-center gap-2">
-                  <span className="flex h-2.5 w-2.5 rounded-full bg-indigo-500 animate-pulse" />
-                  <h2 className="text-xs font-semibold text-indigo-900">
+                  <span className="flex h-2.5 w-2.5 rounded-full bg-blue-500 animate-pulse" />
+                  <h2 className="text-xs font-semibold text-blue-900">
                     In Progress
                   </h2>
-                  <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-800">
+                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-bold text-blue-800">
                     {inProgressTasks.length}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => openAddWithStatus("In Progress")}
-                  className="rounded-lg p-1 text-indigo-600 hover:bg-indigo-100 transition cursor-pointer"
-                  title="Add task to In Progress"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
+                {canCreate && (
+                  <button
+                    type="button"
+                    onClick={() => openAddWithStatus("In Progress")}
+                    className="rounded-lg p-1 text-blue-600 hover:bg-blue-100 transition cursor-pointer"
+                    title="Add task to In Progress"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                )}
               </div>
 
               {/* Column Cards */}
               <div className="space-y-2.5 flex-1">
                 {inProgressTasks.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-center text-xs text-indigo-400/80 border border-dashed border-indigo-200 rounded-xl bg-white/40">
-                    <Clock className="h-6 w-6 text-indigo-300 mb-1" />
+                  <div className="flex flex-col items-center justify-center py-16 text-center text-xs text-blue-400/80 border border-dashed border-blue-200 rounded-xl bg-white/40">
+                    <Clock className="h-6 w-6 text-blue-300 mb-1" />
                     <span>No tasks in progress</span>
-                    <span className="text-[10px] text-indigo-400/70 mt-0.5">Tasks currently being worked on</span>
+                    <span className="text-[10px] text-blue-400/70 mt-0.5">Tasks currently being worked on</span>
                   </div>
                 ) : (
                   inProgressTasks.map((task, idx) => (
@@ -987,7 +1013,7 @@ export function TasksPage() {
                       task={task}
                       index={idx}
                       onStatusChange={handleStatusChange}
-                      onDelete={handleDelete}
+                      onDelete={canDelete ? handleDelete : undefined}
                       onSelect={openTaskDetails}
                       onSendWhatsApp={handleSendTaskWhatsApp}
                       isSendingWA={sendingTaskId === task.id}
@@ -1026,14 +1052,16 @@ export function TasksPage() {
                     {doneTasks.length}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => openAddWithStatus("Completed")}
-                  className="rounded-lg p-1 text-emerald-600 hover:bg-emerald-100 transition cursor-pointer"
-                  title="Add task to Done"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
+                {canCreate && (
+                  <button
+                    type="button"
+                    onClick={() => openAddWithStatus("Completed")}
+                    className="rounded-lg p-1 text-emerald-600 hover:bg-emerald-100 transition cursor-pointer"
+                    title="Add task to Done"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                )}
               </div>
 
               {/* Column Cards */}
@@ -1051,7 +1079,7 @@ export function TasksPage() {
                       task={task}
                       index={idx}
                       onStatusChange={handleStatusChange}
-                      onDelete={handleDelete}
+                      onDelete={canDelete ? handleDelete : undefined}
                       onSelect={openTaskDetails}
                       onSendWhatsApp={handleSendTaskWhatsApp}
                       isSendingWA={sendingTaskId === task.id}
@@ -1095,14 +1123,16 @@ export function TasksPage() {
                     Auto-purges after 3 days
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => openAddWithStatus("Cancelled")}
-                  className="rounded-lg p-1 text-rose-600 hover:bg-rose-100 transition cursor-pointer"
-                  title="Add task directly to Cancelled"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
+                {canCreate && (
+                  <button
+                    type="button"
+                    onClick={() => openAddWithStatus("Cancelled")}
+                    className="rounded-lg p-1 text-rose-600 hover:bg-rose-100 transition cursor-pointer"
+                    title="Add task directly to Cancelled"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                )}
               </div>
 
               {/* Column Cards */}
@@ -1120,7 +1150,7 @@ export function TasksPage() {
                       task={task}
                       index={idx}
                       onStatusChange={handleStatusChange}
-                      onDelete={handleDelete}
+                      onDelete={canDelete ? handleDelete : undefined}
                       onSelect={openTaskDetails}
                       onSendWhatsApp={handleSendTaskWhatsApp}
                       isSendingWA={sendingTaskId === task.id}
@@ -1528,7 +1558,7 @@ export function TasksPage() {
                     <button
                       type="button"
                       onClick={() => setAddModalTab("advanced")}
-                      className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+                      className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer"
                     >
                       Configure Advanced &rarr;
                     </button>
@@ -1950,14 +1980,16 @@ export function TasksPage() {
 
               {/* Footer Actions */}
               <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => handleDelete(selectedTask.id, selectedTask.title)}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Delete Task
-                </button>
+                {canDelete && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(selectedTask.id, selectedTask.title)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete Task
+                  </button>
+                )}
 
                 <div className="flex items-center gap-2">
                   <button
@@ -2046,7 +2078,7 @@ interface TaskCardProps {
   task: TaskItem;
   index: number;
   onStatusChange: (task: TaskItem, newStatus: TaskStatus) => void;
-  onDelete: (id: string) => void;
+  onDelete?: (id: string) => void;
   onSelect?: (task: TaskItem) => void;
   onSendWhatsApp?: (task: TaskItem) => void;
   isSendingWA?: boolean;
@@ -2084,7 +2116,7 @@ function TaskCard({
       onClick={() => onSelect?.(task)}
       className={`group rounded-xl border bg-white p-3 shadow-2xs hover:shadow-xs transition space-y-2.5 cursor-grab active:cursor-grabbing select-none ${
         isDragging
-          ? "opacity-40 border-dashed border-indigo-400 scale-[0.98]"
+          ? "opacity-40 border-dashed border-blue-400 scale-[0.98]"
           : isCancelled
           ? "border-rose-200/90 bg-rose-50/20 border-l-4 border-l-rose-400"
           : `border-slate-200/90 hover:border-slate-300 ${getPriorityCardBorder(task.priority)}`
@@ -2093,12 +2125,12 @@ function TaskCard({
       {/* Top Tag Row: Key + Category */}
       <div className="flex items-center justify-between gap-1">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="font-mono text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/70">
+          <span className="font-mono text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/70">
             TSK-{String(index + 1).padStart(2, "0")}
           </span>
 
           {task.category && (
-            <span className="rounded-md bg-slate-100/80 px-2 py-0.5 text-[10px] font-medium text-slate-600 border border-slate-200/70">
+            <span className="rounded-full bg-slate-100/90 px-2.5 py-0.5 text-[10px] font-semibold text-slate-700 border border-slate-200/70">
               {task.category}
             </span>
           )}
@@ -2106,7 +2138,7 @@ function TaskCard({
           {/* Auto-delete countdown for Cancelled tasks */}
           {cancelledCountdown && (
             <span
-              className="rounded bg-rose-100 text-rose-700 px-1.5 py-0.5 text-[10px] font-bold border border-rose-200 flex items-center gap-1"
+              className="rounded-full bg-rose-100 text-rose-700 px-2 py-0.5 text-[10px] font-bold border border-rose-200 flex items-center gap-1"
               title="This task will be automatically deleted when timer expires"
             >
               <Clock className="h-2.5 w-2.5 text-rose-600" />
@@ -2122,22 +2154,24 @@ function TaskCard({
               e.stopPropagation();
               onSelect?.(task);
             }}
-            className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-indigo-600 p-0.5 rounded transition cursor-pointer"
+            className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-emerald-700 p-0.5 rounded transition cursor-pointer"
             title="Edit task details"
           >
             <Edit2 className="h-3 w-3" />
           </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(task.id);
-            }}
-            className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-600 p-0.5 rounded transition cursor-pointer"
-            title="Delete task immediately"
-          >
-            <Trash2 className="h-3 w-3" />
-          </button>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(task.id);
+              }}
+              className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-600 p-0.5 rounded transition cursor-pointer"
+              title="Delete task immediately"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -2161,18 +2195,18 @@ function TaskCard({
       {(task.vehicleName || task.propertyName || task.recurrence !== "None" || task.reminderWhatsapp) && (
         <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
           {task.vehicleName && (
-            <span className="rounded-md bg-amber-50 text-amber-800 border border-amber-200/60 px-1.5 py-0.5 font-medium flex items-center gap-1">
-              <Car className="h-3 w-3" /> {task.vehicleName}
+            <span className="rounded-full bg-amber-50 text-amber-800 border border-amber-200/60 px-2.5 py-0.5 font-semibold flex items-center gap-1.5 shadow-2xs">
+              <Car className="h-3 w-3 text-amber-600" /> {task.vehicleName}
             </span>
           )}
           {task.propertyName && (
-            <span className="rounded-md bg-purple-50 text-purple-800 border border-purple-200/60 px-1.5 py-0.5 font-medium flex items-center gap-1">
-              <Building className="h-3 w-3" /> {task.propertyName}
+            <span className="rounded-full bg-purple-50 text-purple-800 border border-purple-200/60 px-2.5 py-0.5 font-semibold flex items-center gap-1.5 shadow-2xs">
+              <Building className="h-3 w-3 text-purple-600" /> {task.propertyName}
             </span>
           )}
           {task.recurrence && task.recurrence !== "None" && (
-            <span className="rounded-md bg-purple-50 text-purple-700 px-1.5 py-0.5 font-medium flex items-center gap-0.5">
-              <Repeat className="h-2.5 w-2.5" /> {task.recurrence}
+            <span className="rounded-full bg-teal-50 text-teal-800 border border-teal-200/60 px-2.5 py-0.5 font-semibold flex items-center gap-1 shadow-2xs">
+              <Repeat className="h-2.5 w-2.5 text-teal-600" /> {task.recurrence}
             </span>
           )}
           {task.reminderWhatsapp && (
@@ -2184,7 +2218,7 @@ function TaskCard({
                 onSendWhatsApp?.(task);
               }}
               title="Click to Send WhatsApp Alert Now"
-              className={`rounded-md border px-1.5 py-0.5 text-[10px] font-semibold flex items-center gap-1 transition cursor-pointer shadow-2xs ${
+              className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
                 wasSentWA
                   ? "bg-emerald-600 text-white border-emerald-600"
                   : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200/70"
@@ -2238,7 +2272,7 @@ function TaskCard({
                   e.stopPropagation();
                   onStatusChange(task, "In Progress");
                 }}
-                className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-100 transition cursor-pointer"
+                className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-700 hover:bg-blue-100 transition cursor-pointer"
                 title="Start Progress"
               >
                 <span>Start</span>

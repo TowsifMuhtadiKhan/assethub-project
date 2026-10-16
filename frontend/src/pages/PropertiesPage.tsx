@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
@@ -9,9 +10,7 @@ import {
   FileCheck,
   FileText,
   Filter,
-  Grid2X2,
   Home,
-  List,
   Mail,
   MapPin,
   Phone,
@@ -59,8 +58,10 @@ import {
 } from "../components/rentals/RentalForms";
 import { PropertyEntryForm } from "../components/rentals/PropertyEntryForm";
 import { RentalReports } from "../components/rentals/RentalReports";
-import { getCurrentUserAccess } from "../services/familyService";
-import { CardsGridSkeleton } from "../components/common/LoadingStates";
+import { getCurrentUserAccess, type CurrentUserAccessResult } from "../services/familyService";
+import { BrandLogoLoader } from "../components/common/LoadingStates";
+import { TableRowActions } from "../components/common/TableRowActions";
+import { ViewModeToggle } from "../components/common/ViewModeToggle";
 
 export const BD_PROPERTY_DOC_PRESETS = [
   {
@@ -162,7 +163,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
   const [isLocked, setIsLocked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
-  const [tab, setTab] = useState("Flats & Tenants");
+  const [tab, setTab] = useState("Flats & Renters");
   const [month, setMonth] = useState(currentMonth());
   const [propertyView, setPropertyView] = useState<"table" | "grid">(() => {
     if (typeof window !== "undefined" && window.innerWidth < 768) {
@@ -195,6 +196,30 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
   const [mProgress, setMProgress] = useState("");
   const [mScanSuccess, setMScanSuccess] = useState("");
   const [mExtractedText, setMExtractedText] = useState("");
+  const [userAccess, setUserAccess] = useState<CurrentUserAccessResult | null>(null);
+
+  // Mobile Header Portal State
+  const [headerPortalEl, setHeaderPortalEl] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const el = document.getElementById("mobile-header-right");
+    if (el) {
+      setHeaderPortalEl(el);
+      return;
+    }
+    const interval = setInterval(() => {
+      const found = document.getElementById("mobile-header-right");
+      if (found) {
+        setHeaderPortalEl(found);
+        clearInterval(interval);
+      }
+    }, 50);
+    const timeout = setTimeout(() => clearInterval(interval), 2000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, []);
 
   const refresh = async () => {
     setData(await loadRentalData());
@@ -202,9 +227,12 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
 
   useEffect(() => {
     let live = true;
-    getCurrentUserAccess().then(({ isHead, access }) => {
-      if (live && !isHead && access.canAccessProperties === false) {
-        setIsLocked(true);
+    getCurrentUserAccess().then((acc) => {
+      if (live) {
+        setUserAccess(acc);
+        if (!acc.isHead && acc.access.canAccessProperties === false) {
+          setIsLocked(true);
+        }
       }
     });
 
@@ -245,7 +273,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
   const removeProperty = (propertyId: string, name: string) => {
     if (
       !window.confirm(
-        `Delete "${name}" and all of its flats, tenants, rent history, documents, and maintenance records? This cannot be undone.`
+        `Delete "${name}" and all of its flats, renters, rent history, documents, and maintenance records? This cannot be undone.`
       )
     )
       return;
@@ -270,7 +298,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
   const removeTenancy = (tenancyId: string, tenantName: string) => {
     if (
       !window.confirm(
-        `Delete tenancy record for "${tenantName}"? This will also remove associated rent schedules and payment history.`
+        `Delete renter record for "${tenantName}"? This will also remove associated rent schedules and payment history.`
       )
     )
       return;
@@ -383,7 +411,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
 
   const propertyTabs = [
     {
-      name: "Flats & Tenants",
+      name: "Flats & Renters",
       icon: Users,
       count: units.filter((u) => !u.parentUnitId).length,
     },
@@ -430,7 +458,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
           key={file.path}
           type="button"
           onClick={() => void openFile(file)}
-          className="text-xs text-indigo-700 underline flex items-center gap-1"
+          className="text-xs text-emerald-700 underline flex items-center gap-1"
         >
           <FileText className="h-3 w-3" />
           {file.name}
@@ -465,6 +493,15 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
   );
 
   // Portfolio-wide metrics mirroring the Vehicle Fleet Strip
+  const scopedProperties = useMemo(() => {
+    if (!data?.properties) return [];
+    if (!userAccess || userAccess.isHead || userAccess.access.assignedPropertyScope !== "specific") {
+      return data.properties;
+    }
+    const allowed = userAccess.access.assignedPropertyIds || [];
+    return data.properties.filter((p) => allowed.includes(p.id));
+  }, [data?.properties, userAccess]);
+
   const metrics = useMemo(() => {
     if (!data)
       return {
@@ -480,7 +517,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
       };
 
     const curMonth = currentMonth();
-    const totalProperties = data.properties.length;
+    const totalProperties = scopedProperties.length;
 
     const rentalUnits = data.units.filter((u) => u.rentalMode !== "rooms");
     const totalUnits = rentalUnits.length;
@@ -517,17 +554,17 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
       }
     }
 
-    const residentialCount = data.properties.filter(
+    const residentialCount = scopedProperties.filter(
       (p) =>
         (p.type || "").toLowerCase().includes("residential") ||
         (p.type || "").toLowerCase().includes("flat")
     ).length;
-    const commercialCount = data.properties.filter(
+    const commercialCount = scopedProperties.filter(
       (p) =>
         (p.type || "").toLowerCase().includes("commercial") ||
         (p.type || "").toLowerCase().includes("shop")
     ).length;
-    const mixedCount = data.properties.filter((p) =>
+    const mixedCount = scopedProperties.filter((p) =>
       (p.type || "").toLowerCase().includes("mixed")
     ).length;
 
@@ -542,12 +579,12 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
       commercialCount,
       mixedCount,
     };
-  }, [data]);
+  }, [data, scopedProperties]);
 
   // Filtered Properties for the Main List
   const filteredProperties = useMemo(() => {
     if (!data) return [];
-    return data.properties.filter((p) => {
+    return scopedProperties.filter((p) => {
       if (activeCategory === "Residential") {
         const t = (p.type || "").toLowerCase();
         if (!t.includes("residential") && !t.includes("flat") && !t.includes("house"))
@@ -579,12 +616,12 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
 
       return true;
     });
-  }, [data, activeCategory, searchQuery]);
+  }, [scopedProperties, data, activeCategory, searchQuery]);
 
   if (isLocked) {
     return (
       <div className="rounded-2xl border border-slate-200/90 bg-white p-12 text-center shadow-2xs space-y-3 mt-6">
-        <div className="h-14 w-14 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center mx-auto">
+        <div className="h-14 w-14 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto">
           <Building2 className="h-7 w-7" />
         </div>
         <h2 className="text-base font-bold text-slate-900">Properties & Rent Access Restricted</h2>
@@ -626,58 +663,82 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
           <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] active:scale-95 transition cursor-pointer"
               onClick={() => setEditor({ type: "flat" })}
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Add flat</span>
             </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/60 p-1.5 sm:px-2.5 sm:py-2 text-xs font-semibold text-rose-600 hover:bg-rose-100 hover:border-rose-300 transition shadow-2xs cursor-pointer"
-              onClick={() => removeProperty(property.id, property.name)}
-              title={`Delete property "${property.name}"`}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Delete</span>
-            </button>
+            {(!userAccess || userAccess.isHead || userAccess.access.canDeleteProperties !== false) && (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50/60 p-1.5 sm:px-3 sm:py-2 text-xs font-semibold text-rose-600 hover:bg-rose-100 hover:border-rose-300 transition shadow-2xs cursor-pointer"
+                onClick={() => removeProperty(property.id, property.name)}
+                title={`Delete property "${property.name}"`}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Delete</span>
+              </button>
+            )}
           </div>
         </div>
       ) : (
-        <div className="rental-no-print flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
-          <div className="min-w-0">
-            <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
-              {dashboard
-                ? "Property Dashboard"
-                : "Properties & Rentals"}
-            </h1>
-            <p className="text-xs text-slate-500 mt-0.5 hidden sm:block">
-              {dashboard
-                ? "Financial insights, profit/loss, occupancy rates, and collection reports."
-                : "Whole flats, multiple rooms, tenant records, rent ledgers, and maintenance."}
-            </p>
-          </div>
+        <>
+          {/* Mobile Top Header Integration via Portal into MobileHeader */}
+          {headerPortalEl &&
+            (!userAccess || userAccess.isHead || userAccess.access.canCreateProperties !== false) &&
+            createPortal(
+              <div className="flex items-center gap-1.5 lg:hidden">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs active:scale-95 transition cursor-pointer"
+                  onClick={() => setEditor({ type: "property" })}
+                  disabled={!data}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Add property</span>
+                </button>
+              </div>,
+              headerPortalEl
+            )}
 
-          {/* Top-Right Action Buttons */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Link
-              to={dashboard ? "/rentals/properties" : "/rentals/dashboard"}
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs"
-            >
-              <BarChart3 className="h-3.5 w-3.5 text-indigo-600" />
-              <span>{dashboard ? "Manage" : "Reports"}</span>
-            </Link>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer"
-              onClick={() => setEditor({ type: "property" })}
-              disabled={!data}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Add property</span>
-            </button>
+          <div className="rental-no-print hidden lg:flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
+                {dashboard
+                  ? "Property Dashboard"
+                  : "Properties & Rentals"}
+              </h1>
+              <p className="text-xs text-slate-500 mt-0.5 hidden sm:block">
+                {dashboard
+                  ? "Financial insights, profit/loss, occupancy rates, and collection reports."
+                  : "Whole flats, multiple rooms, renter records, rent ledgers, and maintenance."}
+              </p>
+            </div>
+
+            {/* Top-Right Action Buttons */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Link
+                to={dashboard ? "/rentals/properties" : "/rentals/dashboard"}
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs"
+              >
+                <BarChart3 className="h-3.5 w-3.5 text-emerald-700" />
+                <span>{dashboard ? "Manage" : "Reports"}</span>
+              </Link>
+              {(!userAccess || userAccess.isHead || userAccess.access.canCreateProperties !== false) && (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] active:scale-95 transition cursor-pointer"
+                  onClick={() => setEditor({ type: "property" })}
+                  disabled={!data}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Add property</span>
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {error && (
@@ -697,7 +758,10 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
       )}
 
       {loading && (
-        <CardsGridSkeleton count={4} />
+        <BrandLogoLoader
+          message="Loading Properties & Rentals..."
+          subtitle="Fetching tenants, units, and rental ledgers"
+        />
       )}
 
       {data && (
@@ -714,7 +778,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                     className={field}
                   >
                     <option value="">All properties</option>
-                    {data.properties.map((p) => (
+                    {scopedProperties.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
                       </option>
@@ -734,14 +798,14 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
               {!property ? (
                 <section className="space-y-4">
                   {/* Property Fleet / Portfolio Metric Strip */}
-                  <div className="grid grid-cols-4 gap-1.5 sm:hidden">
+                  <div className="grid grid-cols-4 gap-2 lg:hidden">
                     <div className="rounded-xl border border-slate-200/90 bg-white px-2 py-1.5 text-center shadow-2xs">
                       <div className="text-[10px] font-semibold text-slate-500">Properties</div>
                       <div className="text-base font-bold text-slate-900">{metrics.totalProperties}</div>
                     </div>
                     <div className="rounded-xl border border-slate-200/90 bg-white px-2 py-1.5 text-center shadow-2xs">
-                      <div className="text-[10px] font-semibold text-indigo-600">Units</div>
-                      <div className="text-base font-bold text-indigo-700">{metrics.totalUnits}</div>
+                      <div className="text-[10px] font-semibold text-emerald-600">Units</div>
+                      <div className="text-base font-bold text-emerald-700">{metrics.totalUnits}</div>
                     </div>
                     <div className="rounded-xl border border-slate-200/90 bg-white px-2 py-1.5 text-center shadow-2xs">
                       <div className="text-[10px] font-semibold text-emerald-600">Rented</div>
@@ -755,7 +819,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                     </div>
                   </div>
 
-                  <div className="hidden sm:grid sm:grid-cols-4 gap-3">
+                  <div className="hidden lg:grid lg:grid-cols-4 gap-3">
                     <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xs">
                       <div className="flex items-center justify-between text-slate-500">
                         <span className="text-[11px] font-medium">Total Properties</span>
@@ -770,7 +834,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                     </div>
 
                     <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xs">
-                      <div className="flex items-center justify-between text-indigo-600">
+                      <div className="flex items-center justify-between text-emerald-600">
                         <span className="text-[11px] font-medium text-slate-500">
                           Flats & Rental Spaces
                         </span>
@@ -816,103 +880,81 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                   </div>
 
                   {/* Filter Pills, Search Bar & View Switcher */}
-                  <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-                    {/* Collapsible Category Pills on mobile, inline on sm */}
-                    <div className={`w-full sm:w-auto flex-wrap items-center gap-1.5 ${mobileFiltersOpen ? "flex" : "hidden sm:flex"}`}>
-                      {[
-                        { id: "All", label: "All Properties", count: metrics.totalProperties },
-                        { id: "Residential", label: "Residential", count: metrics.residentialCount },
-                        { id: "Commercial", label: "Commercial", count: metrics.commercialCount },
-                        { id: "Mixed", label: "Mixed-use", count: metrics.mixedCount },
-                      ].map((cat) => (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          onClick={() => setActiveCategory(cat.id)}
-                          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
-                            activeCategory === cat.id
-                              ? "bg-slate-900 text-white shadow-2xs"
-                              : "border border-slate-200/80 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                          }`}
-                        >
-                          <span>{cat.label}</span>
-                          <span
-                            className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono ${
-                              activeCategory === cat.id
-                                ? "bg-white/20 text-white"
-                                : "bg-slate-100 text-slate-500"
-                            }`}
-                          >
-                            {cat.count}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                      <div className="relative flex-1 sm:w-60">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 w-full">
+                      <div className="relative flex-1 min-w-0">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                         <input
                           type="text"
-                          placeholder="Search property or tenant…"
+                          placeholder="Search property or renter…"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-900"
+                          className="w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-900 shadow-2xs"
                         />
                       </div>
 
-                      {/* Mobile Filter Toggle Button */}
+                      {/* Filter Icon Button */}
                       <button
                         type="button"
                         onClick={() => setMobileFiltersOpen((prev) => !prev)}
-                        className={`sm:hidden inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition shrink-0 ${
+                        className={`inline-flex items-center justify-center h-8.5 w-8.5 rounded-xl border transition shrink-0 shadow-2xs cursor-pointer relative ${
                           mobileFiltersOpen || activeFilterCount > 0
-                            ? "border-slate-900 bg-slate-900 text-white"
-                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                            ? "border-emerald-600 bg-emerald-50 text-emerald-800"
+                            : "border-slate-200/90 bg-white text-slate-700 hover:bg-slate-50"
                         }`}
+                        title="Filter properties"
+                        aria-label="Filter"
                       >
                         <Filter className="h-3.5 w-3.5" />
-                        <span>Filter</span>
                         {activeFilterCount > 0 && (
-                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-white text-[10px] font-bold text-slate-900 px-1">
+                          <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 text-[9px] font-bold text-white px-1 shadow-2xs">
                             {activeFilterCount}
                           </span>
                         )}
                       </button>
 
-                      <div
-                        className="flex rounded-lg border border-slate-200 bg-white p-0.5 shrink-0"
-                        role="group"
-                        aria-label="Property view"
-                      >
-                        <button
-                          type="button"
-                          aria-label="Table view"
-                          aria-pressed={propertyView === "table"}
-                          onClick={() => setPropertyView("table")}
-                          className={`rounded-md p-1.5 transition ${
-                            propertyView === "table"
-                              ? "bg-slate-900 text-white"
-                              : "text-slate-500 hover:bg-slate-50"
-                          }`}
-                        >
-                          <List size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label="Grid view"
-                          aria-pressed={propertyView === "grid"}
-                          onClick={() => setPropertyView("grid")}
-                          className={`rounded-md p-1.5 transition ${
-                            propertyView === "grid"
-                              ? "bg-slate-900 text-white"
-                              : "text-slate-500 hover:bg-slate-50"
-                          }`}
-                        >
-                          <Grid2X2 size={14} />
-                        </button>
-                      </div>
+                      <ViewModeToggle
+                        viewMode={propertyView}
+                        onChange={(mode) => setPropertyView(mode as "table" | "grid")}
+                        gridLabel="Grid"
+                        listLabel="Table"
+                        listValue="table"
+                      />
                     </div>
+
+                    {/* Expandable Category Pills when Filter is active / open */}
+                    {(mobileFiltersOpen || activeFilterCount > 0) && (
+                      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                        {[
+                          { id: "All", label: "All Properties", count: metrics.totalProperties },
+                          { id: "Residential", label: "Residential", count: metrics.residentialCount },
+                          { id: "Commercial", label: "Commercial", count: metrics.commercialCount },
+                          { id: "Mixed", label: "Mixed-use", count: metrics.mixedCount },
+                        ].map((cat) => (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => setActiveCategory(cat.id)}
+                            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold shrink-0 transition cursor-pointer ${
+                              activeCategory === cat.id
+                                ? "bg-[#064e3b] text-white shadow-2xs"
+                                : "border border-slate-200/80 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                            }`}
+                          >
+                            <span>{cat.label}</span>
+                            <span
+                              className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono ${
+                                activeCategory === cat.id
+                                  ? "bg-white/20 text-white"
+                                  : "bg-slate-100 text-slate-500"
+                              }`}
+                            >
+                              {cat.count}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Table View */}
@@ -981,14 +1023,14 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                               >
                                 <td className="p-3">
                                   <button
-                                    className="flex items-center gap-2 text-left font-bold text-slate-900 hover:text-indigo-600 transition"
+                                    className="flex items-center gap-2 text-left font-bold text-slate-900 hover:text-emerald-600 transition"
                                     onClick={() => {
                                       setParams({ property: p.id });
-                                      setTab("Flats & Tenants");
+                                      setTab("Flats & Renters");
                                     }}
                                   >
                                     <Building2
-                                      className="text-indigo-600 shrink-0"
+                                      className="text-emerald-600 shrink-0"
                                       size={16}
                                     />
                                     <span>{p.name}</span>
@@ -996,7 +1038,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                 </td>
                                 <td className="p-3 text-slate-600">{p.location}</td>
                                 <td className="p-3">
-                                  <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
                                     {p.type || "Residential"}
                                   </span>
                                 </td>
@@ -1005,7 +1047,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                 </td>
                                 <td className="p-3">
                                   <span
-                                    className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
                                       occupied === rentals.length && rentals.length > 0
                                         ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
                                         : occupied > 0
@@ -1020,23 +1062,32 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                   {propRent > 0 ? `৳${propRent.toLocaleString()}` : "—"}
                                 </td>
                                 <td className="p-3 text-right">
-                                  <div className="flex justify-end gap-3 font-semibold">
-                                    <button
-                                      className="text-indigo-700 hover:underline"
-                                      onClick={() => {
-                                        setParams({ property: p.id });
-                                        setTab("Flats & Tenants");
-                                      }}
-                                    >
-                                      Manage →
-                                    </button>
-                                    <button
-                                      className="text-rose-600 hover:underline"
-                                      onClick={() => removeProperty(p.id, p.name)}
-                                    >
-                                      Delete
-                                    </button>
-                                  </div>
+                                  <TableRowActions
+                                    title={p.name}
+                                    subtitle={`${p.location} • ${pUnits.filter((u) => !u.parentUnitId).length} spaces`}
+                                    actions={[
+                                      {
+                                        label: "Manage Flats & Renters",
+                                        description: "View units, tenancies, and leases",
+                                        icon: Building2,
+                                        onClick: () => {
+                                          setParams({ property: p.id });
+                                          setTab("Flats & Renters");
+                                        },
+                                      },
+                                      ...((!userAccess || userAccess.isHead || userAccess.access.canDeleteProperties !== false)
+                                        ? [
+                                            {
+                                              label: "Delete Property",
+                                              description: "Permanently delete this property",
+                                              icon: Trash2,
+                                              variant: "danger" as const,
+                                              onClick: () => removeProperty(p.id, p.name),
+                                            },
+                                          ]
+                                        : []),
+                                    ]}
+                                  />
                                 </td>
                               </tr>
                             );
@@ -1103,18 +1154,18 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                         return (
                           <article
                             key={p.id}
-                            className="group flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:border-indigo-300 hover:shadow-xs transition"
+                            className="group flex flex-col justify-between rounded-xl border border-slate-200/90 bg-white p-4 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition"
                           >
                             <button
                               type="button"
                               className="w-full text-left"
                               onClick={() => {
                                 setParams({ property: p.id });
-                                setTab("Flats & Tenants");
+                                setTab("Flats & Renters");
                               }}
                             >
                               <div className="flex items-start justify-between gap-2">
-                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-200/60 text-indigo-600">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 border border-emerald-200/60 text-emerald-600">
                                   <Building2 className="h-4 w-4" />
                                 </div>
                                 <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700">
@@ -1122,7 +1173,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                 </span>
                               </div>
 
-                              <h2 className="mt-3 font-bold text-sm text-slate-900 group-hover:text-indigo-600 transition">
+                              <h2 className="mt-3 font-bold text-sm text-slate-900 group-hover:text-emerald-600 transition">
                                 {p.name}
                               </h2>
                               <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">
@@ -1147,21 +1198,23 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                             <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs font-semibold">
                               <button
                                 type="button"
-                                className="text-indigo-700 hover:underline"
+                                className="text-emerald-700 hover:underline"
                                 onClick={() => {
                                   setParams({ property: p.id });
-                                  setTab("Flats & Tenants");
+                                  setTab("Flats & Renters");
                                 }}
                               >
                                 Manage property →
                               </button>
-                              <button
-                                type="button"
-                                className="text-rose-600 hover:underline"
-                                onClick={() => removeProperty(p.id, p.name)}
-                              >
-                                Delete
-                              </button>
+                              {(!userAccess || userAccess.isHead || userAccess.access.canDeleteProperties !== false) && (
+                                <button
+                                  type="button"
+                                  className="text-rose-600 hover:underline"
+                                  onClick={() => removeProperty(p.id, p.name)}
+                                >
+                                  Delete
+                                </button>
+                              )}
                             </div>
                           </article>
                         );
@@ -1198,7 +1251,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                           >
                             <TabIcon
                               className={`h-3.5 w-3.5 shrink-0 ${
-                                isSelected ? "text-indigo-600" : "text-slate-500"
+                                isSelected ? "text-emerald-600" : "text-slate-500"
                               }`}
                             />
                             <span>{name === "Property Documents" ? "Documents" : name}</span>
@@ -1206,7 +1259,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                               <span
                                 className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono ${
                                   isSelected
-                                    ? "bg-indigo-50 text-indigo-700 font-bold"
+                                    ? "bg-emerald-50 text-emerald-700 font-bold"
                                     : "bg-slate-200/70 text-slate-600"
                                 }`}
                               >
@@ -1219,8 +1272,8 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                     </div>
                   </nav>
 
-                  {/* TAB 1: Flats & Tenants */}
-                  {tab === "Flats & Tenants" && (
+                  {/* TAB 1: Flats & Renters */}
+                  {tab === "Flats & Renters" && (
                     <div className="space-y-4">
                       {units
                         .filter((u) => !u.parentUnitId)
@@ -1256,7 +1309,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
 
                             const bgBorder = isPurple
                               ? "bg-purple-50 border-purple-100/80 text-purple-700"
-                              : "bg-indigo-50 border-indigo-100/80 text-indigo-700";
+                              : "bg-emerald-50 border-emerald-100/80 text-emerald-700";
 
                             return (
                               <div
@@ -1310,7 +1363,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                             )}
                                             {t.tenant_nid && (
                                               <details className="inline-block text-[11px] text-slate-500">
-                                                <summary className="cursor-pointer font-medium text-indigo-700">
+                                                <summary className="cursor-pointer font-medium text-emerald-700">
                                                   NID: {t.tenant_nid.slice(0, 4)}••••
                                                 </summary>
                                                 <span className="font-mono bg-white px-2 py-0.5 rounded-md border border-slate-200 text-slate-800">
@@ -1361,7 +1414,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                           </button>
                                           <button
                                             type="button"
-                                            className="rounded-lg border border-indigo-200 bg-indigo-50/80 px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 shadow-2xs transition cursor-pointer"
+                                            className="rounded-lg border border-emerald-200 bg-emerald-50/80 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 shadow-2xs transition cursor-pointer"
                                             onClick={() =>
                                               setEditor({ type: "rate", tenancy: t })
                                             }
@@ -1372,7 +1425,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                             type="button"
                                             onClick={() => removeTenancy(t.id, t.tenant_name)}
                                             className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
-                                            title={`Delete tenancy for ${t.tenant_name}`}
+                                            title={`Delete renter record for ${t.tenant_name}`}
                                           >
                                             <Trash2 className="h-3.5 w-3.5" />
                                           </button>
@@ -1409,7 +1462,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                                   {s.charges.map((c) => (
                                                     <span
                                                       key={c.label}
-                                                      className="rounded-md bg-indigo-50 text-indigo-700 px-2 py-0.5 font-medium"
+                                                      className="rounded-md bg-emerald-50 text-emerald-700 px-2 py-0.5 font-medium"
                                                     >
                                                       {c.label}: {money(c.amount)}
                                                     </span>
@@ -1491,7 +1544,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                   <div className="flex items-center gap-1.5 shrink-0">
                                     <button
                                       type="button"
-                                      className="inline-flex items-center gap-1 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer"
+                                      className="inline-flex items-center gap-1 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer"
                                       onClick={() => setEditor({ type: "tenant", unit: flat })}
                                     >
                                       <Plus className="h-3.5 w-3.5" />
@@ -1595,7 +1648,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                         <div className="flex items-center gap-1.5">
                                           <button
                                             type="button"
-                                            className="inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700 transition cursor-pointer shadow-2xs"
+                                            className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700 transition cursor-pointer shadow-2xs"
                                             onClick={() => setEditor({ type: "tenant", unit: room })}
                                           >
                                             <Plus className="h-3 w-3" />
@@ -1661,14 +1714,14 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                       )}
 
                       {/* Flats & Monthly Rent Setup Helper Bar */}
-                      <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 space-y-3">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-100/80 pb-2">
-                          <div className="flex items-center gap-2 text-indigo-950 font-bold text-xs uppercase tracking-wider">
-                            <ReceiptText className="h-4 w-4 text-indigo-600" />
-                            <span>Monthly Rent & Tenant Rate Setup for {month}</span>
+                      <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-100/80 pb-2">
+                          <div className="flex items-center gap-2 text-emerald-950 font-bold text-xs uppercase tracking-wider">
+                            <ReceiptText className="h-4 w-4 text-emerald-600" />
+                            <span>Monthly Rent & Renter Rate Setup for {month}</span>
                           </div>
-                          <span className="text-[11px] text-indigo-700 font-medium">
-                            Set tenant & rent amount to enable monthly collection & ledger
+                          <span className="text-[11px] text-emerald-700 font-medium">
+                            Set renter & rent amount to enable monthly collection & ledger
                           </span>
                         </div>
 
@@ -1721,22 +1774,22 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                     <p className="mt-1 text-xs text-slate-600">
                                       {activeT ? (
                                         <>
-                                          Tenant: <strong className="text-slate-800">{activeT.tenant_name}</strong>
+                                          Renter: <strong className="text-slate-800">{activeT.tenant_name}</strong>
                                         </>
                                       ) : (
-                                        "No tenant recorded"
+                                        "No renter recorded"
                                       )}
                                     </p>
 
                                     {activeSchedule ? (
-                                      <p className="mt-1 text-[11px] font-mono font-bold text-indigo-700">
+                                      <p className="mt-1 text-[11px] font-mono font-bold text-emerald-700">
                                         Rate: {money(activeSchedule.base_rent + activeSchedule.charges.reduce((sum, c) => sum + c.amount, 0))}/mo
                                       </p>
                                     ) : (
                                       <p className="mt-1 text-[10px] text-slate-400">
                                         {activeT
                                           ? `Add dated rate to show in ${month} ledger`
-                                          : "Assign tenant and set how much they pay"}
+                                          : "Assign renter and set how much they pay"}
                                       </p>
                                     )}
                                   </div>
@@ -1745,7 +1798,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                     {activeT ? (
                                       <button
                                         type="button"
-                                        className="inline-flex items-center gap-1 rounded-lg bg-indigo-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-indigo-800 transition"
+                                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-800 transition"
                                         onClick={() =>
                                           setEditor({
                                             type: "rate",
@@ -1781,7 +1834,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                           <thead className="bg-slate-50">
                             <tr>
                               {[
-                                "Flat / Tenant",
+                                "Flat / Renter",
                                 "Breakdown",
                                 "Received",
                                 "Balance",
@@ -1917,12 +1970,12 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                   className="p-8 text-center"
                                 >
                                   <div className="max-w-md mx-auto space-y-2">
-                                    <ReceiptText className="h-8 w-8 text-indigo-400 mx-auto" />
+                                    <ReceiptText className="h-8 w-8 text-emerald-400 mx-auto" />
                                     <p className="font-bold text-slate-800 text-sm">
                                       No rent records active for {month}
                                     </p>
                                     <p className="text-xs text-slate-500">
-                                      Use the buttons in the "Monthly Rent & Tenant Rate Setup" box above to set the rent for your flats. Once set, payment checkboxes and collection balances will appear here immediately.
+                                      Use the buttons in the "Monthly Rent & Renter Rate Setup" box above to set the rent for your flats. Once set, payment checkboxes and collection balances will appear here immediately.
                                     </p>
                                   </div>
                                 </td>
@@ -1962,21 +2015,21 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                   {tab === "Property Documents" && (
                     <div className="space-y-4">
                       {/* Presets & Quick Add Bar (Matching Vehicle Style) */}
-                      <div className="rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50/60 to-blue-50/40 p-4">
+                      <div className="rounded-xl border border-emerald-100 bg-gradient-to-r from-emerald-50/80 to-teal-50/50 p-4">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                           <div>
-                            <h2 className="text-xs font-bold text-indigo-950 uppercase tracking-wider flex items-center gap-1.5">
-                              <FileCheck className="h-4 w-4 text-indigo-600" />
+                            <h2 className="text-xs font-bold text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
+                              <FileCheck className="h-4 w-4 text-emerald-600" />
                               Bangladesh Land & Property Legal Compliance Documents
                             </h2>
-                            <p className="text-[11px] text-indigo-700/80 mt-0.5">
+                            <p className="text-[11px] text-emerald-700/80 mt-0.5">
                               Quickly store Dalil (দলিল), Khatian (খতিয়ান), Namjari (নামজারি), Holding Tax, and Tenancy Agreements.
                             </p>
                           </div>
                           <button
                             type="button"
                             onClick={() => setEditor({ type: "document" })}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-800 transition cursor-pointer"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-[#064e3b] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#043327] transition cursor-pointer"
                           >
                             <Plus className="h-3.5 w-3.5" /> Custom Named Document
                           </button>
@@ -2006,7 +2059,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                 className={`rounded-xl border p-2.5 text-left transition cursor-pointer ${
                                   existing
                                     ? "border-emerald-200 bg-emerald-50/70 text-emerald-950 shadow-2xs"
-                                    : "border-slate-200/90 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/40"
+                                    : "border-slate-200/90 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/40"
                                 }`}
                               >
                                 <div className="flex items-center justify-between mb-1">
@@ -2078,7 +2131,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                                   <div>
                                     <div className="flex items-start justify-between gap-2">
                                       <div>
-                                        <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 border border-indigo-100">
+                                        <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-100">
                                           {doc.category}
                                         </span>
                                         <h4 className="text-xs font-bold text-slate-900 mt-1.5 leading-snug">
@@ -2156,7 +2209,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                             Maintenance & Servicing History
                           </h2>
                           <p className="text-xs text-slate-500 mt-0.5">
-                            Track all property repairs, servicing, contractor bills, and tenant unit fixes for {property?.name || "this property"}.
+                            Track all property repairs, servicing, contractor bills, and renter unit fixes for {property?.name || "this property"}.
                           </p>
                         </div>
 
@@ -2296,7 +2349,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
 
                               {m.extracted_text && (
                                 <details className="mt-2 text-xs text-slate-500">
-                                  <summary className="cursor-pointer font-medium text-indigo-700 hover:underline">
+                                  <summary className="cursor-pointer font-medium text-emerald-700 hover:underline">
                                     Show scanned memo text
                                   </summary>
                                   <pre className="whitespace-pre-wrap font-mono bg-slate-50 p-2.5 rounded-xl mt-1 text-[11px] border border-slate-100">
@@ -2406,18 +2459,18 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                 {/* Modal Body */}
                 <form onSubmit={handleInlineSaveMaintenance} className="p-6 space-y-4 overflow-y-auto">
                   {/* Smart Bill / Memo Scanner */}
-                  <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3.5 space-y-2">
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3.5 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
-                        <Sparkles className="h-4 w-4 text-indigo-600" />
+                      <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                        <Sparkles className="h-4 w-4 text-emerald-600" />
                         Bill / Memo Scanner
                       </span>
-                      <span className="text-[11px] text-indigo-600 font-semibold bg-white px-2 py-0.5 rounded-full border border-indigo-100">
+                      <span className="text-[11px] text-emerald-600 font-semibold bg-white px-2 py-0.5 rounded-full border border-emerald-100">
                         Auto-Extracts Details
                       </span>
                     </div>
-                    <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-indigo-200 bg-white p-3.5 hover:bg-indigo-50/30 transition text-center">
-                      <Upload className="h-5 w-5 text-indigo-500 mb-1" />
+                    <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-emerald-200 bg-white p-3.5 hover:bg-emerald-50/30 transition text-center">
+                      <Upload className="h-5 w-5 text-emerald-500 mb-1" />
                       <span className="text-xs font-semibold text-slate-800">
                         {mFiles.length > 0 ? mFiles[0].name : "Upload Receipt / Invoice (Image or PDF)"}
                       </span>
@@ -2437,8 +2490,8 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                     </label>
 
                     {mScanning && (
-                      <div className="text-xs font-medium text-indigo-700 flex items-center gap-2 pt-1">
-                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+                      <div className="text-xs font-medium text-emerald-700 flex items-center gap-2 pt-1">
+                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
                         <span>{mProgress}</span>
                       </div>
                     )}

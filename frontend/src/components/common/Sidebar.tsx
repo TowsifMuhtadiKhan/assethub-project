@@ -10,12 +10,16 @@ import {
   Building2,
   Wallet,
   ChevronDown,
-  ChevronRight,
   Pin,
   Lock,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
-import { getCurrentUserAccess, type CurrentUserAccessResult } from "../../services/familyService";
+import {
+  getCurrentUserAccess,
+  type CurrentUserAccessResult,
+} from "../../services/familyService";
 import { useLanguage } from "../../context/LanguageContext";
 
 type MenuItem = {
@@ -37,7 +41,7 @@ const MENU_GROUPS: MenuGroup[] = [
     id: "my-life",
     title: "Daily Life",
     icon: CheckSquare,
-    iconColor: "text-amber-500",
+    iconColor: "text-emerald-400",
     items: [
       { to: "/my-life/tasks", label: "To-Do List", icon: CheckSquare },
       { to: "/my-life/expenses", label: "Daily Expenses", icon: Wallet },
@@ -47,16 +51,14 @@ const MENU_GROUPS: MenuGroup[] = [
     id: "vault",
     title: "Important Papers",
     icon: FolderLock,
-    iconColor: "text-sky-500",
-    items: [
-      { to: "/documents/vault", label: "All Documents", icon: FileText },
-    ],
+    iconColor: "text-teal-300",
+    items: [{ to: "/documents/vault", label: "All Documents", icon: FileText }],
   },
   {
     id: "assets",
     title: "Vehicles & Houses",
     icon: Car,
-    iconColor: "text-emerald-500",
+    iconColor: "text-lime-300",
     items: [
       { to: "/assets/vehicles", label: "Cars & Bikes", icon: Car },
       {
@@ -189,11 +191,17 @@ export function Sidebar({
     const acc = userAccess.access;
     if (to === "/" && acc.canAccessDashboard === false) return true;
     if (to === "/my-life/tasks" && acc.canAccessTasks === false) return true;
-    if (to === "/my-life/expenses" && acc.canAccessDailyExpenses === false) return true;
+    if (to === "/my-life/calendar" && acc.canAccessSchedule === false)
+      return true;
+    if (to === "/my-life/expenses" && acc.canAccessDailyExpenses === false)
+      return true;
     if (to === "/documents/vault" && acc.canAccessVault === false) return true;
-    if (to === "/assets/vehicles" && acc.canAccessVehicles === false) return true;
-    if (to === "/rentals/properties" && acc.canAccessProperties === false) return true;
-    if (to === "/assets/warranties" && acc.canAccessWarranties === false) return true;
+    if (to === "/assets/vehicles" && acc.canAccessVehicles === false)
+      return true;
+    if (to === "/rentals/properties" && acc.canAccessProperties === false)
+      return true;
+    if (to === "/assets/warranties" && acc.canAccessWarranties === false)
+      return true;
     return false;
   };
 
@@ -225,7 +233,7 @@ export function Sidebar({
     const isDashboardActive = location.pathname === "/";
 
     return (
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-2">
+      <nav className="flex-1 overflow-y-auto px-3 py-3.5 space-y-1.5">
         {/* Direct Top-Level Dashboard Link */}
         <NavLink
           to="/"
@@ -233,24 +241,26 @@ export function Sidebar({
           onClick={onItemClick}
           className={`flex items-center justify-between rounded-xl px-2.5 py-2 text-xs font-semibold transition cursor-pointer ${
             isDashboardActive
-              ? "bg-orange-500/15 text-orange-400 font-bold shadow-xs"
-              : "text-slate-300 hover:bg-slate-800/50 hover:text-white"
+              ? "bg-[#0d825c] text-white font-bold shadow-md shadow-emerald-950/40"
+              : "text-emerald-100/75 hover:bg-[#073f32] hover:text-white"
           }`}
         >
           <div className="flex items-center gap-2.5">
             <LayoutDashboard
               className={`h-4 w-4 shrink-0 ${
-                isDashboardActive ? "text-orange-400" : "text-orange-500"
+                isDashboardActive ? "text-white" : "text-emerald-300"
               }`}
             />
-            <span className="text-[13px] tracking-tight">{t("nav_dashboard", "Dashboard")}</span>
+            <span className="text-[13px] tracking-tight">
+              {t("nav_dashboard", "Dashboard")}
+            </span>
           </div>
           {isItemLocked("/") && (
-            <Lock className="h-3 w-3 text-slate-500 shrink-0" />
+            <Lock className="h-3 w-3 text-emerald-300/40 shrink-0" />
           )}
         </NavLink>
 
-        <div className="my-1 border-t border-slate-800/60" />
+        <div className="my-1 border-t border-[#043e30]" />
 
         {MENU_GROUPS.map((group) => {
           const GroupIcon = group.icon;
@@ -265,24 +275,26 @@ export function Sidebar({
                 onClick={() => toggleGroup(group.id)}
                 className={`w-full flex items-center justify-between rounded-xl px-2.5 py-2 text-xs font-semibold transition cursor-pointer group ${
                   hasActiveChild
-                    ? "text-white"
-                    : "text-slate-300 hover:bg-slate-800/50 hover:text-white"
+                    ? "text-white font-bold"
+                    : "text-emerald-100/75 hover:bg-[#073f32] hover:text-white"
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <GroupIcon className={`h-4 w-4 shrink-0 ${group.iconColor}`} />
+                  <GroupIcon
+                    className={`h-4 w-4 shrink-0 ${group.iconColor}`}
+                  />
                   <span className="text-[13px] font-bold tracking-tight">
                     {getGroupTitle(group.id, group.title)}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-slate-500 group-hover:text-slate-300">
+                <div className="flex items-center gap-1.5 text-emerald-200/50 group-hover:text-emerald-100">
                   {hasActiveChild && (
-                    <Pin className="h-3 w-3 text-slate-500 opacity-60" />
+                    <Pin className="h-3 w-3 text-emerald-400 opacity-80" />
                   )}
                   <ChevronDown
                     className={`h-3.5 w-3.5 transition-transform duration-200 ${
-                      isExpanded ? "rotate-0" : "-rotate-90 text-slate-600"
+                      isExpanded ? "rotate-0" : "-rotate-90 text-emerald-300/50"
                     }`}
                   />
                 </div>
@@ -290,44 +302,63 @@ export function Sidebar({
 
               {/* Collapsible Children hanging off a thin vertical guide line */}
               {isExpanded && (
-                <div className="relative ml-4 pl-3.5 border-l border-slate-700/60 space-y-0.5 py-1">
+                <div className="relative ml-4 pl-3.5 border-l border-emerald-700/40 space-y-0.5 py-1">
                   {group.items.map((item) => {
                     const active = isItemActive(item.to);
                     const SubIcon = item.icon;
+                    const locked = isItemLocked(item.to);
 
                     return (
                       <NavLink
                         key={item.to}
                         to={item.to}
                         end={item.to === "/"}
-                        onClick={onItemClick}
+                        onClick={(e) => {
+                          if (locked) {
+                            e.preventDefault();
+                            alert(
+                              "Access to this section is restricted for your account by the Family Head.",
+                            );
+                            return;
+                          }
+                          onItemClick?.();
+                        }}
                         className={`group relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
-                          active
-                            ? "bg-orange-500/10 text-orange-400 font-semibold shadow-xs"
-                            : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-100"
+                          locked
+                            ? "opacity-40 cursor-not-allowed hover:bg-transparent text-emerald-300/40"
+                            : active
+                              ? "bg-[#0d825c] text-white font-semibold shadow-xs"
+                              : "text-emerald-100/75 hover:bg-[#073f32] hover:text-white"
                         }`}
                       >
                         {/* Active Indicator Bar right on the guide line */}
-                        {active && (
+                        {active && !locked && (
                           <span
                             aria-hidden="true"
-                            className="absolute -left-[18px] top-1/2 -translate-y-1/2 h-4 w-1 rounded-full bg-orange-500 shadow-sm shadow-orange-500/50"
+                            className="absolute -left-[18px] top-1/2 -translate-y-1/2 h-4 w-1 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50"
                           />
                         )}
 
                         {/* Submenu Item Icon */}
                         <SubIcon
                           className={`h-3.5 w-3.5 shrink-0 transition-colors ${
-                            active
-                              ? "text-orange-400"
-                              : "text-slate-500 group-hover:text-slate-300"
+                            locked
+                              ? "text-emerald-300/40"
+                              : active
+                                ? "text-white"
+                                : "text-emerald-300/70 group-hover:text-white"
                           }`}
                         />
 
                         {/* Submenu Label */}
-                        <span className="truncate">{getItemLabel(item.to, item.label)}</span>
-                        {isItemLocked(item.to) && (
-                          <Lock className="h-3 w-3 text-slate-500 ml-auto shrink-0" />
+                        <span className="truncate">
+                          {getItemLabel(item.to, item.label)}
+                        </span>
+                        {locked && (
+                          <span className="ml-auto flex items-center gap-1 text-[10px] text-amber-300 font-semibold bg-amber-500/20 border border-amber-500/30 px-1.5 py-0.5 rounded-md">
+                            <Lock className="h-2.5 w-2.5 shrink-0" />
+                            <span>Locked</span>
+                          </span>
                         )}
                       </NavLink>
                     );
@@ -344,6 +375,7 @@ export function Sidebar({
   // Render for collapsed mini-rail mode (icon only)
   const renderCollapsedNavigation = () => {
     const isDashboardActive = location.pathname === "/";
+    const isDashLocked = isItemLocked("/");
 
     return (
       <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-4">
@@ -351,41 +383,63 @@ export function Sidebar({
         <NavLink
           to="/"
           end
+          onClick={(e) => {
+            if (isDashLocked) {
+              e.preventDefault();
+              alert("Access to Dashboard is restricted by the Family Head.");
+            }
+          }}
           title={t("nav_dashboard", "Dashboard")}
           className={`group relative flex h-10 w-10 mx-auto items-center justify-center rounded-xl transition-all ${
-            isDashboardActive
-              ? "bg-orange-500 text-white shadow-md shadow-orange-500/30"
-              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+            isDashLocked
+              ? "opacity-35 cursor-not-allowed text-emerald-300/40"
+              : isDashboardActive
+                ? "bg-[#0d825c] text-white shadow-md shadow-emerald-950/40"
+                : "text-emerald-200/70 hover:bg-[#073f32] hover:text-white"
           }`}
         >
           <LayoutDashboard className="h-4 w-4" />
         </NavLink>
 
-        <div className="border-b border-slate-850/60 pb-1" />
+        <div className="border-b border-[#043e30] pb-1" />
 
         {MENU_GROUPS.map((group) => {
           return (
             <div
               key={group.id}
-              className="space-y-1.5 border-b border-slate-850/60 pb-3 last:border-b-0"
+              className="space-y-1.5 border-b border-[#043e30] pb-3 last:border-b-0"
             >
               {group.items.map((item) => {
                 const active = isItemActive(item.to);
                 const SubIcon = item.icon;
+                const locked = isItemLocked(item.to);
 
                 return (
                   <NavLink
                     key={item.to}
                     to={item.to}
                     end={item.to === "/"}
-                    title={`${getGroupTitle(group.id, group.title)}: ${getItemLabel(item.to, item.label)}`}
+                    onClick={(e) => {
+                      if (locked) {
+                        e.preventDefault();
+                        alert(
+                          "Access to this section is restricted for your account by the Family Head.",
+                        );
+                      }
+                    }}
+                    title={`${getGroupTitle(group.id, group.title)}: ${getItemLabel(item.to, item.label)}${locked ? " (Locked)" : ""}`}
                     className={`group relative flex h-10 w-10 mx-auto items-center justify-center rounded-xl transition-all ${
-                      active
-                        ? "bg-orange-500 text-white shadow-md shadow-orange-500/30"
-                        : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                      locked
+                        ? "opacity-35 cursor-not-allowed text-emerald-300/40"
+                        : active
+                          ? "bg-[#0d825c] text-white shadow-md shadow-emerald-950/40"
+                          : "text-emerald-200/70 hover:bg-[#073f32] hover:text-white"
                     }`}
                   >
                     <SubIcon className="h-4 w-4" />
+                    {locked && (
+                      <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-emerald-950" />
+                    )}
                   </NavLink>
                 );
               })}
@@ -398,75 +452,42 @@ export function Sidebar({
 
   return (
     <>
-      {/* DESKTOP SIDEBAR (>= lg screens only) */}
+      {/* DESKTOP SIDEBAR (>= lg screens only) - Starts vertically below the full-width header */}
       <aside
-        className={`hidden lg:fixed lg:left-0 lg:top-0 lg:flex lg:flex-col lg:h-screen transition-all duration-300 ease-in-out border-r border-slate-800/80 bg-[#0f172a] text-slate-200 z-30 select-none ${
+        className={`hidden lg:fixed lg:left-0 lg:top-14 lg:flex lg:flex-col lg:h-[calc(100dvh-3.5rem)] transition-all duration-300 ease-in-out border-r border-[#043e30] bg-[#064e3b] text-emerald-100 z-20 select-none ${
           isCollapsed ? "w-[72px]" : "w-64"
         }`}
         aria-label="Desktop Navigation"
       >
-        {/* Header with Logo & Collapse Toggle */}
-        <div className="flex h-16 items-center justify-between border-b border-slate-800/80 px-3.5">
-          {isCollapsed ? (
-            <div className="mx-auto flex flex-col items-center gap-1">
-              <button
-                type="button"
-                onClick={onToggleCollapse}
-                title="Expand sidebar"
-                className="flex h-9 w-9 items-center justify-center rounded-xl transition cursor-pointer hover:scale-105"
-              >
-                <img
-                  src="/logo.png"
-                  alt="LifeNest"
-                  className="h-9 w-9 rounded-xl object-contain shadow-md shadow-blue-500/20"
-                />
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-3">
-                <img
-                  src="/logo.png"
-                  alt="LifeNest"
-                  className="h-9 w-9 rounded-xl object-contain shadow-md shadow-blue-500/20"
-                />
-                <div>
-                  <div className="text-sm font-bold tracking-tight text-white leading-tight">
-                    LifeNest
-                  </div>
-                  <div className="text-[10px] font-medium text-slate-400">
-                    Family & Daily Records
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-
         {/* Navigation Content */}
         {isCollapsed ? renderCollapsedNavigation() : renderFullNavigation()}
 
-        {/* Footer Info / Expand button when collapsed */}
-        <div className="border-t border-slate-800/80 p-3">
+        {/* Footer: Sidebar Collapse / Expand Toggle */}
+        <div className="border-t border-[#043e30] p-2.5">
           {isCollapsed ? (
             <button
               type="button"
               onClick={onToggleCollapse}
-              title="Expand sidebar"
-              className="w-full flex items-center justify-center p-1 text-slate-400 hover:text-white transition cursor-pointer"
+              title="Expand sidebar (Ctrl+B)"
+              className="w-full flex items-center justify-center p-2 rounded-xl text-emerald-200/80 hover:text-white hover:bg-[#073f32] active:scale-95 transition cursor-pointer"
             >
-              <ChevronRight className="h-4 w-4" />
+              <PanelLeftOpen className="h-4 w-4 text-emerald-300" />
             </button>
           ) : (
-            <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
-              <div className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-slate-300 font-medium">LifeNest API</span>
-              </div>
-              <span className="font-mono text-slate-500 text-[10px]">
-                v2.4 Online
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-emerald-200/80 hover:text-white hover:bg-[#073f32] active:scale-[0.99] transition cursor-pointer text-xs font-semibold"
+              title="Collapse sidebar (Ctrl+B)"
+            >
+              <span className="flex items-center gap-2">
+                <PanelLeftClose className="h-4 w-4 text-emerald-300" />
+                <span>Collapse sidebar</span>
               </span>
-            </div>
+              <kbd className="text-[10px] font-mono text-emerald-300/70 bg-[#043e30] px-1.5 py-0.5 rounded border border-emerald-800/60">
+                Ctrl+B
+              </kbd>
+            </button>
           )}
         </div>
       </aside>

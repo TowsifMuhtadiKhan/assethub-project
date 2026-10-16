@@ -37,7 +37,7 @@ export function AskAiAssistant() {
       {
         id: "welcome-1",
         sender: "ai",
-        text: "👋 **Hello! I'm your LifeNest Assistant.**\n\nI can help you find your **to-do tasks, car & bike papers, passports/NIDs, family details, and house rent** in simple words.\n\nAsk me anything!",
+        text: "👋 **Hello! I'm your Likhe Rakho AI Assistant.**\n\nI can help you find your **to-do tasks, car & bike papers, passports/NIDs, family details, and house rent** in simple words.\n\nAsk me anything!",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       },
     ];
@@ -335,15 +335,15 @@ export function AskAiAssistant() {
               ? { left: `${position.x}px`, top: `${position.y}px`, right: "auto", bottom: "auto" }
               : undefined
           }
-          title="Drag to reposition, tap to Ask LifeNest AI"
-          aria-label="Ask LifeNest AI (Draggable)"
-          className={`fixed z-50 hidden lg:flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-700 to-purple-600 text-white shadow-xl shadow-indigo-600/40 hover:scale-105 active:scale-95 transition-transform duration-100 cursor-grab active:cursor-grabbing group ring-2 ring-white/60 touch-none select-none ${
+          title="Drag to reposition, tap to Ask Likhe Rakho AI"
+          aria-label="Ask Likhe Rakho AI (Draggable)"
+          className={`fixed z-50 hidden lg:flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-tr from-[#064e3b] via-[#0d825c] to-emerald-500 text-white shadow-xl shadow-emerald-950/30 hover:scale-105 active:scale-95 transition-transform duration-100 cursor-grab active:cursor-grabbing group ring-2 ring-white/60 touch-none select-none ${
             position
               ? ""
               : "bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-3.5 sm:bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] sm:right-5"
           }`}
         >
-          <Sparkles className="h-5 w-5 text-amber-300 group-hover:rotate-12 transition-transform duration-150 pointer-events-none" />
+          <Sparkles className="h-5 w-5 text-emerald-200 group-hover:rotate-12 transition-transform duration-150 pointer-events-none" />
         </button>
       )}
 
@@ -354,19 +354,19 @@ export function AskAiAssistant() {
           onClick={() => setIsOpen(false)}
         >
           <div
-            className="w-full sm:w-[480px] h-[88dvh] sm:h-[640px] max-h-[92dvh] flex flex-col rounded-t-3xl sm:rounded-3xl border border-slate-200/90 bg-white shadow-2xl shadow-indigo-950/20 text-slate-900 overflow-hidden animate-in slide-in-from-bottom-6 duration-200"
+            className="w-full sm:w-[480px] h-[88dvh] sm:h-[640px] max-h-[92dvh] flex flex-col rounded-t-3xl sm:rounded-3xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-950/20 text-slate-900 overflow-hidden animate-in slide-in-from-bottom-6 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100 bg-white/95 backdrop-blur-sm">
               <div className="flex items-center gap-3">
-                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-700 to-purple-600 text-white shadow-md shadow-indigo-500/25 ring-2 ring-indigo-50">
+                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#064e3b] via-[#0d825c] to-emerald-500 text-white shadow-md shadow-emerald-950/20 ring-2 ring-emerald-50">
                   <Bot className="h-5 w-5" />
                   <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5 leading-tight">
-                    <span>LifeNest AI</span>
+                    <span>Likhe Rakho AI</span>
                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[9px] font-bold border border-emerald-200/70">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       Grounded
@@ -493,7 +493,7 @@ export function AskAiAssistant() {
                   e.preventDefault();
                   handleSend();
                 }}
-                className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50/80 p-1.5 pl-4 focus-within:border-indigo-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-indigo-500/15 transition-all shadow-inner"
+                className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50/80 p-1.5 pl-4 focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-500/15 transition-all shadow-inner"
               >
                 <input
                   type="text"
@@ -506,7 +506,7 @@ export function AskAiAssistant() {
                 <button
                   type="submit"
                   disabled={!input.trim() || loading}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-600/30 hover:scale-105 active:scale-95 disabled:opacity-30 disabled:hover:scale-100 disabled:shadow-none transition-all cursor-pointer"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] text-white shadow-md shadow-emerald-950/20 hover:scale-105 active:scale-95 disabled:opacity-30 disabled:hover:scale-100 disabled:shadow-none transition-all cursor-pointer"
                   title="Send query"
                 >
                   <Send className="h-3.5 w-3.5 ml-0.5" />
@@ -545,7 +545,7 @@ export function AskAiAssistant() {
 
             <form onSubmit={handleSaveApiKey} className="mt-3 space-y-3">
               <p className="text-xs text-slate-500 leading-relaxed">
-                LifeNest AI works <strong>100% out-of-the-box</strong> using our built-in offline engine. To enable advanced generative reasoning via Google Gemini Flash, paste your free Gemini API key below:
+                Likhe Rakho AI works <strong>100% out-of-the-box</strong> using our built-in offline engine. To enable advanced generative reasoning via Google Gemini Flash, paste your free Gemini API key below:
               </p>
 
               <div>

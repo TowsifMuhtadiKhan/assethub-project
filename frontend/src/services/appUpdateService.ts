@@ -1,6 +1,20 @@
+import { Capacitor } from "@capacitor/core";
 import { getGoogleDriveDirectDownloadUrl } from "../utils/googleDrive";
 
 export const CURRENT_APP_BUILD = "1.0.1";
+
+/**
+ * Returns true ONLY when running inside the native Android APK wrapper.
+ * Returns false on standard web browsers (Chrome, Safari, Edge, localhost, etc.).
+ */
+export function isNativeApk(): boolean {
+  try {
+    return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+  } catch {
+    return false;
+  }
+}
+
 export const APK_DRIVE_URL_STORAGE_KEY = "lifenest_android_apk_drive_url";
 export const APK_VERSION_STORAGE_KEY = "lifenest_android_apk_version";
 export const APK_RELEASE_NOTES_STORAGE_KEY = "lifenest_android_apk_release_notes";
@@ -52,6 +66,10 @@ export function getApkConfig(): ApkUpdateConfig {
  * Asynchronously fetch latest APK release metadata from public JSON
  */
 export async function fetchLatestApkVersion(): Promise<ApkUpdateConfig> {
+  // Never perform APK update calls when running in the web browser
+  if (!isNativeApk()) {
+    return getApkConfig();
+  }
   try {
     const res = await fetch("/apk-version.json", { cache: "no-store" });
     if (res.ok) {
@@ -66,6 +84,7 @@ export async function fetchLatestApkVersion(): Promise<ApkUpdateConfig> {
           data.viewUrl,
           data.version || "1.0.0",
           `Google Drive release • ${data.fileSizeMb || "8.4"} MB`,
+          false,
         );
         return {
           driveUrl: data.viewUrl,
@@ -85,12 +104,15 @@ export function saveApkConfig(
   driveUrl: string,
   latestVersion: string,
   releaseNotes = "",
+  broadcast = true,
 ): void {
   try {
     localStorage.setItem(APK_DRIVE_URL_STORAGE_KEY, driveUrl.trim());
     localStorage.setItem(APK_VERSION_STORAGE_KEY, latestVersion.trim() || "1.0.0");
     localStorage.setItem(APK_RELEASE_NOTES_STORAGE_KEY, releaseNotes.trim());
-    window.dispatchEvent(new CustomEvent("lifenest:apk-config-updated"));
+    if (broadcast) {
+      window.dispatchEvent(new CustomEvent("lifenest:apk-config-updated"));
+    }
   } catch (err) {
     console.error("Failed to save APK configuration:", err);
   }
@@ -142,9 +164,22 @@ export function isAndroidOrApkEnvironment(): boolean {
  * Check if a newer APK version is available on the configured Google Drive
  */
 export function checkForApkUpdate(ignoreDismissed = false): ApkUpdateStatus {
-  const config = getApkConfig();
   const currentVersion =
     localStorage.getItem(INSTALLED_VERSION_STORAGE_KEY) || CURRENT_APP_BUILD;
+
+  // Never check for APK updates when running in the web browser
+  if (!isNativeApk()) {
+    return {
+      hasUpdate: false,
+      currentVersion,
+      latestVersion: currentVersion,
+      downloadUrl: "",
+      rawDriveUrl: "",
+      releaseNotes: "",
+    };
+  }
+
+  const config = getApkConfig();
 
   if (!config.driveUrl) {
     return {
@@ -198,7 +233,7 @@ export function downloadApkFromConfiguredDrive(): boolean {
   try {
     const a = document.createElement("a");
     a.href = directUrl;
-    a.download = `LifeNest-v${config.latestVersion || "latest"}.apk`;
+    a.download = `LikheRakho-v${config.latestVersion || "latest"}.apk`;
     a.target = "_blank";
     a.rel = "noopener noreferrer";
     document.body.appendChild(a);

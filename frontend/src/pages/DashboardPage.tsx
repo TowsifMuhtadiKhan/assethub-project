@@ -17,8 +17,9 @@ import { listDocuments } from "../services/documentService";
 import { listVehicles } from "../services/vehicleService";
 import { listProperties } from "../services/propertyService";
 import { listWarranties } from "../services/warrantyService";
-import { listFamilyMembers, getCurrentUserAccess } from "../services/familyService";
-import { DashboardSkeleton } from "../components/common/LoadingStates";
+import { listFamilyMembers, getCurrentUserAccess, type CurrentUserAccessResult } from "../services/familyService";
+import { BrandLogoLoader } from "../components/common/LoadingStates";
+import { Tabs, FilterChips } from "../components/common";
 import type {
   TaskItem,
   DocumentItem,
@@ -43,32 +44,78 @@ export function DashboardPage() {
   const [scheduleFilter, setScheduleFilter] = useState<"all" | "task" | "document" | "vehicle" | "warranty">("all");
   const [isLocked, setIsLocked] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [_userAccess, setUserAccess] = useState<CurrentUserAccessResult | null>(null);
 
   useEffect(() => {
-    getCurrentUserAccess().then(({ isHead, access }) => {
-      if (!isHead && access.canAccessDashboard === false) {
+    getCurrentUserAccess().then(async (userAcc) => {
+      setUserAccess(userAcc);
+      if (!userAcc.isHead && userAcc.access.canAccessDashboard === false) {
         setIsLocked(true);
+        setLoading(false);
+        return;
       }
-    });
 
-    Promise.all([
-      listTasks(),
-      listDocuments(),
-      listVehicles(),
-      listProperties(),
-      listWarranties(),
-      listFamilyMembers(),
-    ])
-      .then(([t, d, v, p, w, f]) => {
-        setTasks(t);
-        setDocuments(d);
-        setVehicles(v);
-        setProperties(p);
+      const canTasks = userAcc.isHead || userAcc.access.canAccessTasks !== false;
+      const canDocs = userAcc.isHead || userAcc.access.canAccessVault !== false;
+      const canVehicles = userAcc.isHead || userAcc.access.canAccessVehicles !== false;
+      const canProps = userAcc.isHead || userAcc.access.canAccessProperties !== false;
+      const canWarranties = userAcc.isHead || userAcc.access.canAccessWarranties !== false;
+
+      try {
+        const [t, d, v, p, w, f] = await Promise.all([
+          canTasks ? listTasks() : Promise.resolve([]),
+          canDocs ? listDocuments() : Promise.resolve([]),
+          canVehicles ? listVehicles() : Promise.resolve([]),
+          canProps ? listProperties() : Promise.resolve([]),
+          canWarranties ? listWarranties() : Promise.resolve([]),
+          listFamilyMembers(),
+        ]);
+
+        let filteredVehicles = v;
+        if (!userAcc.isHead && userAcc.access.assignedVehicleScope === "specific") {
+          const allowed = userAcc.access.assignedVehicleIds || [];
+          filteredVehicles = v.filter((item) => allowed.includes(item.id));
+        }
+
+        let filteredProps = p;
+        if (!userAcc.isHead && userAcc.access.assignedPropertyScope === "specific") {
+          const allowed = userAcc.access.assignedPropertyIds || [];
+          filteredProps = p.filter((item) => allowed.includes(item.id));
+        }
+
+        let filteredDocs = d;
+        if (!userAcc.isHead && userAcc.access.assignedVaultFolderScope === "specific") {
+          const allowed = (userAcc.access.assignedVaultFolders || []).map((fold: string) => fold.toLowerCase());
+          filteredDocs = d.filter((item) => {
+            const docFolder = (item.folderName || "General").toLowerCase();
+            const docCat = item.category.toLowerCase();
+            return allowed.includes(docFolder) || allowed.includes(docCat);
+          });
+        }
+
+        let filteredTasks = t;
+        if (!userAcc.isHead && userAcc.access.assignedTaskScope === "specific") {
+          const memberId = userAcc.member?.id;
+          const memberName = (userAcc.member?.fullName || "").toLowerCase().trim();
+          filteredTasks = t.filter((item) => {
+            const taskAssigneeId = item.familyMemberId;
+            const taskAssigneeName = (item.familyMemberName || "").toLowerCase().trim();
+            return (memberId && taskAssigneeId === memberId) || (memberName && (taskAssigneeName.includes(memberName) || memberName.includes(taskAssigneeName)));
+          });
+        }
+
+        setTasks(filteredTasks);
+        setDocuments(filteredDocs);
+        setVehicles(filteredVehicles);
+        setProperties(filteredProps);
         setWarranties(w);
         setFamilyMembers(f);
-      })
-      .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    });
   }, []);
 
   const handleToggleTask = async (task: TaskItem) => {
@@ -214,7 +261,12 @@ export function DashboardPage() {
   };
 
   if (loading) {
-    return <DashboardSkeleton />;
+    return (
+      <BrandLogoLoader
+        message="Loading Overview Dashboard..."
+        subtitle="Aggregating your family assets, expenses & schedules"
+      />
+    );
   }
 
   if (isLocked) {
@@ -266,13 +318,13 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* 6 Clean Metric Boxes with warm family & asset accents */}
+      {/* 6 Clean Metric Boxes with unified styling and theme accents */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
         <div
           onClick={() => navigate("/my-life/tasks")}
-          className="group cursor-pointer rounded-xl border border-slate-200/90 bg-white p-3 hover:border-indigo-300 hover:shadow-xs transition-all"
+          className="group cursor-pointer rounded-2xl border border-slate-200/90 bg-white p-3.5 hover:border-emerald-400 hover:shadow-xs transition-all select-none"
         >
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-indigo-600 transition-colors">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-emerald-700 transition-colors">
             Tasks to Do
           </div>
           <div className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
@@ -285,12 +337,12 @@ export function DashboardPage() {
 
         <div
           onClick={() => navigate("/documents/vault")}
-          className="group cursor-pointer rounded-xl border border-slate-200/90 bg-white p-3 hover:border-amber-300 hover:shadow-xs transition-all"
+          className="group cursor-pointer rounded-2xl border border-slate-200/90 bg-white p-3.5 hover:border-amber-400 hover:shadow-xs transition-all select-none"
         >
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-amber-600 transition-colors">
             Expiring Papers
           </div>
-          <div className={`mt-1 text-2xl font-bold tracking-tight ${expiringDocs.length > 0 ? "text-amber-600" : "text-slate-900"}`}>
+          <div className={`mt-1 text-2xl font-bold tracking-tight ${expiringDocs.length > 0 ? "text-amber-600 font-extrabold" : "text-slate-900"}`}>
             {expiringDocs.length}
           </div>
           <div className="text-[11px] text-slate-500 mt-0.5">within 30 days</div>
@@ -298,7 +350,7 @@ export function DashboardPage() {
 
         <div
           onClick={() => navigate("/assets/vehicles")}
-          className="group cursor-pointer rounded-xl border border-slate-200/90 bg-white p-3 hover:border-blue-300 hover:shadow-xs transition-all"
+          className="group cursor-pointer rounded-2xl border border-slate-200/90 bg-white p-3.5 hover:border-blue-400 hover:shadow-xs transition-all select-none"
         >
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-blue-600 transition-colors">
             Cars & Bikes
@@ -311,7 +363,7 @@ export function DashboardPage() {
 
         <div
           onClick={() => navigate("/rentals/properties")}
-          className="group cursor-pointer rounded-xl border border-slate-200/90 bg-white p-3 hover:border-purple-300 hover:shadow-xs transition-all"
+          className="group cursor-pointer rounded-2xl border border-slate-200/90 bg-white p-3.5 hover:border-purple-400 hover:shadow-xs transition-all select-none"
         >
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-purple-600 transition-colors">
             Houses & Flats
@@ -326,7 +378,7 @@ export function DashboardPage() {
 
         <div
           onClick={() => navigate("/assets/warranties")}
-          className="group cursor-pointer rounded-xl border border-slate-200/90 bg-white p-3 hover:border-teal-300 hover:shadow-xs transition-all"
+          className="group cursor-pointer rounded-2xl border border-slate-200/90 bg-white p-3.5 hover:border-teal-400 hover:shadow-xs transition-all select-none"
         >
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-teal-600 transition-colors">
             Warranty Cards
@@ -341,15 +393,15 @@ export function DashboardPage() {
 
         <div
           onClick={() => navigate("/family/profiles")}
-          className="group cursor-pointer rounded-xl border border-indigo-100 bg-indigo-50/30 p-3 hover:border-indigo-300 hover:bg-indigo-50/50 hover:shadow-xs transition-all"
+          className="group cursor-pointer rounded-2xl border border-slate-200/90 bg-white p-3.5 hover:border-emerald-400 hover:shadow-xs transition-all select-none"
         >
-          <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-700">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-emerald-700 transition-colors">
             Family Members
           </div>
-          <div className="mt-1 text-2xl font-bold tracking-tight text-indigo-950">
+          <div className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
             {familyMembers.length}
           </div>
-          <div className="text-[11px] text-indigo-600/80 mt-0.5">members added</div>
+          <div className="text-[11px] text-slate-500 mt-0.5">members added</div>
         </div>
       </div>
     </div>
@@ -425,65 +477,35 @@ export function DashboardPage() {
             </div>
 
             {/* Timeframe Filter Pills */}
-            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-[11px] self-start sm:self-auto">
-              <button
-                type="button"
-                onClick={() => setScheduleTimeframe("7days")}
-                className={`px-2 py-0.5 rounded-md font-medium transition cursor-pointer ${
-                  scheduleTimeframe === "7days"
-                    ? "bg-white text-slate-900 shadow-2xs font-semibold"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                7 Days
-              </button>
-              <button
-                type="button"
-                onClick={() => setScheduleTimeframe("30days")}
-                className={`px-2 py-0.5 rounded-md font-medium transition cursor-pointer ${
-                  scheduleTimeframe === "30days"
-                    ? "bg-white text-slate-900 shadow-2xs font-semibold"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                30 Days
-              </button>
-              <button
-                type="button"
-                onClick={() => setScheduleTimeframe("all")}
-                className={`px-2 py-0.5 rounded-md font-medium transition cursor-pointer ${
-                  scheduleTimeframe === "all"
-                    ? "bg-white text-slate-900 shadow-2xs font-semibold"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                All
-              </button>
-            </div>
+            <Tabs
+              value={scheduleTimeframe}
+              onChange={(val) => setScheduleTimeframe(val as any)}
+              size="xs"
+              variant="segmented"
+              className="self-start sm:self-auto"
+              items={[
+                { id: "7days", label: "7 Days" },
+                { id: "30days", label: "30 Days" },
+                { id: "all", label: "All" },
+              ]}
+            />
           </div>
 
           {/* Category Filter Chips */}
-          <div className="flex items-center gap-1.5 py-2 overflow-x-auto no-scrollbar border-b border-slate-100/70 text-[11px]">
-            {[
-              { id: "all", label: "All Types" },
-              { id: "task", label: "Tasks" },
-              { id: "document", label: "Documents" },
-              { id: "vehicle", label: "Vehicles" },
-              { id: "warranty", label: "Warranties" },
-            ].map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setScheduleFilter(cat.id as any)}
-                className={`px-2 py-0.5 rounded-full whitespace-nowrap transition cursor-pointer ${
-                  scheduleFilter === cat.id
-                    ? "bg-slate-900 text-white font-medium"
-                    : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60"
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
+          <div className="py-2 border-b border-slate-100/70">
+            <FilterChips
+              value={scheduleFilter}
+              onChange={(val) => setScheduleFilter(val as any)}
+              size="xs"
+              variant="theme"
+              items={[
+                { id: "all", label: "All Types" },
+                { id: "task", label: "Tasks" },
+                { id: "document", label: "Documents" },
+                { id: "vehicle", label: "Vehicles" },
+                { id: "warranty", label: "Warranties" },
+              ]}
+            />
           </div>
 
           {/* Chronological Event Rows */}

@@ -1,6 +1,5 @@
 import { supabase } from "../lib/supabase";
 import type { FamilyMember, FamilyMemberAccess } from "../types";
-import { getUserSettings } from "./settingsService";
 import { getUserEmail } from "./api";
 
 const TABLE = "lifenest_family_members";
@@ -159,83 +158,46 @@ export async function listFamilyMembers(): Promise<FamilyMember[]> {
 export async function listFamilyMembersWithSelf(): Promise<FamilyMember[]> {
   const members = await listFamilyMembers();
 
-  let adminName = "Towsif Muhtadi";
-  let adminEmail = "towsif.muhtadi@gmail.com";
-  let adminId = "owner-admin-towsif";
-
-  try {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const sessionUser = sessionData?.session?.user;
-    let authUser = sessionUser || null;
-
-    if (!authUser) {
-      const { data: userData } = await supabase.auth.getUser();
-      authUser = userData?.user || null;
-    }
-
-    if (authUser) {
-      adminId = authUser.id;
-      if (authUser.email) adminEmail = authUser.email;
-      if (authUser.user_metadata?.full_name) {
-        adminName = String(authUser.user_metadata.full_name).trim();
-      }
-    }
-  } catch {}
-
-  try {
-    const settings = await getUserSettings();
-    if (settings.fullName?.trim()) {
-      adminName = settings.fullName.trim();
-    }
-  } catch {}
-
-  const storedEmail = getUserEmail();
-  if (storedEmail) adminEmail = storedEmail;
-
-  if (
-    (!adminName || adminName.toLowerCase() === "family admin") &&
-    adminEmail.toLowerCase().includes("towsif")
-  ) {
-    adminName = "Towsif Muhtadi";
-  }
-
-  // Capitalize properly
-  adminName = adminName
-    .split(" ")
-    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : ""))
-    .join(" ");
-
-  // Check if Towsif is already represented in members by exact name or Self relationship (excluding other members)
-  const existingSelfIndex = members.findIndex(
+  // Find genuine household head (Self) in members (excluding invited members like Itisha)
+  const selfMemberIndex = members.findIndex(
     (m) =>
-      m.fullName.trim().toLowerCase() === adminName.trim().toLowerCase() ||
-      (m.relationship === "Self" && !m.fullName.toLowerCase().includes("etisha")) ||
-      m.fullName.toLowerCase().includes("towsif")
+      m.relationship === "Self" &&
+      !m.fullName.toLowerCase().includes("itisha") &&
+      !m.fullName.toLowerCase().includes("etisha")
   );
 
-  if (existingSelfIndex >= 0) {
-    const existing = members[existingSelfIndex];
-    const updatedSelf: FamilyMember = {
-      ...existing,
-      relationship: "Self",
-      fullName: existing.fullName || adminName,
-    };
-    const otherMembers = members.filter((_, idx) => idx !== existingSelfIndex);
-    return [updatedSelf, ...otherMembers];
+  if (selfMemberIndex >= 0) {
+    const selfMember = members[selfMemberIndex];
+    const others = members.filter((_, idx) => idx !== selfMemberIndex);
+    return [selfMember, ...others];
   }
 
-  // Prepend the primary account owner (Self)
-  const selfMember: FamilyMember = {
-    id: adminId,
-    fullName: adminName,
+  // Look for Towsif as the primary household head
+  const towsifIndex = members.findIndex(
+    (m) => m.fullName.toLowerCase().includes("towsif")
+  );
+  if (towsifIndex >= 0) {
+    const towsif: FamilyMember = {
+      ...members[towsifIndex],
+      relationship: "Self",
+      access: getDefaultMemberAccess("Admin"),
+    };
+    const others = members.filter((_, idx) => idx !== towsifIndex);
+    return [towsif, ...others];
+  }
+
+  // Fallback default head
+  const defaultHead: FamilyMember = {
+    id: "owner-admin-towsif",
+    fullName: "Towsif Muhtadi",
     relationship: "Self",
-    email: adminEmail,
+    email: "towsif.muhtadi@gmail.com",
     phone: "01537295053",
     nationality: "Bangladeshi",
     access: getDefaultMemberAccess("Admin"),
   };
 
-  return [selfMember, ...members];
+  return [defaultHead, ...members];
 }
 
 export async function createFamilyMember(
@@ -373,6 +335,54 @@ export type CurrentUserAccessResult = {
   isHead: boolean;
 };
 
+function isMatchingMember(
+  m: FamilyMember,
+  email: string,
+  userId: string,
+  userFullName?: string,
+): boolean {
+  if (userId && m.id === userId) return true;
+  if (!email && !userFullName) return false;
+
+  const mEmail = (m.email || "").trim().toLowerCase();
+  const mName = (m.fullName || "").trim().toLowerCase();
+  const cleanEmail = email.trim().toLowerCase();
+  const userPrefix = cleanEmail.split("@")[0].trim();
+  const mPrefix = mEmail.split("@")[0].trim();
+
+  // 1. Direct email match
+  if (mEmail && cleanEmail && mEmail === cleanEmail) return true;
+
+  // 2. Email prefix match (e.g. itishahabib73 matching itishahabib73@gmail.com)
+  if (mPrefix && userPrefix && mPrefix === userPrefix) return true;
+
+  // 3. Member email was entered without @ (e.g. "itishahabib73")
+  if (mEmail && !mEmail.includes("@") && mEmail === userPrefix) return true;
+
+  // 4. Normalized alphanumeric name match (e.g. "Itisha Habib 73" matching "itishahabib73")
+  const mNameNorm = mName.replace(/[^a-z0-9]/g, "");
+  const userPrefixNorm = userPrefix.replace(/[^a-z0-9]/g, "");
+  if (
+    mNameNorm &&
+    userPrefixNorm &&
+    (mNameNorm === userPrefixNorm ||
+      mNameNorm.includes(userPrefixNorm) ||
+      userPrefixNorm.includes(mNameNorm))
+  ) {
+    return true;
+  }
+
+  // 5. Keyword match for Itisha
+  if (
+    (mName.includes("itisha") || mName.includes("etisha")) &&
+    (cleanEmail.includes("itisha") || cleanEmail.includes("etisha") || (userFullName && userFullName.toLowerCase().includes("itisha")))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * Resolves current active access permissions for the logged in account / family member.
  */
@@ -382,20 +392,18 @@ export async function getCurrentUserAccess(): Promise<CurrentUserAccessResult> {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const email = user?.email || getUserEmail() || "";
+    const email = (user?.email || getUserEmail() || "").trim().toLowerCase();
     const userId = user?.id || "";
+    const userFullName = user?.user_metadata?.full_name ? String(user.user_metadata.full_name) : "";
 
     const members = await listFamilyMembers();
 
     // Check if matching member exists
-    const found = members.find(
-      (m) =>
-        (email && m.email && m.email.toLowerCase() === email.toLowerCase()) ||
-        (userId && m.id === userId)
-    );
+    const found = members.find((m) => isMatchingMember(m, email, userId, userFullName));
 
     if (found) {
-      if (found.relationship === "Self" || found.access?.loginRole === "Admin") {
+      // Only the genuine workspace owner (Towsif) with Self is the head
+      if (found.relationship === "Self" && (email.includes("towsif") || !found.fullName.toLowerCase().includes("itisha"))) {
         return {
           member: found,
           access: { ...getDefaultMemberAccess("Admin"), canAccessDashboard: true },
@@ -403,25 +411,52 @@ export async function getCurrentUserAccess(): Promise<CurrentUserAccessResult> {
         };
       }
 
-      const memberRole = found.access ? found.access.loginRole : "Viewer";
+      // Member is an invited collaborator (e.g. Itisha Habib)
+      // Retrieve their stored permissions (notes from Supabase or localStorage)
+      let access = found.access;
+      try {
+        const localAcc = localStorage.getItem(`lifenest_fam_access_${found.id}`);
+        if (localAcc) {
+          access = JSON.parse(localAcc);
+        } else if (found.notes && found.notes.startsWith("access:")) {
+          access = JSON.parse(found.notes.slice(7));
+        }
+      } catch {}
+
+      const memberRole = access ? access.loginRole : "Viewer";
+      const mergedAccess: FamilyMemberAccess = {
+        ...getDefaultMemberAccess(memberRole),
+        ...(access || {}),
+      };
+
       return {
         member: found,
-        access: found.access || getDefaultMemberAccess(memberRole),
+        access: mergedAccess,
         isHead: false,
       };
     }
 
-    // Default to Family Head / Owner
+    // If the logged-in user is Towsif / workspace owner
+    if (email.includes("towsif") || !email) {
+      const selfMember = members.find((m) => m.relationship === "Self") || null;
+      return {
+        member: selfMember,
+        access: { ...getDefaultMemberAccess("Admin"), canAccessDashboard: true },
+        isHead: true,
+      };
+    }
+
+    // Default for unrecognized guest account: Restricted Viewer (NOT Admin)
     return {
       member: null,
-      access: { ...getDefaultMemberAccess("Admin"), canAccessDashboard: true },
-      isHead: true,
+      access: { ...getDefaultMemberAccess("Viewer"), canAccessDashboard: false },
+      isHead: false,
     };
   } catch {
     return {
       member: null,
-      access: { ...getDefaultMemberAccess("Admin"), canAccessDashboard: true },
-      isHead: true,
+      access: { ...getDefaultMemberAccess("Viewer"), canAccessDashboard: false },
+      isHead: false,
     };
   }
 }

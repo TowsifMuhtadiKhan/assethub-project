@@ -24,15 +24,18 @@ import {
   Copy,
   Check,
   TrendingUp,
+  Lock,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
+import { getCurrentUserAccess, type CurrentUserAccessResult } from "../services/familyService";
 import {
   listVehicles,
   updateVehicle,
   parseVehicleSpecsFromNotes,
 } from "../services/vehicleService";
 import { SqlSetupBanner } from "../components/common/SqlSetupBanner";
-import { DetailPageSkeleton } from "../components/common/LoadingStates";
+import { TableRowActions } from "../components/common/TableRowActions";
+import { BrandLogoLoader } from "../components/common/LoadingStates";
 import { DocumentViewerModal, type ViewableDocument } from "../components/common/DocumentViewerModal";
 import { FuelTrendModal } from "../components/vehicles/FuelTrendModal";
 import {
@@ -177,6 +180,8 @@ export function VehicleDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [userAccess, setUserAccess] = useState<CurrentUserAccessResult | null>(null);
+  const [isLocked, setIsLocked] = useState(false);
 
   // Tabs: fuel, maintenance, documents, warranties, overview
   const [activeTab, setActiveTab] = useState<
@@ -328,13 +333,27 @@ export function VehicleDetailsPage() {
   useEffect(() => {
     setLoading(true);
     Promise.all([
+      getCurrentUserAccess(),
       listVehicles(),
       listVehicleExpenses(vehicleId),
       listVehicleServices(vehicleId),
       listVehicleDocuments(vehicleId),
       listWarrantiesForVehicle(vehicleId),
     ])
-      .then(([vehicles, nextExpenses, nextServices, nextDocs, nextWarranties]) => {
+      .then(([accessResult, vehicles, nextExpenses, nextServices, nextDocs, nextWarranties]) => {
+        setUserAccess(accessResult);
+        if (!accessResult.isHead && accessResult.access.canAccessVehicles === false) {
+          setIsLocked(true);
+          return;
+        }
+        if (
+          !accessResult.isHead &&
+          accessResult.access.assignedVehicleScope === "specific" &&
+          !accessResult.access.assignedVehicleIds.includes(vehicleId)
+        ) {
+          setIsLocked(true);
+          return;
+        }
         const found = vehicles.find((item) => item.id === vehicleId);
         if (!found) throw new Error("Vehicle record not found.");
         setVehicle(found);
@@ -715,18 +734,24 @@ export function VehicleDetailsPage() {
     try {
       const rateInfo = fuelPricePerLiter ? ` @ ৳${fuelPricePerLiter}/L` : "";
       const description = `${fuelType} fill-up${rateInfo}${fuelNotes ? ` · ${fuelNotes}` : ""}`;
+      const fuelMileageNum = Number(fuelMileage);
       const created = await createVehicleExpense({
         vehicleId,
         date: fuelDate,
         category: "Fuel",
         amount: Number(fuelAmount),
-        mileage: Number(fuelMileage),
+        mileage: fuelMileageNum,
         description,
         paymentMethod: "Cash/Card",
         fuelLiters: fuelLiters ? Number(fuelLiters) : undefined,
       });
 
       setExpenses((cur) => [created, ...cur]);
+      if (vehicle && fuelMileageNum > (vehicle.mileage || 0)) {
+        await updateVehicle(vehicle.id, { mileage: fuelMileageNum }).catch(() => {});
+        setVehicle((cur) => cur ? { ...cur, mileage: fuelMileageNum } : cur);
+      }
+
       setFuelAmount("");
       setFuelPricePerLiter(BD_FUEL_RATES[fuelType] || "");
       setFuelLiters("");
@@ -1268,7 +1293,33 @@ export function VehicleDetailsPage() {
   };
 
   if (loading) {
-    return <DetailPageSkeleton />;
+    return (
+      <BrandLogoLoader
+        message="Loading Vehicle Details..."
+        subtitle="Retrieving mileage history, fuel logs & documents"
+      />
+    );
+  }
+
+  if (isLocked) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center max-w-md mx-auto my-12 space-y-4 shadow-sm">
+        <div className="h-14 w-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+          <Lock className="h-7 w-7" />
+        </div>
+        <h3 className="text-xl font-bold text-slate-800">Access Restricted</h3>
+        <p className="text-sm text-slate-600">
+          You don't have permission to view this vehicle. Please contact your family admin to request access.
+        </p>
+        <button
+          onClick={() => navigate("/assets/vehicles")}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Vehicles
+        </button>
+      </div>
+    );
   }
 
   if (!vehicle) {
@@ -1417,40 +1468,42 @@ export function VehicleDetailsPage() {
           onClick={() => setActiveTab("documents")}
           className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer shrink-0 ${
             activeTab === "documents"
-              ? "bg-white text-indigo-600 shadow-2xs font-bold"
+              ? "bg-white text-emerald-600 shadow-2xs font-bold"
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <FileText className={`h-3.5 w-3.5 ${activeTab === "documents" ? "text-indigo-600" : "text-slate-400"}`} />
+          <FileText className={`h-3.5 w-3.5 ${activeTab === "documents" ? "text-emerald-600" : "text-slate-400"}`} />
           <span>Papers (BRTA)</span>
           <span
             className={`rounded-full px-1.5 py-0.5 text-[10px] font-mono font-bold leading-none ${
-              activeTab === "documents" ? "bg-indigo-100 text-indigo-800" : "bg-slate-200/70 text-slate-600"
+              activeTab === "documents" ? "bg-emerald-100 text-emerald-800" : "bg-slate-200/70 text-slate-600"
             }`}
           >
             {documents.length}
           </span>
         </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab("warranties")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer shrink-0 ${
-            activeTab === "warranties"
-              ? "bg-white text-amber-600 shadow-2xs font-bold"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
-        >
-          <ShieldCheck className={`h-3.5 w-3.5 ${activeTab === "warranties" ? "text-amber-600" : "text-slate-400"}`} />
-          <span>Warranties</span>
-          <span
-            className={`rounded-full px-1.5 py-0.5 text-[10px] font-mono font-bold leading-none ${
-              activeTab === "warranties" ? "bg-amber-100 text-amber-800" : "bg-slate-200/70 text-slate-600"
+        {(!userAccess || userAccess.isHead || userAccess.access.canAccessWarranties !== false) && (
+          <button
+            type="button"
+            onClick={() => setActiveTab("warranties")}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer shrink-0 ${
+              activeTab === "warranties"
+                ? "bg-white text-amber-600 shadow-2xs font-bold"
+                : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            {warranties.length}
-          </span>
-        </button>
+            <ShieldCheck className={`h-3.5 w-3.5 ${activeTab === "warranties" ? "text-amber-600" : "text-slate-400"}`} />
+            <span>Warranties</span>
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[10px] font-mono font-bold leading-none ${
+                activeTab === "warranties" ? "bg-amber-100 text-amber-800" : "bg-slate-200/70 text-slate-600"
+              }`}
+            >
+              {warranties.length}
+            </span>
+          </button>
+        )}
 
         <button
           type="button"
@@ -1495,14 +1548,16 @@ export function VehicleDetailsPage() {
                   <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
                   <span>Trend Graph</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setFuelModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-slate-800 transition cursor-pointer"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Record Fuel Purchase</span>
-                </button>
+                {(!userAccess || userAccess.isHead || userAccess.access.canWriteFuel !== false) && (
+                  <button
+                    type="button"
+                    onClick={() => setFuelModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Record Fuel Purchase</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1510,13 +1565,15 @@ export function VehicleDetailsPage() {
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-xs text-slate-500 space-y-2">
                 <Fuel className="h-6 w-6 text-slate-400 mx-auto" />
                 <p>No fuel purchases logged yet.</p>
-                <button
-                  type="button"
-                  onClick={() => setFuelModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
-                >
-                  <Plus className="h-3.5 w-3.5" /> Record Fuel Entry
-                </button>
+                {(!userAccess || userAccess.isHead || userAccess.access.canWriteFuel !== false) && (
+                  <button
+                    type="button"
+                    onClick={() => setFuelModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Record Fuel Entry
+                  </button>
+                )}
               </div>
             ) : (
               <>
@@ -1552,7 +1609,7 @@ export function VehicleDetailsPage() {
                           <button
                             type="button"
                             onClick={() => openEditFuelModal(fuel)}
-                            className="p-1 text-slate-400 hover:text-indigo-600 rounded"
+                            className="p-1 text-slate-400 hover:text-emerald-600 rounded"
                             title="Edit fuel entry"
                           >
                             <Edit2 className="h-3 w-3" />
@@ -1619,24 +1676,25 @@ export function VehicleDetailsPage() {
                             {formatMoney(fuel.amount)}
                           </td>
                           <td className="whitespace-nowrap px-3 py-2 text-right">
-                            <div className="inline-flex items-center gap-1 justify-end">
-                              <button
-                                type="button"
-                                onClick={() => openEditFuelModal(fuel)}
-                                className="rounded p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition cursor-pointer"
-                                title="Edit fuel entry"
-                              >
-                                <Edit2 className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setFuelToDelete(fuel)}
-                                className="rounded p-1 text-slate-300 hover:text-rose-600 hover:bg-slate-100 transition cursor-pointer"
-                                title="Delete fuel entry"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
+                            <TableRowActions
+                              title="Fuel Entry Actions"
+                              subtitle={`${fuel.date} • ${formatMoney(fuel.amount)}`}
+                              actions={[
+                                {
+                                  label: "Edit Fuel Entry",
+                                  description: "Update liters, station, or cost",
+                                  icon: Edit2,
+                                  onClick: () => openEditFuelModal(fuel),
+                                },
+                                {
+                                  label: "Delete Fuel Entry",
+                                  description: "Permanently delete this record",
+                                  icon: Trash2,
+                                  variant: "danger",
+                                  onClick: () => setFuelToDelete(fuel),
+                                },
+                              ]}
+                            />
                           </td>
                         </tr>
                       ))}
@@ -1669,14 +1727,16 @@ export function VehicleDetailsPage() {
                 <span className="text-xs font-bold font-mono text-slate-900 bg-slate-100 border border-slate-200/60 px-2.5 py-1 rounded-full">
                   {formatMoney(totalMaintenanceCost)}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setMaintenanceModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-slate-800 transition cursor-pointer"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Add Record</span>
-                </button>
+                {(!userAccess || userAccess.isHead || userAccess.access.canWriteMaintenance !== false) && (
+                  <button
+                    type="button"
+                    onClick={() => setMaintenanceModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add Record</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1684,13 +1744,15 @@ export function VehicleDetailsPage() {
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-xs text-slate-500 space-y-2">
                 <Wrench className="h-6 w-6 text-slate-400 mx-auto" />
                 <p>No maintenance records yet.</p>
-                <button
-                  type="button"
-                  onClick={() => setMaintenanceModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
-                >
-                  <Plus className="h-3.5 w-3.5" /> Add Record
-                </button>
+                {(!userAccess || userAccess.isHead || userAccess.access.canWriteMaintenance !== false) && (
+                  <button
+                    type="button"
+                    onClick={() => setMaintenanceModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Record
+                  </button>
+                )}
               </div>
             ) : (
                 <>
@@ -1748,7 +1810,7 @@ export function VehicleDetailsPage() {
                                     category: "Maintenance Receipt",
                                   })
                                 }
-                                className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 border border-indigo-200"
+                                className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200"
                               >
                                 <FileText className="h-3 w-3" /> Bill
                               </button>
@@ -1756,7 +1818,7 @@ export function VehicleDetailsPage() {
                             <button
                               type="button"
                               onClick={() => openEditServiceModal(item)}
-                              className="p-1 text-slate-400 hover:text-indigo-600 rounded"
+                              className="p-1 text-slate-400 hover:text-emerald-600 rounded"
                               title="Edit service entry"
                             >
                               <Edit2 className="h-3 w-3" />
@@ -1848,7 +1910,7 @@ export function VehicleDetailsPage() {
                                       category: "Maintenance Receipt",
                                     })
                                   }
-                                  className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition cursor-pointer"
+                                  className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition cursor-pointer"
                                   title="View Attached Bill"
                                 >
                                   <FileText className="h-3 w-3" /> Bill
@@ -1858,24 +1920,25 @@ export function VehicleDetailsPage() {
                               )}
                             </td>
                             <td className="whitespace-nowrap px-3 py-2.5 text-right">
-                              <div className="inline-flex items-center gap-1 justify-end">
-                                <button
-                                  type="button"
-                                  onClick={() => openEditServiceModal(item)}
-                                  className="rounded p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition cursor-pointer"
-                                  title="Edit service entry"
-                                >
-                                  <Edit2 className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setServiceToDelete(item)}
-                                  className="rounded p-1 text-slate-300 hover:text-rose-600 hover:bg-slate-100 transition cursor-pointer"
-                                  title="Delete service entry"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
+                              <TableRowActions
+                                title="Service Entry Actions"
+                                subtitle={`${item.serviceDate} • ${item.serviceType}`}
+                                actions={[
+                                  {
+                                    label: "Edit Service Entry",
+                                    description: "Update service details, workshop, or cost",
+                                    icon: Edit2,
+                                    onClick: () => openEditServiceModal(item),
+                                  },
+                                  {
+                                    label: "Delete Service Entry",
+                                    description: "Permanently delete this service record",
+                                    icon: Trash2,
+                                    variant: "danger",
+                                    onClick: () => setServiceToDelete(item),
+                                  },
+                                ]}
+                              />
                             </td>
                           </tr>
                         ))}
@@ -1894,28 +1957,30 @@ export function VehicleDetailsPage() {
       {activeTab === "documents" && (
         <div className="space-y-4">
           {/* Presets & Quick Add Bar */}
-          <div className="rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50/60 to-blue-50/40 p-4">
+          <div className="rounded-xl border border-emerald-100 bg-gradient-to-r from-emerald-50/80 to-teal-50/50 p-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
               <div>
-                <h2 className="text-xs font-bold text-indigo-950 uppercase tracking-wider flex items-center gap-1.5">
-                  <FileCheck className="h-4 w-4 text-indigo-600" />
+                <h2 className="text-xs font-bold text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileCheck className="h-4 w-4 text-emerald-600" />
                   Car Papers & BRTA Documents
                 </h2>
-                <p className="text-[11px] text-indigo-700/80 mt-0.5">
+                <p className="text-[11px] text-emerald-700/80 mt-0.5">
                   Save your Tax Token, Smart Registration Card, Driving License, and Fitness Certificate.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setDocPresetSelected({ name: "", category: "Custom Document" });
-                  setExtractedSpecs(null); setSpecExtractionError(""); setSpecsConfirmed(false);
-              setDocModalOpen(true);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-800 transition cursor-pointer"
-              >
-                <Plus className="h-3.5 w-3.5" /> Upload Other Document
-              </button>
+              {(!userAccess || userAccess.isHead || userAccess.access.canWriteDocuments !== false) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDocPresetSelected({ name: "", category: "Custom Document" });
+                    setExtractedSpecs(null); setSpecExtractionError(""); setSpecsConfirmed(false);
+                    setDocModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#064e3b] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#043327] transition cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Upload Other Document
+                </button>
+              )}
             </div>
 
             {/* Presets Checklist / Quick Upload Shortcuts */}
@@ -1926,22 +1991,29 @@ export function VehicleDetailsPage() {
                     d.category === preset.category ||
                     d.name.toLowerCase().includes(preset.name.toLowerCase()),
                 );
+                const canWrite = !userAccess || userAccess.isHead || userAccess.access.canWriteDocuments !== false;
                 return (
                   <button
                     key={preset.name}
                     type="button"
+                    disabled={!canWrite}
                     onClick={() => {
+                      if (!canWrite) return;
                       setDocPresetSelected({
                         name: preset.name,
                         category: preset.category,
                       });
                       setExtractedSpecs(null); setSpecExtractionError(""); setSpecsConfirmed(false);
-              setDocModalOpen(true);
+                      setDocModalOpen(true);
                     }}
-                    className={`rounded-xl border p-2.5 text-left transition cursor-pointer ${
+                    className={`rounded-xl border p-2.5 text-left transition ${
+                      !canWrite
+                        ? "opacity-60 cursor-not-allowed"
+                        : "cursor-pointer"
+                    } ${
                       existing
                         ? "border-emerald-200 bg-emerald-50/70 text-emerald-950 shadow-2xs"
-                        : "border-slate-200/90 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/40"
+                        : "border-slate-200/90 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/40"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
@@ -1995,7 +2067,7 @@ export function VehicleDetailsPage() {
                       <div>
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 border border-indigo-100">
+                            <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-100">
                               {doc.category}
                             </span>
                             <h4 className="text-xs font-bold text-slate-900 mt-1.5 leading-snug">
@@ -2003,22 +2075,26 @@ export function VehicleDetailsPage() {
                             </h4>
                           </div>
                           <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => openEditDocModal(doc)}
-                              className="rounded p-1 text-slate-400 hover:text-indigo-600 transition cursor-pointer"
-                              title="Edit document & notification options"
-                            >
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDocToDelete(doc)}
-                              className="rounded p-1 text-slate-300 hover:text-rose-600 transition cursor-pointer"
-                              title="Delete document"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            {(!userAccess || userAccess.isHead || userAccess.access.canWriteDocuments !== false) && (
+                              <button
+                                type="button"
+                                onClick={() => openEditDocModal(doc)}
+                                className="rounded p-1 text-slate-400 hover:text-emerald-600 transition cursor-pointer"
+                                title="Edit document & notification options"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            {(!userAccess || userAccess.isHead || userAccess.access.canDeleteDocuments !== false) && (
+                              <button
+                                type="button"
+                                onClick={() => setDocToDelete(doc)}
+                                className="rounded p-1 text-slate-300 hover:text-rose-600 transition cursor-pointer"
+                                title="Delete document"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -2072,7 +2148,7 @@ export function VehicleDetailsPage() {
                             <button
                               type="button"
                               onClick={() => openEditDocModal(doc)}
-                              className="text-slate-400 hover:text-indigo-600 flex items-center gap-1 font-medium cursor-pointer"
+                              className="text-slate-400 hover:text-emerald-600 flex items-center gap-1 font-medium cursor-pointer"
                               title="Set WhatsApp renewal reminder"
                             >
                               <Bell className="h-3 w-3" /> Set WhatsApp Alert
@@ -2119,7 +2195,7 @@ export function VehicleDetailsPage() {
                                 expiryDate: doc.expiryDate,
                               })
                             }
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-800 underline cursor-pointer"
                           >
                             <ExternalLink className="h-3 w-3" /> View / Download File
                           </button>
@@ -2151,13 +2227,15 @@ export function VehicleDetailsPage() {
                 Track battery, tire, engine, tracking device, or parts replacement warranty periods and claim statuses.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setWarrantyModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-amber-700 transition cursor-pointer"
-            >
-              <Plus className="h-3.5 w-3.5" /> Add Warranty / Claim
-            </button>
+            {(!userAccess || userAccess.isHead || userAccess.access.canCreateWarranties !== false) && (
+              <button
+                type="button"
+                onClick={() => setWarrantyModalOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-amber-700 transition cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add Warranty / Claim
+              </button>
+            )}
           </div>
 
           {warranties.length === 0 ? (
@@ -2167,13 +2245,15 @@ export function VehicleDetailsPage() {
               <p className="text-[11px] text-slate-400 mt-0.5">
                 Protect your vehicle by tracking warranty on Battery (e.g. Rahimafrooz), Tires (e.g. Yokohama), or official dealer engine guarantee.
               </p>
-              <button
-                type="button"
-                onClick={() => setWarrantyModalOpen(true)}
-                className="mt-3.5 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 cursor-pointer"
-              >
-                <Plus className="h-3.5 w-3.5" /> Record First Warranty
-              </button>
+              {(!userAccess || userAccess.isHead || userAccess.access.canCreateWarranties !== false) && (
+                <button
+                  type="button"
+                  onClick={() => setWarrantyModalOpen(true)}
+                  className="mt-3.5 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Record First Warranty
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -2205,18 +2285,20 @@ export function VehicleDetailsPage() {
                         >
                           {isClaim ? "CLAIM IN PROGRESS" : w.status}
                         </span>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            if (confirm(`Remove warranty record for ${w.productName}?`)) {
-                              await deleteWarranty(w.id, vehicleId);
-                              setWarranties((cur) => cur.filter((item) => item.id !== w.id));
-                            }
-                          }}
-                          className="rounded p-1 text-slate-300 hover:text-rose-600 transition"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        {(!userAccess || userAccess.isHead || userAccess.access.canDeleteWarranties !== false) && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (confirm(`Remove warranty record for ${w.productName}?`)) {
+                                await deleteWarranty(w.id, vehicleId);
+                                setWarranties((cur) => cur.filter((item) => item.id !== w.id));
+                              }
+                            }}
+                            className="rounded p-1 text-slate-300 hover:text-rose-600 transition"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
 
                       <h3 className="text-sm font-bold text-slate-900 mt-2">
@@ -2303,7 +2385,7 @@ export function VehicleDetailsPage() {
                 <button
                   type="button"
                   onClick={() => openEditSpecsModal(true)}
-                  className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition cursor-pointer"
+                  className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-800 flex items-center gap-1 transition cursor-pointer"
                   title="Auto-extract specs from uploaded documents"
                 >
                   <Sparkles className="h-3.5 w-3.5" />
@@ -2389,7 +2471,7 @@ export function VehicleDetailsPage() {
                     <button
                       type="button"
                       onClick={() => handleCopySpec(vehicle.engineNumber, "engine")}
-                      className="text-slate-400 hover:text-indigo-600 transition cursor-pointer p-0.5"
+                      className="text-slate-400 hover:text-emerald-600 transition cursor-pointer p-0.5"
                       title="Copy Engine Number"
                     >
                       {copiedField === "engine" ? (
@@ -2402,7 +2484,7 @@ export function VehicleDetailsPage() {
                     <button
                       type="button"
                       onClick={() => openEditSpecsModal(false)}
-                      className="text-slate-400 hover:text-indigo-600 transition cursor-pointer p-0.5"
+                      className="text-slate-400 hover:text-emerald-600 transition cursor-pointer p-0.5"
                       title="Edit Engine Number"
                     >
                       <Edit2 className="h-3 w-3" />
@@ -2434,7 +2516,7 @@ export function VehicleDetailsPage() {
                     <button
                       type="button"
                       onClick={() => handleCopySpec(vehicle.chassisNumber, "chassis")}
-                      className="text-slate-400 hover:text-indigo-600 transition cursor-pointer p-0.5"
+                      className="text-slate-400 hover:text-emerald-600 transition cursor-pointer p-0.5"
                       title="Copy Chassis Number"
                     >
                       {copiedField === "chassis" ? (
@@ -2447,7 +2529,7 @@ export function VehicleDetailsPage() {
                     <button
                       type="button"
                       onClick={() => openEditSpecsModal(false)}
-                      className="text-slate-400 hover:text-indigo-600 transition cursor-pointer p-0.5"
+                      className="text-slate-400 hover:text-emerald-600 transition cursor-pointer p-0.5"
                       title="Edit Chassis Number"
                     >
                       <Edit2 className="h-3 w-3" />
@@ -2459,7 +2541,7 @@ export function VehicleDetailsPage() {
               {/* Engine Displacement (CC) */}
               <div className="flex items-center justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500">Engine Displacement</span>
-                <span className="font-mono font-semibold text-indigo-900 bg-indigo-50/80 px-2 py-0.5 rounded border border-indigo-100 text-xs">
+                <span className="font-mono font-semibold text-emerald-900 bg-emerald-50/80 px-2 py-0.5 rounded border border-emerald-100 text-xs">
                   {parsedVehicleSpecs.cubicCapacity || "Not recorded"}
                 </span>
               </div>
@@ -2519,7 +2601,7 @@ export function VehicleDetailsPage() {
               <div className="flex items-center justify-between py-1 border-b border-slate-50"><span className="text-slate-500">Other recorded expenses</span><span className="font-mono font-bold">{formatMoney(sumMoney(expenses.filter(item => item.category !== "Fuel").map(item => Number(item.amount))))}</span></div>
               <div className="flex items-center justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500 font-bold">Total Vehicle Operational Cost</span>
-                <span className="font-mono font-bold text-indigo-700 text-sm">
+                <span className="font-mono font-bold text-emerald-700 text-sm">
                   {formatMoney(totalCombinedExpense)}
                 </span>
               </div>
@@ -2653,7 +2735,7 @@ export function VehicleDetailsPage() {
                   <label className="block text-xs font-semibold text-slate-700">
                     Upload Document File (PDF, Image or Text)
                   </label>
-                  <span className="text-[10px] text-indigo-600 font-semibold flex items-center gap-1">
+                  <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
                     <Sparkles className="h-3 w-3" /> Text extraction; images/PDFs require manual entry
                   </span>
                 </div>
@@ -2675,8 +2757,8 @@ export function VehicleDetailsPage() {
 
               {/* Extraction Progress */}
               {isExtractingSpecs && (
-                <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 text-center text-xs text-indigo-900 flex items-center justify-center gap-2">
-                  <Sparkles className="h-4 w-4 text-indigo-600 animate-spin" />
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-center text-xs text-emerald-900 flex items-center justify-center gap-2">
+                  <Sparkles className="h-4 w-4 text-emerald-600 animate-spin" />
                   <span>Scanning document & extracting Engine No, Chassis No, and Specs...</span>
                 </div>
               )}
@@ -2685,20 +2767,20 @@ export function VehicleDetailsPage() {
               {/* Extracted Specifications Review & Confirmation Card */}
               {specExtractionError && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">{specExtractionError}</p>}
               {extractedSpecs && !isExtractingSpecs && (
-                <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/40 p-3.5 space-y-3">
+                <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/40 p-3.5 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-indigo-600" />
-                      <h4 className="text-xs font-bold text-indigo-950">
+                      <Sparkles className="h-4 w-4 text-emerald-600" />
+                      <h4 className="text-xs font-bold text-emerald-950">
                         Document suggestions - verify before applying
                       </h4>
                     </div>
-                    <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-full border border-indigo-200">
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-200">
                       Review & Confirm
                     </span>
                   </div>
 
-                  <p className="text-[11px] text-indigo-800/80 leading-relaxed">
+                  <p className="text-[11px] text-emerald-800/80 leading-relaxed">
                     Detected Engine No, Chassis No, and specifications from this document. Verify details below and confirm to sync to Vehicle Specs.
                   </p>
 
@@ -2712,7 +2794,7 @@ export function VehicleDetailsPage() {
                         value={specEngineNo}
                         onChange={(e) => setSpecEngineNo(e.target.value)}
                         placeholder="Engine number from your document"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-600"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-emerald-600"
                       />
                     </div>
 
@@ -2725,7 +2807,7 @@ export function VehicleDetailsPage() {
                         value={specChassisNo}
                         onChange={(e) => setSpecChassisNo(e.target.value)}
                         placeholder="Chassis number from your document"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-600"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-emerald-600"
                       />
                     </div>
 
@@ -2738,7 +2820,7 @@ export function VehicleDetailsPage() {
                         value={specCC}
                         onChange={(e) => setSpecCC(e.target.value)}
                         placeholder={/bike|motorcycle|scooter/i.test(vehicle.type) ? "Enter documented cc" : "Enter documented engine capacity"}
-                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-indigo-600"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-emerald-600"
                       />
                     </div>
 
@@ -2751,7 +2833,7 @@ export function VehicleDetailsPage() {
                         value={specFuel}
                         onChange={(e) => setSpecFuel(e.target.value)}
                         placeholder="e.g. Octane"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-600"
                       />
                     </div>
 
@@ -2764,7 +2846,7 @@ export function VehicleDetailsPage() {
                         value={specYear}
                         onChange={(e) => setSpecYear(e.target.value)}
                         placeholder="e.g. 2010"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-indigo-600"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-emerald-600"
                       />
                     </div>
 
@@ -2777,7 +2859,7 @@ export function VehicleDetailsPage() {
                         value={specColor}
                         onChange={(e) => setSpecColor(e.target.value)}
                         placeholder="e.g. Black"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-600"
                       />
                     </div>
                   </div>
@@ -2798,7 +2880,7 @@ export function VehicleDetailsPage() {
                       type="button"
                       disabled={isApplyingSpecs || specsAppliedSuccess}
                       onClick={handleConfirmVehicleSpecs}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold transition cursor-pointer shadow-xs disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold transition cursor-pointer shadow-xs disabled:opacity-50"
                     >
                       <Check className="h-3.5 w-3.5" />
                       {isApplyingSpecs ? "Saving..." : specsAppliedSuccess ? "Confirmed ✓" : "Confirm & Update Vehicle Specs"}
@@ -2993,6 +3075,8 @@ export function VehicleDetailsPage() {
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
+                    step="any"
                     required
                     placeholder="e.g. 45200"
                     value={fuelMileage}
@@ -3009,6 +3093,8 @@ export function VehicleDetailsPage() {
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
+                    step="any"
                     required
                     placeholder="e.g. 5000"
                     value={fuelAmount}
@@ -3026,7 +3112,7 @@ export function VehicleDetailsPage() {
                       <button
                         type="button"
                         onClick={() => applyPresetRate(BD_FUEL_RATES[fuelType])}
-                        className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer underline decoration-dotted"
+                        className="text-[10px] text-emerald-600 hover:text-emerald-800 font-semibold cursor-pointer underline decoration-dotted"
                         title={`Apply standard BD ${fuelType} rate (৳${BD_FUEL_RATES[fuelType]}/L)`}
                       >
                         ৳{BD_FUEL_RATES[fuelType]} BD
@@ -3035,7 +3121,8 @@ export function VehicleDetailsPage() {
                   </div>
                   <input
                     type="number"
-                    step="0.01"
+                    inputMode="decimal"
+                    step="any"
                     placeholder={`e.g. ${BD_FUEL_RATES[fuelType] || 125}`}
                     value={fuelPricePerLiter}
                     onChange={(e) => handlePricePerLiterChange(e.target.value)}
@@ -3169,18 +3256,18 @@ export function VehicleDetailsPage() {
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto space-y-4">
               {/* Smart Bill / Document Upload & Extraction */}
-              <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3.5">
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3.5">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+                  <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
                     Bill / Memo Scanner
                   </span>
-                  <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-100/70 px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-100/70 px-2 py-0.5 rounded-full">
                     Auto-Extracts Details
                   </span>
                 </div>
-                <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-indigo-200 bg-white p-3.5 hover:bg-indigo-50/50 transition">
-                  <Upload className="h-5 w-5 text-indigo-500 mb-1" />
+                <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-emerald-200 bg-white p-3.5 hover:bg-emerald-50/50 transition">
+                  <Upload className="h-5 w-5 text-emerald-500 mb-1" />
                   <span className="text-xs font-semibold text-slate-700 text-center">
                     {maintenanceFile ? maintenanceFile.name : "Upload Receipt / Invoice (Image or PDF)"}
                   </span>
@@ -3229,9 +3316,9 @@ export function VehicleDetailsPage() {
                 </div>
 
                 {(maintenanceServiceType === "Others" || maintenanceServiceType === "Other") && (
-                  <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/50 p-3 space-y-2.5">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950">
-                      <Wrench className="h-3.5 w-3.5 text-indigo-600" />
+                  <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/50 p-3 space-y-2.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
+                      <Wrench className="h-3.5 w-3.5 text-emerald-600" />
                       <span>Other Service Details</span>
                     </div>
 
@@ -3245,7 +3332,7 @@ export function VehicleDetailsPage() {
                         placeholder="e.g. Chain sprocket change, Fuel pump repair, Radiator flush"
                         value={maintenanceCustomType}
                         onChange={(e) => setMaintenanceCustomType(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-emerald-600"
                       />
                     </div>
 
@@ -3259,7 +3346,7 @@ export function VehicleDetailsPage() {
                         placeholder="e.g. Replaced worn sprocket, adjusted chain tension, lubricated with high-grade chain wax"
                         value={maintenanceDescription}
                         onChange={(e) => setMaintenanceDescription(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-900 outline-none focus:border-emerald-600"
                       />
                     </div>
                   </div>
@@ -3285,6 +3372,8 @@ export function VehicleDetailsPage() {
                     </label>
                     <input
                       type="number"
+                      inputMode="decimal"
+                      step="any"
                       required
                       placeholder="e.g. 45200"
                       value={maintenanceMileage}
@@ -3303,6 +3392,8 @@ export function VehicleDetailsPage() {
                     </label>
                     <input
                       type="number"
+                      inputMode="decimal"
+                      step="any"
                       required
                       placeholder="e.g. 4500"
                       value={maintenanceCost}
@@ -3662,7 +3753,7 @@ export function VehicleDetailsPage() {
                   <label className="block text-xs font-semibold text-slate-700">
                     Replace Document File / Re-Scan Specs <span className="text-slate-400 font-normal">(Optional)</span>
                   </label>
-                  <span className="text-[10px] text-indigo-600 font-semibold flex items-center gap-1">
+                  <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
                     <Sparkles className="h-3 w-3" /> Text extraction; images/PDFs require manual entry
                   </span>
                 </div>
@@ -3684,8 +3775,8 @@ export function VehicleDetailsPage() {
 
               {/* Extraction Progress */}
               {isExtractingSpecs && (
-                <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 text-center text-xs text-indigo-900 flex items-center justify-center gap-2">
-                  <Sparkles className="h-4 w-4 text-indigo-600 animate-spin" />
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-center text-xs text-emerald-900 flex items-center justify-center gap-2">
+                  <Sparkles className="h-4 w-4 text-emerald-600 animate-spin" />
                   <span>Scanning document & extracting Engine No, Chassis No, and Specs...</span>
                 </div>
               )}
@@ -3694,20 +3785,20 @@ export function VehicleDetailsPage() {
               {/* Extracted Specifications Review & Confirmation Card */}
               {specExtractionError && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">{specExtractionError}</p>}
               {extractedSpecs && !isExtractingSpecs && (
-                <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/40 p-3.5 space-y-3">
+                <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/40 p-3.5 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-indigo-600" />
-                      <h4 className="text-xs font-bold text-indigo-950">
+                      <Sparkles className="h-4 w-4 text-emerald-600" />
+                      <h4 className="text-xs font-bold text-emerald-950">
                         Document suggestions - verify before applying
                       </h4>
                     </div>
-                    <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-full border border-indigo-200">
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-200">
                       Review & Confirm
                     </span>
                   </div>
 
-                  <p className="text-[11px] text-indigo-800/80 leading-relaxed">
+                  <p className="text-[11px] text-emerald-800/80 leading-relaxed">
                     Detected Engine No, Chassis No, and specifications from this document. Verify details below and confirm to sync to Vehicle Specs.
                   </p>
 
@@ -3721,7 +3812,7 @@ export function VehicleDetailsPage() {
                         value={specEngineNo}
                         onChange={(e) => setSpecEngineNo(e.target.value)}
                         placeholder="Engine number from your document"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-600"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-emerald-600"
                       />
                     </div>
 
@@ -3734,7 +3825,7 @@ export function VehicleDetailsPage() {
                         value={specChassisNo}
                         onChange={(e) => setSpecChassisNo(e.target.value)}
                         placeholder="Chassis number from your document"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-600"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 outline-none focus:border-emerald-600"
                       />
                     </div>
 
@@ -3747,7 +3838,7 @@ export function VehicleDetailsPage() {
                         value={specCC}
                         onChange={(e) => setSpecCC(e.target.value)}
                         placeholder={/bike|motorcycle|scooter/i.test(vehicle.type) ? "Enter documented cc" : "Enter documented engine capacity"}
-                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-indigo-600"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-emerald-600"
                       />
                     </div>
 
@@ -3760,7 +3851,7 @@ export function VehicleDetailsPage() {
                         value={specFuel}
                         onChange={(e) => setSpecFuel(e.target.value)}
                         placeholder="e.g. Octane"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-600"
                       />
                     </div>
 
@@ -3773,7 +3864,7 @@ export function VehicleDetailsPage() {
                         value={specYear}
                         onChange={(e) => setSpecYear(e.target.value)}
                         placeholder="e.g. 2010"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-indigo-600"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-emerald-600"
                       />
                     </div>
 
@@ -3786,7 +3877,7 @@ export function VehicleDetailsPage() {
                         value={specColor}
                         onChange={(e) => setSpecColor(e.target.value)}
                         placeholder="e.g. Black"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-600"
                       />
                     </div>
                   </div>
@@ -3807,7 +3898,7 @@ export function VehicleDetailsPage() {
                       type="button"
                       disabled={isApplyingSpecs || specsAppliedSuccess}
                       onClick={handleConfirmVehicleSpecs}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-semibold transition cursor-pointer shadow-xs disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold transition cursor-pointer shadow-xs disabled:opacity-50"
                     >
                       <Check className="h-3.5 w-3.5" />
                       {isApplyingSpecs ? "Saving..." : specsAppliedSuccess ? "Confirmed ✓" : "Confirm & Update Vehicle Specs"}
@@ -4098,7 +4189,7 @@ export function VehicleDetailsPage() {
                       <button
                         type="button"
                         onClick={() => applyEditFuelPresetRate(BD_FUEL_RATES[editFuelType])}
-                        className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer underline decoration-dotted"
+                        className="text-[10px] text-emerald-600 hover:text-emerald-800 font-semibold cursor-pointer underline decoration-dotted"
                         title={`Apply standard BD ${editFuelType} rate (৳${BD_FUEL_RATES[editFuelType]}/L)`}
                       >
                         ৳{BD_FUEL_RATES[editFuelType]} BD
@@ -4521,7 +4612,7 @@ export function VehicleDetailsPage() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
               <div>
                 <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                     Vehicle Specs
                   </span>
                   <span className="text-xs text-slate-400 font-mono">{vehicle?.name}</span>
@@ -4543,13 +4634,13 @@ export function VehicleDetailsPage() {
             <div className="p-6 space-y-4">
               {specExtractionError && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">{specExtractionError}</p>}
               {/* Auto-Extract Banner */}
-              <div className="rounded-xl border border-indigo-200/90 bg-indigo-50/60 p-3.5 flex items-center justify-between gap-3">
+              <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/60 p-3.5 flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950">
-                    <Sparkles className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
+                    <Sparkles className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
                     <span>Auto-Extract from Uploaded Documents</span>
                   </div>
-                  <p className="text-[11px] text-indigo-800/80 mt-0.5 leading-relaxed">
+                  <p className="text-[11px] text-emerald-800/80 mt-0.5 leading-relaxed">
                     {documents.length > 0
                       ? "Reads attached plain-text documents. Images and PDFs require manual entry."
                       : "No documents uploaded yet. Enter details from your vehicle document."}
@@ -4559,7 +4650,7 @@ export function VehicleDetailsPage() {
                   type="button"
                   disabled={isExtractingSpecs}
                   onClick={handleAutoExtractFromExistingDocs}
-                  className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition cursor-pointer disabled:opacity-50"
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition cursor-pointer disabled:opacity-50"
                 >
                   <Sparkles className={`h-3.5 w-3.5 ${isExtractingSpecs ? "animate-spin" : ""}`} />
                   {isExtractingSpecs ? "Scanning..." : "Scan Docs"}
@@ -4580,7 +4671,7 @@ export function VehicleDetailsPage() {
                     value={specEngineNo}
                     onChange={(e) => setSpecEngineNo(e.target.value)}
                     placeholder="Engine number from your document"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-600"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono font-bold text-slate-900 outline-none focus:border-emerald-600"
                   />
                 </div>
 
@@ -4596,7 +4687,7 @@ export function VehicleDetailsPage() {
                     value={specChassisNo}
                     onChange={(e) => setSpecChassisNo(e.target.value)}
                     placeholder="Chassis number from your document"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono font-bold text-slate-900 outline-none focus:border-indigo-600"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono font-bold text-slate-900 outline-none focus:border-emerald-600"
                   />
                 </div>
 
@@ -4610,7 +4701,7 @@ export function VehicleDetailsPage() {
                     value={specRegNo}
                     onChange={(e) => setSpecRegNo(e.target.value)}
                     placeholder="e.g. DHAKA METRO GA 33-3617"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono font-semibold text-slate-900 outline-none focus:border-indigo-600"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono font-semibold text-slate-900 outline-none focus:border-emerald-600"
                   />
                 </div>
 
@@ -4624,7 +4715,7 @@ export function VehicleDetailsPage() {
                     value={specCC}
                     onChange={(e) => setSpecCC(e.target.value)}
                     placeholder={/bike|motorcycle|scooter/i.test(vehicle.type) ? "Enter documented cc" : "Enter documented engine capacity"}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-slate-900 outline-none focus:border-indigo-600"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-slate-900 outline-none focus:border-emerald-600"
                   />
                 </div>
 
@@ -4661,7 +4752,7 @@ export function VehicleDetailsPage() {
                     value={specYear}
                     onChange={(e) => setSpecYear(e.target.value)}
                     placeholder="e.g. 2010"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-slate-900 outline-none focus:border-indigo-600"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-slate-900 outline-none focus:border-emerald-600"
                   />
                 </div>
 
@@ -4675,7 +4766,7 @@ export function VehicleDetailsPage() {
                     value={specColor}
                     onChange={(e) => setSpecColor(e.target.value)}
                     placeholder="e.g. Black, White, Pearl"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 outline-none focus:border-emerald-600"
                   />
                 </div>
 
@@ -4689,7 +4780,7 @@ export function VehicleDetailsPage() {
                     value={specSeats}
                     onChange={(e) => setSpecSeats(e.target.value)}
                     placeholder="Enter documented seat count"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 outline-none focus:border-indigo-600"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 outline-none focus:border-emerald-600"
                   />
                 </div>
               </div>
@@ -4716,7 +4807,7 @@ export function VehicleDetailsPage() {
                 type="button"
                 disabled={isApplyingSpecs}
                 onClick={handleConfirmVehicleSpecs}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 px-4 py-2 text-xs font-semibold text-white shadow-xs transition cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 px-4 py-2 text-xs font-semibold text-white shadow-xs transition cursor-pointer disabled:opacity-50"
               >
                 <Check className="h-3.5 w-3.5" />
                 {isApplyingSpecs ? "Saving Specs..." : "Confirm & Save Specifications"}

@@ -25,7 +25,7 @@ export function NotFoundPage() {
       description: "NID, passports, certificates & family records",
       icon: FileText,
       to: "/documents/vault",
-      color: "text-indigo-600 bg-indigo-50 border-indigo-100",
+      color: "text-emerald-700 bg-emerald-50 border-emerald-100",
     },
     {
       title: "Tasks & To-Dos",
@@ -104,7 +104,7 @@ export function NotFoundPage() {
           </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-slate-50/50 px-3 text-[11px] font-semibold text-slate-400">
-              Explore LifeNest Hub
+              Explore Likhe Rakho Hub
             </span>
           </div>
         </div>

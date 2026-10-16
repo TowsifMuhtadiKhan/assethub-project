@@ -104,7 +104,7 @@ async function startSocket(): Promise<void> {
   const s = makeWASocket({
     version,
     auth: state,
-    browser: Browsers.macOS("Chrome"),
+    browser: ["LifeNest (জীবননীড়)", "Desktop", "1.0.0"] as [string, string, string],
     logger: pino({ level: "silent" }),
     keepAliveIntervalMs: 15_000,
     connectTimeoutMs: 60_000,

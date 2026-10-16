@@ -142,7 +142,7 @@ export function RentalReports({
         headers = [
           "Month",
           "Property / Unit",
-          "Tenant",
+          "Renter",
           "Base rent (BDT)",
           "Other charges (BDT)",
           "Total due (BDT)",
@@ -373,7 +373,7 @@ export function RentalReports({
       )}
       {result.legacy > 0 && (
         <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-          {result.legacy} existing unit(s) still need their tenant dates and historical rent periods set up.
+          {result.legacy} existing unit(s) still need their renter dates and historical rent periods set up.
         </p>
       )}
 

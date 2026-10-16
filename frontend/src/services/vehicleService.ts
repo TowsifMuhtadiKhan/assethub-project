@@ -128,11 +128,22 @@ export async function createVehicle(
     status: input.status ?? "GOOD",
   };
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from(TABLE)
     .insert(rowData)
     .select()
     .single();
+
+  if (error && (error.code === "22P02" || error.message?.includes("integer")) && typeof rowData.mileage === "number") {
+    rowData.mileage = Math.round(rowData.mileage);
+    const retry = await supabase
+      .from(TABLE)
+      .insert(rowData)
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) throw error;
   return mapVehicleFromRow(data);
@@ -190,12 +201,24 @@ export async function updateVehicle(
   if (input.image !== undefined) patch.image = input.image;
   if (input.status !== undefined) patch.status = input.status;
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from(TABLE)
     .update(patch)
     .eq("id", id)
     .select()
     .single();
+
+  if (error && (error.code === "22P02" || error.message?.includes("integer")) && typeof patch.mileage === "number") {
+    patch.mileage = Math.round(patch.mileage);
+    const retry = await supabase
+      .from(TABLE)
+      .update(patch)
+      .eq("id", id)
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) throw error;
   return mapVehicleFromRow(data);

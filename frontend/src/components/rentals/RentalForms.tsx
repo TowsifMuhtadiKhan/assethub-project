@@ -46,9 +46,9 @@ export function PropertyForm({ propertyId, done, close }: FormProps & { property
   return <Modal title={propertyId ? "Add flat" : "Add property"} close={() => !busy && close()}><form onSubmit={submit} className="space-y-4"><FormError error={error} />
     {!propertyId && <><Label title="Property name *"><input required name="name" className={field} /></Label><Label title="Address *"><input required name="location" className={field} /></Label><Label title="Property type"><select name="type" className={field}><option>Residential</option><option>Commercial</option><option>Mixed use</option></select></Label></>}
     <Label title="Flat / rental space name *"><input required name="flat" className={field} placeholder="e.g. Flat A1, 3rd floor" /></Label>
-    <fieldset className="space-y-3 rounded-xl bg-slate-50 p-4"><legend className="text-sm font-semibold">How is this flat rented?</legend><label className="flex gap-2 text-sm"><input type="radio" name="mode" checked={!separateRooms} onChange={() => setSeparateRooms(false)} />The whole flat to one tenant</label><label className="flex gap-2 text-sm"><input type="radio" name="mode" checked={separateRooms} onChange={() => setSeparateRooms(true)} />Separate rooms rented individually</label>
+    <fieldset className="space-y-3 rounded-xl bg-slate-50 p-4"><legend className="text-sm font-semibold">How is this flat rented?</legend><label className="flex gap-2 text-sm"><input type="radio" name="mode" checked={!separateRooms} onChange={() => setSeparateRooms(false)} />The whole flat to one renter</label><label className="flex gap-2 text-sm"><input type="radio" name="mode" checked={separateRooms} onChange={() => setSeparateRooms(true)} />Separate rooms rented individually</label>
       {separateRooms && <Label title="Number of separately rented rooms *"><input required type="number" name="rooms" min="1" max="100" step="1" defaultValue="2" className={field} /></Label>}
-    </fieldset><p className="text-xs text-slate-500">You can add more flats to this property later. Tenant details, documents and rent are managed after creation.</p><button disabled={busy} className={primary}>{busy ? "Saving…" : "Save"}</button>
+    </fieldset><p className="text-xs text-slate-500">You can add more flats to this property later. Renter details, documents and rent are managed after creation.</p><button disabled={busy} className={primary}>{busy ? "Saving…" : "Save"}</button>
   </form></Modal>;
 }
 
@@ -172,6 +172,7 @@ export function TenancyForm({
             <input
               name="phone"
               type="tel"
+              inputMode="tel"
               required
               minLength={6}
               maxLength={25}
@@ -186,6 +187,7 @@ export function TenancyForm({
           <Label title="NID / Passport Number (optional)">
             <input
               name="nid"
+              inputMode="numeric"
               placeholder="e.g. 19902692518... or A01234567"
               defaultValue={tenancy?.tenant_nid || unit.tenantNid}
               className={field}
@@ -306,6 +308,7 @@ export function TenancyForm({
             <Label title="Monthly Base Rent (৳ BDT) *">
               <input
                 type="number"
+                inputMode="numeric"
                 min="0"
                 step="1"
                 required={!tenancy}
@@ -321,6 +324,7 @@ export function TenancyForm({
             <Label title="Service charge">
               <input
                 type="number"
+                inputMode="numeric"
                 min="0"
                 placeholder="0"
                 value={serviceCharge}
@@ -331,6 +335,7 @@ export function TenancyForm({
             <Label title="Gas bill">
               <input
                 type="number"
+                inputMode="numeric"
                 min="0"
                 placeholder="0"
                 value={gasBill}
@@ -341,6 +346,7 @@ export function TenancyForm({
             <Label title="Electricity">
               <input
                 type="number"
+                inputMode="numeric"
                 min="0"
                 placeholder="0"
                 value={electricityBill}
@@ -351,6 +357,7 @@ export function TenancyForm({
             <Label title="Water bill">
               <input
                 type="number"
+                inputMode="numeric"
                 min="0"
                 placeholder="0"
                 value={waterBill}
@@ -379,9 +386,9 @@ export function ScheduleForm({ tenancy, schedule, schedules, done, close }: Form
     void save(() => saveRentSchedule({ id: schedule?.id, tenancy_id: tenancy.id, from_month: value(f, "from"), to_month: value(f, "to") || null, base_rent: Number(base), charges }, schedules));
   }}><FormError error={error} /><div className="grid grid-cols-2 gap-3"><Label title="From month *"><input type="month" name="from" required min={tenancy.start_month.slice(0, 7)} defaultValue={schedule?.from_month.slice(0, 7) || tenancy.start_month.slice(0, 7)} className={field} /></Label><Label title="Through month (inclusive)"><input type="month" name="to" defaultValue={schedule?.to_month?.slice(0, 7) || ""} className={field} /></Label></div>
     <p className="text-xs text-slate-500">Leave the end month blank for an ongoing rate. Before an increase, end the previous rate in the preceding month, then add the new period. Earlier months keep their own rates.</p>
-    <Label title="Base rent (BDT) *"><input required type="number" min="0" step="0.01" value={base} onChange={e => setBase(e.target.value)} className={field} /></Label>
+    <Label title="Base rent (BDT) *"><input required type="number" inputMode="numeric" min="0" step="0.01" value={base} onChange={e => setBase(e.target.value)} className={field} /></Label>
     <div className="space-y-2"><h3 className="text-sm font-semibold">Optional monthly breakdown</h3><datalist id="charge-names"><option>Service charge</option><option>Gas bill</option><option>Electricity bill</option><option>Water bill</option><option>Parking</option></datalist>
-    {charges.map((c, i) => <div key={i} className="grid grid-cols-[1fr_120px_auto] gap-2"><input aria-label={`Charge ${i + 1} name`} required list="charge-names" value={c.label} onChange={e => setCharges(charges.map((x, j) => i === j ? { ...x, label: e.target.value } : x))} className={field} /><input aria-label={`Charge ${i + 1} amount`} required type="number" min="0" step="0.01" value={c.amount} onChange={e => setCharges(charges.map((x, j) => i === j ? { ...x, amount: Number(e.target.value) } : x))} className={field} /><button type="button" className={button} onClick={() => setCharges(charges.filter((_, j) => i !== j))}>Remove</button></div>)}
+    {charges.map((c, i) => <div key={i} className="grid grid-cols-[1fr_120px_auto] gap-2"><input aria-label={`Charge ${i + 1} name`} required list="charge-names" value={c.label} onChange={e => setCharges(charges.map((x, j) => i === j ? { ...x, label: e.target.value } : x))} className={field} /><input aria-label={`Charge ${i + 1} amount`} required type="number" inputMode="numeric" min="0" step="0.01" value={c.amount} onChange={e => setCharges(charges.map((x, j) => i === j ? { ...x, amount: Number(e.target.value) } : x))} className={field} /><button type="button" className={button} onClick={() => setCharges(charges.filter((_, j) => i !== j))}>Remove</button></div>)}
     <button type="button" className={button} onClick={() => setCharges([...charges, { label: "", amount: 0 }])}>+ Add charge</button></div>
     <p className="rounded-xl bg-indigo-50 p-4 text-lg font-semibold">Monthly total: {money(total)}</p><p className="text-xs text-slate-500">Charges apply to each month in this period. For a variable utility bill, add a rate period covering that month.</p><button disabled={busy} className={primary}>{busy ? "Saving…" : "Save rent period"}</button>
   </form></Modal>;

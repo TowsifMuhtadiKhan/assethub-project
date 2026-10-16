@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   PiggyBank,
   Plus,
@@ -12,7 +13,9 @@ import {
   Coins,
   CheckCircle2,
   Receipt,
+  ExternalLink,
 } from "lucide-react";
+import { FormControl, Select, MenuItem } from "@mui/material";
 import {
   listMemberSavings,
   createMemberSavings,
@@ -20,6 +23,7 @@ import {
   deleteMemberSavings,
   addSavingsDepositLog,
   deleteSavingsDepositLog,
+  generateSavingsSchedule,
 } from "../../services/dailyExpenseService";
 import type {
   FamilyMember,
@@ -28,6 +32,7 @@ import type {
   MemberSavingsStatus,
   DailyExpensePaymentMethod,
 } from "../../types";
+import { TableRowActions } from "../common/TableRowActions";
 
 type MemberSavingsViewProps = {
   activeMember: FamilyMember;
@@ -68,6 +73,7 @@ export function MemberSavingsView({
   onOpenAddModalDirect,
   onResetOpenAddModal,
 }: MemberSavingsViewProps) {
+  const navigate = useNavigate();
   const [savingsList, setSavingsList] = useState<MemberSavings[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -255,6 +261,21 @@ export function MemberSavingsView({
         setSavingsList((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
         onToast(`Updated "${formTitle}" successfully!`);
       } else {
+        const tenureMonths = typeof formTenureYears === "number" ? formTenureYears * 12 : 12;
+        const generated = generateSavingsSchedule(
+          formType,
+          formType === "DPS" ? (Number(formMonthlyInstallment) || 0) : (Number(formPrincipalAmount) || 0),
+          tenureMonths,
+          formStartDate,
+          Number(formInterestRate) || 0,
+          formProfitPayout
+        );
+
+        if (formType === "DPS" && formInitialDepositDone && generated.logs.length > 0) {
+          generated.logs[0].isPaid = true;
+          generated.logs[0].depositDate = formStartDate || new Date().toISOString().split("T")[0];
+        }
+
         const created = await createMemberSavings(
           {
             familyMemberId: activeMember.id,
@@ -266,22 +287,23 @@ export function MemberSavingsView({
             monthlyInstallment: typeof formMonthlyInstallment === "number" ? formMonthlyInstallment : undefined,
             principalAmount: typeof formPrincipalAmount === "number" ? formPrincipalAmount : undefined,
             tenureYears: typeof formTenureYears === "number" ? formTenureYears : undefined,
-            tenureMonths: typeof formTenureYears === "number" ? formTenureYears * 12 : undefined,
+            tenureMonths: tenureMonths,
             startDate: formStartDate,
             maturityDate: formMaturityDate || undefined,
             interestRate: typeof formInterestRate === "number" ? formInterestRate : undefined,
-            maturityAmount: typeof formMaturityAmount === "number" ? formMaturityAmount : undefined,
+            maturityAmount: typeof formMaturityAmount === "number" ? formMaturityAmount : generated.maturityAmount,
             depositDayOfMonth: typeof formDepositDayOfMonth === "number" ? formDepositDayOfMonth : undefined,
             profitPayoutFrequency: formProfitPayout,
             status: "ACTIVE",
             nomineeName: formNomineeName.trim() || undefined,
             notes: formNotes.trim() || undefined,
+            depositLogs: generated.logs,
           },
-          formType === "DPS" && formInitialDepositDone
+          false
         );
 
         setSavingsList((prev) => [created, ...prev]);
-        onToast(`Added new ${formType}: "${formTitle}"!`);
+        onToast(`Added new ${formType}: "${formTitle}" with automated monthly schedule!`);
       }
       setIsModalOpen(false);
     } catch (err: any) {
@@ -593,7 +615,7 @@ export function MemberSavingsView({
           <button
             type="button"
             onClick={() => openAddModal("DPS")}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 active:scale-95 transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-2 text-xs font-bold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] active:scale-95 transition cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>Add DPS / FDR</span>
@@ -606,12 +628,12 @@ export function MemberSavingsView({
       {/* ===================================================================== */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-16 text-center bg-white rounded-2xl border border-slate-200 p-8 shadow-2xs">
-          <div className="h-8 w-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin mb-3" />
-          <p className="text-xs font-semibold text-slate-600">Loading DPS & Fixed Deposit schemes...</p>
+          <div className="h-8 w-8 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin mb-3" />
+          <p className="text-xs font-semibold text-slate-600">Loading DPS &amp; Fixed Deposit schemes...</p>
         </div>
       ) : filteredList.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 sm:p-12 text-center space-y-3">
-          <div className="mx-auto h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 shadow-2xs">
+          <div className="mx-auto h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100 shadow-2xs">
             <PiggyBank className="h-6 w-6" />
           </div>
           <div className="max-w-md mx-auto space-y-1">
@@ -629,7 +651,7 @@ export function MemberSavingsView({
               <button
                 type="button"
                 onClick={() => openAddModal("DPS")}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-2 text-xs font-bold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>Add First DPS</span>
@@ -637,7 +659,7 @@ export function MemberSavingsView({
               <button
                 type="button"
                 onClick={() => openAddModal("FDR")}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>Add First FDR</span>
@@ -688,8 +710,13 @@ export function MemberSavingsView({
                         {item.type}
                       </span>
 
-                      <h3 className="text-sm font-bold text-slate-900 tracking-tight">
-                        {item.title}
+                      <h3
+                        onClick={() => navigate(`/my-life/expenses/savings/${item.id}`)}
+                        className="text-sm font-bold text-slate-900 tracking-tight hover:text-indigo-600 transition cursor-pointer flex items-center gap-1.5"
+                        title="Click to view full schedule & checkmark installments"
+                      >
+                        <span>{item.title}</span>
+                        <ExternalLink className="h-3 w-3 text-slate-400 group-hover:text-indigo-600" />
                       </h3>
 
                       {item.status === "MATURED" ? (
@@ -754,35 +781,52 @@ export function MemberSavingsView({
                       </button>
                     )}
 
-                    {isDPS && (
-                      <button
-                        type="button"
-                        onClick={() => setViewingHistorySavings(item)}
-                        className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50/80 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-                        title="View Installment History"
-                      >
-                        <Receipt className="h-3.5 w-3.5 text-slate-500" />
-                        <span className="hidden sm:inline">History ({installmentsPaidCount})</span>
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => openEditModal(item)}
-                      className="p-1.5 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition cursor-pointer"
-                      title="Edit Scheme"
-                    >
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setSavingsToDelete(item)}
-                      className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                      title="Delete Scheme"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    <TableRowActions
+                      title={item.title}
+                      subtitle={`${item.type} • ${item.institutionName || "Personal"}`}
+                      actions={[
+                        ...(isDPS && item.status === "ACTIVE"
+                          ? [
+                              {
+                                label: "Deposit Installment",
+                                description: `Record monthly deposit of ৳${(item.monthlyInstallment || 0).toLocaleString()}`,
+                                icon: Plus,
+                                variant: "emerald" as const,
+                                onClick: () => openDepositModal(item),
+                              },
+                            ]
+                          : []),
+                        {
+                          label: "View Schedule & Ledger",
+                          description: "Open schedule, milestones & checkmark installments",
+                          icon: ExternalLink,
+                          onClick: () => navigate(`/my-life/expenses/savings/${item.id}`),
+                        },
+                        ...(isDPS
+                          ? [
+                              {
+                                label: `Installment History (${installmentsPaidCount} paid)`,
+                                description: "Detailed logs of paid installments",
+                                icon: Receipt,
+                                onClick: () => navigate(`/my-life/expenses/savings/${item.id}`),
+                              },
+                            ]
+                          : []),
+                        {
+                          label: "Edit Scheme Details",
+                          description: "Update rates, maturity date, or institution",
+                          icon: Edit2,
+                          onClick: () => openEditModal(item),
+                        },
+                        {
+                          label: "Delete Scheme",
+                          description: "Permanently remove this savings scheme",
+                          icon: Trash2,
+                          variant: "danger" as const,
+                          onClick: () => setSavingsToDelete(item),
+                        },
+                      ]}
+                    />
                   </div>
                 </div>
 
@@ -892,8 +936,8 @@ export function MemberSavingsView({
       {/* ===================================================================== */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 text-slate-800 shadow-2xl space-y-4 my-8">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="w-full max-w-lg max-h-[92dvh] sm:max-h-[88dvh] flex flex-col rounded-2xl sm:rounded-3xl border border-slate-200 bg-white text-slate-800 shadow-2xl my-auto animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 p-4 sm:p-5 shrink-0 bg-white">
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center">
                   <PiggyBank className="h-4 w-4" />
@@ -910,13 +954,13 @@ export function MemberSavingsView({
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-800"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveScheme} className="space-y-3.5">
+            <form onSubmit={handleSaveScheme} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 overscroll-contain">
               {/* Type Switcher */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -1000,6 +1044,7 @@ export function MemberSavingsView({
                     </label>
                     <input
                       type="number"
+                      inputMode="numeric"
                       required
                       min={100}
                       step={100}
@@ -1016,6 +1061,7 @@ export function MemberSavingsView({
                     </label>
                     <input
                       type="number"
+                      inputMode="numeric"
                       required
                       min={1000}
                       step={1000}
@@ -1031,18 +1077,26 @@ export function MemberSavingsView({
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Tenure (Years)
                   </label>
-                  <select
-                    value={formTenureYears}
-                    onChange={(e) => setFormTenureYears(Number(e.target.value))}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-indigo-500 focus:bg-white"
-                  >
-                    <option value={1}>1 Year (12 mo)</option>
-                    <option value={2}>2 Years (24 mo)</option>
-                    <option value={3}>3 Years (36 mo)</option>
-                    <option value={5}>5 Years (60 mo)</option>
-                    <option value={7}>7 Years (84 mo)</option>
-                    <option value={10}>10 Years (120 mo)</option>
-                  </select>
+                  <FormControl size="small" fullWidth>
+                    <Select
+                      value={formTenureYears}
+                      onChange={(e) => setFormTenureYears(Number(e.target.value))}
+                      sx={{
+                        fontSize: "0.75rem",
+                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        borderRadius: "0.75rem",
+                        backgroundColor: "#f8fafc",
+                        "& .MuiSelect-select": { py: "8px" },
+                      }}
+                    >
+                      <MenuItem value={1} sx={{ fontSize: "0.75rem" }}>1 Year (12 mo)</MenuItem>
+                      <MenuItem value={2} sx={{ fontSize: "0.75rem" }}>2 Years (24 mo)</MenuItem>
+                      <MenuItem value={3} sx={{ fontSize: "0.75rem" }}>3 Years (36 mo)</MenuItem>
+                      <MenuItem value={5} sx={{ fontSize: "0.75rem" }}>5 Years (60 mo)</MenuItem>
+                      <MenuItem value={7} sx={{ fontSize: "0.75rem" }}>7 Years (84 mo)</MenuItem>
+                      <MenuItem value={10} sx={{ fontSize: "0.75rem" }}>10 Years (120 mo)</MenuItem>
+                    </Select>
+                  </FormControl>
                 </div>
 
                 <div>
@@ -1051,6 +1105,7 @@ export function MemberSavingsView({
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     step="0.05"
                     value={formInterestRate}
                     onChange={(e) => setFormInterestRate(e.target.value ? Number(e.target.value) : "")}
@@ -1081,6 +1136,7 @@ export function MemberSavingsView({
                   </label>
                   <input
                     type="number"
+                    inputMode="numeric"
                     value={formMaturityAmount}
                     onChange={(e) => setFormMaturityAmount(e.target.value ? Number(e.target.value) : "")}
                     placeholder="225000"
@@ -1097,6 +1153,7 @@ export function MemberSavingsView({
                   </label>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min={1}
                     max={31}
                     value={formDepositDayOfMonth}
@@ -1113,16 +1170,24 @@ export function MemberSavingsView({
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Profit Payout Frequency
                   </label>
-                  <select
-                    value={formProfitPayout}
-                    onChange={(e) => setFormProfitPayout(e.target.value as any)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-indigo-500 focus:bg-white"
-                  >
-                    <option value="On Maturity">On Maturity (Cumulative)</option>
-                    <option value="Monthly">Monthly Payout</option>
-                    <option value="Quarterly">Quarterly Payout (3 Months)</option>
-                    <option value="Half-Yearly">Half-Yearly Payout (6 Months)</option>
-                  </select>
+                  <FormControl size="small" fullWidth>
+                    <Select
+                      value={formProfitPayout}
+                      onChange={(e) => setFormProfitPayout(e.target.value as any)}
+                      sx={{
+                        fontSize: "0.75rem",
+                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        borderRadius: "0.75rem",
+                        backgroundColor: "#f8fafc",
+                        "& .MuiSelect-select": { py: "8px" },
+                      }}
+                    >
+                      <MenuItem value="On Maturity" sx={{ fontSize: "0.75rem" }}>On Maturity (Cumulative)</MenuItem>
+                      <MenuItem value="Monthly" sx={{ fontSize: "0.75rem" }}>Monthly Payout</MenuItem>
+                      <MenuItem value="Quarterly" sx={{ fontSize: "0.75rem" }}>Quarterly Payout (3 Months)</MenuItem>
+                      <MenuItem value="Half-Yearly" sx={{ fontSize: "0.75rem" }}>Half-Yearly Payout (6 Months)</MenuItem>
+                    </Select>
+                  </FormControl>
                 </div>
               )}
 
@@ -1198,9 +1263,9 @@ export function MemberSavingsView({
       {/* 5. MODAL: LOG MONTHLY DPS INSTALLMENT                                 */}
       {/* ===================================================================== */}
       {isDepositModalOpen && selectedSavingsForDeposit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 text-slate-800 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-md max-h-[92dvh] sm:max-h-[88dvh] flex flex-col rounded-2xl sm:rounded-3xl border border-slate-200 bg-white text-slate-800 shadow-2xl my-auto animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 p-4 sm:p-5 shrink-0 bg-white">
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center">
                   <Check className="h-4 w-4" />
@@ -1217,19 +1282,20 @@ export function MemberSavingsView({
               <button
                 type="button"
                 onClick={() => setIsDepositModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-800"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmitDeposit} className="space-y-3.5">
+            <form onSubmit={handleSubmitDeposit} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 overscroll-contain">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Installment Amount (৳) *
                 </label>
                 <input
                   type="number"
+                  inputMode="numeric"
                   required
                   min={1}
                   value={depositAmount}
@@ -1257,17 +1323,25 @@ export function MemberSavingsView({
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Payment Method
                   </label>
-                  <select
-                    value={depositMethod}
-                    onChange={(e) => setDepositMethod(e.target.value as any)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-emerald-500 focus:bg-white"
-                  >
-                    {PAYMENT_METHODS.map((m) => (
-                      <option key={m} value={m}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
+                  <FormControl size="small" fullWidth>
+                    <Select
+                      value={depositMethod}
+                      onChange={(e) => setDepositMethod(e.target.value as any)}
+                      sx={{
+                        fontSize: "0.75rem",
+                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        borderRadius: "0.75rem",
+                        backgroundColor: "#f8fafc",
+                        "& .MuiSelect-select": { py: "8px" },
+                      }}
+                    >
+                      {PAYMENT_METHODS.map((m) => (
+                        <MenuItem key={m} value={m} sx={{ fontSize: "0.75rem" }}>
+                          {m}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 </div>
               </div>
 
@@ -1326,9 +1400,9 @@ export function MemberSavingsView({
       {/* 6. MODAL: INSTALLMENT HISTORY DRAWER                                  */}
       {/* ===================================================================== */}
       {viewingHistorySavings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4">
-          <div className="w-full max-w-xl max-h-[85vh] flex flex-col rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 text-slate-800 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-xl max-h-[92dvh] sm:max-h-[88dvh] flex flex-col rounded-2xl sm:rounded-3xl border border-slate-200 bg-white text-slate-800 shadow-2xl my-auto overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 p-4 sm:p-5 shrink-0 bg-white">
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center">
                   <Receipt className="h-4 w-4" />
@@ -1345,14 +1419,14 @@ export function MemberSavingsView({
               <button
                 type="button"
                 onClick={() => setViewingHistorySavings(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-800"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Content List */}
-            <div className="flex-1 overflow-y-auto py-3 space-y-2">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-2 overscroll-contain">
               {(viewingHistorySavings.depositLogs || []).length === 0 ? (
                 <div className="text-center py-8 text-xs text-slate-400">
                   No installment deposits logged yet. Tap "Deposit Installment" to record one.
@@ -1409,7 +1483,7 @@ export function MemberSavingsView({
             </div>
 
             {/* Footer Summary */}
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs shrink-0">
+            <div className="p-4 sm:p-5 border-t border-slate-100 flex items-center justify-between text-xs shrink-0 bg-white">
               <div className="text-slate-500">
                 Total Deposited:{" "}
                 <strong className="text-emerald-700 font-mono">
@@ -1434,8 +1508,8 @@ export function MemberSavingsView({
       {/* 7. MODAL: DELETE CONFIRMATION                                         */}
       {/* ===================================================================== */}
       {savingsToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-sm max-h-[92dvh] overflow-y-auto my-auto rounded-2xl sm:rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 text-slate-800 shadow-2xl space-y-4">
             <div className="text-center space-y-2">
               <div className="mx-auto h-12 w-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100">
                 <Trash2 className="h-6 w-6" />

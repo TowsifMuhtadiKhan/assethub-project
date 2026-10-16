@@ -303,7 +303,7 @@ export function AdminPage() {
   const handleRequestPairingCode = async () => {
     const fullNumber = formatRecipientNumber("+880", senderSimNumber);
     if (!fullNumber || fullNumber.length < 10) {
-      alert("Enter LifeNest's sender phone number (e.g. 017xxxxxxxx).");
+      alert("Enter Likhe Rakho's sender phone number (e.g. 017xxxxxxxx).");
       return;
     }
     localStorage.setItem("lifenest_sender_number", senderSimNumber);
@@ -437,12 +437,12 @@ export function AdminPage() {
             <div className="flex items-center justify-center mx-auto mb-1">
               <img
                 src="/logo.png"
-                alt="LifeNest"
-                className="h-14 w-14 rounded-2xl object-contain shadow-md shadow-blue-500/20"
+                alt="Likhe Rakho"
+                className="h-14 w-14 rounded-2xl object-contain shadow-md shadow-emerald-500/20"
               />
             </div>
             <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 font-mono">
-              LifeNest Core Command
+              Likhe Rakho Core Command
             </h1>
             <p className="text-xs text-slate-500">
               Restricted Admin Panel for WhatsApp, Google Drive & Dispatch Console
@@ -519,13 +519,13 @@ export function AdminPage() {
           <div className="flex items-center gap-3">
             <img
               src="/logo.png"
-              alt="LifeNest"
-              className="h-9 w-9 rounded-xl object-contain shadow-md shadow-blue-500/20"
+              alt="Likhe Rakho"
+              className="h-9 w-9 rounded-xl object-contain shadow-md shadow-emerald-500/20"
             />
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-sm tracking-tight text-slate-900 font-mono">
-                  LifeNest Core Command
+                  Likhe Rakho Core Command
                 </span>
                 <span className="bg-emerald-50 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold border border-emerald-200">
                   SUPERADMIN
@@ -716,7 +716,7 @@ export function AdminPage() {
                 : "bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/90 shadow-2xs"
             }`}
           >
-            <Smartphone className="h-3.5 w-3.5 text-indigo-400" />
+            <Smartphone className="h-3.5 w-3.5 text-emerald-400" />
             <span>Mobile App & APK Distribution</span>
           </button>
         </div>
@@ -798,6 +798,10 @@ export function AdminPage() {
                             >
                               {msg.status}
                             </span>
+                            <span className="text-xs font-bold text-emerald-800">
+                              জীবননীড়
+                            </span>
+                            <span className="text-slate-400 text-[11px]">→</span>
                             <span className="font-mono text-slate-900 font-bold">
                               +{msg.to}
                             </span>
@@ -1066,7 +1070,7 @@ export function AdminPage() {
                             type="tel"
                             value={senderSimNumber}
                             onChange={(e) => setSenderSimNumber(e.target.value)}
-                            placeholder="LifeNest Sender Number (e.g. 017xxxxxxxx)"
+                            placeholder="Likhe Rakho Sender Number (e.g. 017xxxxxxxx)"
                             className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 font-mono shadow-inner"
                           />
                         </div>
@@ -1368,7 +1372,7 @@ export function AdminPage() {
                       onClick={() => {
                         setQuickRecipient(item.phone);
                         setQuickName(item.recipientName);
-                        setQuickText(`🔔 LifeNest Alert: Reminder regarding ${item.title}. Due date: ${item.due}.`);
+                        setQuickText(`🌿 *জীবননীড় (LifeNest)*\n\nআসসালামু আলাইকুম ${item.recipientName}, আশা করি ভালো আছেন।\nআপনার জন্য একটি প্রয়োজনীয় অনুস্মারক রয়েছে।\n\n*বিষয়:* ${item.title}\n*নির্ধারিত সময়:* ${item.due}\n\nঅনুগ্রহ করে প্রয়োজনীয় ব্যবস্থা গ্রহণের জন্য অনুরোধ করা হলো।\n— *জীবননীড়* (আপনার বিশ্বস্ত পারিবারিক সঙ্গী)`);
                         setActiveTab("messages");
                       }}
                       className="px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1"
@@ -1396,7 +1400,7 @@ export function AdminPage() {
               <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <Smartphone className="h-4 w-4 text-indigo-600" />
+                    <Smartphone className="h-4 w-4 text-emerald-600" />
                     <span>Android App (.apk) Distribution via Google Drive</span>
                   </h2>
                   <p className="text-xs text-slate-500">
@@ -1404,7 +1408,7 @@ export function AdminPage() {
                   </p>
                 </div>
                 {apkMetadata && (
-                  <span className="text-xs px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 font-semibold font-mono self-start sm:self-auto">
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold font-mono self-start sm:self-auto">
                     Active Release: v{apkMetadata.version || apkVersion} • {apkMetadata.fileSizeMb || "8.57"} MB
                   </span>
                 )}
@@ -1420,11 +1424,11 @@ export function AdminPage() {
                     value={apkDriveUrl}
                     onChange={(e) => setApkDriveUrl(e.target.value)}
                     placeholder="https://drive.google.com/file/d/1A2B3C4D.../view?usp=sharing"
-                    className="flex-1 rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-indigo-500 focus:bg-white font-mono"
+                    className="flex-1 rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-emerald-500 focus:bg-white font-mono"
                   />
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition cursor-pointer"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700 transition cursor-pointer"
                   >
                     <Save className="h-3.5 w-3.5" />
                     <span>Save & Publish</span>
@@ -1445,7 +1449,7 @@ export function AdminPage() {
                     value={apkVersion}
                     onChange={(e) => setApkVersion(e.target.value)}
                     placeholder="1.0.1"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-indigo-500 focus:bg-white font-mono"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-emerald-500 focus:bg-white font-mono"
                   />
                   <p className="text-[10px] text-slate-400 mt-0.5">
                     Installed build baseline: <strong>v{CURRENT_APP_BUILD}</strong>. Increase this version to trigger update notifications for mobile users.
@@ -1461,7 +1465,7 @@ export function AdminPage() {
                     value={apkReleaseNotes}
                     onChange={(e) => setApkReleaseNotes(e.target.value)}
                     placeholder="Unified access control, sidebar module alignment, vehicle renewals..."
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-indigo-500 focus:bg-white"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 outline-none focus:border-emerald-500 focus:bg-white"
                   />
                   <p className="text-[10px] text-slate-400 mt-0.5">
                     Shown inside the in-app mobile update prompt when users are notified.
@@ -1495,9 +1499,9 @@ export function AdminPage() {
                     onClick={() => {
                       window.dispatchEvent(new CustomEvent("lifenest:check-for-updates"));
                     }}
-                    className="inline-flex items-center gap-2 rounded-xl border border-indigo-300 bg-indigo-50 px-3.5 py-2 text-xs font-bold text-indigo-800 hover:bg-indigo-100 transition cursor-pointer"
+                    className="inline-flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition cursor-pointer"
                   >
-                    <Smartphone className="h-4 w-4 text-indigo-600" />
+                    <Smartphone className="h-4 w-4 text-emerald-600" />
                     <span>Test Update Notification Popup</span>
                   </button>
 

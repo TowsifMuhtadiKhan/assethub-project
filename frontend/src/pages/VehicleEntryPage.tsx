@@ -1,5 +1,6 @@
 import { VehicleBrandLogo } from "../components/common/VehicleBrandLogo";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Car,
   Bike,
@@ -13,21 +14,22 @@ import {
   Search,
   Layers,
   BarChart3,
-  List,
-  LayoutGrid,
-  ChevronDown,
+  ExternalLink,
+  Filter,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { VehicleEntryForm } from "../components/common/VehicleEntryForm";
 import { SqlSetupBanner } from "../components/common/SqlSetupBanner";
-import { CardsGridSkeleton } from "../components/common/LoadingStates";
+import { BrandLogoLoader } from "../components/common/LoadingStates";
+import { TableRowActions } from "../components/common/TableRowActions";
+import { ViewModeToggle } from "../components/common/ViewModeToggle";
 import {
   createVehicle,
   deleteVehicle,
   listVehicles,
   updateVehicle,
 } from "../services/vehicleService";
-import { getCurrentUserAccess } from "../services/familyService";
+import { getCurrentUserAccess, type CurrentUserAccessResult } from "../services/familyService";
 import type { Vehicle, VehicleType } from "../types";
 
 export function getVehicleIcon(type: string) {
@@ -96,21 +98,48 @@ export function VehicleEntryPage({
   const [error, setError] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle>();
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  // Mobile Header Portal State
+  const [headerPortalEl, setHeaderPortalEl] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const el = document.getElementById("mobile-header-right");
+    if (el) {
+      setHeaderPortalEl(el);
+      return;
+    }
+    const interval = setInterval(() => {
+      const found = document.getElementById("mobile-header-right");
+      if (found) {
+        setHeaderPortalEl(found);
+        clearInterval(interval);
+      }
+    }, 50);
+    const timeout = setTimeout(() => clearInterval(interval), 2000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, []);
 
   // Sync active tab if filterType prop changes (e.g. user navigated from route /cars or /bikes)
   useEffect(() => {
     setActiveTab(filterType);
   }, [filterType]);
 
+  const [userAccess, setUserAccess] = useState<CurrentUserAccessResult | null>(null);
+
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const [{ isHead, access }, data] = await Promise.all([
+        const [accRes, data] = await Promise.all([
           getCurrentUserAccess(),
           listVehicles(),
         ]);
-        if (!isHead && access.canAccessVehicles === false) {
+        setUserAccess(accRes);
+        if (!accRes.isHead && accRes.access.canAccessVehicles === false) {
           setIsLocked(true);
         }
         setVehicles(data);
@@ -128,26 +157,36 @@ export function VehicleEntryPage({
     load();
   }, []);
 
+  const permittedVehicles = useMemo(() => {
+    if (!userAccess || userAccess.isHead) return vehicles;
+    const acc = userAccess.access;
+    if (acc.assignedVehicleScope === "specific" || (acc.assignedVehicleIds && acc.assignedVehicleIds.length > 0)) {
+      const allowed = acc.assignedVehicleIds || [];
+      return vehicles.filter((v) => allowed.includes(v.id));
+    }
+    return vehicles;
+  }, [vehicles, userAccess]);
+
   const counts = useMemo(() => {
-    const total = vehicles.length;
-    const cars = vehicles.filter((v) => (v.type || "").toLowerCase().includes("car")).length;
-    const bikes = vehicles.filter((v) => {
+    const total = permittedVehicles.length;
+    const cars = permittedVehicles.filter((v) => (v.type || "").toLowerCase().includes("car")).length;
+    const bikes = permittedVehicles.filter((v) => {
       const t = (v.type || "").toLowerCase();
       return t.includes("bike") || t.includes("motorcycle");
     }).length;
-    const scooters = vehicles.filter((v) => (v.type || "").toLowerCase().includes("scooter")).length;
-    const commercial = vehicles.filter((v) => {
+    const scooters = permittedVehicles.filter((v) => (v.type || "").toLowerCase().includes("scooter")).length;
+    const commercial = permittedVehicles.filter((v) => {
       const t = (v.type || "").toLowerCase();
       return t.includes("truck") || t.includes("commercial");
     }).length;
-    const vans = vehicles.filter((v) => (v.type || "").toLowerCase().includes("van")).length;
-    const bicycles = vehicles.filter((v) => (v.type || "").toLowerCase().includes("bicycle")).length;
+    const vans = permittedVehicles.filter((v) => (v.type || "").toLowerCase().includes("van")).length;
+    const bicycles = permittedVehicles.filter((v) => (v.type || "").toLowerCase().includes("bicycle")).length;
     const other = total - (cars + bikes + scooters + commercial + vans + bicycles);
     return { total, cars, bikes, scooters, commercial, vans, bicycles, other: Math.max(0, other) };
-  }, [vehicles]);
+  }, [permittedVehicles]);
 
   const filteredVehicles = useMemo(() => {
-    return vehicles.filter((vehicle) => {
+    return permittedVehicles.filter((vehicle) => {
       const t = (vehicle.type || "").toLowerCase();
       let matchesTab = true;
 
@@ -271,7 +310,12 @@ export function VehicleEntryPage({
       : "Vehicle details, registration number plate, fuel costs, and maintenance.";
 
   if (loading) {
-    return <CardsGridSkeleton count={6} />;
+    return (
+      <BrandLogoLoader
+        message="Loading Vehicles & Garage..."
+        subtitle="Syncing cars, bikes, mileage & logs"
+      />
+    );
   }
 
   if (isLocked) {
@@ -290,8 +334,27 @@ export function VehicleEntryPage({
 
   return (
     <div className="space-y-4 pb-28 sm:pb-8">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+      {/* Mobile Top Header Integration via Portal into MobileHeader */}
+      {headerPortalEl &&
+        createPortal(
+          <div className="flex items-center gap-1.5 lg:hidden">
+            <button
+              type="button"
+              onClick={() => {
+                setEditingVehicle(undefined);
+                setFormOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs active:scale-95 transition cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add Vehicle</span>
+            </button>
+          </div>,
+          headerPortalEl
+        )}
+
+      {/* Desktop Header (hidden on mobile since top MobileHeader has page title and + Add Vehicle button) */}
+      <div className="hidden lg:flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
         <div className="min-w-0">
           <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
             {pageTitle}
@@ -314,7 +377,7 @@ export function VehicleEntryPage({
               setEditingVehicle(undefined);
               setFormOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700 transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] active:scale-95 transition cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>Add {activeTab !== "All" ? activeTab : "Vehicle"}</span>
@@ -322,32 +385,30 @@ export function VehicleEntryPage({
         </div>
       </div>
 
-      {/* Mobile Compact Metric Strip (sm:hidden) */}
-      <div className="sm:hidden rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs">
-        <div className="grid grid-cols-4 divide-x divide-slate-100 text-center">
-          <div className="px-0.5">
-            <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Total</div>
-            <div className="mt-0.5 text-xs font-bold font-mono text-slate-900">{counts.total}</div>
-          </div>
-          <div className="px-0.5">
-            <div className="text-[9px] font-semibold uppercase tracking-wider text-blue-500">Cars</div>
-            <div className="mt-0.5 text-xs font-bold font-mono text-slate-900">{counts.cars}</div>
-          </div>
-          <div className="px-0.5">
-            <div className="text-[9px] font-semibold uppercase tracking-wider text-emerald-500">Bikes</div>
-            <div className="mt-0.5 text-xs font-bold font-mono text-slate-900">{counts.bikes + counts.scooters}</div>
-          </div>
-          <div className="px-0.5">
-            <div className="text-[9px] font-semibold uppercase tracking-wider text-amber-500">Other</div>
-            <div className="mt-0.5 text-xs font-bold font-mono text-slate-900">
-              {counts.commercial + counts.vans + counts.other + counts.bicycles}
-            </div>
+      {/* Mobile 4-Column Metric Strip (lg:hidden) */}
+      <div className="grid grid-cols-4 gap-2 lg:hidden">
+        <div className="rounded-xl border border-slate-200/90 bg-white px-2 py-1.5 text-center shadow-2xs">
+          <div className="text-[10px] font-semibold text-slate-500">Total</div>
+          <div className="text-base font-bold text-slate-900">{counts.total}</div>
+        </div>
+        <div className="rounded-xl border border-slate-200/90 bg-white px-2 py-1.5 text-center shadow-2xs">
+          <div className="text-[10px] font-semibold text-blue-600">Cars</div>
+          <div className="text-base font-bold text-blue-700">{counts.cars}</div>
+        </div>
+        <div className="rounded-xl border border-slate-200/90 bg-white px-2 py-1.5 text-center shadow-2xs">
+          <div className="text-[10px] font-semibold text-emerald-600">Bikes</div>
+          <div className="text-base font-bold text-emerald-700">{counts.bikes + counts.scooters}</div>
+        </div>
+        <div className="rounded-xl border border-slate-200/90 bg-white px-1 py-1.5 text-center shadow-2xs">
+          <div className="text-[10px] font-semibold text-amber-600">Other</div>
+          <div className="text-base font-bold text-slate-900">
+            {counts.commercial + counts.vans + counts.other + counts.bicycles}
           </div>
         </div>
       </div>
 
-      {/* Desktop 4-Card Vehicle Summary Strip (hidden sm:grid) */}
-      <div className="hidden sm:grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Desktop 4-Card Vehicle Summary Strip (hidden lg:grid) */}
+      <div className="hidden lg:grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-[11px] font-medium">Total Vehicles</span>
@@ -387,30 +448,11 @@ export function VehicleEntryPage({
         </div>
       </div>
 
-      {/* Tabs and Search Bar */}
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-        {/* Category Dropdown */}
-        <div className="relative min-w-[170px] w-full sm:w-auto">
-          <select
-            value={activeTab}
-            onChange={(e) => setActiveTab(e.target.value)}
-            className="w-full sm:w-auto appearance-none rounded-xl border border-slate-200/90 bg-white pl-3.5 pr-8 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs hover:border-slate-300 focus:border-slate-900 focus:outline-none transition cursor-pointer"
-          >
-            <option value="All">All Vehicles ({counts.total})</option>
-            <option value="Car">Cars ({counts.cars})</option>
-            <option value="Bike">Bikes ({counts.bikes})</option>
-            <option value="Scooter">Scooters ({counts.scooters})</option>
-            <option value="Commercial">Commercial ({counts.commercial})</option>
-            <option value="Van">Vans ({counts.vans})</option>
-            <option value="Bicycle">Bicycles ({counts.bicycles})</option>
-            <option value="Other">Other ({counts.other})</option>
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-        </div>
-
-        {/* Search Input + View Switcher */}
-        <div className="flex items-center gap-1.5 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
+      {/* Search Bar, Filter & View Switcher - Single Row on Mobile */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 w-full">
+          {/* Search Input */}
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <input
               type="text"
@@ -421,34 +463,71 @@ export function VehicleEntryPage({
             />
           </div>
 
+          {/* Filter Icon Button */}
+          <button
+            type="button"
+            onClick={() => setMobileFiltersOpen((prev) => !prev)}
+            className={`inline-flex items-center justify-center h-8.5 w-8.5 rounded-xl border transition shrink-0 shadow-2xs cursor-pointer relative ${
+              mobileFiltersOpen || activeTab !== "All"
+                ? "border-emerald-600 bg-emerald-50 text-emerald-800"
+                : "border-slate-200/90 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+            title="Filter by vehicle type"
+            aria-label="Filter"
+          >
+            <Filter className="h-3.5 w-3.5" />
+            {activeTab !== "All" && (
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 text-[9px] font-bold text-white px-1 shadow-2xs">
+                1
+              </span>
+            )}
+          </button>
+
           {/* View Mode Toggle (Grid vs Table) */}
-          <div className="flex items-center p-0.5 rounded-xl border border-slate-200 bg-slate-100 shrink-0">
-            <button
-              type="button"
-              onClick={() => setViewMode("table")}
-              className={`p-1.5 rounded-lg transition cursor-pointer ${
-                viewMode === "table"
-                  ? "bg-white text-slate-900 shadow-2xs font-bold"
-                  : "text-slate-400 hover:text-slate-700"
-              }`}
-              title="Table view"
-            >
-              <List className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("grid")}
-              className={`p-1.5 rounded-lg transition cursor-pointer ${
-                viewMode === "grid"
-                  ? "bg-white text-slate-900 shadow-2xs font-bold"
-                  : "text-slate-400 hover:text-slate-700"
-              }`}
-              title="Grid view"
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-            </button>
-          </div>
+          <ViewModeToggle
+            viewMode={viewMode}
+            onChange={(mode) => setViewMode(mode as "table" | "grid")}
+            gridLabel="Grid"
+            listLabel="Table"
+            listValue="table"
+          />
         </div>
+
+        {/* Expandable Category Pills when Filter is active / open */}
+        {(mobileFiltersOpen || activeTab !== "All") && (
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+            {[
+              { id: "All", label: "All", count: counts.total },
+              { id: "Car", label: "Cars", count: counts.cars },
+              { id: "Bike", label: "Bikes", count: counts.bikes },
+              { id: "Scooter", label: "Scooters", count: counts.scooters },
+              { id: "Commercial", label: "Commercial", count: counts.commercial },
+              { id: "Van", label: "Vans", count: counts.vans },
+              { id: "Bicycle", label: "Bicycles", count: counts.bicycles },
+              { id: "Other", label: "Other", count: counts.other },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition cursor-pointer ${
+                  activeTab === tab.id
+                    ? "bg-[#064e3b] text-white shadow-2xs"
+                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span
+                  className={`text-[10px] px-1 rounded-full ${
+                    activeTab === tab.id ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Setup banner if tables are missing */}
@@ -481,7 +560,7 @@ export function VehicleEntryPage({
                 setEditingVehicle(undefined);
                 setFormOpen(true);
               }}
-              className="mt-3.5 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+              className="mt-3.5 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
               Add {activeTab !== "All" ? activeTab : "Vehicle"}
@@ -554,29 +633,32 @@ export function VehicleEntryPage({
                   {vehicle.year ? `Year ${vehicle.year}` : "—"}
                 </span>
 
-                <div
-                  className="flex items-center gap-1"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <button
-                    type="button"
-                    onClick={() => openEdit(vehicle)}
-                    className="p-1 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded transition cursor-pointer"
-                    title="Edit vehicle"
-                    aria-label={`Edit ${vehicle.name}`}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void removeVehicle(vehicle)}
-                    className="p-1 text-slate-300 hover:text-rose-600 hover:bg-slate-100 rounded transition cursor-pointer"
-                    title="Delete vehicle"
-                    aria-label={`Delete ${vehicle.name}`}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                <TableRowActions
+                  title={vehicle.name}
+                  subtitle={`${vehicle.brand} ${vehicle.model}${vehicle.registrationNumber ? ` • ${vehicle.registrationNumber}` : ""}`}
+                  actions={[
+                    {
+                      label: "View Details & Papers",
+                      description: "BRTA documents, fuel logs & servicing history",
+                      icon: ExternalLink,
+                      variant: "emerald",
+                      onClick: () => navigate(`/vehicles/${vehicle.id}`),
+                    },
+                    {
+                      label: "Edit Vehicle Specs",
+                      description: "Update model, year, registration number & color",
+                      icon: Pencil,
+                      onClick: () => openEdit(vehicle),
+                    },
+                    {
+                      label: "Delete Vehicle",
+                      description: "Remove this vehicle and related records",
+                      icon: Trash2,
+                      variant: "danger",
+                      onClick: () => void removeVehicle(vehicle),
+                    },
+                  ]}
+                />
               </div>
             </div>
           ))}
@@ -646,28 +728,33 @@ export function VehicleEntryPage({
                         )}
                       </td>
 
-                      <td className="px-3.5 py-2.5 text-right">
-                        <div
-                          className="inline-flex items-center gap-1"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => openEdit(vehicle)}
-                            className="rounded p-1 text-slate-400 hover:text-slate-800"
-                            aria-label={`Edit ${vehicle.name}`}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void removeVehicle(vehicle)}
-                            className="rounded p-1 text-slate-400 hover:text-rose-600"
-                            aria-label={`Delete ${vehicle.name}`}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
+                      <td className="px-3.5 py-2 text-right">
+                        <TableRowActions
+                          title={vehicle.name}
+                          subtitle={`${vehicle.brand} ${vehicle.model}${vehicle.registrationNumber ? ` • ${vehicle.registrationNumber}` : ""}`}
+                          actions={[
+                            {
+                              label: "View Details & Papers",
+                              description: "BRTA documents, fuel logs & servicing history",
+                              icon: ExternalLink,
+                              variant: "emerald",
+                              onClick: () => navigate(`/vehicles/${vehicle.id}`),
+                            },
+                            {
+                              label: "Edit Vehicle Specs",
+                              description: "Update model, year, registration number & color",
+                              icon: Pencil,
+                              onClick: () => openEdit(vehicle),
+                            },
+                            {
+                              label: "Delete Vehicle",
+                              description: "Remove this vehicle and related records",
+                              icon: Trash2,
+                              variant: "danger",
+                              onClick: () => void removeVehicle(vehicle),
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   );

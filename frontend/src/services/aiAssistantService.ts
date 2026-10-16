@@ -233,7 +233,7 @@ function runBuiltInContextQuery(
     });
 
     if (!wantsDetails) {
-      return `### 📊 LifeNest Quick Snapshot
+      return `### 📊 Likhe Rakho Quick Snapshot
 • **Tasks:** **${pendingTasks.length} pending** ${urgentTasks.length > 0 ? `(${urgentTasks.length} urgent)` : ""}
 • **Vault:** **${data.documents.length} docs** ${expiringDocs.length > 0 ? `(⚠️ **${expiringDocs.length} expiring soon**)` : ""}
 • **Vehicles:** **${data.vehicles.length} vehicle(s)** registered
@@ -243,7 +243,7 @@ function runBuiltInContextQuery(
 *Type "more" for full executive breakdown.*`;
     }
 
-    return `### 📊 LifeNest Executive Summary
+    return `### 📊 Likhe Rakho Executive Summary
 
 * **Tasks:** **${pendingTasks.length} pending** (${urgentTasks.length} marked High/Urgent).
 * **Vault Documents:** **${data.documents.length} recorded** (${expiringDocs.length > 0 ? `⚠️ **${expiringDocs.length} expiring within 30 days**` : "all up to date"}).
@@ -534,11 +534,12 @@ function runBuiltInContextQuery(
     return `${header}\n\n${docList}`;
   }
 
-  // 6. Properties, Rentals, Tenants, Flats
+  // 6. Properties, Rentals, Renters, Flats
   if (
     effectiveQuery.includes("property") ||
     effectiveQuery.includes("unit") ||
     effectiveQuery.includes("flat") ||
+    effectiveQuery.includes("renter") ||
     effectiveQuery.includes("tenant") ||
     effectiveQuery.includes("rent") ||
     effectiveQuery.includes("rental")
@@ -551,16 +552,16 @@ function runBuiltInContextQuery(
     const vacant = data.units.length - occupied;
 
     if (!wantsDetails) {
-      return `🏢 **${data.units.length} Units** across **${data.properties.length} Property(s)** (${occupied} occupied, ${vacant} vacant).\n\n*Type "more" for unit-by-unit rent, tenant, and phone breakdown.*`;
+      return `🏢 **${data.units.length} Units** across **${data.properties.length} Property(s)** (${occupied} occupied, ${vacant} vacant).\n\n*Type "more" for unit-by-unit rent, renter, and phone breakdown.*`;
     }
 
     const unitsList = data.units.map((u) => {
       const tenant = u.tenantName || u.currentTenant || "Vacant";
       const statusBadge = u.status === "Occupied" ? "🟢 Occupied" : "⚪ Vacant";
-      return `* **Unit ${u.unitNumber}** (${u.unitName || "Flat"}): ${statusBadge}\n  • Monthly Rent: **৳${(u.monthlyRent || 0).toLocaleString()}**\n  • Tenant: **${tenant}** ${u.tenantPhone ? `(\`${u.tenantPhone}\`)` : ""}`;
+      return `* **Unit ${u.unitNumber}** (${u.unitName || "Flat"}): ${statusBadge}\n  • Monthly Rent: **৳${(u.monthlyRent || 0).toLocaleString()}**\n  • Renter: **${tenant}** ${u.tenantPhone ? `(\`${u.tenantPhone}\`)` : ""}`;
     });
 
-    return `### 🏢 Real Estate & Tenant Roll (${data.units.length} units)\n\n${unitsList.join("\n\n")}`;
+    return `### 🏢 Real Estate & Renter Roll (${data.units.length} units)\n\n${unitsList.join("\n\n")}`;
   }
 
   // 7. Warranties
@@ -654,7 +655,7 @@ export async function askLifeNestAi(
   if (apiKey) {
     try {
       const systemContext = buildSystemContextText(contextData);
-      const systemInstruction = `You are LifeNest AI, the intelligent personal and family operating system assistant.
+      const systemInstruction = `You are Likhe Rakho AI, the intelligent personal and family operating system assistant.
 CRITICAL INSTRUCTION - MINIMAL FIRST, EXPAND ON DEMAND:
 1. By default, provide a MINIMAL, DIRECT, and CONCISE answer (1-3 lines). Never dump unprompted extra fields, full vehicle specs, or long lists unless the user explicitly asked for them.
 2. For specific attribute questions (e.g. chassis number, engine number, due date, phone, rent), reply ONLY with that exact requested value.

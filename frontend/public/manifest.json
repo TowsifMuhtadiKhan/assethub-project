@@ -1,7 +1,7 @@
 {
-  "short_name": "LifeNest",
-  "name": "LifeNest OS — Personal & Fleet Hub",
-  "description": "Unified Personal, Family & Fleet Operating System",
+  "short_name": "Likhe Rakho",
+  "name": "Likhe Rakho (লিখে রাখো)",
+  "description": "মনে রাখার ঝামেলা শেষ, লিখে রাখো। Family & Personal Records",
   "icons": [
     {
       "src": "/favicon.png",
@@ -31,7 +31,7 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#0f172a",
-  "background_color": "#0f172a",
-  "categories": ["lifestyle", "productivity", "utilities"]
+  "theme_color": "#064e3b",
+  "background_color": "#064e3b",
+  "categories": ["finance", "productivity", "utilities"]
 }

@@ -61,7 +61,7 @@ export async function createVehicleExpense(
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
-  const rowData = {
+  const rowData: Record<string, any> = {
     owner_id: user.id,
     vehicle_id: input.vehicleId,
     date: input.date,
@@ -74,11 +74,23 @@ export async function createVehicleExpense(
     fuel_liters: input.fuelLiters ?? null,
   };
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from(EXPENSES_TABLE)
     .insert(rowData)
     .select()
     .single();
+
+  // If column type is integer in DB and decimal was provided (e.g. 8153.5), retry with rounded integer
+  if (error && (error.code === "22P02" || error.message?.includes("integer")) && typeof rowData.mileage === "number") {
+    rowData.mileage = Math.round(rowData.mileage);
+    const retry = await supabase
+      .from(EXPENSES_TABLE)
+      .insert(rowData)
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) throw error;
   return {
@@ -87,7 +99,7 @@ export async function createVehicleExpense(
     date: data.date,
     category: data.category,
     amount: Number(data.amount),
-    mileage: data.mileage ?? 0,
+    mileage: Number(data.mileage ?? 0),
     description: data.description ?? "",
     receiptUrl: data.receipt_url ?? undefined,
     paymentMethod: data.payment_method ?? "",
@@ -109,12 +121,25 @@ export async function updateVehicleExpense(
   if (input.fuelLiters !== undefined) patch.fuel_liters = input.fuelLiters;
   if (input.receiptUrl !== undefined) patch.receipt_url = input.receiptUrl;
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from(EXPENSES_TABLE)
     .update(patch)
     .eq("id", id)
     .select()
     .single();
+
+  // If column type is integer in DB and decimal was provided, retry with rounded integer
+  if (error && (error.code === "22P02" || error.message?.includes("integer")) && typeof patch.mileage === "number") {
+    patch.mileage = Math.round(patch.mileage);
+    const retry = await supabase
+      .from(EXPENSES_TABLE)
+      .update(patch)
+      .eq("id", id)
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) throw error;
   return {
@@ -207,7 +232,7 @@ export async function createVehicleService(
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
-  const rowData = {
+  const rowData: Record<string, any> = {
     owner_id: user.id,
     vehicle_id: input.vehicleId,
     service_type: input.serviceType,
@@ -227,11 +252,28 @@ export async function createVehicleService(
     receipt_url: input.receiptUrl ?? null,
   };
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from(SERVICES_TABLE)
     .insert(rowData)
     .select()
     .single();
+
+  // If DB column is integer and decimal was provided, retry with rounded integer
+  if (error && (error.code === "22P02" || error.message?.includes("integer"))) {
+    if (typeof rowData.mileage_at_service === "number") {
+      rowData.mileage_at_service = Math.round(rowData.mileage_at_service);
+    }
+    if (typeof rowData.next_service_mileage === "number") {
+      rowData.next_service_mileage = Math.round(rowData.next_service_mileage);
+    }
+    const retry = await supabase
+      .from(SERVICES_TABLE)
+      .insert(rowData)
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) throw error;
   return {
@@ -239,7 +281,7 @@ export async function createVehicleService(
     vehicleId: data.vehicle_id,
     serviceType: data.service_type,
     serviceDate: data.service_date,
-    mileageAtService: data.mileage_at_service ?? 0,
+    mileageAtService: Number(data.mileage_at_service ?? 0),
     workshopName: data.workshop_name ?? "",
     workshopLocation: data.workshop_location ?? "",
     mechanicName: data.mechanic_name ?? "",
@@ -249,7 +291,7 @@ export async function createVehicleService(
     description: data.description ?? "",
     notes: data.notes ?? "",
     nextServiceDate: data.next_service_date ?? "",
-    nextServiceMileage: data.next_service_mileage ?? 0,
+    nextServiceMileage: Number(data.next_service_mileage ?? 0),
     reminderEnabled: data.reminder_enabled ?? true,
     receiptUrl: data.receipt_url ?? undefined,
   };
@@ -276,12 +318,30 @@ export async function updateVehicleService(
   if (input.reminderEnabled !== undefined) patch.reminder_enabled = input.reminderEnabled;
   if (input.receiptUrl !== undefined) patch.receipt_url = input.receiptUrl;
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from(SERVICES_TABLE)
     .update(patch)
     .eq("id", id)
     .select()
     .single();
+
+  // If DB column is integer and decimal was provided, retry with rounded integer
+  if (error && (error.code === "22P02" || error.message?.includes("integer"))) {
+    if (typeof patch.mileage_at_service === "number") {
+      patch.mileage_at_service = Math.round(patch.mileage_at_service);
+    }
+    if (typeof patch.next_service_mileage === "number") {
+      patch.next_service_mileage = Math.round(patch.next_service_mileage);
+    }
+    const retry = await supabase
+      .from(SERVICES_TABLE)
+      .update(patch)
+      .eq("id", id)
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) throw error;
   return {

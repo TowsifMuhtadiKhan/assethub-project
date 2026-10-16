@@ -127,12 +127,12 @@ export function PwaInstallPrompt() {
             <div className="flex items-center gap-3 min-w-0">
               <img
                 src="/logo.png"
-                alt="LifeNest"
-                className="h-10 w-10 shrink-0 rounded-xl object-contain shadow-md shadow-blue-500/20"
+                alt="Likhe Rakho"
+                className="h-10 w-10 shrink-0 rounded-xl object-contain shadow-md shadow-emerald-500/20"
               />
               <div className="min-w-0">
                 <div className="text-xs font-bold tracking-tight text-white flex items-center gap-1.5">
-                  LifeNest Mobile App
+                  Likhe Rakho Mobile App
                   <span className="rounded bg-indigo-500/30 text-indigo-300 px-1 py-0.2 text-[9px] font-semibold border border-indigo-400/30">
                     {deviceType === "android" ? "Android" : deviceType === "ios" ? "iOS" : "Mobile"}
                   </span>
@@ -151,7 +151,7 @@ export function PwaInstallPrompt() {
               <button
                 type="button"
                 onClick={() => setShowModal(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-orange-500/30 hover:bg-orange-600 transition cursor-pointer active:scale-95"
+                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer active:scale-95"
               >
                 <Download className="h-3.5 w-3.5" />
                 <span>{deviceType === "android" ? "Get App" : "Install"}</span>
@@ -184,19 +184,19 @@ export function PwaInstallPrompt() {
               <div className="flex items-center gap-2.5">
                 <img
                   src="/logo.png"
-                  alt="LifeNest"
+                  alt="Likhe Rakho"
                   className="h-9 w-9 rounded-xl object-contain shadow-xs"
                 />
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">
                     {deviceType === "android"
-                      ? "LifeNest for Android"
+                      ? "Likhe Rakho for Android"
                       : deviceType === "ios"
-                        ? "LifeNest for iPhone / iPad"
-                        : "LifeNest App Download"}
+                        ? "Likhe Rakho for iPhone / iPad"
+                        : "Likhe Rakho App Download"}
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    Fast, offline-ready Personal & Fleet OS
+                    Fast, offline-ready Personal &amp; Family Records — লিখে রাখো
                   </p>
                 </div>
               </div>
@@ -277,7 +277,7 @@ export function PwaInstallPrompt() {
                             className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition cursor-pointer"
                           >
                             <Download className="h-4 w-4" />
-                            <span>Download LifeNest.apk (Google Drive)</span>
+                            <span>Download LikheRakho.apk (Google Drive)</span>
                           </button>
                         ) : (
                           <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-2.5 text-xs text-amber-900 space-y-1.5">
@@ -286,7 +286,7 @@ export function PwaInstallPrompt() {
                               <span>Upload APK to Google Drive:</span>
                             </div>
                             <p className="text-[11px] text-amber-800 leading-relaxed">
-                              Upload your <code className="bg-amber-100 px-1 py-0.5 rounded">LifeNest.apk</code> file to Google Drive, set permissions to <em>"Anyone with the link can view"</em>, and tap <strong>"Set Link"</strong> above to enable 1-click APK downloads!
+                              Upload your <code className="bg-amber-100 px-1 py-0.5 rounded">LikheRakho.apk</code> file to Google Drive, set permissions to <em>"Anyone with the link can view"</em>, and tap <strong>"Set Link"</strong> above to enable 1-click APK downloads!
                             </p>
                           </div>
                         )}
@@ -294,32 +294,44 @@ export function PwaInstallPrompt() {
                     )}
                   </div>
 
-                  {/* 1-Tap PWA Option for Android */}
-                  {deferredPrompt && (
-                    <div className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-100 text-orange-700 font-bold text-xs">
-                          PWA
+                  {/* PWA Option for Android */}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-100 text-orange-700 font-bold text-xs shrink-0">
+                        PWA
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-900">
+                          Install Web App (Add to Home Screen)
                         </div>
-                        <div>
-                          <div className="text-xs font-bold text-slate-900">
-                            Instant Web App (No file download needed)
-                          </div>
-                          <div className="text-[10px] text-slate-500">
-                            Fastest 1-tap installation directly from browser
-                          </div>
+                        <div className="text-[10px] text-slate-500">
+                          Lightweight, works offline like a native app
                         </div>
                       </div>
+                    </div>
+
+                    {deferredPrompt ? (
                       <button
                         type="button"
                         onClick={handlePwaInstall}
                         className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
                       >
                         <Smartphone className="h-4 w-4" />
-                        <span>Add to Home Screen (Instant Install)</span>
+                        <span>Add to Home Screen (1-Tap Install)</span>
                       </button>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="rounded-xl bg-slate-50 border border-slate-200/80 p-2.5 text-[11px] text-slate-600 space-y-1">
+                        <div className="font-semibold text-slate-800 flex items-center gap-1.5">
+                          <span>Install via Chrome / Browser:</span>
+                        </div>
+                        <ol className="list-decimal list-inside space-y-0.5 text-slate-500 pl-0.5">
+                          <li>Tap the <strong>three dots (⋮)</strong> at the top right of Chrome.</li>
+                          <li>Tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</li>
+                          <li>Confirm <strong>"Install"</strong> — the app icon will appear on your phone!</li>
+                        </ol>
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
 
@@ -327,7 +339,7 @@ export function PwaInstallPrompt() {
               {deviceType === "ios" && (
                 <div className="space-y-3 text-xs text-slate-700">
                   <div className="rounded-xl bg-amber-50 border border-amber-200/80 p-2.5 text-[11px] text-amber-800">
-                    ℹ️ iOS (Apple) does not support .apk files. Install LifeNest directly to your Home Screen in 2 taps:
+                    ℹ️ iOS (Apple) does not support .apk files. Install Likhe Rakho directly to your Home Screen in 2 taps:
                   </div>
 
                   <div className="flex items-start gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-100">
@@ -360,7 +372,7 @@ export function PwaInstallPrompt() {
               {deviceType === "desktop" && (
                 <div className="space-y-3">
                   <p className="text-xs text-slate-600">
-                    You can install LifeNest on your desktop browser or download the Android APK for mobile devices:
+                    You can install Likhe Rakho on your desktop browser or download the Android APK for mobile devices:
                   </p>
 
                   {deferredPrompt && (
@@ -370,7 +382,7 @@ export function PwaInstallPrompt() {
                       className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
                     >
                       <Download className="h-4 w-4" />
-                      <span>Install LifeNest Desktop App</span>
+                      <span>Install Likhe Rakho Desktop App</span>
                     </button>
                   )}
 

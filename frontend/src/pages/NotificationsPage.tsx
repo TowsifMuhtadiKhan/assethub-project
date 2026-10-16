@@ -153,7 +153,7 @@ export function NotificationsPage() {
           itemTitle: `${u.unitName || u.unitNumber || "Flat"} Monthly Rent`,
           dueDate: `${curMonth} 10th`,
           daysRemaining: 1,
-          messageText: `🔔 *LifeNest Rent Due Notice*\n\nDear ${tName},\nThis is a friendly reminder that the rent for *${u.unitName || "Unit " + u.unitNumber}* (Amount: *৳${Number(u.monthlyRent).toLocaleString()}*) for the month of *${curMonth}* is due.\n\nPlease remit via bKash / Bank transfer and share the transaction slip.\n\nThank you,\n_LifeNest Asset Management_`,
+          messageText: `🌿 *জীবননীড় (LifeNest)*\n\nআসসালামু আলাইকুম ${tName}, আশা করি ভালো আছেন।\nচলতি মাসের বাড়ি ভাড়া পরিশোধের নির্ধারিত সময় হয়েছে।\n\n*ভাড়ার ইউনিট:* ${u.unitName || "Unit " + u.unitNumber}\n*ভাড়ার পরিমাণ:* ৳${Number(u.monthlyRent).toLocaleString()}\n*পরিশোধের শেষ সময়:* ${curMonth} ১০ তারিখ\n\nঅনুগ্রহ করে বিকাশ অথবা ব্যাংক অ্যাকাউন্টে পাঠিয়ে কনফার্ম করুন। ধন্যবাদ।\n— *জীবননীড়* (সম্পত্তি ও ভাড়া ব্যবস্থাপনা)`,
           status: "pending",
         };
         alerts.push(rentDueAlert);
@@ -170,7 +170,7 @@ export function NotificationsPage() {
           itemTitle: `Flat ${idx === 0 ? "4B" : "2A"} Rent (৳25,000)`,
           dueDate: `${curMonth} 10th`,
           daysRemaining: 2,
-          messageText: `🔔 *LifeNest Rent Due Notice*\n\nDear ${t.name},\nThis is a friendly reminder that the rent for *Flat ${idx === 0 ? "4B" : "2A"}* (Amount: *৳25,000*) for the month of *${curMonth}* is due.\n\nPlease remit at your earliest convenience.\n\nThank you,\n_LifeNest Asset Management_`,
+          messageText: `🌿 *জীবননীড় (LifeNest)*\n\nআসসালামু আলাইকুম ${t.name}, আশা করি ভালো আছেন।\nচলতি মাসের বাড়ি ভাড়া পরিশোধের নির্ধারিত সময় হয়েছে।\n\n*ভাড়ার ইউনিট:* Flat ${idx === 0 ? "4B" : "2A"}\n*ভাড়ার পরিমাণ:* ৳25,000\n*পরিশোধের শেষ সময়:* ${curMonth} ১০ তারিখ\n\nঅনুগ্রহ করে বিকাশ অথবা ব্যাংক অ্যাকাউন্টে পাঠিয়ে কনফার্ম করুন। ধন্যবাদ।\n— *জীবননীড়* (সম্পত্তি ও ভাড়া ব্যবস্থাপনা)`,
           status: "pending",
         });
       });
@@ -205,7 +205,7 @@ export function NotificationsPage() {
             itemTitle: `${v.name} BRTA Fitness & Tax Token`,
             dueDate: "Within 14 Days",
             daysRemaining: 14,
-            messageText: `🔔 *LifeNest BRTA Vehicle Document Alert*\n\nHello ${rName},\nThe BRTA Fitness & Tax Token for your vehicle *${v.name} (${v.registrationNumber || "Reg: Pending"})* is approaching expiry.\n\n• Vehicle: ${v.brand || ""} ${v.model || v.name}\n• Action: Renew via BRTA Service Portal\n\n_LifeNest Automated Asset OS_`,
+            messageText: `🌿 *জীবননীড় (LifeNest)*\n\nআসসালামু আলাইকুম ${rName}, আশা করি ভালো আছেন।\nআপনার গাড়ির বিআরটিএ নথিপত্র নবায়নের নির্ধারিত সময় আসন্ন।\n\n*গাড়ির বিবরণ:* ${v.name} (${v.registrationNumber || "Reg: Pending"})\n*প্রয়োজনীয় নথি:* বিআরটিএ ফিটনেস ও ট্যাক্স টোকেন\n*নবায়নের শেষ সময়:* আগামী ১৪ দিনের মধ্যে\n\nবিআরটিএ জরিমানা এড়াতে অনুগ্রহ করে নির্ধারিত সময়ের মধ্যে নবায়ন সম্পন্ন করুন।\n— *জীবননীড়* (আপনার বিশ্বস্ত পারিবারিক সঙ্গী)`,
             status: "pending",
           });
         });
@@ -221,7 +221,7 @@ export function NotificationsPage() {
         itemTitle: "Toyota Premio Fitness Token",
         dueDate: "October 28, 2026",
         daysRemaining: 17,
-        messageText: `🔔 *LifeNest BRTA Vehicle Alert*\n\nHello ${settings.fullName || "User"},\nThe BRTA Fitness Certificate for your vehicle *Toyota Premio (Dhaka Metro Ga-21-4455)* is expiring in 17 days.\n\nPlease complete inspection to avoid fines.\n\n_LifeNest Automated Asset OS_`,
+        messageText: `🌿 *জীবননীড় (LifeNest)*\n\nআসসালামু আলাইকুম ${settings.fullName || "সুধী"}, আশা করি ভালো আছেন।\nআপনার গাড়ির বিআরটিএ ফিটনেস সনদের মেয়াদ ১৭ দিনের মধ্যে শেষ হতে চলেছে।\n\n*গাড়ির নাম:* Toyota Premio (Dhaka Metro Ga-21-4455)\n*নথির নাম:* বিআরটিএ ফিটনেস সার্টিফিকেট\n*মেয়াদ শেষের সময়:* October 28, 2026\n\nজরিমানা এড়াতে অনুগ্রহ করে নির্ধারিত সময়ের মধ্যে গাড়ি পরিদর্শন সম্পন্ন করুন।\n— *জীবননীড়* (আপনার বিশ্বস্ত পারিবারিক সঙ্গী)`,
         status: "pending",
       });
     }
@@ -236,25 +236,25 @@ export function NotificationsPage() {
         ? settings.fullName || "User"
         : recipientChoice.startsWith("tenant-")
           ? recipientChoice.replace("tenant-", "")
-          : customRecipientName || "Valued User";
+          : customRecipientName || "সুধী";
 
     const curMonth = new Date().toLocaleString("en-US", { month: "long", year: "numeric" });
 
     if (templateType === "rent") {
       setComposedMessage(
-        `🔔 *LifeNest Rent Due Notice*\n\nDear ${recipientName},\nThis is an automated reminder that the rent for *Apartment Unit* (Amount: *৳25,000*) for the month of *${curMonth}* is now due.\n\nPlease remit via bKash / Bank transfer and confirm payment.\n\nThank you,\n_LifeNest Property Management_`
+        `🌿 *জীবননীড় (LifeNest)*\n\nআসসালামু আলাইকুম ${recipientName}, আশা করি ভালো আছেন।\nচলতি মাসের বাড়ি ভাড়া পরিশোধের নির্ধারিত সময় উপস্থিত হয়েছে।\n\n*ভাড়ার ইউনিট:* Apartment Unit\n*ভাড়ার পরিমাণ:* ৳25,000\n*পরিশোধের শেষ সময়:* ${curMonth} ১০ তারিখ\n\nঅনুগ্রহ করে বিকাশ অথবা ব্যাংক অ্যাকাউন্টে পাঠিয়ে কনফার্ম করুন। ধন্যবাদ।\n— *জীবননীড়* (সম্পত্তি ও ভাড়া ব্যবস্থাপনা)`
       );
     } else if (templateType === "vehicle") {
       setComposedMessage(
-        `🔔 *LifeNest BRTA Document Reminder*\n\nHello ${recipientName},\nYour vehicle *Toyota Premio (Dhaka Metro Ga-21-4455)* has an upcoming renewal deadline:\n\n• Document: *BRTA Fitness & Tax Token*\n• Due Date: *Within 14 Days*\n\nPlease complete your renewal to avoid BRTA penalties.\n\n_LifeNest Personal Life OS_`
+        `🌿 *জীবননীড় (LifeNest)*\n\nআসসালামু আলাইকুম ${recipientName}, আশা করি ভালো আছেন।\nআপনার গাড়ির বিআরটিএ নথিপত্র নবায়নের নির্ধারিত সময় আসন্ন।\n\n*গাড়ির বিবরণ:* Toyota Premio (Dhaka Metro Ga-21-4455)\n*নথির বিষয়:* বিআরটিএ ফিটনেস ও ট্যাক্স টোকেন\n*নবায়নের শেষ সময়:* আগামী ১৪ দিনের মধ্যে\n\nবিআরটিএ জরিমানা এড়াতে অনুগ্রহ করে সময়মতো নবায়ন প্রক্রিয়া সম্পন্ন করুন।\n— *জীবননীড়* (আপনার বিশ্বস্ত পারিবারিক সঙ্গী)`
       );
     } else if (templateType === "document") {
       setComposedMessage(
-        `🔔 *LifeNest Document Renewal Alert*\n\nHello ${recipientName},\nYour *Driving License / Passport* is scheduled for expiration soon.\n\nPlease review your LifeNest Document Vault and begin the renewal process.\n\n_LifeNest Personal Life OS_`
+        `🌿 *জীবননীড় (LifeNest)*\n\nআসসালামু আলাইকুম ${recipientName}, আশা করি ভালো আছেন।\nআপনার গুরুত্বপূর্ণ ব্যক্তিগত নথিপত্রটির মেয়াদ দ্রুত শেষ হতে চলেছে।\n\n*নথির বিষয়:* ড্রাইভিং লাইসেন্স / পাসপোর্ট / জাতীয় পরিচয়পত্র\n*নবায়নের সময়:* দ্রুত নবায়ন আবশ্যক\n\nঅনুগ্রহ করে আপনার জীবননীড় ডকুমেন্ট ভল্ট চেক করুন এবং নবায়ন প্রক্রিয়া শুরু করুন।\n— *জীবননীড়* (আপনার বিশ্বস্ত পারিবারিক সঙ্গী)`
       );
     } else if (templateType === "custom" && !composedMessage) {
       setComposedMessage(
-        `🔔 *LifeNest Important Notice*\n\nHello ${recipientName},\n\n[Write your custom announcement or reminder message here]\n\nBest regards,\n_LifeNest Asset OS_`
+        `🌿 *জীবননীড় (LifeNest)*\n\nআসসালামু আলাইকুম ${recipientName}, আশা করি ভালো আছেন।\nআপনার জন্য একটি প্রয়োজনীয় বার্তা রয়েছে।\n\n*বিষয়:* [এখানে বিষয়ের নাম লিখুন]\n*সময়:* [তারিখ বা সময় উল্লেখ করুন]\n\n[এখানে আপনার বিস্তারিত বার্তা লিখুন]\n\n— *জীবননীড়* (আপনার বিশ্বস্ত পারিবারিক সঙ্গী)`
       );
     }
   }, [templateType, recipientChoice, customRecipientName, settings.fullName]);
@@ -326,7 +326,7 @@ export function NotificationsPage() {
     if (!gatewayStatus.configured && gatewayStatus.status !== "connected") {
       setComposerResult({
         success: false,
-        message: "LifeNest WhatsApp Bot is not linked yet. Please link it in Settings first, or click 'Open in WhatsApp' below.",
+        message: "Likhe Rakho WhatsApp Bot is not linked yet. Please link it in Settings first, or click 'Open in WhatsApp' below.",
       });
       return;
     }
@@ -342,7 +342,7 @@ export function NotificationsPage() {
       if (res.success) {
         setComposerResult({
           success: true,
-          message: `Message dispatched successfully to +${activeRecipientPhone} via LifeNest WhatsApp Bot! (ID: ${res.messageId || "delivered"})`,
+          message: `Message dispatched successfully to +${activeRecipientPhone} via Likhe Rakho WhatsApp Bot! (ID: ${res.messageId || "delivered"})`,
         });
       } else {
         setComposerResult({
@@ -373,7 +373,7 @@ export function NotificationsPage() {
   // Batch auto-dispatch to all registered recipients
   const handleAutoDispatchAll = async () => {
     if (!gatewayStatus.configured && gatewayStatus.status !== "connected") {
-      alert("LifeNest WhatsApp Gateway is not linked yet. Please link your LifeNest sender number in Settings first.");
+      alert("Likhe Rakho WhatsApp Gateway is not linked yet. Please link your Likhe Rakho sender number in Settings first.");
       return;
     }
 
@@ -487,8 +487,8 @@ export function NotificationsPage() {
             </div>
             <p className="text-xs mt-0.5 opacity-90">
               {gatewayStatus.configured || gatewayStatus.status === "connected"
-                ? `LifeNest dispatches automatic messages from its linked sender (${gatewayStatus.connectedPhone || "Active"}) to all registered tenants and system users.`
-                : "Connect LifeNest's dedicated SIM via 8-Digit Pairing Code or QR Code in Settings to enable automated background alerts."}
+                ? `Likhe Rakho dispatches automatic messages from its linked sender (${gatewayStatus.connectedPhone || "Active"}) to all registered tenants and system users.`
+                : "Connect Likhe Rakho's dedicated SIM via 8-Digit Pairing Code or QR Code in Settings to enable automated background alerts."}
             </p>
           </div>
         </div>
@@ -748,7 +748,7 @@ export function NotificationsPage() {
                 className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 transition cursor-pointer"
               >
                 <Send className="h-3.5 w-3.5" />
-                <span>{sendingComposer ? "Dispatching via LifeNest..." : "Send via LifeNest Bot"}</span>
+                <span>{sendingComposer ? "Dispatching via Likhe Rakho..." : "Send via Likhe Rakho Bot"}</span>
               </button>
 
               <button
@@ -789,12 +789,15 @@ export function NotificationsPage() {
             <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-white shadow-md">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                 <div className="flex items-center gap-2">
-                  <div className="h-7 w-7 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-xs">
-                    LN
+                  <div className="h-7 w-7 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-xs shadow-xs">
+                    নীড়
                   </div>
                   <div>
-                    <div className="text-xs font-bold">LifeNest Asset Bot</div>
-                    <div className="text-[10px] text-emerald-400">Official Sender</div>
+                    <div className="text-xs font-bold flex items-center gap-1.5">
+                      <span>জীবননীড়</span>
+                      <span className="text-[10px] text-emerald-300 font-normal">(LifeNest)</span>
+                    </div>
+                    <div className="text-[10px] text-emerald-400 font-medium">স্মার্ট পারিবারিক সহকারী</div>
                   </div>
                 </div>
                 <span className="text-[10px] text-slate-400 font-mono">WhatsApp</span>
@@ -1020,10 +1023,10 @@ export function NotificationsPage() {
           <div className="border-b border-slate-100 pb-3">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-emerald-600" />
-              LifeNest WhatsApp Architecture & Management Guideline
+              Likhe Rakho WhatsApp Architecture & Management Guideline
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Everything you need to know about managing LifeNest's WhatsApp bot and automated alerts.
+              Everything you need to know about managing Likhe Rakho's WhatsApp bot and automated alerts.
             </p>
           </div>
 
@@ -1035,14 +1038,14 @@ export function NotificationsPage() {
                 1. Sender Number vs. Recipient Numbers
               </h4>
               <p className="text-xs text-emerald-900/90 leading-relaxed">
-                LifeNest operates like an automated corporate assistant:
+                Likhe Rakho operates like an automated corporate assistant:
               </p>
               <ul className="list-disc list-inside text-xs text-emerald-900 space-y-1">
                 <li>
-                  <strong>LifeNest Sender Number:</strong> Managed in <Link to="/settings" className="underline font-bold">Settings</Link>. This is the phone/SIM that acts as the LifeNest Bot.
+                  <strong>Likhe Rakho Sender Number:</strong> Managed in <Link to="/settings" className="underline font-bold">Settings</Link>. This is the phone/SIM that acts as the Likhe Rakho Bot.
                 </li>
                 <li>
-                  <strong>Recipient Numbers:</strong> You (the owner), your tenants (stored in Property Units), and family members. Messages are delivered to them from the LifeNest Bot.
+                  <strong>Recipient Numbers:</strong> You (the owner), your tenants (stored in Property Units), and family members. Messages are delivered to them from the Likhe Rakho Bot.
                 </li>
               </ul>
             </div>
@@ -1057,7 +1060,7 @@ export function NotificationsPage() {
                 When document expiries or rent due dates approach:
               </p>
               <ul className="list-disc list-inside text-xs text-blue-900 space-y-1">
-                <li>LifeNest queries the database for records expiring within your lead time (e.g. 7 days).</li>
+                <li>Likhe Rakho queries the database for records expiring within your lead time (e.g. 7 days).</li>
                 <li>It formats a tailored WhatsApp notification with bold text and emojis.</li>
                 <li>It dispatches the message via the connected WhatsApp gateway to each recipient's registered phone number.</li>
               </ul>
@@ -1070,9 +1073,9 @@ export function NotificationsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="rounded-xl border border-emerald-300 bg-white p-3.5 space-y-1.5 shadow-2xs">
                 <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                  Active in LifeNest
+                  Active in Likhe Rakho
                 </span>
-                <div className="font-bold text-xs text-slate-900">LifeNest Baileys Gateway</div>
+                <div className="font-bold text-xs text-slate-900">Likhe Rakho Baileys Gateway</div>
                 <p className="text-[11px] text-slate-600 leading-normal">
                   Uses a dedicated spare SIM / phone. Pair once via 8-digit code. Zero monthly fees, unlimited messages to any number in Bangladesh.
                 </p>

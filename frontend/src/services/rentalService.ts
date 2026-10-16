@@ -159,7 +159,7 @@ export async function deleteRentSchedule(scheduleId: string) {
 }
 
 export async function saveTenancy(input: Omit<RentalTenancy, "id" | "owner_id"> & { id?: string; property_id?: string }): Promise<string> {
-  if (!input.tenant_name.trim() || input.tenant_phone.trim().length < 6) throw new Error("Tenant name and phone number are required.");
+  if (!input.tenant_name.trim() || input.tenant_phone.trim().length < 6) throw new Error("Renter name and phone number are required.");
   const { id, property_id, ...values } = input;
   const row: Record<string, any> = {
     ...values,

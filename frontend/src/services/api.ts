@@ -38,7 +38,12 @@ export async function login(email: string, password: string) {
 }
 
 export async function register(email: string, password: string) {
-  const emailRedirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
+  const emailRedirectTo =
+    typeof window !== "undefined" &&
+    !window.location.origin.includes("localhost") &&
+    !window.location.origin.includes("capacitor")
+      ? window.location.origin
+      : "https://likherakho.vercel.app";
   const { data, error } = await supabase.auth.signUp({
     email,
     password,

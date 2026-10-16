@@ -199,6 +199,7 @@ export type DocumentItem = {
   reminderDate?: string;
   tags: string[];
   notes?: string;
+  fileSize?: number;
   createdAt?: string;
 };
 
@@ -586,6 +587,10 @@ export type DailyExpense = {
   merchant?: string;
   receiptUrl?: string;
   notes?: string;
+  linkedLoanId?: string;
+  linkedSegmentId?: string;
+  linkedSavingsId?: string;
+  linkedDepositLogId?: string;
   createdAt?: string;
 };
 
@@ -593,9 +598,13 @@ export type DailyExpense = {
 export type LoanRepaymentSegment = {
   id: string;
   loanId: string;
+  installmentNo?: number;
+  monthLabel?: string; // e.g. "November, 26"
+  dueDate?: string;
   amount: number;
-  paymentDate: string;
-  paymentMethod: DailyExpensePaymentMethod;
+  isPaid?: boolean;
+  paymentDate?: string;
+  paymentMethod?: DailyExpensePaymentMethod;
   notes?: string;
   receiptUrl?: string;
   createdAt?: string;
@@ -605,8 +614,11 @@ export type MemberLoan = {
   id: string;
   familyMemberId: string;
   familyMemberName?: string;
-  loanTitle: string; // e.g. "Car Loan - Toyota Allion", "City Bank Personal Loan"
+  loanTitle: string; // e.g. "Light EMI", "Drone EMI", "Car Loan - Toyota"
   loanType:
+    | "Consumer EMI"
+    | "Credit Card EMI"
+    | "Credit Card Bill"
     | "Car Loan"
     | "Home Loan"
     | "Personal Loan"
@@ -614,15 +626,18 @@ export type MemberLoan = {
     | "Business Loan"
     | "Friend/Family"
     | "Other";
-  lenderName: string; // e.g. "BRAC Bank", "Shahjalal Islami Bank", "Uncle"
+  lenderName: string; // e.g. "bKash", "City Bank", "BRAC Bank", "Daraz"
   principalAmount: number;
   totalRepayableAmount: number; // Principal + Interest
   interestRate?: number;
+  tenureMonths?: number;
   startDate: string;
   targetEndDate?: string;
   monthlyEmiAmount?: number;
   repayments: LoanRepaymentSegment[];
   status: "ACTIVE" | "PAID_OFF" | "DEFAULTED";
+  reminderDayOfMonth?: number;
+  reminderEnabled?: boolean;
   notes?: string;
   createdAt?: string;
 };
@@ -635,9 +650,12 @@ export type SavingsDepositLog = {
   id: string;
   savingsId: string;
   installmentNo?: number;
+  monthLabel?: string;
+  dueDate?: string;
   amount: number;
-  depositDate: string;
-  paymentMethod: DailyExpensePaymentMethod;
+  isPaid?: boolean;
+  depositDate?: string;
+  paymentMethod?: DailyExpensePaymentMethod;
   notes?: string;
   receiptUrl?: string;
   createdAt?: string;
