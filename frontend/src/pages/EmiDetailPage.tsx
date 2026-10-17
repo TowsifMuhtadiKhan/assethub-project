@@ -313,7 +313,7 @@ export function EmiDetailPage() {
       const installmentLabel = nextUnpaid?.monthLabel || (nextUnpaid?.installmentNo ? `Installment #${nextUnpaid.installmentNo}` : "Monthly EMI");
       const dueDateStr = nextUnpaid?.dueDate || `Day ${reminderDay} of this month`;
 
-      const message = `🔔 *LifeNest Payment Reminder (Test)*\n\n` +
+      const message = `🔔 *Likhe Rakho Payment Reminder (Test)*\n\n` +
         `Obligation: *${loan.loanTitle}*\n` +
         `Lender / Provider: *${loan.lenderName || "Bank"}*\n` +
         `Installment: *${installmentLabel}*\n` +

@@ -104,7 +104,7 @@ async function startSocket(): Promise<void> {
   const s = makeWASocket({
     version,
     auth: state,
-    browser: ["LifeNest (জীবননীড়)", "Desktop", "1.0.0"] as [string, string, string],
+    browser: ["Likhe Rakho (লিখে রাখো)", "Desktop", "1.0.0"] as [string, string, string],
     logger: pino({ level: "silent" }),
     keepAliveIntervalMs: 15_000,
     connectTimeoutMs: 60_000,
@@ -118,7 +118,7 @@ async function startSocket(): Promise<void> {
       ensureAuthDir();
       await saveCreds();
     } catch (err) {
-      console.warn("[LifeNest WhatsApp] could not save creds:", err);
+      console.warn("[Likhe Rakho WhatsApp] could not save creds:", err);
     }
   });
 
@@ -133,7 +133,7 @@ async function startSocket(): Promise<void> {
         firstQrResolver?.();
         firstQrResolver = null;
       } catch (e) {
-        console.error("[LifeNest WhatsApp] QR render failed:", e);
+        console.error("[Likhe Rakho WhatsApp] QR render failed:", e);
       }
     }
 
@@ -144,7 +144,12 @@ async function startSocket(): Promise<void> {
       const id = s.user?.id || "";
       const digits = id.split(":")[0].split("@")[0];
       connectedPhone = digits ? `+${digits}` : null;
-      console.log(`[LifeNest WhatsApp] Linked & online as ${connectedPhone}`);
+      console.log(`[Likhe Rakho WhatsApp] Linked & online as ${connectedPhone}`);
+
+      try {
+        await s.updateProfileName("Likhe Rakho");
+        await s.updateProfileStatus("Likhe Rakho (লিখে রাখো) - Automated Family Finance & Asset Assistant");
+      } catch {}
     }
 
     if (connection === "close") {

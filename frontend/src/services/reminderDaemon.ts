@@ -474,7 +474,7 @@ export function buildLoanReminderMessage(
   const dueDateStr = segment.dueDate || (loan.reminderDayOfMonth ? `Day ${loan.reminderDayOfMonth} of this month` : "Upcoming");
 
   const lines = [
-    `🔔 *LifeNest Payment Reminder*`,
+    `🔔 *Likhe Rakho Payment Reminder*`,
     ``,
     `Hello! This is an automated reminder for your upcoming payment obligation:`,
     ``,
@@ -492,7 +492,7 @@ export function buildLoanReminderMessage(
   lines.push(
     ``,
     `Please ensure adequate balance to avoid any late fees or penalty.`,
-    `Manage your obligations on LifeNest: https://app.lifenest.site`
+    `Manage your obligations on Likhe Rakho: https://likherakho.vercel.app`
   );
 
   return lines.join("\n");
