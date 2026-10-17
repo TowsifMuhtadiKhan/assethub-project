@@ -214,35 +214,36 @@ export function DpsFdrDetailPage() {
       )}
 
       {/* Top Navigation Bar */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-3.5 sm:p-4 flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 px-0.5">
         <button
           onClick={() => navigate("/my-life/expenses?tab=savings")}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-teal-700 transition py-1.5 px-3 rounded-xl hover:bg-slate-100 cursor-pointer"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-teal-700 transition py-1.5 px-2.5 rounded-xl hover:bg-slate-100 cursor-pointer shrink-0 whitespace-nowrap"
         >
-          <ArrowLeft className="w-4 h-4 text-teal-600" />
-          <span>Back to Savings & DPS</span>
+          <ArrowLeft className="w-4 h-4 text-teal-600 shrink-0" />
+          <span className="hidden sm:inline">Back to Savings & DPS</span>
+          <span className="sm:hidden">Back</span>
         </button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Delete Scheme Button */}
           <button
             type="button"
             onClick={() => setShowDeleteSavingsModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100/80 text-xs font-semibold text-rose-700 transition shadow-2xs cursor-pointer"
+            className="inline-flex items-center gap-1 px-2 py-1.5 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-xs font-semibold text-rose-700 transition shadow-2xs cursor-pointer shrink-0 whitespace-nowrap"
             title="Delete this entire savings scheme"
           >
-            <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+            <Trash2 className="w-3.5 h-3.5 text-rose-600 shrink-0" />
             <span className="hidden sm:inline">Delete Scheme</span>
           </button>
 
           <span
-            className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+            className={`px-2.5 py-1 rounded-xl text-[11px] font-bold uppercase tracking-wider whitespace-nowrap border shrink-0 ${
               isMatured
-                ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                : "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                : "bg-teal-50 text-teal-800 border-teal-200"
             }`}
           >
-            {isMatured ? "✓ Matured / Completed" : "Active Plan"}
+            {isMatured ? "Matured" : "Active"}
           </span>
         </div>
       </div>

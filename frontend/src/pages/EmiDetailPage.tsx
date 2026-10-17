@@ -424,38 +424,38 @@ export function EmiDetailPage() {
         </div>
       )}
 
-      {/* Sleek Breadcrumb & Action Header */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3">
+      {/* Sleek Breadcrumb & Actions Bar (Clean, unboxed, mobile-perfect) */}
+      <div className="flex items-center justify-between gap-2 px-0.5">
         <button
           type="button"
           onClick={() => navigate("/my-life/expenses?tab=loans")}
-          className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-700 hover:text-slate-950 transition py-1.5 px-3 rounded-xl hover:bg-slate-100 cursor-pointer"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition py-1.5 px-2.5 rounded-xl hover:bg-slate-100 cursor-pointer shrink-0 whitespace-nowrap"
         >
-          <ArrowLeft className="w-4 h-4 text-slate-500" />
-          <span>Back to Banking & Obligations</span>
+          <ArrowLeft className="w-4 h-4 text-slate-500 shrink-0" />
+          <span className="hidden sm:inline">Back to Obligations</span>
+          <span className="sm:hidden">Back</span>
         </button>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* WhatsApp Reminder Status Pill / Button */}
           <button
             type="button"
             onClick={() => setShowReminderModal(true)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition shadow-2xs cursor-pointer ${
+            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-semibold whitespace-nowrap transition shadow-2xs cursor-pointer shrink-0 ${
               loan.reminderEnabled
-                ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100/80"
-                : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
             }`}
             title="Configure WhatsApp payment reminders and recipients"
           >
             {loan.reminderEnabled ? (
               <>
-                <Bell className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600" />
-                <span className="hidden sm:inline">WhatsApp Alerts:</span>
-                <span>ON</span>
+                <Bell className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600 shrink-0" />
+                <span>Alerts ON</span>
               </>
             ) : (
               <>
-                <BellOff className="w-3.5 h-3.5 text-slate-400" />
+                <BellOff className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <span>Alerts OFF</span>
               </>
             )}
@@ -465,22 +465,22 @@ export function EmiDetailPage() {
           <button
             type="button"
             onClick={() => setShowDeleteLoanModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100/80 text-xs font-semibold text-rose-700 transition shadow-2xs cursor-pointer"
+            className="inline-flex items-center gap-1 px-2 py-1.5 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-xs font-semibold text-rose-700 transition shadow-2xs cursor-pointer shrink-0 whitespace-nowrap"
             title="Delete this entire obligation"
           >
-            <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-            <span className="hidden sm:inline">Delete Obligation</span>
+            <Trash2 className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+            <span className="hidden sm:inline">Delete</span>
           </button>
 
           {/* Status Badge */}
           <span
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider border ${
+            className={`px-2.5 py-1 rounded-xl text-[11px] font-bold uppercase tracking-wider whitespace-nowrap border shrink-0 ${
               isCompleted
                 ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                 : "bg-teal-50 text-teal-800 border-teal-200"
             }`}
           >
-            {isCompleted ? "✓ Completed" : "Active Repayment"}
+            {isCompleted ? "Completed" : "Active"}
           </span>
         </div>
       </div>
