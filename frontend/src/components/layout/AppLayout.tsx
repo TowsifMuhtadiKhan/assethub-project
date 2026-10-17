@@ -532,13 +532,8 @@ export function AppLayout() {
           }`}
         >
           {/* Main Full-Width Content Container with mobile bottom nav spacing */}
-          <main className="flex-1 overflow-y-auto no-scrollbar lg:scrollbar-auto p-3.5 sm:p-5 lg:p-6 bg-[#f6faf7] w-full safe-area-bottom pb-6">
+          <main className="flex-1 overflow-y-auto no-scrollbar lg:scrollbar-auto p-3.5 sm:p-5 lg:p-6 bg-[#f6faf7] w-full pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] lg:pb-6">
             <Outlet />
-            {/* Mandatory physical bottom spacer on mobile so that content on EVERY screen can scroll completely clear of the fixed bottom navigation */}
-            <div
-              className="h-32 sm:h-36 w-full shrink-0 lg:hidden pointer-events-none"
-              aria-hidden="true"
-            />
           </main>
         </div>
       </div>

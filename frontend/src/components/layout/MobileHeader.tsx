@@ -106,7 +106,7 @@ export function MobileHeader(_props: MobileHeaderProps = {}) {
 
   return (
     <header className="sticky top-0 z-30 w-full border-b border-slate-200/90 bg-white/95 backdrop-blur-md safe-area-top lg:hidden shrink-0">
-      <div className="flex h-14 items-center justify-between px-3.5">
+      <div className="flex h-12 items-center justify-between px-3.5">
         {/* Left: Back Button or App Logo & Brand Header */}
         <div className="flex items-center gap-2 min-w-0">
           {!isHome ? (

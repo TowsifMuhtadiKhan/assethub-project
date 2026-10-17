@@ -1440,7 +1440,7 @@ export function DailyExpensesPage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 w-full text-slate-800">
+    <div className="w-full text-slate-800">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-24 sm:bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold animate-in fade-in slide-in-from-bottom-2 duration-200">
@@ -1575,7 +1575,7 @@ export function DailyExpensesPage() {
         )}
 
       {/* Desktop Header & Active Member Profile */}
-      <div className="hidden lg:flex items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
+      <div className="hidden lg:flex items-center justify-between gap-3 border-b border-slate-200/80 pb-3 mb-4 sm:mb-6">
         {/* Left: Primary Switcher between Daily Expenses & Banking */}
         <div className="min-w-0 flex items-center gap-3">
           {activeMember ? (
