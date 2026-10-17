@@ -383,81 +383,109 @@ function isMatchingMember(
   return false;
 }
 
+let cachedUserAccess: { data: CurrentUserAccessResult; timestamp: number } | null = null;
+let activeUserAccessPromise: Promise<CurrentUserAccessResult> | null = null;
+
+export function invalidateUserAccessCache(): void {
+  cachedUserAccess = null;
+  activeUserAccessPromise = null;
+}
+
 /**
  * Resolves current active access permissions for the logged in account / family member.
+ * Includes in-memory request deduplication and a 30s cache to prevent redundant Supabase hits.
  */
-export async function getCurrentUserAccess(): Promise<CurrentUserAccessResult> {
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+export async function getCurrentUserAccess(forceRefresh = false): Promise<CurrentUserAccessResult> {
+  const now = Date.now();
+  if (!forceRefresh && cachedUserAccess && now - cachedUserAccess.timestamp < 30000) {
+    return cachedUserAccess.data;
+  }
+  if (activeUserAccessPromise) {
+    return activeUserAccessPromise;
+  }
 
-    const email = (user?.email || getUserEmail() || "").trim().toLowerCase();
-    const userId = user?.id || "";
-    const userFullName = user?.user_metadata?.full_name ? String(user.user_metadata.full_name) : "";
+  activeUserAccessPromise = (async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    const members = await listFamilyMembers();
+      const email = (user?.email || getUserEmail() || "").trim().toLowerCase();
+      const userId = user?.id || "";
+      const userFullName = user?.user_metadata?.full_name ? String(user.user_metadata.full_name) : "";
 
-    // Check if matching member exists
-    const found = members.find((m) => isMatchingMember(m, email, userId, userFullName));
+      const members = await listFamilyMembers();
 
-    if (found) {
-      // Only the genuine workspace owner (Towsif) with Self is the head
-      if (found.relationship === "Self" && (email.includes("towsif") || !found.fullName.toLowerCase().includes("itisha"))) {
-        return {
-          member: found,
+      // Check if matching member exists
+      const found = members.find((m) => isMatchingMember(m, email, userId, userFullName));
+
+      let result: CurrentUserAccessResult;
+      if (found) {
+        // Only the genuine workspace owner (Towsif) with Self is the head
+        if (found.relationship === "Self" && (email.includes("towsif") || !found.fullName.toLowerCase().includes("itisha"))) {
+          result = {
+            member: found,
+            access: { ...getDefaultMemberAccess("Admin"), canAccessDashboard: true },
+            isHead: true,
+          };
+        } else {
+          // Member is an invited collaborator (e.g. Itisha Habib)
+          // Retrieve their stored permissions (notes from Supabase or localStorage)
+          let access = found.access;
+          try {
+            const localAcc = localStorage.getItem(`lifenest_fam_access_${found.id}`);
+            if (localAcc) {
+              access = JSON.parse(localAcc);
+            } else if (found.notes && found.notes.startsWith("access:")) {
+              access = JSON.parse(found.notes.slice(7));
+            }
+          } catch {}
+
+          const memberRole = access ? access.loginRole : "Viewer";
+          const mergedAccess: FamilyMemberAccess = {
+            ...getDefaultMemberAccess(memberRole),
+            ...(access || {}),
+          };
+
+          result = {
+            member: found,
+            access: mergedAccess,
+            isHead: false,
+          };
+        }
+      } else if (email.includes("towsif") || !email) {
+        // If the logged-in user is Towsif / workspace owner
+        const selfMember = members.find((m) => m.relationship === "Self") || null;
+        result = {
+          member: selfMember,
           access: { ...getDefaultMemberAccess("Admin"), canAccessDashboard: true },
           isHead: true,
         };
+      } else {
+        // Default for unrecognized guest account: Restricted Viewer (NOT Admin)
+        result = {
+          member: null,
+          access: { ...getDefaultMemberAccess("Viewer"), canAccessDashboard: false },
+          isHead: false,
+        };
       }
 
-      // Member is an invited collaborator (e.g. Itisha Habib)
-      // Retrieve their stored permissions (notes from Supabase or localStorage)
-      let access = found.access;
-      try {
-        const localAcc = localStorage.getItem(`lifenest_fam_access_${found.id}`);
-        if (localAcc) {
-          access = JSON.parse(localAcc);
-        } else if (found.notes && found.notes.startsWith("access:")) {
-          access = JSON.parse(found.notes.slice(7));
-        }
-      } catch {}
-
-      const memberRole = access ? access.loginRole : "Viewer";
-      const mergedAccess: FamilyMemberAccess = {
-        ...getDefaultMemberAccess(memberRole),
-        ...(access || {}),
-      };
-
-      return {
-        member: found,
-        access: mergedAccess,
-        isHead: false,
-      };
-    }
-
-    // If the logged-in user is Towsif / workspace owner
-    if (email.includes("towsif") || !email) {
-      const selfMember = members.find((m) => m.relationship === "Self") || null;
-      return {
-        member: selfMember,
+      cachedUserAccess = { data: result, timestamp: Date.now() };
+      return result;
+    } catch {
+      const fallback: CurrentUserAccessResult = {
+        member: null,
         access: { ...getDefaultMemberAccess("Admin"), canAccessDashboard: true },
         isHead: true,
       };
+      return fallback;
+    } finally {
+      activeUserAccessPromise = null;
     }
+  })();
 
-    // Default for unrecognized guest account: Restricted Viewer (NOT Admin)
-    return {
-      member: null,
-      access: { ...getDefaultMemberAccess("Viewer"), canAccessDashboard: false },
-      isHead: false,
-    };
-  } catch {
-    return {
-      member: null,
-      access: { ...getDefaultMemberAccess("Viewer"), canAccessDashboard: false },
-      isHead: false,
-    };
-  }
+  return activeUserAccessPromise;
 }
+
+
 

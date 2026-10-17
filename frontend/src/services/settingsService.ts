@@ -43,7 +43,37 @@ export function saveLocalWhatsAppContacts(contacts: WhatsAppContact[]): void {
   }
 }
 
-export async function getUserSettings(): Promise<UserSettings> {
+let cachedUserSettings: { data: UserSettings; timestamp: number } | null = null;
+let activeSettingsPromise: Promise<UserSettings> | null = null;
+
+export function invalidateUserSettingsCache(): void {
+  cachedUserSettings = null;
+  activeSettingsPromise = null;
+}
+
+export async function getUserSettings(forceRefresh = false): Promise<UserSettings> {
+  const now = Date.now();
+  if (!forceRefresh && cachedUserSettings && now - cachedUserSettings.timestamp < 30000) {
+    return cachedUserSettings.data;
+  }
+  if (activeSettingsPromise) {
+    return activeSettingsPromise;
+  }
+
+  activeSettingsPromise = (async () => {
+    try {
+      const result = await fetchUserSettingsRaw();
+      cachedUserSettings = { data: result, timestamp: Date.now() };
+      return result;
+    } finally {
+      activeSettingsPromise = null;
+    }
+  })();
+
+  return activeSettingsPromise;
+}
+
+async function fetchUserSettingsRaw(): Promise<UserSettings> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -225,6 +255,8 @@ export async function saveUserSettings(
     if (error) throw error;
     dataResult = data;
   }
+
+  invalidateUserSettingsCache();
 
   return {
     id: dataResult.id,

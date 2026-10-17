@@ -592,15 +592,38 @@ export async function checkLoanReminders(): Promise<number> {
 
 /**
  * Starts the global reminder daemon interval
- * Checks every 20 seconds
+ * Checks every 60 seconds (with background tab backoff and offline guards)
  */
-export function startReminderDaemon(intervalMs = 20000): () => void {
-  // Run initial check immediately
-  checkAndDispatchDueReminders().catch(() => {});
+export function startReminderDaemon(intervalMs = 60000): () => void {
+  let isRunning = false;
+  let lastRun = 0;
 
-  const intervalId = setInterval(() => {
-    checkAndDispatchDueReminders().catch(() => {});
-  }, intervalMs);
+  const runCheck = () => {
+    // Skip if offline or already running
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
+    if (isRunning) return;
 
-  return () => clearInterval(intervalId);
+    // In background tabs, back off to at most once every 5 minutes
+    if (typeof document !== "undefined" && document.hidden) {
+      if (Date.now() - lastRun < 300000) return;
+    }
+
+    isRunning = true;
+    lastRun = Date.now();
+    checkAndDispatchDueReminders()
+      .catch(() => {})
+      .finally(() => {
+        isRunning = false;
+      });
+  };
+
+  // Run initial check slightly delayed (3 seconds after app launch) to let critical dashboard queries finish first
+  const initialTimeout = setTimeout(runCheck, 3000);
+
+  const intervalId = setInterval(runCheck, Math.max(30000, intervalMs));
+
+  return () => {
+    clearTimeout(initialTimeout);
+    clearInterval(intervalId);
+  };
 }

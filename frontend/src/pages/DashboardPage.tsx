@@ -47,6 +47,8 @@ export function DashboardPage() {
   const [_userAccess, setUserAccess] = useState<CurrentUserAccessResult | null>(null);
 
   useEffect(() => {
+    const isMobileScreen = typeof window !== "undefined" && window.innerWidth < 1024;
+
     getCurrentUserAccess().then(async (userAcc) => {
       setUserAccess(userAcc);
       if (!userAcc.isHead && userAcc.access.canAccessDashboard === false) {
@@ -55,6 +57,17 @@ export function DashboardPage() {
         return;
       }
 
+      // On mobile, MobileHomePage handles its own lightweight metrics; avoid duplicate desktop queries
+      if (isMobileScreen) {
+        setLoading(false);
+        return;
+      }
+
+      // Safety fallback timer so desktop never hangs on cold start or network hiccups
+      const safetyTimer = setTimeout(() => {
+        setLoading(false);
+      }, 2500);
+
       const canTasks = userAcc.isHead || userAcc.access.canAccessTasks !== false;
       const canDocs = userAcc.isHead || userAcc.access.canAccessVault !== false;
       const canVehicles = userAcc.isHead || userAcc.access.canAccessVehicles !== false;
@@ -62,7 +75,7 @@ export function DashboardPage() {
       const canWarranties = userAcc.isHead || userAcc.access.canAccessWarranties !== false;
 
       try {
-        const [t, d, v, p, w, f] = await Promise.all([
+        const results = await Promise.allSettled([
           canTasks ? listTasks() : Promise.resolve([]),
           canDocs ? listDocuments() : Promise.resolve([]),
           canVehicles ? listVehicles() : Promise.resolve([]),
@@ -70,6 +83,13 @@ export function DashboardPage() {
           canWarranties ? listWarranties() : Promise.resolve([]),
           listFamilyMembers(),
         ]);
+
+        const t = results[0].status === "fulfilled" ? (results[0].value as TaskItem[]) : [];
+        const d = results[1].status === "fulfilled" ? (results[1].value as DocumentItem[]) : [];
+        const v = results[2].status === "fulfilled" ? (results[2].value as Vehicle[]) : [];
+        const p = results[3].status === "fulfilled" ? (results[3].value as Property[]) : [];
+        const w = results[4].status === "fulfilled" ? (results[4].value as WarrantyItem[]) : [];
+        const f = results[5].status === "fulfilled" ? (results[5].value as FamilyMember[]) : [];
 
         let filteredVehicles = v;
         if (!userAcc.isHead && userAcc.access.assignedVehicleScope === "specific") {
@@ -113,6 +133,7 @@ export function DashboardPage() {
       } catch (err) {
         console.error(err);
       } finally {
+        clearTimeout(safetyTimer);
         setLoading(false);
       }
     });

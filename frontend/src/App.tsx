@@ -39,7 +39,7 @@ function BikesPage() {
 
 function App() {
   useEffect(() => {
-    const stop = startReminderDaemon(15000);
+    const stop = startReminderDaemon(60000);
     return () => stop();
   }, []);
 
