@@ -304,6 +304,10 @@ export function DailyExpensesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [authUserId, setAuthUserId] = useState<string>("");
   const [viewMode, setViewMode] = useState<"table" | "grid">(() => {
+    try {
+      const saved = localStorage.getItem("lifenest_daily_expenses_view_mode");
+      if (saved === "table" || saved === "grid") return saved;
+    } catch {}
     if (typeof window !== "undefined" && window.innerWidth < 768) {
       return "grid";
     }
@@ -2182,7 +2186,13 @@ export function DailyExpensesPage() {
               {/* View mode toggle */}
               <ViewModeToggle
                 viewMode={viewMode}
-                onChange={(mode) => setViewMode(mode as "table" | "grid")}
+                onChange={(mode) => {
+                  const nextMode = mode as "table" | "grid";
+                  setViewMode(nextMode);
+                  try {
+                    localStorage.setItem("lifenest_daily_expenses_view_mode", nextMode);
+                  } catch {}
+                }}
                 gridLabel="Grid"
                 listLabel="Table"
                 listValue="table"
@@ -2319,9 +2329,105 @@ export function DailyExpensesPage() {
                   <Plus className="h-3 w-3" /> Log First Expense
                 </button>
               </div>
+            ) : viewMode === "table" ? (
+              /* TABLE VIEW (Available on both Mobile with overflow-x-auto and Desktop) */
+              <div className="overflow-x-auto no-scrollbar sm:scrollbar-auto">
+                <table className="min-w-full text-left text-xs">
+                  <thead className="border-b border-slate-100 bg-slate-50/80 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                    <tr>
+                      <th className="py-2.5 px-3 sm:px-4">Date</th>
+                      <th className="py-2.5 px-3 sm:px-4">Category</th>
+                      <th className="py-2.5 px-3 sm:px-4">Description / Merchant</th>
+                      <th className="py-2.5 px-3 sm:px-4">Payment Method</th>
+                      <th className="py-2.5 px-3 sm:px-4 font-mono text-right">Amount</th>
+                      <th className="py-2.5 px-3 sm:px-4 text-right pr-4 sm:pr-6">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredExpenses.map((exp) => {
+                      const catConfig = getCategoryBadge(exp.category);
+                      return (
+                        <tr
+                          key={exp.id}
+                          onClick={() => setViewingExpenseDetail(exp)}
+                          className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
+                        >
+                          <td className="whitespace-nowrap py-3 px-3 sm:px-4 font-mono text-[11px] text-slate-700">
+                            {exp.date}
+                          </td>
+                          <td className="py-3 px-3 sm:px-4">
+                            <Chip
+                              size="sm"
+                              color={catConfig.chipColor}
+                              label={exp.category}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openCategoryTrend(exp.category);
+                              }}
+                              className="border border-current/15 shadow-2xs"
+                              title={`Click to view trend graph for ${exp.category}`}
+                            />
+                          </td>
+                          <td className="py-3 px-3 sm:px-4">
+                            <div className="font-semibold text-slate-900 text-xs group-hover:text-emerald-700 transition flex items-center gap-1.5">
+                              <span>{exp.description || "Daily Expense"}</span>
+                              <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                            </div>
+                            {exp.merchant && (
+                              <div className="text-[11px] text-slate-400">
+                                Store: {exp.merchant}
+                              </div>
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap py-3 px-3 sm:px-4">
+                            <Chip
+                              size="sm"
+                              color="slate"
+                              label={exp.paymentMethod}
+                              className="border border-slate-200/80 font-medium"
+                            />
+                          </td>
+                          <td className="whitespace-nowrap py-3 px-3 sm:px-4 font-mono font-bold text-slate-900 text-right text-sm">
+                            ৳{exp.amount.toLocaleString()}
+                          </td>
+                          <td className="whitespace-nowrap py-2 px-3 sm:px-4 text-right pr-4 sm:pr-6">
+                            <TableRowActions
+                              title={exp.description || exp.category}
+                              subtitle={`${exp.date} • ৳${exp.amount.toLocaleString()} (${exp.paymentMethod})`}
+                              actions={[
+                                {
+                                  label: "View Full Details",
+                                  description: "Odometer, receipt image, merchant, notes",
+                                  icon: ExternalLink,
+                                  variant: "emerald",
+                                  onClick: () => setViewingExpenseDetail(exp),
+                                },
+                                {
+                                  label: "Edit Expense Record",
+                                  description: "Update amount, category, date or payment method",
+                                  icon: Edit2,
+                                  onClick: () => openEditModal(exp),
+                                },
+                                {
+                                  label: "Delete Expense",
+                                  description: "Permanently delete this entry",
+                                  icon: Trash2,
+                                  variant: "danger",
+                                  onClick: () => setExpenseToDelete(exp),
+                                },
+                              ]}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             ) : (
-              <>
-                {/* Mobile Unified Expense Cards List (sm:hidden) matching mockup */}
+              /* GRID / CARDS VIEW */
+              <div>
+                {/* Mobile Unified Expense Cards List (sm:hidden) */}
                 <div className="sm:hidden divide-y divide-slate-100">
                   {filteredExpenses.map((exp) => {
                     const catConfig = getCategoryBadge(exp.category);
@@ -2417,181 +2523,81 @@ export function DailyExpensesPage() {
                   })}
                 </div>
 
-                {/* Desktop View (Table or Grid) */}
-                <div className="hidden sm:block">
-                  {viewMode === "table" ? (
-                    /* TABLE VIEW */
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full text-left text-xs">
-                        <thead className="border-b border-slate-100 bg-slate-50/80 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                          <tr>
-                            <th className="py-2.5 px-4">Date</th>
-                            <th className="py-2.5 px-4">Category</th>
-                            <th className="py-2.5 px-4">Description / Merchant</th>
-                            <th className="py-2.5 px-4">Payment Method</th>
-                            <th className="py-2.5 px-4 font-mono text-right">Amount</th>
-                            <th className="py-2.5 px-4 text-right pr-6">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {filteredExpenses.map((exp) => {
-                            const catConfig = getCategoryBadge(exp.category);
-                            return (
-                              <tr
-                                key={exp.id}
-                                onClick={() => setViewingExpenseDetail(exp)}
-                                className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
-                              >
-                                <td className="whitespace-nowrap py-3 px-4 font-mono text-[11px] text-slate-700">
-                                  {exp.date}
-                                </td>
-                                <td className="py-3 px-4">
-                                  <Chip
-                                    size="sm"
-                                    color={catConfig.chipColor}
-                                    label={exp.category}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openCategoryTrend(exp.category);
-                                    }}
-                                    className="border border-current/15 shadow-2xs"
-                                    title={`Click to view trend graph for ${exp.category}`}
-                                  />
-                                </td>
-                                <td className="py-3 px-4">
-                                  <div className="font-semibold text-slate-900 text-xs group-hover:text-emerald-700 transition flex items-center gap-1.5">
-                                    <span>{exp.description || "Daily Expense"}</span>
-                                    <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
-                                  </div>
-                                  {exp.merchant && (
-                                    <div className="text-[11px] text-slate-400">
-                                      Store: {exp.merchant}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="whitespace-nowrap py-3 px-4">
-                                  <Chip
-                                    size="sm"
-                                    color="slate"
-                                    label={exp.paymentMethod}
-                                    className="border border-slate-200/80 font-medium"
-                                  />
-                                </td>
-                                <td className="whitespace-nowrap py-3 px-4 font-mono font-bold text-slate-900 text-right text-sm">
-                                  ৳{exp.amount.toLocaleString()}
-                                </td>
-                                <td className="whitespace-nowrap py-2 px-4 text-right pr-4">
-                                  <TableRowActions
-                                    title={exp.description || exp.category}
-                                    subtitle={`${exp.date} • ৳${exp.amount.toLocaleString()} (${exp.paymentMethod})`}
-                                    actions={[
-                                      {
-                                        label: "View Full Details",
-                                        description: "Odometer, receipt image, merchant, notes",
-                                        icon: ExternalLink,
-                                        variant: "emerald",
-                                        onClick: () => setViewingExpenseDetail(exp),
-                                      },
-                                      {
-                                        label: "Edit Expense Record",
-                                        description: "Update amount, category, date or payment method",
-                                        icon: Edit2,
-                                        onClick: () => openEditModal(exp),
-                                      },
-                                      {
-                                        label: "Delete Expense",
-                                        description: "Permanently delete this entry",
-                                        icon: Trash2,
-                                        variant: "danger",
-                                        onClick: () => setExpenseToDelete(exp),
-                                      },
-                                    ]}
-                                  />
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    /* GRID CARDS VIEW */
-                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                      {filteredExpenses.map((exp) => {
-                        const catConfig = getCategoryBadge(exp.category);
-                        return (
-                          <div
-                            key={exp.id}
-                            onClick={() => setViewingExpenseDetail(exp)}
-                            className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs hover:shadow-xs hover:border-slate-300 transition-all cursor-pointer flex flex-col justify-between group"
-                          >
-                            <div>
-                              <div className="flex items-center justify-between">
-                                <Chip
-                                  size="sm"
-                                  color={catConfig.chipColor}
-                                  label={exp.category}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openCategoryTrend(exp.category);
-                                  }}
-                                  className="border border-current/15 shadow-2xs max-w-[70%]"
-                                  title={`Click to view trend graph for ${exp.category}`}
-                                />
-                                <span className="font-mono text-[10px] text-slate-400">{exp.date}</span>
-                              </div>
-
-                              <div className="mt-2 text-xs font-bold text-slate-900 group-hover:text-blue-600 transition flex items-center justify-between">
-                                <span>{exp.description || "Daily Expense"}</span>
-                                <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
-                              </div>
-                              {exp.merchant && (
-                                <div className="text-[11px] text-slate-400">{exp.merchant}</div>
-                              )}
-                            </div>
-
-                            <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-                              <div>
-                                <div className="font-mono font-bold text-slate-900 text-sm">
-                                  ৳{exp.amount.toLocaleString()}
-                                </div>
-                                <span className="text-[10px] text-slate-400">{exp.paymentMethod}</span>
-                              </div>
-
-                              <TableRowActions
-                                title={exp.description || exp.category}
-                                subtitle={`${exp.date} • ৳${exp.amount.toLocaleString()} (${exp.paymentMethod})`}
-                                actions={[
-                                  {
-                                    label: "View Full Details",
-                                    description: "Odometer, receipt image, merchant, notes",
-                                    icon: ExternalLink,
-                                    variant: "emerald",
-                                    onClick: () => setViewingExpenseDetail(exp),
-                                  },
-                                  {
-                                    label: "Edit Expense Record",
-                                    description: "Update amount, category, date or payment method",
-                                    icon: Edit2,
-                                    onClick: () => openEditModal(exp),
-                                  },
-                                  {
-                                    label: "Delete Expense",
-                                    description: "Permanently delete this entry",
-                                    icon: Trash2,
-                                    variant: "danger",
-                                    onClick: () => setExpenseToDelete(exp),
-                                  },
-                                ]}
-                              />
-                            </div>
+                {/* Desktop Grid View (hidden sm:grid) */}
+                <div className="hidden sm:grid sm:grid-cols-2 md:grid-cols-3 gap-3 p-4">
+                  {filteredExpenses.map((exp) => {
+                    const catConfig = getCategoryBadge(exp.category);
+                    return (
+                      <div
+                        key={exp.id}
+                        onClick={() => setViewingExpenseDetail(exp)}
+                        className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs hover:shadow-xs hover:border-slate-300 transition-all cursor-pointer flex flex-col justify-between group"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <Chip
+                              size="sm"
+                              color={catConfig.chipColor}
+                              label={exp.category}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openCategoryTrend(exp.category);
+                              }}
+                              className="border border-current/15 shadow-2xs max-w-[70%]"
+                              title={`Click to view trend graph for ${exp.category}`}
+                            />
+                            <span className="font-mono text-[10px] text-slate-400">{exp.date}</span>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+
+                          <div className="mt-2 text-xs font-bold text-slate-900 group-hover:text-blue-600 transition flex items-center justify-between">
+                            <span>{exp.description || "Daily Expense"}</span>
+                            <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                          </div>
+                          {exp.merchant && (
+                            <div className="text-[11px] text-slate-400">{exp.merchant}</div>
+                          )}
+                        </div>
+
+                        <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                          <div>
+                            <div className="font-mono font-bold text-slate-900 text-sm">
+                              ৳{exp.amount.toLocaleString()}
+                            </div>
+                            <span className="text-[10px] text-slate-400">{exp.paymentMethod}</span>
+                          </div>
+
+                          <TableRowActions
+                            title={exp.description || exp.category}
+                            subtitle={`${exp.date} • ৳${exp.amount.toLocaleString()} (${exp.paymentMethod})`}
+                            actions={[
+                              {
+                                label: "View Full Details",
+                                description: "Odometer, receipt image, merchant, notes",
+                                icon: ExternalLink,
+                                variant: "emerald",
+                                onClick: () => setViewingExpenseDetail(exp),
+                              },
+                              {
+                                label: "Edit Expense Record",
+                                description: "Update amount, category, date or payment method",
+                                icon: Edit2,
+                                onClick: () => openEditModal(exp),
+                              },
+                              {
+                                label: "Delete Expense",
+                                description: "Permanently delete this entry",
+                                icon: Trash2,
+                                variant: "danger",
+                                onClick: () => setExpenseToDelete(exp),
+                              },
+                            ]}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </>
+              </div>
             )}
           </div>
         </div>
