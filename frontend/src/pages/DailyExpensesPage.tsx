@@ -18,7 +18,6 @@ import {
   Clock,
   CreditCard,
   Banknote,
-  Percent,
   Filter,
   LineChart,
   Table,
@@ -33,9 +32,6 @@ import {
   Smartphone,
   Laptop,
   Coins,
-  ArrowUpDown,
-  Calendar,
-  TrendingUp,
   Zap,
   UtensilsCrossed,
   ShoppingBag,
@@ -2002,135 +1998,42 @@ export function DailyExpensesPage() {
 
           {activeTab === "expenses" && (
             <div className="space-y-3 sm:space-y-6">
-              {/* Mobile Compact Stats Cards (sm:hidden) matching reference mockup */}
-              <div className="sm:hidden grid grid-cols-3 gap-2">
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
-                  <div>
-                    <div className="h-7 w-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mb-1">
-                      <Calendar className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-tight">
-                      Today
-                    </div>
+              {/* Clean Responsive Stats Cards */}
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-2.5 sm:p-4 shadow-2xs">
+                  <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Today
                   </div>
-                  <div className="mt-2 text-xs font-black font-mono text-slate-900 truncate">
+                  <div className="mt-1 text-xs sm:text-xl font-black font-mono text-slate-900 truncate">
                     ৳{stats.todayTotal.toLocaleString()}
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
-                  <div>
-                    <div className="h-7 w-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mb-1">
-                      <TrendingUp className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-tight">
-                      This Month
-                    </div>
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-2.5 sm:p-4 shadow-2xs">
+                  <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">
+                    This Month
                   </div>
-                  <div className="mt-2 text-xs font-black font-mono text-emerald-600 truncate">
+                  <div className="mt-1 text-xs sm:text-xl font-black font-mono text-emerald-600 truncate">
                     ৳{stats.monthTotal.toLocaleString()}
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
-                  <div>
-                    <div className="h-7 w-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 mb-1">
-                      <LineChart className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 leading-tight">
-                      Daily Avg
-                    </div>
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-2.5 sm:p-4 shadow-2xs">
+                  <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Daily Avg
                   </div>
-                  <div className="mt-2 text-xs font-black font-mono text-amber-600 truncate">
+                  <div className="mt-1 text-xs sm:text-xl font-black font-mono text-amber-600 truncate">
                     ৳{stats.dailyAvg.toLocaleString()}
                   </div>
                 </div>
-              </div>
 
-              {/* Mobile Full-width Log Expense Button */}
-              <div className="sm:hidden">
-                <button
-                  type="button"
-                  onClick={openCreateModal}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#064e3b] to-[#0d825c] text-white font-bold text-xs shadow-sm hover:from-[#053d2e] hover:to-[#0a6d4d] active:scale-[0.99] transition cursor-pointer"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Log Expense</span>
-                </button>
-              </div>
-
-              {/* Desktop 4-Card Metric Grid (hidden sm:grid) */}
-              <div className="hidden sm:grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Today's Spent
+                <div className="hidden sm:block rounded-2xl border border-slate-200/90 bg-white p-2.5 sm:p-4 shadow-2xs">
+                  <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Top Category
                   </div>
-                  <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-slate-900">
-                    ৳{stats.todayTotal.toLocaleString()}
+                  <div className="mt-1 text-sm sm:text-base font-bold text-slate-900 truncate">
+                    {stats.topCat}
                   </div>
-                  <div className="mt-1 text-[11px] text-slate-400 flex items-center gap-1">
-                    <Clock className="h-3 w-3 text-amber-500" />
-                    <span>{new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs flex flex-col justify-between">
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      This Month's Total
-                    </div>
-                    <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-amber-600">
-                      ৳{stats.monthTotal.toLocaleString()}
-                    </div>
-                    <div className="mt-1 text-[11px] text-slate-400">
-                      {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => openCategoryTrend("all")}
-                    className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100/80 px-2 py-1 rounded-lg border border-amber-200/80 transition cursor-pointer w-fit"
-                  >
-                    <LineChart className="h-3 w-3" />
-                    <span>View Trends & Compare</span>
-                  </button>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Daily Average
-                  </div>
-                  <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-slate-900">
-                    ৳{stats.dailyAvg.toLocaleString()}
-                    <span className="text-xs font-normal text-slate-400">/day</span>
-                  </div>
-                  <div className="mt-1 text-[11px] text-slate-400">Based on past {new Date().getDate()} days</div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs flex flex-col justify-between">
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Top Expense
-                    </div>
-                    <div className="mt-1 text-sm sm:text-base font-bold text-slate-900 truncate">
-                      {stats.topCat}
-                    </div>
-                    <div className="mt-1 text-[11px] text-slate-400">
-                      {stats.categoryTotals[stats.topCat]
-                        ? `৳${stats.categoryTotals[stats.topCat].toLocaleString()} this month`
-                        : "No entries yet"}
-                    </div>
-                  </div>
-                  {stats.topCat !== "—" && (
-                    <button
-                      type="button"
-                      onClick={() => openCategoryTrend(stats.topCat)}
-                      className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100/80 px-2 py-1 rounded-lg border border-emerald-200/80 transition cursor-pointer truncate max-w-full w-fit"
-                    >
-                      <LineChart className="h-3 w-3 shrink-0" />
-                      <span className="truncate">See {stats.topCat} Trend</span>
-                    </button>
-                  )}
                 </div>
               </div>
 
@@ -2254,17 +2157,6 @@ export function DailyExpensesPage() {
                 )}
               </button>
 
-              {/* Trend Graph Button */}
-              <button
-                type="button"
-                onClick={() => openCategoryTrend(categoryFilter !== "all" ? categoryFilter : "all")}
-                className="inline-flex items-center gap-1 rounded-xl border border-slate-200/90 bg-white px-2 sm:px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-2xs transition cursor-pointer shrink-0"
-                title="View Category Trend Graph & Month Comparison"
-              >
-                <LineChart className="h-3.5 w-3.5 text-emerald-600" />
-                <span className="hidden sm:inline">Trend Graph</span>
-              </button>
-
               {/* View mode toggle */}
               <ViewModeToggle
                 viewMode={viewMode}
@@ -2274,14 +2166,14 @@ export function DailyExpensesPage() {
                 listValue="table"
               />
 
-              {/* Desktop Only Log Expense Button */}
+              {/* Log Expense Button */}
               <button
                 type="button"
                 onClick={openCreateModal}
-                className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer shrink-0"
+                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3 sm:px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer shrink-0"
               >
                 <Plus className="h-3.5 w-3.5" />
-                <span>Log Expense</span>
+                <span className="hidden xs:inline">Log Expense</span>
               </button>
             </div>
 
@@ -2686,132 +2578,51 @@ export function DailyExpensesPage() {
           {/* BANKING & FINANCIAL OBLIGATIONS VIEW */}
           {activeTab === "banking" && (
             <div className="space-y-6">
-              {/* Compact Mobile Banking Metric Cards (2x2 grid) */}
-              <div className="sm:hidden grid grid-cols-2 gap-2">
-                <div className="rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
+              {/* Clean Responsive Banking Metric Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-2xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-semibold text-slate-500">Total Commitments</span>
-                    <Wallet className="h-3 w-3 text-indigo-500 shrink-0" />
-                  </div>
-                  <div className="mt-1">
-                    <div className="text-xs font-black font-mono text-slate-900 truncate">
-                      ৳{bankingMetrics.totalTarget.toLocaleString()}
-                    </div>
-                    <div className="text-[9px] text-slate-400 truncate mt-0.5">
-                      {unifiedObligations.length} obligations
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-semibold text-slate-500">Paid / Deposited</span>
-                    <Coins className="h-3 w-3 text-emerald-600 shrink-0" />
-                  </div>
-                  <div className="mt-1">
-                    <div className="text-xs font-black font-mono text-emerald-600 truncate">
-                      ৳{bankingMetrics.cumulativePaid.toLocaleString()}
-                    </div>
-                    <div className="text-[9px] text-emerald-600 font-semibold truncate mt-0.5">
-                      ↑ {bankingMetrics.overallPct}% cleared
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-semibold text-slate-500">Remaining</span>
-                    <Clock className="h-3 w-3 text-amber-500 shrink-0" />
-                  </div>
-                  <div className="mt-1">
-                    <div className="text-xs font-black font-mono text-amber-600 truncate">
-                      ৳{bankingMetrics.totalRemaining.toLocaleString()}
-                    </div>
-                    <div className="text-[9px] text-amber-600 font-medium truncate mt-0.5">
-                      Outstanding balance
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-semibold text-slate-500">Active Portfolios</span>
-                    <CheckCircle2 className="h-3 w-3 text-slate-400 shrink-0" />
-                  </div>
-                  <div className="mt-1">
-                    <div className="text-xs font-black font-mono text-slate-900 truncate">
-                      {bankingMetrics.activeCount} <span className="text-[10px] font-normal text-slate-400">/ {unifiedObligations.length}</span>
-                    </div>
-                    <div className="text-[9px] text-slate-400 truncate mt-0.5">
-                      {unifiedObligations.length - bankingMetrics.activeCount} closed
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Desktop 4-Card Compact Metric Grid */}
-              <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-3 shadow-2xs flex flex-col justify-between">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Commitments</span>
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Total Commitments</span>
                     <Wallet className="h-3.5 w-3.5 text-indigo-500" />
                   </div>
-                  <div className="mt-1">
-                    <div className="text-lg sm:text-xl font-black font-mono text-slate-900">
-                      ৳{bankingMetrics.totalTarget.toLocaleString()}
-                    </div>
-                    <div className="mt-0.5 text-[11px] text-slate-400 flex items-center gap-1">
-                      <span>{unifiedObligations.length} obligations (EMIs, Loans, DPS)</span>
-                    </div>
+                  <div className="mt-1 text-base sm:text-xl font-black font-mono text-slate-900 truncate">
+                    ৳{bankingMetrics.totalTarget.toLocaleString()}
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-3 shadow-2xs flex flex-col justify-between">
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-2xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Cumulative Paid / Deposited</span>
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Paid / Deposited</span>
                     <Coins className="h-3.5 w-3.5 text-emerald-600" />
                   </div>
-                  <div className="mt-1">
-                    <div className="text-lg sm:text-xl font-black font-mono text-emerald-600">
+                  <div className="mt-1 flex items-baseline gap-1.5 truncate">
+                    <span className="text-base sm:text-xl font-black font-mono text-emerald-600 truncate">
                       ৳{bankingMetrics.cumulativePaid.toLocaleString()}
-                    </div>
-                    <div className="mt-0.5 text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
-                      <Percent className="h-3 w-3" />
-                      <span>{bankingMetrics.overallPct}% Cleared / Deposited</span>
-                    </div>
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200/60 shrink-0">
+                      {bankingMetrics.overallPct}%
+                    </span>
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-3 shadow-2xs flex flex-col justify-between">
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-2xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Remaining Balance</span>
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Remaining</span>
                     <Clock className="h-3.5 w-3.5 text-amber-500" />
                   </div>
-                  <div className="mt-1">
-                    <div className="text-lg sm:text-xl font-black font-mono text-amber-700">
-                      ৳{bankingMetrics.totalRemaining.toLocaleString()}
-                    </div>
-                    <div className="mt-0.5 text-[11px] text-slate-400">
-                      Outstanding commitments to clear
-                    </div>
+                  <div className="mt-1 text-base sm:text-xl font-black font-mono text-amber-600 truncate">
+                    ৳{bankingMetrics.totalRemaining.toLocaleString()}
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-3 shadow-2xs flex flex-col justify-between">
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-2xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Portfolios</span>
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Active</span>
                     <CheckCircle2 className="h-3.5 w-3.5 text-slate-400" />
                   </div>
-                  <div className="mt-1">
-                    <div className="text-lg sm:text-xl font-black font-mono text-slate-900">
-                      {bankingMetrics.activeCount}
-                      <span className="text-xs font-normal text-slate-400 ml-1.5">
-                        / {unifiedObligations.length} total
-                      </span>
-                    </div>
-                    <div className="mt-0.5 text-[11px] text-slate-400">
-                      {unifiedObligations.length - bankingMetrics.activeCount} completed & closed
-                    </div>
+                  <div className="mt-1 text-base sm:text-xl font-black font-mono text-slate-900 truncate">
+                    {bankingMetrics.activeCount}
+                    <span className="text-xs font-normal text-slate-400 ml-1">/ {unifiedObligations.length}</span>
                   </div>
                 </div>
               </div>
@@ -3029,24 +2840,9 @@ export function DailyExpensesPage() {
                         <h3 className="text-sm font-bold text-slate-900">
                           Obligations
                         </h3>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openCategoryTrend("Loan & EMI Repayment")}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#064e3b] border border-emerald-200/80 text-xs font-bold transition cursor-pointer shadow-2xs"
-                          title="Compare Trends"
-                        >
-                          <LineChart className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Compare</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition cursor-pointer"
-                          title="Sort"
-                        >
-                          <ArrowUpDown className="w-3.5 h-3.5" />
-                        </button>
+                        <span className="text-xs text-slate-400 font-mono">
+                          ({filteredObligations.length})
+                        </span>
                       </div>
                     </div>
 
