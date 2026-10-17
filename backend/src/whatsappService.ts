@@ -149,7 +149,25 @@ async function startSocket(): Promise<void> {
       try {
         await s.updateProfileName("Likhe Rakho");
         await s.updateProfileStatus("Likhe Rakho (লিখে রাখো) - Automated Family Finance & Asset Assistant");
-      } catch {}
+
+        const logoCandidates = [
+          path.resolve(process.cwd(), "likhe-rakho-logo.png"),
+          path.resolve(process.cwd(), "../frontend/public/likhe-rakho-logo.png"),
+          path.resolve(__dirname, "../likhe-rakho-logo.png"),
+          path.resolve(__dirname, "../../frontend/public/likhe-rakho-logo.png"),
+        ];
+        const logoPath = logoCandidates.find((p) => fs.existsSync(p));
+        if (logoPath && s.user?.id) {
+          try {
+            await s.updateProfilePicture(s.user.id, fs.readFileSync(logoPath));
+            console.log("[Likhe Rakho WhatsApp] Updated WhatsApp profile picture to new Likhe Rakho logo from", logoPath);
+          } catch (picErr) {
+            console.warn("[Likhe Rakho WhatsApp] Could not update profile picture:", picErr);
+          }
+        }
+      } catch (err) {
+        console.warn("[Likhe Rakho WhatsApp] Profile update error:", err);
+      }
     }
 
     if (connection === "close") {
@@ -293,4 +311,32 @@ export async function disconnectWhatsApp(): Promise<{ success: boolean }> {
   connectedPhone = null;
   qrCodeDataUrl = null;
   return { success: true };
+}
+
+export async function syncWhatsAppProfile(): Promise<{ success: boolean; error?: string }> {
+  if (!sock || status !== "connected" || !sock.user) {
+    return { success: false, error: "WhatsApp is not connected." };
+  }
+  try {
+    await sock.updateProfileName("Likhe Rakho");
+    await sock.updateProfileStatus("Likhe Rakho (লিখে রাখো) - Automated Family Finance & Asset Assistant");
+
+    const logoCandidates = [
+      path.resolve(process.cwd(), "likhe-rakho-logo.png"),
+      path.resolve(process.cwd(), "../frontend/public/likhe-rakho-logo.png"),
+      path.resolve(__dirname, "../likhe-rakho-logo.png"),
+      path.resolve(__dirname, "../../frontend/public/likhe-rakho-logo.png"),
+    ];
+    const logoPath = logoCandidates.find((p) => fs.existsSync(p));
+    if (logoPath && sock.user?.id) {
+      try {
+        await sock.updateProfilePicture(sock.user.id, fs.readFileSync(logoPath));
+      } catch (e) {
+        console.warn("[Likhe Rakho WhatsApp] sync profile picture error:", e);
+      }
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Sync failed" };
+  }
 }

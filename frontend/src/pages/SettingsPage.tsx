@@ -192,7 +192,7 @@ export function SettingsPage() {
       alert("Please enter a valid recipient WhatsApp number first.");
       return;
     }
-    const sampleAlertText = `🌿 *Aponjon* (Family Assistant)\n\nHi ${settings.fullName || "there"}, this is a test notification from your family assistant.\nYour automated WhatsApp reminder service is connected and ready.\n\nVerified on *${new Date().toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}*\nImportant task reminders, rent updates, and vehicle document renewals will be delivered to you here.\n\nHave a great day!`;
+    const sampleAlertText = `🌿 *Likhe Rakho* (লিখে রাখো)\n\nHi ${settings.fullName || "there"}, this is a test notification from your personal assistant.\nYour automated WhatsApp reminder service is connected and ready.\n\nVerified on *${new Date().toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}*\nImportant task reminders, rent updates, and vehicle document renewals will be delivered to you here.\n\nHave a great day!\nManage on Likhe Rakho: https://likherakho.vercel.app`;
     const encoded = encodeURIComponent(sampleAlertText);
     const waUrl = `https://wa.me/${fullNumber}?text=${encoded}`;
     window.open(waUrl, "_blank");

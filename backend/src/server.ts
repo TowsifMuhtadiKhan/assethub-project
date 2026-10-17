@@ -27,6 +27,7 @@ import {
   restartWhatsAppGateway,
   requestWhatsAppPairingCode,
   initWhatsAppGateway,
+  syncWhatsAppProfile,
 } from "./whatsappService.js";
 
 process.on("unhandledRejection", (reason) => {
@@ -502,6 +503,19 @@ app.post("/api/whatsapp/pairing-code", async (req: Request, res: Response) => {
     });
   }
 });
+
+app.post("/api/whatsapp/sync-profile", async (_req: Request, res: Response) => {
+  try {
+    const result = await syncWhatsAppProfile();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to sync profile",
+    });
+  }
+});
+
 
 interface DispatchedMessageLog {
   id: string;

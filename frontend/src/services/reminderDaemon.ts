@@ -127,7 +127,7 @@ export function buildTaskWhatsAppMessage(task: TaskItem): string {
     : "today";
 
   const lines = [
-    `🔔 *Aponjon*`,
+    `🔔 *Likhe Rakho* (লিখে রাখো)`,
     ``,
     `Hi, you have a task due soon:`,
     `*${task.title}*`,
@@ -149,6 +149,7 @@ export function buildTaskWhatsAppMessage(task: TaskItem): string {
   }
 
   lines.push(``, `Please take care of it when you can. Have a wonderful day!`);
+  lines.push(`Manage on Likhe Rakho: https://likherakho.vercel.app`);
   return lines.join("\n");
 }
 
@@ -223,7 +224,7 @@ export function buildVehicleDocWhatsAppMessage(doc: VehicleDocument, vehicle?: V
     : "soon";
 
   const lines = [
-    `🚗 *Aponjon*`,
+    `🚗 *Likhe Rakho* (লিখে রাখো)`,
     ``,
     `Hi, this is a reminder that your vehicle paper is expiring:`,
     `*${doc.name}*`,
@@ -245,6 +246,7 @@ export function buildVehicleDocWhatsAppMessage(doc: VehicleDocument, vehicle?: V
   }
 
   lines.push(``, `Please complete the renewal on time to avoid BRTA penalties.`);
+  lines.push(`Manage on Likhe Rakho: https://likherakho.vercel.app`);
   return lines.join("\n");
 }
 
