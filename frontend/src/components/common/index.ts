@@ -8,4 +8,5 @@ export * from "./TableRowActions";
 export * from "./ViewModeToggle";
 export * from "./LoadingStates";
 export * from "./ErrorBoundary";
+export * from "./PlanUpgradeModal";
 export * from "../../theme/theme";

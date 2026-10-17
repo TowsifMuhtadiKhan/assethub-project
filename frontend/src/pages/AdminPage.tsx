@@ -19,7 +19,9 @@ import {
   ArrowRight,
   Save,
   Download,
+  Crown,
 } from "lucide-react";
+import { AdminSubscriptionTab } from "../components/admin/AdminSubscriptionTab";
 import {
   adminLogin,
   getAdminStats,
@@ -75,7 +77,8 @@ export function AdminPage() {
   const tabParam = searchParams.get("tab");
 
   // Active Admin Tab
-  const [activeTab, setActiveTab] = useState<"whatsapp" | "drive" | "messages" | "queue" | "apk">(() => {
+  const [activeTab, setActiveTab] = useState<"whatsapp" | "drive" | "messages" | "queue" | "apk" | "subscriptions">(() => {
+    if (tabParam === "subscriptions" || tabParam === "users" || tabParam === "plans") return "subscriptions";
     if (tabParam === "apk" || tabParam === "app" || tabParam === "mobile") return "apk";
     if (tabParam === "whatsapp") return "whatsapp";
     if (tabParam === "drive") return "drive";
@@ -83,7 +86,7 @@ export function AdminPage() {
     return "messages";
   });
 
-  const switchTab = (tab: "whatsapp" | "drive" | "messages" | "queue" | "apk") => {
+  const switchTab = (tab: "whatsapp" | "drive" | "messages" | "queue" | "apk" | "subscriptions") => {
     setActiveTab(tab);
     setSearchParams({ tab });
   };
@@ -718,6 +721,19 @@ export function AdminPage() {
           >
             <Smartphone className="h-3.5 w-3.5 text-emerald-400" />
             <span>Mobile App & APK Distribution</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => switchTab("subscriptions")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2 ${
+              activeTab === "subscriptions"
+                ? "bg-slate-900 text-white shadow-xs"
+                : "bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/90 shadow-2xs"
+            }`}
+          >
+            <Crown className="h-3.5 w-3.5 text-amber-500 fill-amber-400" />
+            <span>Users & Subscriptions (প্ল্যান অ্যাক্সেস)</span>
           </button>
         </div>
 
@@ -1545,6 +1561,13 @@ export function AdminPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* ===================================================================
+            TAB 6: USER SUBSCRIPTIONS & ACCESS CONTROL
+            =================================================================== */}
+        {activeTab === "subscriptions" && (
+          <AdminSubscriptionTab />
         )}
       </main>
     </div>

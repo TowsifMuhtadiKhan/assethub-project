@@ -50,6 +50,8 @@ import { SqlSetupBanner } from "../components/common/SqlSetupBanner";
 import { TableRowActions } from "../components/common/TableRowActions";
 import { BrandLogoLoader } from "../components/common/LoadingStates";
 import { ViewModeToggle } from "../components/common/ViewModeToggle";
+import { checkPlanLimit, type PlanTier } from "../services/subscriptionService";
+import { PlanUpgradeModal } from "../components/common/PlanUpgradeModal";
 import {
   FormControl,
   Select,
@@ -250,6 +252,38 @@ export function DocumentsPage() {
   // Modals & Actions
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
+
+  const [upgradeModal, setUpgradeModal] = useState<{
+    isOpen: boolean;
+    featureName: string;
+    currentTier: PlanTier;
+    recommendedTier?: PlanTier;
+    currentCount?: number;
+    maxLimit?: number;
+    customMessage?: string;
+  }>({
+    isOpen: false,
+    featureName: "Document Vault",
+    currentTier: "Free",
+  });
+
+  const handleOpenUploadDocument = async () => {
+    const check = await checkPlanLimit("documents", documents.length);
+    if (!check.allowed) {
+      setUpgradeModal({
+        isOpen: true,
+        featureName: "Document Vault (ডকুমেন্ট সংরক্ষণ)",
+        currentTier: check.tier,
+        recommendedTier: check.recommendedPlan || "Personal",
+        currentCount: check.current,
+        maxLimit: check.limit,
+        customMessage: check.message,
+      });
+      return;
+    }
+    setIsAddOpen(true);
+  };
+
   const [addDocTab, setAddDocTab] = useState<"basic" | "advanced">("basic");
   const [folderToRename, setFolderToRename] = useState<DocumentFolder | null>(null);
   const [renameInputValue, setRenameInputValue] = useState("");
@@ -929,7 +963,7 @@ export function DocumentsPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsAddOpen(true)}
+                  onClick={handleOpenUploadDocument}
                   className="inline-flex items-center gap-1 rounded-full bg-[#064e3b] hover:bg-[#073f30] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs active:scale-95 transition cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
@@ -965,7 +999,7 @@ export function DocumentsPage() {
             </button>
             <button
               type="button"
-              onClick={() => setIsAddOpen(true)}
+              onClick={handleOpenUploadDocument}
               className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] active:scale-95 transition cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -1467,7 +1501,7 @@ export function DocumentsPage() {
                 <div className="mt-5 flex items-center justify-center gap-2.5 flex-wrap">
                   <button
                     type="button"
-                    onClick={() => setIsAddOpen(true)}
+                    onClick={handleOpenUploadDocument}
                     className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-2 text-xs font-semibold text-white hover:from-[#073f30] hover:to-[#0b6e4e] transition shadow-sm shadow-emerald-950/20 cursor-pointer"
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -1787,7 +1821,7 @@ export function DocumentsPage() {
                 type="button"
                 onClick={() => {
                   setContextMenu(null);
-                  setIsAddOpen(true);
+                  handleOpenUploadDocument();
                 }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition cursor-pointer font-medium text-left"
               >
@@ -2970,6 +3004,18 @@ export function DocumentsPage() {
           </div>
         </div>
       )}
+
+      {/* Plan Upgrade Limit Modal */}
+      <PlanUpgradeModal
+        isOpen={upgradeModal.isOpen}
+        onClose={() => setUpgradeModal((prev) => ({ ...prev, isOpen: false }))}
+        featureName={upgradeModal.featureName}
+        currentTier={upgradeModal.currentTier}
+        recommendedTier={upgradeModal.recommendedTier}
+        currentCount={upgradeModal.currentCount}
+        maxLimit={upgradeModal.maxLimit}
+        customMessage={upgradeModal.customMessage}
+      />
     </div>
   );
 }

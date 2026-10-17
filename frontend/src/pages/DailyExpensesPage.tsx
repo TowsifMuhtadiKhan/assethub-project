@@ -1614,90 +1614,90 @@ export function DailyExpensesPage() {
             </div>
           </div>
         )}
+      </div>
 
-        {/* Mobile Add Obligation Bottom Sheet Popup (matches AppLayout style) */}
-        {showAddObligationDropdown && (
+      {/* Mobile Add Obligation Bottom Sheet Popup (rendered at top level so it is visible on mobile) */}
+      {showAddObligationDropdown && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 backdrop-blur-xs sm:hidden animate-in fade-in duration-150"
+          onClick={() => setShowAddObligationDropdown(false)}
+        >
           <div
-            className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 backdrop-blur-xs sm:hidden animate-in fade-in duration-150"
-            onClick={() => setShowAddObligationDropdown(false)}
+            className="w-full max-h-[85dvh] overflow-y-auto rounded-t-3xl border-t border-slate-200 bg-white shadow-2xl p-4 text-slate-900 animate-in slide-in-from-bottom duration-200"
+            style={{
+              paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))",
+            }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <div
-              className="w-full max-h-[85dvh] overflow-y-auto rounded-t-3xl border-t border-slate-200 bg-white shadow-2xl p-4 text-slate-900 animate-in slide-in-from-bottom duration-200"
-              style={{
-                paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="mx-auto mb-2.5 h-1.5 w-12 rounded-full bg-slate-200" />
+            <div className="mx-auto mb-2.5 h-1.5 w-12 rounded-full bg-slate-200" />
 
-              <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    Add Obligation
-                  </h3>
-                  <p className="text-[11px] text-slate-400">
-                    Save loans, EMIs, credit cards, or DPS savings
-                  </p>
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Add Obligation
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  Save loans, EMIs, credit cards, or DPS savings
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddObligationDropdown(false)}
+                className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddObligationDropdown(false);
+                  openAddLoanModal();
+                }}
+                className="w-full flex items-center gap-3.5 p-3 rounded-2xl border border-slate-200/90 bg-white hover:bg-emerald-50/50 active:scale-[0.99] transition text-left cursor-pointer group shadow-2xs"
+              >
+                <div className="h-11 w-11 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-700 flex items-center justify-center shrink-0">
+                  <CreditCard className="h-5 w-5" />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowAddObligationDropdown(false)}
-                  className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-900">
+                    Loan, EMI or Card
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    Consumer EMI, credit card bill, bank loan
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-500 shrink-0" />
+              </button>
 
-              <div className="mt-3 space-y-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddObligationDropdown(false);
-                    openAddLoanModal();
-                  }}
-                  className="w-full flex items-center gap-3.5 p-3 rounded-2xl border border-slate-200/90 bg-white hover:bg-emerald-50/50 active:scale-[0.99] transition text-left cursor-pointer group shadow-2xs"
-                >
-                  <div className="h-11 w-11 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-700 flex items-center justify-center shrink-0">
-                    <CreditCard className="h-5 w-5" />
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddObligationDropdown(false);
+                  setLoansViewSubTab("savings");
+                  setTriggerAddSavings(true);
+                }}
+                className="w-full flex items-center gap-3.5 p-3 rounded-2xl border border-slate-200/90 bg-white hover:bg-teal-50/50 active:scale-[0.99] transition text-left cursor-pointer group shadow-2xs"
+              >
+                <div className="h-11 w-11 rounded-xl bg-teal-50 border border-teal-200/80 text-teal-700 flex items-center justify-center shrink-0">
+                  <Landmark className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold text-slate-900 group-hover:text-teal-900">
+                    DPS / FDR Scheme
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-900">
-                      Loan, EMI or Card
-                    </div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">
-                      Consumer EMI, credit card bill, bank loan
-                    </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    Monthly recurring DPS, fixed deposit scheme
                   </div>
-                  <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-500 shrink-0" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddObligationDropdown(false);
-                    setLoansViewSubTab("savings");
-                    setTriggerAddSavings(true);
-                  }}
-                  className="w-full flex items-center gap-3.5 p-3 rounded-2xl border border-slate-200/90 bg-white hover:bg-teal-50/50 active:scale-[0.99] transition text-left cursor-pointer group shadow-2xs"
-                >
-                  <div className="h-11 w-11 rounded-xl bg-teal-50 border border-teal-200/80 text-teal-700 flex items-center justify-center shrink-0">
-                    <Landmark className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-slate-900 group-hover:text-teal-900">
-                      DPS / FDR Scheme
-                    </div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">
-                      Monthly recurring DPS, fixed deposit scheme
-                    </div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-500 shrink-0" />
-                </button>
-              </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-500 shrink-0" />
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* 2. LOADING STATE OR PROFILE SELECTOR / EXPENSES DASHBOARD                 */}

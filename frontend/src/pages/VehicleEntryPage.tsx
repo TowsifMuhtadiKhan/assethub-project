@@ -30,6 +30,8 @@ import {
   updateVehicle,
 } from "../services/vehicleService";
 import { getCurrentUserAccess, type CurrentUserAccessResult } from "../services/familyService";
+import { checkPlanLimit, type PlanTier } from "../services/subscriptionService";
+import { PlanUpgradeModal } from "../components/common/PlanUpgradeModal";
 import type { Vehicle, VehicleType } from "../types";
 
 export function getVehicleIcon(type: string) {
@@ -99,6 +101,38 @@ export function VehicleEntryPage({
   const [formOpen, setFormOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle>();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  const [upgradeModal, setUpgradeModal] = useState<{
+    isOpen: boolean;
+    featureName: string;
+    currentTier: PlanTier;
+    recommendedTier?: PlanTier;
+    currentCount?: number;
+    maxLimit?: number;
+    customMessage?: string;
+  }>({
+    isOpen: false,
+    featureName: "Vehicle",
+    currentTier: "Free",
+  });
+
+  const handleOpenAddVehicle = async () => {
+    const check = await checkPlanLimit("vehicles", vehicles.length);
+    if (!check.allowed) {
+      setUpgradeModal({
+        isOpen: true,
+        featureName: "Vehicle (গাড়ি)",
+        currentTier: check.tier,
+        recommendedTier: check.recommendedPlan || "Personal",
+        currentCount: check.current,
+        maxLimit: check.limit,
+        customMessage: check.message,
+      });
+      return;
+    }
+    setEditingVehicle(undefined);
+    setFormOpen(true);
+  };
 
   // Mobile Header Portal State
   const [headerPortalEl, setHeaderPortalEl] = useState<HTMLElement | null>(null);
@@ -340,10 +374,7 @@ export function VehicleEntryPage({
           <div className="flex items-center gap-1.5 lg:hidden">
             <button
               type="button"
-              onClick={() => {
-                setEditingVehicle(undefined);
-                setFormOpen(true);
-              }}
+              onClick={handleOpenAddVehicle}
               className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs active:scale-95 transition cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -373,10 +404,7 @@ export function VehicleEntryPage({
           </Link>
           <button
             type="button"
-            onClick={() => {
-              setEditingVehicle(undefined);
-              setFormOpen(true);
-            }}
+            onClick={handleOpenAddVehicle}
             className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] active:scale-95 transition cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -795,6 +823,18 @@ export function VehicleEntryPage({
           </div>
         </div>
       )}
+
+      {/* Plan Upgrade Limit Modal */}
+      <PlanUpgradeModal
+        isOpen={upgradeModal.isOpen}
+        onClose={() => setUpgradeModal((prev) => ({ ...prev, isOpen: false }))}
+        featureName={upgradeModal.featureName}
+        currentTier={upgradeModal.currentTier}
+        recommendedTier={upgradeModal.recommendedTier}
+        currentCount={upgradeModal.currentCount}
+        maxLimit={upgradeModal.maxLimit}
+        customMessage={upgradeModal.customMessage}
+      />
     </div>
   );
 }

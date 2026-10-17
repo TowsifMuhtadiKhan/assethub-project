@@ -62,6 +62,8 @@ import { getCurrentUserAccess, type CurrentUserAccessResult } from "../services/
 import { BrandLogoLoader } from "../components/common/LoadingStates";
 import { TableRowActions } from "../components/common/TableRowActions";
 import { ViewModeToggle } from "../components/common/ViewModeToggle";
+import { checkPlanLimit, type PlanTier } from "../services/subscriptionService";
+import { PlanUpgradeModal } from "../components/common/PlanUpgradeModal";
 
 export const BD_PROPERTY_DOC_PRESETS = [
   {
@@ -197,6 +199,54 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
   const [mScanSuccess, setMScanSuccess] = useState("");
   const [mExtractedText, setMExtractedText] = useState("");
   const [userAccess, setUserAccess] = useState<CurrentUserAccessResult | null>(null);
+
+  const [upgradeModal, setUpgradeModal] = useState<{
+    isOpen: boolean;
+    featureName: string;
+    currentTier: PlanTier;
+    recommendedTier?: PlanTier;
+    currentCount?: number;
+    maxLimit?: number;
+    customMessage?: string;
+  }>({
+    isOpen: false,
+    featureName: "Property",
+    currentTier: "Free",
+  });
+
+  const handleOpenAddProperty = async () => {
+    const check = await checkPlanLimit("properties", data?.properties.length || 0);
+    if (!check.allowed) {
+      setUpgradeModal({
+        isOpen: true,
+        featureName: "Property (বাড়ি / প্রোপার্টি)",
+        currentTier: check.tier,
+        recommendedTier: check.recommendedPlan || "Property_Pro",
+        currentCount: check.current,
+        maxLimit: check.limit,
+        customMessage: check.message,
+      });
+      return;
+    }
+    setEditor({ type: "property" });
+  };
+
+  const handleOpenAddUnit = async () => {
+    const check = await checkPlanLimit("units", data?.units.length || 0);
+    if (!check.allowed) {
+      setUpgradeModal({
+        isOpen: true,
+        featureName: "Flat / Unit (ফ্ল্যাট বা রুম)",
+        currentTier: check.tier,
+        recommendedTier: check.recommendedPlan || "Property_Pro",
+        currentCount: check.current,
+        maxLimit: check.limit,
+        customMessage: check.message,
+      });
+      return;
+    }
+    setEditor({ type: "flat" });
+  };
 
   // Mobile Header Portal State
   const [headerPortalEl, setHeaderPortalEl] = useState<HTMLElement | null>(null);
@@ -664,7 +714,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
             <button
               type="button"
               className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] active:scale-95 transition cursor-pointer"
-              onClick={() => setEditor({ type: "flat" })}
+              onClick={handleOpenAddUnit}
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Add flat</span>
@@ -692,7 +742,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                 <button
                   type="button"
                   className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs active:scale-95 transition cursor-pointer"
-                  onClick={() => setEditor({ type: "property" })}
+                  onClick={handleOpenAddProperty}
                   disabled={!data}
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -729,7 +779,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                 <button
                   type="button"
                   className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] active:scale-95 transition cursor-pointer"
-                  onClick={() => setEditor({ type: "property" })}
+                  onClick={handleOpenAddProperty}
                   disabled={!data}
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -2676,6 +2726,18 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
           />
         </>
       )}
+
+      {/* Plan Upgrade Limit Modal */}
+      <PlanUpgradeModal
+        isOpen={upgradeModal.isOpen}
+        onClose={() => setUpgradeModal((prev) => ({ ...prev, isOpen: false }))}
+        featureName={upgradeModal.featureName}
+        currentTier={upgradeModal.currentTier}
+        recommendedTier={upgradeModal.recommendedTier}
+        currentCount={upgradeModal.currentCount}
+        maxLimit={upgradeModal.maxLimit}
+        customMessage={upgradeModal.customMessage}
+      />
     </div>
   );
 }
