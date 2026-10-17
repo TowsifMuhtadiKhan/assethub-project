@@ -105,11 +105,14 @@ export function ConfirmationModal({
             <div
               className={`h-10 w-10 rounded-2xl border flex items-center justify-center shrink-0 ${currentVariant.iconContainer}`}
             >
-              {typeof IconComp === "function" ? (
-                <IconComp className="w-5 h-5" />
-              ) : (
+              {React.isValidElement(IconComp) ? (
                 IconComp
-              )}
+              ) : IconComp ? (
+                (() => {
+                  const Comp = IconComp as React.ComponentType<{ className?: string }>;
+                  return <Comp className="w-5 h-5" />;
+                })()
+              ) : null}
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900 tracking-tight leading-snug">

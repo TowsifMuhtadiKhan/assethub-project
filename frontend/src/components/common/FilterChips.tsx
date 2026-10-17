@@ -104,7 +104,14 @@ export function FilterChips<T extends string | number = string>({
           >
             {Icon && (
               <span className="shrink-0">
-                {typeof Icon === "function" ? <Icon className={sz.icon} /> : Icon}
+                {React.isValidElement(Icon) ? (
+                  Icon
+                ) : (
+                  (() => {
+                    const Comp = Icon as React.ComponentType<{ className?: string }>;
+                    return <Comp className={sz.icon} />;
+                  })()
+                )}
               </span>
             )}
             <span>{chip.label}</span>

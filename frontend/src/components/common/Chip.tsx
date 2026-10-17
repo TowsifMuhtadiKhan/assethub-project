@@ -144,7 +144,14 @@ export const Chip: React.FC<ChipProps> = ({
       {/* 2. Left Icon (if provided and no avatar) */}
       {!avatar && Icon && (
         <span className={`shrink-0 ${cStyle.icon}`}>
-          {typeof Icon === "function" ? <Icon className={sStyle.icon} /> : Icon}
+          {React.isValidElement(Icon) ? (
+            Icon
+          ) : (
+            (() => {
+              const Comp = Icon as React.ComponentType<{ className?: string }>;
+              return <Comp className={sStyle.icon} />;
+            })()
+          )}
         </span>
       )}
 
