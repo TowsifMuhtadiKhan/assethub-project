@@ -520,7 +520,7 @@ export async function removeMemberPin(
 const LOANS_TABLE = "lifenest_member_loans";
 const LOCAL_LOANS_KEY = "lifenest_member_loans_list";
 
-function getLocalLoans(): MemberLoan[] {
+export function getLocalLoans(): MemberLoan[] {
   try {
     const raw = localStorage.getItem(LOCAL_LOANS_KEY);
     return raw ? JSON.parse(raw) : [];

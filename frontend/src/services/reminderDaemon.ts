@@ -1,7 +1,8 @@
 import { listTasks } from "./taskService";
 import { getLocalWhatsAppContacts, getUserSettings } from "./settingsService";
 import { sendSystemWhatsAppAlert, formatRecipientNumber } from "./whatsappService";
-import type { TaskItem, VehicleDocument, Vehicle } from "../types";
+import { getLocalLoans } from "./dailyExpenseService";
+import type { TaskItem, VehicleDocument, Vehicle, MemberLoan, LoanRepaymentSegment } from "../types";
 
 /**
  * Parses reminder lead in minutes from task or document notes or string
@@ -446,11 +447,145 @@ export async function checkAndDispatchDueReminders(): Promise<number> {
       console.warn("[LifeNest ReminderDaemon] Vehicle doc scan error:", e);
     }
 
+    // 3. Scan Member Loans (EMI / Banking obligations)
+    try {
+      const loanCount = await checkLoanReminders();
+      sentCount += loanCount;
+    } catch (e) {
+      console.warn("[LifeNest ReminderDaemon] Loan scan error:", e);
+    }
+
     return sentCount;
   } catch (err) {
     console.warn("[LifeNest ReminderDaemon] Scan error:", err);
     return 0;
   }
+}
+
+/**
+ * Builds standard WhatsApp alert text for due loan/EMI installment
+ */
+export function buildLoanReminderMessage(
+  loan: MemberLoan,
+  segment: LoanRepaymentSegment,
+): string {
+  const amountStr = (segment.amount || loan.monthlyEmiAmount || 0).toLocaleString();
+  const installmentLabel = segment.monthLabel || (segment.installmentNo ? `Installment #${segment.installmentNo}` : "Monthly EMI");
+  const dueDateStr = segment.dueDate || (loan.reminderDayOfMonth ? `Day ${loan.reminderDayOfMonth} of this month` : "Upcoming");
+
+  const lines = [
+    `🔔 *LifeNest Payment Reminder*`,
+    ``,
+    `Hello! This is an automated reminder for your upcoming payment obligation:`,
+    ``,
+    `📌 *Obligation:* ${loan.loanTitle}`,
+    `🏦 *Lender / Provider:* ${loan.lenderName || "Bank"}`,
+    `📅 *Cycle / Month:* ${installmentLabel}`,
+    `💰 *Amount Due:* ৳${amountStr}`,
+    `🗓️ *Scheduled Due Date:* ${dueDateStr}`,
+  ];
+
+  if (loan.familyMemberName) {
+    lines.push(`👤 *Account Holder:* ${loan.familyMemberName}`);
+  }
+
+  lines.push(
+    ``,
+    `Please ensure adequate balance to avoid any late fees or penalty.`,
+    `Manage your obligations on LifeNest: https://app.lifenest.site`
+  );
+
+  return lines.join("\n");
+}
+
+/**
+ * Scans active member loans for due installments and dispatches WhatsApp alerts
+ */
+export async function checkLoanReminders(): Promise<number> {
+  let sentCount = 0;
+  try {
+    const loans = getLocalLoans();
+    if (!loans || loans.length === 0) return 0;
+
+    const settings = await getUserSettings().catch(() => null);
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    for (const loan of loans) {
+      // Skip if loan is paid off or reminder explicitly turned off
+      if (loan.status === "PAID_OFF" || loan.reminderEnabled === false) continue;
+      if (loan.notes && /\[Reminder:\s*Disabled\]/i.test(loan.notes)) continue;
+
+      // Find first unpaid installment
+      const nextUnpaid = (loan.repayments || []).find((r) => !r.isPaid);
+      if (!nextUnpaid) continue;
+
+      // Calculate target due date
+      let targetDueDate: Date | null = null;
+      if (nextUnpaid.dueDate && /^\d{4}-\d{2}-\d{2}$/.test(nextUnpaid.dueDate)) {
+        const parts = nextUnpaid.dueDate.split("-").map(Number);
+        targetDueDate = new Date(parts[0], parts[1] - 1, parts[2]);
+      } else if (loan.reminderDayOfMonth) {
+        targetDueDate = new Date(currentYear, currentMonth, Math.min(28, loan.reminderDayOfMonth));
+      }
+
+      if (!targetDueDate || isNaN(targetDueDate.getTime())) continue;
+
+      // Parse Due Time (e.g. Due Time: 09:00 AM)
+      const timeMatch = loan.notes?.match(/Due Time:\s*([^,\]\n]+)/i);
+      const { hours, minutes } = parseTimeString(timeMatch ? timeMatch[1] : "09:00");
+      targetDueDate.setHours(hours, minutes, 0, 0);
+
+      // Parse lead offset (e.g. "3 days before" -> 4320 mins)
+      const leadMinutes = parseLeadMinutes(loan.notes);
+      const triggerTime = new Date(targetDueDate.getTime() - leadMinutes * 60 * 1000);
+
+      const diffMs = now.getTime() - triggerTime.getTime();
+      // Due if trigger passed within last 48 hours
+      const isDue = diffMs >= 0 && diffMs <= 48 * 3600 * 1000;
+
+      if (isDue) {
+        const segKey = nextUnpaid.id || nextUnpaid.monthLabel || `${nextUnpaid.installmentNo}`;
+        const dispatchKey = `lifenest_loan_dispatched_${loan.id}_${segKey}_${targetDueDate.toISOString().slice(0, 7)}`;
+        if (localStorage.getItem(dispatchKey)) {
+          // Already sent for this cycle
+          continue;
+        }
+
+        const recipients = resolveRecipientsFromNotes(
+          loan.notes,
+          settings?.whatsappNumber,
+          settings?.countryCode
+        );
+
+        if (recipients.length > 0) {
+          const message = buildLoanReminderMessage(loan, nextUnpaid);
+          let sentAny = false;
+
+          for (const r of recipients) {
+            const res = await sendSystemWhatsAppAlert({
+              to: r.phone,
+              message,
+            });
+            if (res.success) sentAny = true;
+          }
+
+          if (sentAny) {
+            localStorage.setItem(dispatchKey, new Date().toISOString());
+            sentCount++;
+            console.log(
+              `[LifeNest ReminderDaemon] Dispatched WhatsApp reminder for loan "${loan.loanTitle}" to ${recipients.map((r) => r.alias).join(", ")}`
+            );
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[LifeNest ReminderDaemon] Loan scan error:", err);
+  }
+
+  return sentCount;
 }
 
 /**

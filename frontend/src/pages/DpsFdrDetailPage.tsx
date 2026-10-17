@@ -292,74 +292,72 @@ export function DpsFdrDetailPage() {
               </div>
             </div>
 
-            {/* Quick Metrics Badge */}
-            <div className="flex flex-wrap items-center gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-              <div className="text-right pr-2">
-                <div className="text-xs text-slate-500 font-medium">
-                  {isDPS ? "Monthly Deposit" : "Principal Amount"}
-                </div>
-                <div className="text-xl md:text-2xl font-black text-emerald-600">
-                  ৳{((isDPS ? savings.monthlyInstallment : savings.principalAmount) || 0).toLocaleString()}
-                </div>
-                <div className="text-[11px] text-slate-400">
-                  {savings.tenureMonths ? `${savings.tenureMonths} Months Tenure` : `${totalCount} Cycles`}
-                </div>
+          </div>
+
+          {/* 4-Metric Clean KPI Strip */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-0 md:divide-x md:divide-slate-200/80 bg-slate-50/70 p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 mt-5">
+            <div className="md:px-4 first:pl-0">
+              <span className="text-[11px] font-semibold text-slate-500 block">
+                {isDPS ? "Monthly Deposit" : "Principal Amount"}
+              </span>
+              <div className="text-lg sm:text-xl font-black font-mono text-slate-900 mt-0.5">
+                ৳{((isDPS ? savings.monthlyInstallment : savings.principalAmount) || 0).toLocaleString()}
               </div>
+              <span className="text-[11px] text-slate-500 font-medium">
+                {savings.tenureMonths ? `${savings.tenureMonths} Months Tenure` : `${totalCount} Cycles`}
+              </span>
+            </div>
+
+            <div className="md:px-4">
+              <span className="text-[11px] font-semibold text-slate-500 block">
+                {isDPS ? "Total Expected" : "Target Investment"}
+              </span>
+              <div className="text-lg sm:text-xl font-black font-mono text-slate-900 mt-0.5">
+                ৳{totalTarget.toLocaleString()}
+              </div>
+              <span className="text-[11px] text-slate-500 font-medium">
+                Maturity: ~৳{(savings.maturityAmount || totalTarget).toLocaleString()}
+              </span>
+            </div>
+
+            <div className="md:px-4">
+              <span className="text-[11px] font-semibold text-emerald-800 block">
+                {isDPS ? "Total Deposited" : "Profit Collected"}
+              </span>
+              <div className="text-lg sm:text-xl font-black font-mono text-emerald-700 mt-0.5">
+                ৳{totalPaid.toLocaleString()}
+              </div>
+              <span className="text-[11px] text-emerald-700/90 font-medium">
+                {paidCount} cleared ({progressPercent}% done)
+              </span>
+            </div>
+
+            <div className="md:px-4 last:pr-0">
+              <span className="text-[11px] font-semibold text-sky-800 block">
+                {isDPS ? "Remaining Deposits" : "Pending Cycles"}
+              </span>
+              <div className="text-lg sm:text-xl font-black font-mono text-sky-700 mt-0.5">
+                {isDPS ? `৳${remainingBalance.toLocaleString()}` : `${totalCount - paidCount} Cycles`}
+              </div>
+              <span className="text-[11px] text-sky-700/90 font-medium">
+                {totalCount - paidCount} cycle{totalCount - paidCount === 1 ? "" : "s"} remaining
+              </span>
             </div>
           </div>
 
-          {/* Progress Bar & KPI Grid */}
-          <div className="mt-6 pt-6 border-t border-slate-100">
-            <div className="flex items-center justify-between text-xs font-semibold mb-2">
-              <span className="text-slate-600">
-                {isDPS ? "Deposit Progress" : "Profit Collection Progress"} ({paidCount} of {totalCount} Cycles Completed)
+          {/* Slim Progress Bar */}
+          <div className="space-y-1.5 pt-3">
+            <div className="flex items-center justify-between text-xs font-semibold">
+              <span className="text-slate-700">
+                {isDPS ? "Deposit Progress" : "Profit Collection Progress"} ({paidCount} of {totalCount} Cycles Cleared)
               </span>
-              <span className="text-emerald-600 font-bold">{progressPercent}%</span>
+              <span className="text-emerald-600 font-bold font-mono">{progressPercent}%</span>
             </div>
-            <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden">
+            <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-[#064e3b] to-emerald-500 transition-all duration-500"
+                className="h-full rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 transition-all duration-500"
                 style={{ width: `${progressPercent}%` }}
               />
-            </div>
-
-            {/* 3 Metric Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-              <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200">
-                <span className="text-xs font-medium text-slate-500">
-                  {isDPS ? "Total Expected Deposits" : "Principal Investment"}
-                </span>
-                <div className="text-2xl font-black text-slate-800 mt-1">
-                  ৳{totalTarget.toLocaleString()}
-                </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
-                  Maturity Value: ~৳{(savings.maturityAmount || totalTarget).toLocaleString()}
-                </div>
-              </div>
-
-              <div className="bg-emerald-50/70 p-4 rounded-2xl border border-emerald-200">
-                <span className="text-xs font-medium text-emerald-800">
-                  {isDPS ? "Total Deposited" : "Total Profit Collected"}
-                </span>
-                <div className="text-2xl font-black text-emerald-700 mt-1">
-                  ৳{totalPaid.toLocaleString()}
-                </div>
-                <div className="text-[11px] text-emerald-600 mt-0.5">
-                  {paidCount} installment{paidCount === 1 ? "" : "s"} completed
-                </div>
-              </div>
-
-              <div className="bg-sky-50/70 p-4 rounded-2xl border border-sky-200">
-                <span className="text-xs font-medium text-sky-800">
-                  {isDPS ? "Remaining Deposits" : "Pending Cycles"}
-                </span>
-                <div className="text-2xl font-black text-sky-700 mt-1">
-                  {isDPS ? `৳${remainingBalance.toLocaleString()}` : `${totalCount - paidCount} Cycles`}
-                </div>
-                <div className="text-[11px] text-sky-600 mt-0.5">
-                  {totalCount - paidCount} installment{totalCount - paidCount === 1 ? "" : "s"} remaining
-                </div>
-              </div>
             </div>
           </div>
         </div>
