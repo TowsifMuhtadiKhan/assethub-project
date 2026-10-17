@@ -323,11 +323,11 @@ export function AppLayout() {
                 className="flex items-center gap-2 hover:opacity-90 transition cursor-pointer group"
                 title={`${displayName} (Profile & Settings)`}
               >
-                <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] text-white shadow-xs ring-1 ring-emerald-300/60">
-                  <User className="h-4 w-4 text-white" />
+                <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 border border-emerald-200/90 text-[#064e3b] shadow-2xs group-hover:bg-emerald-100/80 group-hover:border-emerald-300 transition-colors">
+                  <User className="h-4 w-4 text-[#064e3b]" />
                   <span
                     className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white ${
-                      userAccess?.isHead ? "bg-emerald-400" : "bg-teal-400"
+                      userAccess?.isHead ? "bg-emerald-500" : "bg-teal-500"
                     }`}
                   />
                 </div>
