@@ -77,7 +77,7 @@ import { ExpensesSkeleton } from "../components/common/LoadingStates";
 import { CategoryTrendModal } from "../components/expenses/CategoryTrendModal";
 import { Chip, type ChipColor } from "../components/common/Chip";
 import { TableRowActions } from "../components/common/TableRowActions";
-import { ConfirmationModal, ViewModeToggle } from "../components/common";
+import { ViewModeToggle } from "../components/common";
 
 const CATEGORIES: { label: DailyExpenseCategory; color: string; bg: string; chipColor: ChipColor }[] = [
   { label: "Food & Dining", color: "text-amber-700", bg: "bg-amber-50 border-amber-200/70", chipColor: "amber" },
@@ -1141,36 +1141,48 @@ export function DailyExpensesPage() {
 
   const handleConfirmDeleteLoan = async () => {
     if (!loanToDelete) return;
+    const targetLoan = loanToDelete;
+    // Instantly remove from local in-memory UI
+    setLoans((prev) => prev.filter((l) => l.id !== targetLoan.id));
+    setExpenses((prev) => prev.filter((e) => !e.description?.includes(targetLoan.loanTitle) && !e.notes?.includes(targetLoan.id)));
+    if (viewingLoanSegments?.id === targetLoan.id) {
+      setViewingLoanSegments(null);
+    }
+    setLoanToDelete(null);
+
     try {
-      await deleteMemberLoan(loanToDelete.id);
+      await deleteMemberLoan(targetLoan.id, targetLoan.loanTitle);
       if (activeMemberId) {
         await loadLoans(activeMemberId);
         const allExpenses = await listDailyExpenses();
         setExpenses(allExpenses);
       }
-      if (viewingLoanSegments?.id === loanToDelete.id) {
-        setViewingLoanSegments(null);
-      }
-      setLoanToDelete(null);
       showToast("Loan record and linked installments removed successfully!");
     } catch (err) {
       console.error(err);
+      showToast("Failed to delete loan record");
     }
   };
 
   const handleConfirmDeleteSaving = async () => {
     if (!savingToDelete) return;
+    const targetSaving = savingToDelete;
+    // Instantly remove from local in-memory UI
+    setSavingsList((prev) => prev.filter((s) => s.id !== targetSaving.id));
+    setExpenses((prev) => prev.filter((e) => !e.description?.includes(targetSaving.title) && !e.notes?.includes(targetSaving.id)));
+    setSavingToDelete(null);
+
     try {
-      await deleteMemberSavings(savingToDelete.id);
+      await deleteMemberSavings(targetSaving.id, targetSaving.title);
       if (activeMemberId) {
         await loadSavingsSummary(activeMemberId);
         const allExpenses = await listDailyExpenses();
         setExpenses(allExpenses);
       }
-      setSavingToDelete(null);
       showToast("Savings scheme removed successfully!");
     } catch (err) {
       console.error(err);
+      showToast("Failed to delete savings scheme");
     }
   };
 
@@ -2865,6 +2877,23 @@ export function DailyExpensesPage() {
                                 <ChevronRight className="h-3.5 w-3.5 text-emerald-700 group-hover:translate-x-0.5 transition" />
                               </div>
 
+                              {/* Direct Delete Obligation Button */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (item.kind === "LOAN" && item.rawLoan) {
+                                    setLoanToDelete(item.rawLoan);
+                                  } else if (item.kind === "SAVINGS" && item.rawSaving) {
+                                    setSavingToDelete(item.rawSaving);
+                                  }
+                                }}
+                                className="p-1.5 rounded-xl border border-slate-200 bg-white hover:border-rose-300 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition cursor-pointer shadow-2xs"
+                                title="Delete Obligation"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+
                               {/* Row Actions Menu */}
                               <div onClick={(e) => e.stopPropagation()}>
                                 <TableRowActions
@@ -4197,52 +4226,88 @@ export function DailyExpensesPage() {
       {/* 9. MODAL: DELETE LOAN CONFIRMATION                                        */}
       {/* ========================================================================= */}
       {loanToDelete && (
-        <ConfirmationModal
-          isOpen={!!loanToDelete}
-          onClose={() => setLoanToDelete(null)}
-          onConfirm={handleConfirmDeleteLoan}
-          title="Delete Loan Record?"
-          description={
-            <>
-              Are you sure you want to delete{" "}
-              <strong className="text-slate-800">
-                {loanToDelete.loanTitle} (৳
-                {(
-                  loanToDelete.totalRepayableAmount ||
-                  loanToDelete.principalAmount ||
-                  0
-                ).toLocaleString()}
-                )
-              </strong>{" "}
-              along with all {loanToDelete.repayments?.length || 0} repayment segments?
-            </>
-          }
-          confirmText="Delete Loan"
-          variant="danger"
-          size="sm"
-        />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150">
+          <div className="w-full max-w-sm my-auto rounded-2xl sm:rounded-3xl border border-slate-200 bg-white shadow-2xl p-5 sm:p-6 text-slate-800 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="text-center space-y-2">
+              <div className="mx-auto h-12 w-12 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center">
+                <Trash2 className="h-6 w-6" />
+              </div>
+              <h3 className="text-base font-bold text-slate-900">
+                Delete Obligation?
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Are you sure you want to delete{" "}
+                <strong className="text-slate-800">
+                  {loanToDelete.loanTitle} (৳
+                  {(
+                    loanToDelete.totalRepayableAmount ||
+                    loanToDelete.principalAmount ||
+                    0
+                  ).toLocaleString()}
+                  )
+                </strong>{" "}
+                along with all {loanToDelete.repayments?.length || 0} repayment segments?
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setLoanToDelete(null)}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteLoan}
+                className="flex-1 rounded-xl bg-rose-600 py-2.5 text-xs font-semibold text-white hover:bg-rose-700 transition shadow-xs cursor-pointer"
+              >
+                Delete Obligation
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* MODAL: DELETE SAVINGS CONFIRMATION */}
       {savingToDelete && (
-        <ConfirmationModal
-          isOpen={!!savingToDelete}
-          onClose={() => setSavingToDelete(null)}
-          onConfirm={handleConfirmDeleteSaving}
-          title="Delete Savings Scheme?"
-          description={
-            <>
-              Are you sure you want to delete{" "}
-              <strong className="text-slate-800">
-                {savingToDelete.title} ({savingToDelete.type})
-              </strong>{" "}
-              along with all recorded deposit history?
-            </>
-          }
-          confirmText="Delete Scheme"
-          variant="danger"
-          size="sm"
-        />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150">
+          <div className="w-full max-w-sm my-auto rounded-2xl sm:rounded-3xl border border-slate-200 bg-white shadow-2xl p-5 sm:p-6 text-slate-800 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="text-center space-y-2">
+              <div className="mx-auto h-12 w-12 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center">
+                <Trash2 className="h-6 w-6" />
+              </div>
+              <h3 className="text-base font-bold text-slate-900">
+                Delete Savings Scheme?
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Are you sure you want to delete{" "}
+                <strong className="text-slate-800">
+                  {savingToDelete.title} ({savingToDelete.type})
+                </strong>{" "}
+                along with all recorded deposit history?
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setSavingToDelete(null)}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteSaving}
+                className="flex-1 rounded-xl bg-rose-600 py-2.5 text-xs font-semibold text-white hover:bg-rose-700 transition shadow-xs cursor-pointer"
+              >
+                Delete Scheme
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ========================================================================= */}

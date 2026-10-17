@@ -24,6 +24,7 @@ import {
   addLoanRepaymentSegment,
   updateLoanRepaymentSegment,
   deleteLoanRepaymentSegment,
+  deleteMemberLoan,
   updateMemberLoan,
 } from "../services/dailyExpenseService";
 import type { MemberLoan, LoanRepaymentSegment, DailyExpensePaymentMethod } from "../types";
@@ -70,6 +71,26 @@ export function EmiDetailPage() {
   const [reminderDay, setReminderDay] = useState<number>(5);
   const [reminderEnabled, setReminderEnabled] = useState<boolean>(true);
   const [savingReminder, setSavingReminder] = useState(false);
+
+  // Delete Entire Loan Modal State
+  const [showDeleteLoanModal, setShowDeleteLoanModal] = useState(false);
+  const [isDeletingLoan, setIsDeletingLoan] = useState(false);
+
+  async function handleDeleteEntireLoan() {
+    if (!loan || isDeletingLoan) return;
+    setIsDeletingLoan(true);
+    try {
+      await deleteMemberLoan(loan.id, loan.loanTitle);
+      showToast("✓ Obligation deleted successfully!");
+      setTimeout(() => {
+        navigate("/my-life/expenses?tab=loans");
+      }, 400);
+    } catch (err) {
+      console.error("Failed to delete loan:", err);
+      showToast("Failed to delete obligation");
+      setIsDeletingLoan(false);
+    }
+  }
 
   useEffect(() => {
     if (!loanId) return;
@@ -328,6 +349,17 @@ export function EmiDetailPage() {
             <Bell className={`w-3.5 h-3.5 ${loan.reminderEnabled ? "text-amber-500 fill-amber-500" : "text-slate-400"}`} />
             <span className="hidden sm:inline">Reminder:</span>
             <span>Every {loan.reminderDayOfMonth || 5}th</span>
+          </button>
+
+          {/* Delete Obligation Button */}
+          <button
+            type="button"
+            onClick={() => setShowDeleteLoanModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100/80 text-xs font-semibold text-rose-700 transition shadow-2xs cursor-pointer"
+            title="Delete this entire obligation"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+            <span className="hidden sm:inline">Delete Obligation</span>
           </button>
 
           <span
@@ -1007,6 +1039,57 @@ export function EmiDetailPage() {
             </div>
           </div>
         </ConfirmationModal>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 6: CONFIRM DELETE ENTIRE OBLIGATION                                  */}
+      {/* ========================================================================= */}
+      {showDeleteLoanModal && loan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150">
+          <div className="w-full max-w-sm my-auto rounded-2xl sm:rounded-3xl border border-slate-200 bg-white shadow-2xl p-5 sm:p-6 text-slate-800 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="text-center space-y-2">
+              <div className="mx-auto h-12 w-12 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center">
+                <Trash2 className="h-6 w-6" />
+              </div>
+              <h3 className="text-base font-bold text-slate-900">
+                Delete Obligation?
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Are you sure you want to permanently delete{" "}
+                <strong className="text-slate-900 font-semibold">
+                  {loan.loanTitle}
+                </strong>{" "}
+                (৳{(loan.totalRepayableAmount || loan.principalAmount || 0).toLocaleString()}) and all linked records? This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeletingLoan}
+                onClick={() => setShowDeleteLoanModal(false)}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingLoan}
+                onClick={handleDeleteEntireLoan}
+                className="flex-1 rounded-xl bg-rose-600 py-2.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-50 transition shadow-xs cursor-pointer inline-flex items-center justify-center gap-1.5"
+              >
+                {isDeletingLoan ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <span>Delete Obligation</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

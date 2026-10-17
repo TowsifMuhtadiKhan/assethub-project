@@ -309,10 +309,10 @@ export async function deleteDailyExpense(id: string): Promise<void> {
   const localList = getLocalExpenses();
   saveLocalExpenses(localList.filter((e) => e.id !== id));
 
-  if (!id.startsWith("exp_")) {
-    try {
-      await supabase.from(TABLE).delete().eq("id", id);
-    } catch {}
+  try {
+    await supabase.from(TABLE).delete().eq("id", id);
+  } catch (err) {
+    console.warn("deleteDailyExpense remote error:", err);
   }
 }
 
@@ -1028,31 +1028,34 @@ export async function addLoanRepaymentSegment(
   return updatedLoan;
 }
 
-export async function deleteMemberLoan(id: string): Promise<void> {
+export async function deleteMemberLoan(id: string, knownTitle?: string): Promise<void> {
   const localList = getLocalLoans();
   const target = localList.find((l) => l.id === id);
   saveLocalLoans(localList.filter((l) => l.id !== id));
 
+  const targetTitle = target?.loanTitle || knownTitle;
+
   // Clean up any synced daily expenses belonging to this loan
-  if (target) {
-    const expenses = getLocalExpenses();
-    const filteredExpenses = expenses.filter((e) => {
-      const matchDesc = e.description?.includes(target.loanTitle);
-      const matchNotes = e.notes?.includes(target.loanTitle) || e.notes?.includes(id);
-      return !(matchDesc || matchNotes);
-    });
-    if (filteredExpenses.length !== expenses.length) {
-      saveLocalExpenses(filteredExpenses);
-    }
+  const expenses = getLocalExpenses();
+  const filteredExpenses = expenses.filter((e) => {
+    const matchId = e.notes?.includes(id);
+    const matchDesc = targetTitle ? e.description?.includes(targetTitle) : false;
+    const matchNotes = targetTitle ? e.notes?.includes(targetTitle) : false;
+    return !(matchId || matchDesc || matchNotes);
+  });
+  if (filteredExpenses.length !== expenses.length) {
+    saveLocalExpenses(filteredExpenses);
   }
 
-  if (!id.startsWith("loan_")) {
-    try {
-      await supabase.from(LOANS_TABLE).delete().eq("id", id);
-      if (target) {
-        await supabase.from(TABLE).delete().ilike("description", `%${target.loanTitle}%`);
-      }
-    } catch {}
+  // Delete from Supabase (both the loan and any linked daily expenses)
+  try {
+    await supabase.from(LOANS_TABLE).delete().eq("id", id);
+    if (targetTitle) {
+      await supabase.from(TABLE).delete().ilike("description", `%${targetTitle}%`);
+    }
+    await supabase.from(TABLE).delete().ilike("notes", `%${id}%`);
+  } catch (err) {
+    console.warn("deleteMemberLoan remote delete error:", err);
   }
 }
 
@@ -1535,34 +1538,34 @@ export async function updateMemberSavings(
   return updated;
 }
 
-export async function deleteMemberSavings(id: string): Promise<boolean> {
+export async function deleteMemberSavings(id: string, knownTitle?: string): Promise<boolean> {
   const localList = getLocalSavings();
   const target = localList.find((s) => s.id === id);
   const filtered = localList.filter((s) => s.id !== id);
   saveLocalSavings(filtered);
 
+  const targetTitle = target?.title || knownTitle;
+
   // Clean up any synced daily expenses belonging to this savings scheme
-  if (target) {
-    const expenses = getLocalExpenses();
-    const filteredExpenses = expenses.filter((e) => {
-      const matchDesc = e.description?.includes(target.title);
-      const matchNotes = e.notes?.includes(target.title) || e.notes?.includes(id);
-      return !(matchDesc || matchNotes);
-    });
-    if (filteredExpenses.length !== expenses.length) {
-      saveLocalExpenses(filteredExpenses);
-    }
+  const expenses = getLocalExpenses();
+  const filteredExpenses = expenses.filter((e) => {
+    const matchId = e.notes?.includes(id);
+    const matchDesc = targetTitle ? e.description?.includes(targetTitle) : false;
+    const matchNotes = targetTitle ? e.notes?.includes(targetTitle) : false;
+    return !(matchId || matchDesc || matchNotes);
+  });
+  if (filteredExpenses.length !== expenses.length) {
+    saveLocalExpenses(filteredExpenses);
   }
 
-  if (!id.startsWith("sav_")) {
-    try {
-      await supabase.from(SAVINGS_TABLE).delete().eq("id", id);
-      if (target) {
-        await supabase.from(TABLE).delete().ilike("description", `%${target.title}%`);
-      }
-    } catch (err) {
-      console.warn("deleteMemberSavings remote error:", err);
+  try {
+    await supabase.from(SAVINGS_TABLE).delete().eq("id", id);
+    if (targetTitle) {
+      await supabase.from(TABLE).delete().ilike("description", `%${targetTitle}%`);
     }
+    await supabase.from(TABLE).delete().ilike("notes", `%${id}%`);
+  } catch (err) {
+    console.warn("deleteMemberSavings remote error:", err);
   }
   return true;
 }
