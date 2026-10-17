@@ -167,33 +167,26 @@ export function EmiDetailPage() {
     return { totalPaid, remainingBalance, progressPercent, paidCount, totalCount };
   }, [loan]);
 
-  function handleInitiateToggle(segment: LoanRepaymentSegment) {
-    if (segment.isPaid) {
-      setConfirmingSegmentUnpay(segment);
-    } else {
-      setConfirmingSegmentPayment(segment);
-      setPayDate(segment.dueDate || new Date().toISOString().split("T")[0]);
-      setPayMethod(segment.paymentMethod || "Bank Card");
-      setPaySyncExpense(syncToDailyExpenses);
-    }
-  }
-
-  async function handleConfirmPayment() {
-    if (!loan || !confirmingSegmentPayment || isSubmittingPayment) return;
+  async function executeSegmentPayment(
+    segment: LoanRepaymentSegment,
+    paymentDate: string,
+    syncExpense: boolean,
+    paymentMethod: DailyExpensePaymentMethod
+  ) {
+    if (!loan || isSubmittingPayment) return;
     setIsSubmittingPayment(true);
-    setUpdatingSegmentId(confirmingSegmentPayment.id);
+    setUpdatingSegmentId(segment.id);
     try {
-      const paymentDate = payDate || confirmingSegmentPayment.dueDate || new Date().toISOString().split("T")[0];
       const updated = await toggleLoanSegmentPayment(
         loan.id,
-        confirmingSegmentPayment.id,
+        segment.id,
         paymentDate,
-        paySyncExpense,
-        payMethod
+        syncExpense,
+        paymentMethod
       );
       setLoan(updated);
       showToast(
-        `✓ Installment #${confirmingSegmentPayment.installmentNo || ""} (৳${confirmingSegmentPayment.amount.toLocaleString()}) confirmed & marked as PAID!`
+        `✓ Installment #${segment.installmentNo || ""} (৳${segment.amount.toLocaleString()}) confirmed & marked as PAID for ${paymentDate}!`
       );
       setConfirmingSegmentPayment(null);
     } catch (err: any) {
@@ -203,6 +196,37 @@ export function EmiDetailPage() {
       setIsSubmittingPayment(false);
       setUpdatingSegmentId(null);
     }
+  }
+
+  function handleInitiateToggle(segment: LoanRepaymentSegment) {
+    if (segment.isPaid) {
+      setConfirmingSegmentUnpay(segment);
+    } else {
+      const todayStr = new Date().toISOString().split("T")[0];
+      const isDueDateToday = segment.dueDate === todayStr;
+
+      if (isDueDateToday) {
+        // Scheduled date is today: mark paid immediately without any modal prompt!
+        executeSegmentPayment(
+          segment,
+          todayStr,
+          syncToDailyExpenses,
+          segment.paymentMethod || "Bank Card"
+        );
+      } else {
+        // Scheduled date is earlier/different: ask user whether paid on scheduled date or today
+        setConfirmingSegmentPayment(segment);
+        setPayDate(segment.dueDate || todayStr);
+        setPayMethod(segment.paymentMethod || "Bank Card");
+        setPaySyncExpense(syncToDailyExpenses);
+      }
+    }
+  }
+
+  async function handleConfirmPayment() {
+    if (!loan || !confirmingSegmentPayment || isSubmittingPayment) return;
+    const paymentDate = payDate || confirmingSegmentPayment.dueDate || new Date().toISOString().split("T")[0];
+    await executeSegmentPayment(confirmingSegmentPayment, paymentDate, paySyncExpense, payMethod);
   }
 
   async function handleConfirmUnpay() {
@@ -652,112 +676,156 @@ export function EmiDetailPage() {
                     <th className="py-3 px-4 text-left">Month / Cycle</th>
                     <th className="py-3 px-4 text-left">Scheduled Date</th>
                     <th className="py-3 px-4 text-right">Amount</th>
+                    <th className="py-3 px-4 text-right">Cumulative</th>
                     <th className="py-3 px-4 text-center">Status</th>
                     <th className="py-3 px-4 text-center w-36">Mark Paid</th>
                     <th className="py-3 px-4 text-right w-20">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {loan.repayments.map((segment, index) => {
-                    const isPaid = !!segment.isPaid;
-                    const isBusy = updatingSegmentId === segment.id;
+                  {(() => {
+                    let cumulativeSum = 0;
+                    const totalTarget = loan.repayments.reduce((s, r) => s + r.amount, 0);
+
+                    return loan.repayments.map((segment, index) => {
+                      cumulativeSum += segment.amount;
+                      const cumulativeAmount = cumulativeSum;
+                      const pct = totalTarget > 0 ? Math.round((cumulativeAmount / totalTarget) * 100) : 0;
+                      const isPaid = !!segment.isPaid;
+                      const isBusy = updatingSegmentId === segment.id;
+
+                      return (
+                        <tr
+                          key={segment.id}
+                          className={`group transition hover:bg-slate-50/80 ${
+                            isPaid ? "bg-emerald-50/30" : ""
+                          }`}
+                        >
+                          {/* Installment Index */}
+                          <td className="py-3.5 px-3 text-center font-bold text-slate-400 font-mono">
+                            {segment.installmentNo || index + 1}
+                          </td>
+
+                          {/* Month Label */}
+                          <td className="py-3.5 px-4 font-bold text-slate-900 text-left">
+                            {segment.monthLabel || `Month ${index + 1}`}
+                          </td>
+
+                          {/* Due Date */}
+                          <td className="py-3.5 px-4 text-slate-600 font-mono text-left">
+                            {segment.dueDate || "—"}
+                          </td>
+
+                          {/* Amount */}
+                          <td className="py-3.5 px-4 text-right font-black font-mono text-slate-900">
+                            ৳{segment.amount.toLocaleString()}
+                          </td>
+
+                          {/* Cumulative Amount (Running Total) */}
+                          <td className="py-3.5 px-4 text-right font-mono">
+                            <div className="font-bold text-slate-800">
+                              ৳{cumulativeAmount.toLocaleString()}
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-sans">
+                              {pct}% of total
+                            </div>
+                          </td>
+
+                          {/* Status Badge */}
+                          <td className="py-3.5 px-4 text-center">
+                            {isPaid ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span>Paid {segment.paymentDate ? `(${segment.paymentDate})` : ""}</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                                <Clock className="w-3 h-3 text-amber-600" />
+                                <span>Due / Pending</span>
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Checkmark Button Action */}
+                          <td className="py-3.5 px-4 text-center">
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => handleInitiateToggle(segment)}
+                              className={`w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold text-xs transition shadow-2xs cursor-pointer ${
+                                isPaid
+                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                  : "bg-white border border-slate-200 text-slate-800 hover:border-teal-500 hover:text-teal-700 hover:bg-teal-50/50"
+                              } ${isBusy ? "opacity-60 cursor-not-allowed" : ""}`}
+                            >
+                              {isBusy ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : isPaid ? (
+                                <>
+                                  <CheckCircle2 className="w-4 h-4 text-white" />
+                                  <span>Paid [✓]</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Circle className="w-4 h-4 text-slate-400" />
+                                  <span>Mark Paid</span>
+                                </>
+                              )}
+                            </button>
+                          </td>
+
+                          {/* Row Actions: Edit and Delete */}
+                          <td className="py-3.5 px-4 text-right">
+                            <TableRowActions
+                              title={`Installment #${index + 1}`}
+                              subtitle={`Due: ${segment.dueDate} • ৳${segment.amount.toLocaleString()}`}
+                              actions={[
+                                {
+                                  label: "Edit Installment",
+                                  description: "Update amount, due date, or notes",
+                                  icon: Pencil,
+                                  onClick: () => openEditSegmentModal(segment),
+                                },
+                                {
+                                  label: "Delete Installment",
+                                  description: "Remove this installment from schedule",
+                                  icon: Trash2,
+                                  variant: "danger" as const,
+                                  onClick: () => handleDeleteSegment(segment.id),
+                                },
+                              ]}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+                <tfoot>
+                  {(() => {
+                    const totalCommitment = loan.repayments.reduce((s, r) => s + r.amount, 0);
+                    const paidCount = loan.repayments.filter((r) => r.isPaid).length;
+                    const paidAmount = loan.repayments.filter((r) => r.isPaid).reduce((s, r) => s + r.amount, 0);
 
                     return (
-                      <tr
-                        key={segment.id}
-                        className={`group transition hover:bg-slate-50/80 ${
-                          isPaid ? "bg-emerald-50/30" : ""
-                        }`}
-                      >
-                        {/* Installment Index */}
-                        <td className="py-3.5 px-3 text-center font-bold text-slate-400 font-mono">
-                          {segment.installmentNo || index + 1}
+                      <tr className="border-t-2 border-slate-200 bg-slate-50/90 text-xs font-bold text-slate-900">
+                        <td colSpan={3} className="py-3.5 px-4 text-left uppercase text-[11px] tracking-wider text-slate-600">
+                          Total ({loan.repayments.length} Months)
                         </td>
-
-                        {/* Month Label */}
-                        <td className="py-3.5 px-4 font-bold text-slate-900 text-left">
-                          {segment.monthLabel || `Month ${index + 1}`}
+                        <td className="py-3.5 px-4 text-right font-black font-mono">
+                          ৳{totalCommitment.toLocaleString()}
                         </td>
-
-                        {/* Due Date */}
-                        <td className="py-3.5 px-4 text-slate-600 font-mono text-left">
-                          {segment.dueDate || "—"}
+                        <td className="py-3.5 px-4 text-right font-black font-mono text-emerald-700">
+                          ৳{totalCommitment.toLocaleString()}
                         </td>
-
-                        {/* Amount */}
-                        <td className="py-3.5 px-4 text-right font-black font-mono text-slate-900">
-                          ৳{segment.amount.toLocaleString()}
+                        <td className="py-3.5 px-4 text-center font-mono text-[11px] text-emerald-700 font-bold">
+                          {paidCount}/{loan.repayments.length} Paid (৳{paidAmount.toLocaleString()})
                         </td>
-
-                        {/* Status Badge */}
-                        <td className="py-3.5 px-4 text-center">
-                          {isPaid ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                              <Check className="w-3 h-3 text-emerald-600" />
-                              <span>Paid {segment.paymentDate ? `(${segment.paymentDate})` : ""}</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200">
-                              <Clock className="w-3 h-3 text-amber-600" />
-                              <span>Due / Pending</span>
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Checkmark Button Action */}
-                        <td className="py-3.5 px-4 text-center">
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => handleInitiateToggle(segment)}
-                            className={`w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold text-xs transition shadow-2xs cursor-pointer ${
-                              isPaid
-                                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                                : "bg-white border border-slate-200 text-slate-800 hover:border-teal-500 hover:text-teal-700 hover:bg-teal-50/50"
-                            } ${isBusy ? "opacity-60 cursor-not-allowed" : ""}`}
-                          >
-                            {isBusy ? (
-                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            ) : isPaid ? (
-                              <>
-                                <CheckCircle2 className="w-4 h-4 text-white" />
-                                <span>Paid [✓]</span>
-                              </>
-                            ) : (
-                              <>
-                                <Circle className="w-4 h-4 text-slate-400" />
-                                <span>Mark Paid</span>
-                              </>
-                            )}
-                          </button>
-                        </td>
-
-                        {/* Row Actions: Edit and Delete */}
-                        <td className="py-3.5 px-4 text-right">
-                          <TableRowActions
-                            title={`Installment #${index + 1}`}
-                            subtitle={`Due: ${segment.dueDate} • ৳${segment.amount.toLocaleString()}`}
-                            actions={[
-                              {
-                                label: "Edit Installment",
-                                description: "Update amount, due date, or notes",
-                                icon: Pencil,
-                                onClick: () => openEditSegmentModal(segment),
-                              },
-                              {
-                                label: "Delete Installment",
-                                description: "Remove this installment from schedule",
-                                icon: Trash2,
-                                variant: "danger" as const,
-                                onClick: () => handleDeleteSegment(segment.id),
-                              },
-                            ]}
-                          />
-                        </td>
+                        <td colSpan={2}></td>
                       </tr>
                     );
-                  })}
-                </tbody>
+                  })()}
+                </tfoot>
               </table>
             </div>
           )}
@@ -1161,17 +1229,79 @@ export function EmiDetailPage() {
             )}
           </div>
 
-          {/* Payment Date Input */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Payment Date
+          {/* Payment Date Selection */}
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-slate-800">
+              When was this installment paid?
             </label>
-            <input
-              type="date"
-              value={payDate}
-              onChange={(e) => setPayDate(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/60 text-xs text-slate-900 focus:outline-none focus:border-slate-900 focus:bg-white"
-            />
+            <div className="grid grid-cols-2 gap-2">
+              {/* Option 1: On Scheduled Due Date */}
+              {confirmingSegmentPayment.dueDate && (
+                <button
+                  type="button"
+                  onClick={() => setPayDate(confirmingSegmentPayment.dueDate!)}
+                  className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                    payDate === confirmingSegmentPayment.dueDate
+                      ? "bg-emerald-50 border-emerald-500 text-emerald-950 ring-1 ring-emerald-500 shadow-2xs"
+                      : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Scheduled Date
+                    </span>
+                    {payDate === confirmingSegmentPayment.dueDate && (
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    )}
+                  </div>
+                  <div className="text-xs font-black font-mono mt-1 text-slate-900">
+                    {confirmingSegmentPayment.dueDate}
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-0.5 truncate">
+                    Records under {confirmingSegmentPayment.monthLabel || confirmingSegmentPayment.dueDate.slice(0, 7)}
+                  </div>
+                </button>
+              )}
+
+              {/* Option 2: Today */}
+              <button
+                type="button"
+                onClick={() => setPayDate(new Date().toISOString().split("T")[0])}
+                className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                  payDate === new Date().toISOString().split("T")[0]
+                    ? "bg-emerald-50 border-emerald-500 text-emerald-950 ring-1 ring-emerald-500 shadow-2xs"
+                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Today
+                  </span>
+                  {payDate === new Date().toISOString().split("T")[0] && (
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  )}
+                </div>
+                <div className="text-xs font-black font-mono mt-1 text-slate-900">
+                  {new Date().toISOString().split("T")[0]}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5 truncate">
+                  Records in this month's expenses
+                </div>
+              </button>
+            </div>
+
+            {/* Custom Date Input */}
+            <div className="flex items-center gap-2 pt-0.5">
+              <span className="text-[11px] text-slate-500 font-medium shrink-0">
+                Or pick specific date:
+              </span>
+              <input
+                type="date"
+                value={payDate}
+                onChange={(e) => setPayDate(e.target.value)}
+                className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-emerald-600"
+              />
+            </div>
           </div>
 
           {/* Payment Method Select */}

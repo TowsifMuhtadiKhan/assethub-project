@@ -22,8 +22,9 @@ import {
   deleteSavingsDepositLog,
   deleteMemberSavings,
 } from "../services/dailyExpenseService";
-import type { MemberSavings, SavingsDepositLog } from "../types";
+import type { MemberSavings, SavingsDepositLog, DailyExpensePaymentMethod } from "../types";
 import { BrandLogoLoader } from "../components/common/LoadingStates";
+import { ConfirmationModal } from "../components/common";
 
 export function DpsFdrDetailPage() {
   const { savingsId } = useParams<{ savingsId: string }>();
@@ -34,6 +35,12 @@ export function DpsFdrDetailPage() {
   const [updatingLogId, setUpdatingLogId] = useState<string | null>(null);
   const [syncToDailyExpenses, setSyncToDailyExpenses] = useState(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Payment Confirmation State
+  const [confirmingLogPayment, setConfirmingLogPayment] = useState<SavingsDepositLog | null>(null);
+  const [logPayDate, setLogPayDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [logPayMethod, setLogPayMethod] = useState<DailyExpensePaymentMethod>("Bank Card");
+  const [logPaySyncExpense, setLogPaySyncExpense] = useState(true);
 
   // Manual log modal
   const [showAddLogModal, setShowAddLogModal] = useState(false);
@@ -104,32 +111,64 @@ export function DpsFdrDetailPage() {
     return { totalPaid, remainingBalance, progressPercent, paidCount, totalCount, totalTarget };
   }, [savings]);
 
-  async function handleTogglePaid(log: SavingsDepositLog) {
+  async function executeLogPayment(
+    log: SavingsDepositLog,
+    paymentDate: string,
+    syncExpense: boolean,
+    paymentMethod: DailyExpensePaymentMethod
+  ) {
     if (!savings || updatingLogId) return;
     setUpdatingLogId(log.id);
     try {
-      const today = new Date().toISOString().split("T")[0];
       const updated = await toggleSavingsDepositPaid(
         savings.id,
         log.id,
-        today,
-        syncToDailyExpenses,
-        log.paymentMethod || "Bank Card"
+        paymentDate,
+        syncExpense,
+        paymentMethod
       );
       setSavings(updated);
       const nowPaid = !log.isPaid;
       const actionText = savings.type === "DPS" ? "Deposit" : "Profit";
       showToast(
         nowPaid
-          ? `✓ ${actionText} #${log.installmentNo || ""} (৳${log.amount.toLocaleString()}) marked as RECEIVED / PAID!`
+          ? `✓ ${actionText} #${log.installmentNo || ""} (৳${log.amount.toLocaleString()}) marked as RECEIVED / PAID for ${paymentDate}!`
           : `${actionText} #${log.installmentNo || ""} marked as Pending.`
       );
+      setConfirmingLogPayment(null);
     } catch (err: any) {
       console.error("Failed to toggle savings deposit:", err);
       showToast("Error updating deposit status");
     } finally {
       setUpdatingLogId(null);
     }
+  }
+
+  function handleTogglePaid(log: SavingsDepositLog) {
+    if (log.isPaid) {
+      // Revert paid status
+      executeLogPayment(log, new Date().toISOString().split("T")[0], false, log.paymentMethod || "Bank Card");
+    } else {
+      const todayStr = new Date().toISOString().split("T")[0];
+      const isDueDateToday = log.dueDate === todayStr;
+
+      if (isDueDateToday) {
+        // Scheduled date is today: mark paid immediately without any modal prompt!
+        executeLogPayment(log, todayStr, syncToDailyExpenses, log.paymentMethod || "Bank Card");
+      } else {
+        // Scheduled date is earlier/different: ask user whether paid on scheduled date or today
+        setConfirmingLogPayment(log);
+        setLogPayDate(log.dueDate || todayStr);
+        setLogPayMethod(log.paymentMethod || "Bank Card");
+        setLogPaySyncExpense(syncToDailyExpenses);
+      }
+    }
+  }
+
+  async function handleConfirmLogPayment() {
+    if (!savings || !confirmingLogPayment) return;
+    const paymentDate = logPayDate || confirmingLogPayment.dueDate || new Date().toISOString().split("T")[0];
+    await executeLogPayment(confirmingLogPayment, paymentDate, logPaySyncExpense, logPayMethod);
   }
 
   async function handleAddCustomLog(e: React.FormEvent) {
@@ -423,103 +462,147 @@ export function DpsFdrDetailPage() {
                     <th className="py-3 px-4">Month / Cycle</th>
                     <th className="py-3 px-4">Scheduled Date</th>
                     <th className="py-3 px-4 text-right">Amount</th>
+                    <th className="py-3 px-4 text-right">Cumulative</th>
                     <th className="py-3 px-4 text-center">Status</th>
                     <th className="py-3 px-4 text-center w-36">Action</th>
                     <th className="py-3 px-3 text-right w-12"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
-                  {savings.depositLogs.map((log, index) => {
-                    const isPaid = !!log.isPaid;
-                    const isBusy = updatingLogId === log.id;
+                  {(() => {
+                    let cumulativeSum = 0;
+                    const totalTargetCommitment = (savings.depositLogs || []).reduce((s, l) => s + (l.amount || 0), 0);
+
+                    return savings.depositLogs.map((log, index) => {
+                      cumulativeSum += log.amount || 0;
+                      const cumulativeAmount = cumulativeSum;
+                      const pct = totalTargetCommitment > 0 ? Math.round((cumulativeAmount / totalTargetCommitment) * 100) : 0;
+                      const isPaid = !!log.isPaid;
+                      const isBusy = updatingLogId === log.id;
+
+                      return (
+                        <tr
+                          key={log.id}
+                          className={`group transition hover:bg-slate-50 ${
+                            isPaid ? "bg-emerald-50/40" : ""
+                          }`}
+                        >
+                          {/* Installment Index */}
+                          <td className="py-3.5 px-3 text-center font-bold text-xs text-slate-500">
+                            {log.installmentNo || index + 1}
+                          </td>
+
+                          {/* Month Label */}
+                          <td className="py-3.5 px-4 font-semibold text-slate-800">
+                            <div className="flex items-center gap-2">
+                              <span>{log.monthLabel || `Month ${index + 1}`}</span>
+                            </div>
+                          </td>
+
+                          {/* Due Date */}
+                          <td className="py-3.5 px-4 text-xs text-slate-500 font-mono">
+                            {log.dueDate || "—"}
+                          </td>
+
+                          {/* Amount */}
+                          <td className="py-3.5 px-4 text-right font-bold text-slate-900 font-mono">
+                            ৳{log.amount.toLocaleString()}
+                          </td>
+
+                          {/* Cumulative Amount (Running Total) */}
+                          <td className="py-3.5 px-4 text-right font-mono">
+                            <div className="font-bold text-slate-800 text-xs">
+                              ৳{cumulativeAmount.toLocaleString()}
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-sans">
+                              {pct}% of total
+                            </div>
+                          </td>
+
+                          {/* Status Badge */}
+                          <td className="py-3.5 px-4 text-center">
+                            {isPaid ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span>{isDPS ? "Deposited" : "Collected"} {log.depositDate ? `(${log.depositDate})` : ""}</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                                <Clock className="w-3 h-3 text-amber-500" />
+                                <span>Pending / Due</span>
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Checkmark Button Action */}
+                          <td className="py-3.5 px-4 text-center">
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => handleTogglePaid(log)}
+                              className={`w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold text-xs transition shadow-sm ${
+                                isPaid
+                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                  : "bg-white border border-slate-300 text-slate-700 hover:border-emerald-500 hover:text-emerald-600"
+                              } ${isBusy ? "opacity-60 cursor-not-allowed" : ""}`}
+                            >
+                              {isBusy ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : isPaid ? (
+                                <>
+                                  <CheckCircle2 className="w-4 h-4 fill-white text-emerald-600" />
+                                  <span>{isDPS ? "Deposited [✓]" : "Collected [✓]"}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Circle className="w-4 h-4 text-slate-400" />
+                                  <span>{isDPS ? "Mark Deposited" : "Mark Collected"}</span>
+                                </>
+                              )}
+                            </button>
+                          </td>
+
+                          {/* Remove log */}
+                          <td className="py-3.5 px-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteLog(log.id)}
+                              className="p-1 rounded text-slate-300 hover:text-rose-500 transition"
+                              title="Delete this installment row"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+                <tfoot>
+                  {(() => {
+                    const totalCommitment = (savings.depositLogs || []).reduce((s, l) => s + (l.amount || 0), 0);
+                    const paidCount = (savings.depositLogs || []).filter((l) => l.isPaid).length;
+                    const paidAmount = (savings.depositLogs || []).filter((l) => l.isPaid).reduce((s, l) => s + (l.amount || 0), 0);
 
                     return (
-                      <tr
-                        key={log.id}
-                        className={`group transition hover:bg-slate-50 ${
-                          isPaid ? "bg-emerald-50/40" : ""
-                        }`}
-                      >
-                        {/* Installment Index */}
-                        <td className="py-3.5 px-3 text-center font-bold text-xs text-slate-500">
-                          {log.installmentNo || index + 1}
+                      <tr className="border-t-2 border-slate-200 bg-slate-50/90 text-xs font-bold text-slate-900">
+                        <td colSpan={3} className="py-3.5 px-4 text-left uppercase text-[11px] tracking-wider text-slate-600">
+                          Total ({savings.depositLogs.length} Cycles)
                         </td>
-
-                        {/* Month Label */}
-                        <td className="py-3.5 px-4 font-semibold text-slate-800">
-                          <div className="flex items-center gap-2">
-                            <span>{log.monthLabel || `Month ${index + 1}`}</span>
-                          </div>
+                        <td className="py-3.5 px-4 text-right font-black font-mono">
+                          ৳{totalCommitment.toLocaleString()}
                         </td>
-
-                        {/* Due Date */}
-                        <td className="py-3.5 px-4 text-xs text-slate-500">
-                          {log.dueDate || "—"}
+                        <td className="py-3.5 px-4 text-right font-black font-mono text-emerald-700">
+                          ৳{totalCommitment.toLocaleString()}
                         </td>
-
-                        {/* Amount */}
-                        <td className="py-3.5 px-4 text-right font-bold text-slate-900">
-                          ৳{log.amount.toLocaleString()}
+                        <td className="py-3.5 px-4 text-center font-mono text-[11px] text-emerald-700 font-bold">
+                          {paidCount}/{savings.depositLogs.length} {isDPS ? "Deposited" : "Collected"} (৳{paidAmount.toLocaleString()})
                         </td>
-
-                        {/* Status Badge */}
-                        <td className="py-3.5 px-4 text-center">
-                          {isPaid ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-                              <Check className="w-3 h-3 text-emerald-600" />
-                              <span>{isDPS ? "Deposited" : "Collected"} {log.depositDate ? `(${log.depositDate})` : ""}</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                              <Clock className="w-3 h-3 text-amber-500" />
-                              <span>Pending / Due</span>
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Checkmark Button Action */}
-                        <td className="py-3.5 px-4 text-center">
-                          <button
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() => handleTogglePaid(log)}
-                            className={`w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold text-xs transition shadow-sm ${
-                              isPaid
-                                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                                : "bg-white border border-slate-300 text-slate-700 hover:border-emerald-500 hover:text-emerald-600"
-                            } ${isBusy ? "opacity-60 cursor-not-allowed" : ""}`}
-                          >
-                            {isBusy ? (
-                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            ) : isPaid ? (
-                              <>
-                                <CheckCircle2 className="w-4 h-4 fill-white text-emerald-600" />
-                                <span>{isDPS ? "Deposited [✓]" : "Collected [✓]"}</span>
-                              </>
-                            ) : (
-                              <>
-                                <Circle className="w-4 h-4 text-slate-400" />
-                                <span>{isDPS ? "Mark Deposited" : "Mark Collected"}</span>
-                              </>
-                            )}
-                          </button>
-                        </td>
-
-                        {/* Remove log */}
-                        <td className="py-3.5 px-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteLog(log.id)}
-                            className="p-1 rounded text-slate-300 hover:text-rose-500 transition"
-                            title="Delete this installment row"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
+                        <td colSpan={2}></td>
                       </tr>
                     );
-                  })}
-                </tbody>
+                  })()}
+                </tfoot>
               </table>
             </div>
           )}
@@ -669,6 +752,135 @@ export function DpsFdrDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODAL: CONFIRM DEPOSIT PAYMENT */}
+      {confirmingLogPayment && savings && (
+        <ConfirmationModal
+          isOpen={!!confirmingLogPayment}
+          onClose={() => setConfirmingLogPayment(null)}
+          onConfirm={handleConfirmLogPayment}
+          title={isDPS ? "Confirm DPS Deposit Payment" : "Confirm Profit Collection"}
+          description="Verify and record installment payment"
+          confirmText="Confirm & Mark Paid"
+          variant="primary"
+          icon={CheckCircle2}
+          isLoading={!!updatingLogId}
+        >
+          {/* Summary Card */}
+          <div className="rounded-2xl border border-emerald-200/90 bg-emerald-50/60 p-4 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-emerald-950">
+                {savings.title}
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white text-emerald-800 border border-emerald-200 shadow-2xs">
+                {confirmingLogPayment.monthLabel || `Cycle #${confirmingLogPayment.installmentNo || ""}`}
+              </span>
+            </div>
+            <div className="text-2xl font-black font-mono text-emerald-700">
+              ৳{confirmingLogPayment.amount.toLocaleString()}
+            </div>
+            {confirmingLogPayment.dueDate && (
+              <div className="text-[11px] text-slate-600 flex items-center gap-1.5 pt-1">
+                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                <span>Scheduled Due: <strong className="text-slate-800">{confirmingLogPayment.dueDate}</strong></span>
+              </div>
+            )}
+          </div>
+
+          {/* Payment Date Selection */}
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-slate-800">
+              When was this payment made?
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {/* Option 1: On Scheduled Due Date */}
+              {confirmingLogPayment.dueDate && (
+                <button
+                  type="button"
+                  onClick={() => setLogPayDate(confirmingLogPayment.dueDate!)}
+                  className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                    logPayDate === confirmingLogPayment.dueDate
+                      ? "bg-emerald-50 border-emerald-500 text-emerald-950 ring-1 ring-emerald-500 shadow-2xs"
+                      : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Scheduled Date
+                    </span>
+                    {logPayDate === confirmingLogPayment.dueDate && (
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    )}
+                  </div>
+                  <div className="text-xs font-black font-mono mt-1 text-slate-900">
+                    {confirmingLogPayment.dueDate}
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-0.5 truncate">
+                    Records under {confirmingLogPayment.monthLabel || confirmingLogPayment.dueDate.slice(0, 7)}
+                  </div>
+                </button>
+              )}
+
+              {/* Option 2: Today */}
+              <button
+                type="button"
+                onClick={() => setLogPayDate(new Date().toISOString().split("T")[0])}
+                className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                  logPayDate === new Date().toISOString().split("T")[0]
+                    ? "bg-emerald-50 border-emerald-500 text-emerald-950 ring-1 ring-emerald-500 shadow-2xs"
+                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Today
+                  </span>
+                  {logPayDate === new Date().toISOString().split("T")[0] && (
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  )}
+                </div>
+                <div className="text-xs font-black font-mono mt-1 text-slate-900">
+                  {new Date().toISOString().split("T")[0]}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5 truncate">
+                  Records in this month's expenses
+                </div>
+              </button>
+            </div>
+
+            {/* Custom Date Input */}
+            <div className="flex items-center gap-2 pt-0.5">
+              <span className="text-[11px] text-slate-500 font-medium shrink-0">
+                Or pick specific date:
+              </span>
+              <input
+                type="date"
+                value={logPayDate}
+                onChange={(e) => setLogPayDate(e.target.value)}
+                className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-emerald-600"
+              />
+            </div>
+          </div>
+
+          {/* Sync to Daily Expenses */}
+          {isDPS && (
+            <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/80 space-y-1">
+              <label className="flex items-center gap-2.5 text-xs font-bold text-slate-800 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={logPaySyncExpense}
+                  onChange={(e) => setLogPaySyncExpense(e.target.checked)}
+                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                />
+                <span>Sync to Daily Expenses</span>
+              </label>
+              <p className="text-[11px] text-slate-500 pl-6.5 leading-relaxed">
+                Automatically records ৳{confirmingLogPayment.amount.toLocaleString()} under DPS savings in Daily Expenses for {logPayDate.slice(0, 7)}.
+              </p>
+            </div>
+          )}
+        </ConfirmationModal>
       )}
     </div>
   );

@@ -913,13 +913,16 @@ export function DailyExpensesPage() {
   const handleToggleMatrixCell = async (loanId: string, segmentId: string) => {
     try {
       const today = new Date().toISOString().split("T")[0];
-      await toggleLoanSegmentPayment(loanId, segmentId, today, true);
+      const targetLoan = loans.find((l) => l.id === loanId);
+      const targetSegment = targetLoan?.repayments?.find((r) => r.id === segmentId);
+      const payDate = targetSegment?.dueDate || today;
+      await toggleLoanSegmentPayment(loanId, segmentId, payDate, true);
       if (activeMemberId) {
         await loadLoans(activeMemberId);
         const allExpenses = await listDailyExpenses();
         setExpenses(allExpenses);
       }
-      showToast("Updated installment payment status!");
+      showToast(`Updated installment status for ${payDate}!`);
     } catch (err) {
       console.error(err);
       showToast("Failed to update installment status");
