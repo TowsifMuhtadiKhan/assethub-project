@@ -82,7 +82,7 @@ import { ExpensesSkeleton } from "../components/common/LoadingStates";
 import { CategoryTrendModal } from "../components/expenses/CategoryTrendModal";
 import { Chip, type ChipColor } from "../components/common/Chip";
 import { TableRowActions } from "../components/common/TableRowActions";
-import { Tabs, ConfirmationModal, ViewModeToggle } from "../components/common";
+import { ConfirmationModal, ViewModeToggle } from "../components/common";
 
 const CATEGORIES: { label: DailyExpenseCategory; color: string; bg: string; chipColor: ChipColor }[] = [
   { label: "Food & Dining", color: "text-amber-700", bg: "bg-amber-50 border-amber-200/70", chipColor: "amber" },
@@ -1131,6 +1131,8 @@ export function DailyExpensesPage() {
       );
       if (activeMemberId) {
         await loadLoans(activeMemberId);
+        const allExpenses = await listDailyExpenses();
+        setExpenses(allExpenses);
       }
       if (viewingLoanSegments?.id === segmentToDelete.loanId) {
         setViewingLoanSegments(updated);
@@ -1148,12 +1150,16 @@ export function DailyExpensesPage() {
     if (!loanToDelete) return;
     try {
       await deleteMemberLoan(loanToDelete.id);
-      if (activeMemberId) await loadLoans(activeMemberId);
+      if (activeMemberId) {
+        await loadLoans(activeMemberId);
+        const allExpenses = await listDailyExpenses();
+        setExpenses(allExpenses);
+      }
       if (viewingLoanSegments?.id === loanToDelete.id) {
         setViewingLoanSegments(null);
       }
       setLoanToDelete(null);
-      showToast("Loan record removed successfully!");
+      showToast("Loan record and linked installments removed successfully!");
     } catch (err) {
       console.error(err);
     }
@@ -1163,7 +1169,11 @@ export function DailyExpensesPage() {
     if (!savingToDelete) return;
     try {
       await deleteMemberSavings(savingToDelete.id);
-      if (activeMemberId) await loadSavingsSummary(activeMemberId);
+      if (activeMemberId) {
+        await loadSavingsSummary(activeMemberId);
+        const allExpenses = await listDailyExpenses();
+        setExpenses(allExpenses);
+      }
       setSavingToDelete(null);
       showToast("Savings scheme removed successfully!");
     } catch (err) {
@@ -1389,6 +1399,10 @@ export function DailyExpensesPage() {
     try {
       await deleteDailyExpense(expenseToDelete.id);
       setExpenses((prev) => prev.filter((e) => e.id !== expenseToDelete.id));
+      if (activeMemberId) {
+        await loadLoans(activeMemberId);
+        await loadSavingsSummary(activeMemberId);
+      }
       showToast("Expense deleted.");
       setExpenseToDelete(null);
     } catch {
@@ -1555,30 +1569,79 @@ export function DailyExpensesPage() {
           headerPortalEl
         )}
 
-      {/* Desktop Header & Active Member Profile (On mobile, cleanly handled in top MobileHeader via portal) */}
-      <div className="hidden lg:flex items-center justify-between gap-2 border-b border-slate-200/90 pb-2.5">
-        <div className="min-w-0 flex items-center gap-2">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 truncate">
-            Daily Expenses
-          </h1>
+      {/* Desktop Header & Active Member Profile */}
+      <div className="hidden lg:flex items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
+        {/* Left: Primary Switcher between Daily Expenses & Banking */}
+        <div className="min-w-0 flex items-center gap-3">
+          {activeMember ? (
+            <div className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-full border border-slate-200/70 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setActiveTab("expenses")}
+                className={`inline-flex items-center gap-1.5 py-1 px-3.5 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
+                  activeTab === "expenses"
+                    ? "bg-white text-slate-900 font-bold shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900 font-medium"
+                }`}
+              >
+                <Wallet className="h-3.5 w-3.5 text-emerald-700" />
+                <span>Daily Expenses</span>
+                <span
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                    activeTab === "expenses"
+                      ? "bg-emerald-50 text-emerald-800"
+                      : "bg-slate-200/70 text-slate-600"
+                  }`}
+                >
+                  {memberExpenses.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("banking")}
+                className={`inline-flex items-center gap-1.5 py-1 px-3.5 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
+                  activeTab === "banking"
+                    ? "bg-white text-slate-900 font-bold shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900 font-medium"
+                }`}
+              >
+                <Landmark className="h-3.5 w-3.5 text-emerald-700" />
+                <span>Banking & Obligations</span>
+                <span
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                    activeTab === "banking"
+                      ? "bg-emerald-50 text-emerald-800"
+                      : "bg-slate-200/70 text-slate-600"
+                  }`}
+                >
+                  {unifiedObligations.length}
+                </span>
+              </button>
+            </div>
+          ) : (
+            <h1 className="text-lg font-bold tracking-tight text-slate-900 truncate">
+              Daily Expenses
+            </h1>
+          )}
         </div>
 
-        {/* Desktop profile switcher */}
+        {/* Right: Sleek, compact profile switcher */}
         {activeMember ? (
-          <div className="flex items-center gap-2 bg-white border border-slate-200/90 rounded-2xl p-1.5 shadow-2xs">
-            <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center font-bold text-xs uppercase text-[#064e3b]">
+          <div className="flex items-center gap-2 bg-white border border-slate-200/80 rounded-full px-2.5 py-1 shadow-2xs">
+            <div className="h-6 w-6 rounded-full bg-emerald-50 border border-emerald-200/80 flex items-center justify-center font-bold text-[11px] uppercase text-[#064e3b]">
               {activeMember.fullName.charAt(0)}
             </div>
-            <div className="px-1 text-left">
-              <div className="text-xs font-bold text-slate-900 leading-tight">
+            <div className="text-left flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-slate-800 max-w-[130px] truncate">
                 {activeMember.fullName}
-              </div>
-              <div className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
-                <Unlock className="h-2.5 w-2.5" />
-                <span>Ledger Unlocked</span>
-              </div>
+              </span>
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200/60">
+                <Unlock className="h-2 w-2" />
+                <span className="hidden xl:inline">Unlocked</span>
+              </span>
             </div>
-            <div className="flex items-center gap-1.5 ml-1">
+            <div className="flex items-center gap-1 pl-1.5 border-l border-slate-200/80">
               {!hasMemberPin(activeMember.id, activeMember.fullName) && (
                 <button
                   type="button"
@@ -1588,7 +1651,7 @@ export function DailyExpensesPage() {
                     setPinConfirmInput("");
                     setPinError("");
                   }}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100/80 px-2 py-1.5 rounded-xl border border-emerald-200/80 transition cursor-pointer"
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 px-2 py-0.5 rounded-full transition cursor-pointer"
                   title="Protect this ledger with a 4-digit PIN"
                 >
                   <KeyRound className="h-3 w-3" />
@@ -1598,18 +1661,18 @@ export function DailyExpensesPage() {
               <button
                 type="button"
                 onClick={handleLockProfile}
-                className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 transition cursor-pointer border border-slate-100"
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 px-2 py-0.5 rounded-full transition cursor-pointer"
                 title="Lock and switch profile"
               >
-                <Lock className="h-3.5 w-3.5 text-slate-400" />
-                <span>Lock / Switch</span>
+                <Lock className="h-3 w-3 text-slate-400" />
+                <span>Switch</span>
               </button>
             </div>
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <div className="rounded-xl bg-emerald-50 border border-emerald-200/90 px-3 py-1.5 text-xs text-[#064e3b] font-medium flex items-center gap-1.5 shadow-2xs">
-              <Lock className="h-3.5 w-3.5 text-emerald-600" />
+            <div className="rounded-full bg-emerald-50 border border-emerald-200/90 px-3 py-1 text-xs text-[#064e3b] font-medium flex items-center gap-1.5 shadow-2xs">
+              <Lock className="h-3 w-3 text-emerald-600" />
               <span>Select profile below to unlock</span>
             </div>
           </div>
@@ -1891,24 +1954,22 @@ export function DailyExpensesPage() {
         /* ========================================================================= */
         /* 3. ACTIVE MEMBER'S EXPENSE DASHBOARD                                      */
         /* ========================================================================= */
-        <div className="space-y-3 sm:space-y-6">
-          {/* Sub Navigation: Daily Expenses vs Banking & Financial Obligations */}
-          <div className="grid grid-cols-2 sm:inline-flex items-center gap-1 p-1 bg-slate-100/90 rounded-full border border-slate-200/60 w-full sm:w-auto">
+        <div className="space-y-3 sm:space-y-5">
+          {/* Mobile Only: Sub Navigation (desktop renders this cleanly in the top header) */}
+          <div className="lg:hidden grid grid-cols-2 gap-1 p-1 bg-slate-100/90 rounded-full border border-slate-200/60 w-full mb-1">
             <button
               type="button"
               onClick={() => setActiveTab("expenses")}
-              className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-2.5 sm:px-4 rounded-full text-[11px] sm:text-xs transition cursor-pointer whitespace-nowrap ${
+              className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
                 activeTab === "expenses"
                   ? "bg-white text-slate-900 font-bold shadow-2xs"
                   : "text-slate-600 hover:text-slate-900 font-medium"
               }`}
             >
               <Wallet className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
-              <span>
-                <span className="hidden sm:inline">Daily </span>Expenses
-              </span>
+              <span>Daily Expenses</span>
               <span
-                className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
+                className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
                   activeTab === "expenses" ? "bg-emerald-50 text-emerald-800" : "bg-slate-200/70 text-slate-600"
                 }`}
               >
@@ -1919,18 +1980,16 @@ export function DailyExpensesPage() {
             <button
               type="button"
               onClick={() => setActiveTab("banking")}
-              className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-2.5 sm:px-4 rounded-full text-[11px] sm:text-xs transition cursor-pointer whitespace-nowrap ${
+              className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
                 activeTab === "banking"
                   ? "bg-white text-slate-900 font-bold shadow-2xs"
                   : "text-slate-600 hover:text-slate-900 font-medium"
               }`}
             >
               <Landmark className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
-              <span>
-                Banking<span className="hidden sm:inline"> & Obligations</span>
-              </span>
+              <span>Banking & Obligations</span>
               <span
-                className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
+                className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
                   activeTab === "banking"
                     ? "bg-emerald-50 text-emerald-800"
                     : "bg-slate-200/70 text-slate-600"
@@ -2627,18 +2686,14 @@ export function DailyExpensesPage() {
           {/* BANKING & FINANCIAL OBLIGATIONS VIEW */}
           {activeTab === "banking" && (
             <div className="space-y-6">
-              {/* Mobile Compact Banking Metric Cards (matching reference mockup) */}
-              <div className="sm:hidden grid grid-cols-3 gap-2">
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
-                  <div>
-                    <div className="h-7 w-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 mb-1">
-                      <Wallet className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="text-[10px] font-semibold text-slate-500 leading-tight">
-                      Total Commitments
-                    </div>
+              {/* Compact Mobile Banking Metric Cards (2x2 grid) */}
+              <div className="sm:hidden grid grid-cols-2 gap-2">
+                <div className="rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold text-slate-500">Total Commitments</span>
+                    <Wallet className="h-3 w-3 text-indigo-500 shrink-0" />
                   </div>
-                  <div className="mt-2">
+                  <div className="mt-1">
                     <div className="text-xs font-black font-mono text-slate-900 truncate">
                       ৳{bankingMetrics.totalTarget.toLocaleString()}
                     </div>
@@ -2648,215 +2703,238 @@ export function DailyExpensesPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
-                  <div>
-                    <div className="h-7 w-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mb-1">
-                      <Coins className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="text-[10px] font-semibold text-slate-500 leading-tight">
-                      Paid / Deposited
-                    </div>
+                <div className="rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold text-slate-500">Paid / Deposited</span>
+                    <Coins className="h-3 w-3 text-emerald-600 shrink-0" />
                   </div>
-                  <div className="mt-2">
+                  <div className="mt-1">
                     <div className="text-xs font-black font-mono text-emerald-600 truncate">
                       ৳{bankingMetrics.cumulativePaid.toLocaleString()}
                     </div>
                     <div className="text-[9px] text-emerald-600 font-semibold truncate mt-0.5">
-                      ↑ {bankingMetrics.overallPct}% completed
+                      ↑ {bankingMetrics.overallPct}% cleared
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
-                  <div>
-                    <div className="h-7 w-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 mb-1">
-                      <Clock className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="text-[10px] font-semibold text-slate-500 leading-tight">
-                      Remaining Balance
-                    </div>
+                <div className="rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold text-slate-500">Remaining</span>
+                    <Clock className="h-3 w-3 text-amber-500 shrink-0" />
                   </div>
-                  <div className="mt-2">
+                  <div className="mt-1">
                     <div className="text-xs font-black font-mono text-amber-600 truncate">
                       ৳{bankingMetrics.totalRemaining.toLocaleString()}
                     </div>
                     <div className="text-[9px] text-amber-600 font-medium truncate mt-0.5">
-                      Outstanding
+                      Outstanding balance
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200/90 bg-white p-2.5 shadow-2xs flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold text-slate-500">Active Portfolios</span>
+                    <CheckCircle2 className="h-3 w-3 text-slate-400 shrink-0" />
+                  </div>
+                  <div className="mt-1">
+                    <div className="text-xs font-black font-mono text-slate-900 truncate">
+                      {bankingMetrics.activeCount} <span className="text-[10px] font-normal text-slate-400">/ {unifiedObligations.length}</span>
+                    </div>
+                    <div className="text-[9px] text-slate-400 truncate mt-0.5">
+                      {unifiedObligations.length - bankingMetrics.activeCount} closed
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Top Banking Metric Cards (hidden sm:grid) */}
-              <div className="hidden sm:grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Total Commitments / Target
+              {/* Desktop 4-Card Compact Metric Grid */}
+              <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-3 shadow-2xs flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Commitments</span>
+                    <Wallet className="h-3.5 w-3.5 text-indigo-500" />
                   </div>
-                  <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-slate-900">
-                    ৳{bankingMetrics.totalTarget.toLocaleString()}
-                  </div>
-                  <div className="mt-1 text-[11px] text-slate-400 flex items-center gap-1">
-                    <Banknote className="h-3.5 w-3.5 text-slate-400" />
-                    <span>{unifiedObligations.length} obligations (EMIs, Loans, DPS)</span>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Cumulative Paid / Deposited
-                  </div>
-                  <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-emerald-600">
-                    ৳{bankingMetrics.cumulativePaid.toLocaleString()}
-                  </div>
-                  <div className="mt-1 text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
-                    <Percent className="h-3 w-3" />
-                    <span>{bankingMetrics.overallPct}% Cleared / Deposited</span>
+                  <div className="mt-1">
+                    <div className="text-lg sm:text-xl font-black font-mono text-slate-900">
+                      ৳{bankingMetrics.totalTarget.toLocaleString()}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-slate-400 flex items-center gap-1">
+                      <span>{unifiedObligations.length} obligations (EMIs, Loans, DPS)</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Remaining Balance
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-3 shadow-2xs flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Cumulative Paid / Deposited</span>
+                    <Coins className="h-3.5 w-3.5 text-emerald-600" />
                   </div>
-                  <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-amber-700">
-                    ৳{bankingMetrics.totalRemaining.toLocaleString()}
-                  </div>
-                  <div className="mt-1 text-[11px] text-slate-400">
-                    Outstanding commitments to clear
+                  <div className="mt-1">
+                    <div className="text-lg sm:text-xl font-black font-mono text-emerald-600">
+                      ৳{bankingMetrics.cumulativePaid.toLocaleString()}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                      <Percent className="h-3 w-3" />
+                      <span>{bankingMetrics.overallPct}% Cleared / Deposited</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Active Portfolios
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-3 shadow-2xs flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Remaining Balance</span>
+                    <Clock className="h-3.5 w-3.5 text-amber-500" />
                   </div>
-                  <div className="mt-1 text-xl sm:text-2xl font-black font-mono text-slate-900">
-                    {bankingMetrics.activeCount}
-                    <span className="text-xs font-normal text-slate-400 ml-1.5">
-                      / {unifiedObligations.length} total
-                    </span>
+                  <div className="mt-1">
+                    <div className="text-lg sm:text-xl font-black font-mono text-amber-700">
+                      ৳{bankingMetrics.totalRemaining.toLocaleString()}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-slate-400">
+                      Outstanding commitments to clear
+                    </div>
                   </div>
-                  <div className="mt-1 text-[11px] text-slate-400">
-                    {unifiedObligations.length - bankingMetrics.activeCount} completed & closed
+                </div>
+
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-3 shadow-2xs flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Portfolios</span>
+                    <CheckCircle2 className="h-3.5 w-3.5 text-slate-400" />
+                  </div>
+                  <div className="mt-1">
+                    <div className="text-lg sm:text-xl font-black font-mono text-slate-900">
+                      {bankingMetrics.activeCount}
+                      <span className="text-xs font-normal text-slate-400 ml-1.5">
+                        / {unifiedObligations.length} total
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-slate-400">
+                      {unifiedObligations.length - bankingMetrics.activeCount} completed & closed
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Action Bar & Sub-tab Switcher Card (matching reference mockup) */}
-              <div className="bg-white border border-slate-200/90 p-3 sm:p-4 rounded-2xl sm:rounded-3xl shadow-2xs space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  {/* Title Banner */}
-                  <div className="flex items-start sm:items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center font-bold shrink-0 mt-0.5 sm:mt-0">
-                      <Landmark className="h-4.5 w-4.5" />
-                    </div>
-                    <div>
-                      <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                        <span>Banking & Obligations</span>
-                      </h2>
-                      <p className="text-[11px] text-slate-500 leading-relaxed">
-                        Unified ledger of Consumer EMIs, Credit Cards, Bank Loans, and DPS / FDR savings
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Desktop Only Add Button */}
-                  <div className="relative hidden sm:block">
-                    <button
-                      type="button"
-                      onClick={() => setShowAddObligationDropdown((prev) => !prev)}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-2 text-xs font-bold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer shrink-0"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      <span>Add Obligation</span>
-                      <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${showAddObligationDropdown ? "rotate-180" : ""}`} />
-                    </button>
-
-                    {showAddObligationDropdown && (
-                      <>
-                        <div
-                          className="fixed inset-0 z-30"
-                          onClick={() => setShowAddObligationDropdown(false)}
-                        />
-                        <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white p-1.5 shadow-xl border border-slate-200/90 z-40 text-left animate-in fade-in zoom-in-95 duration-100">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowAddObligationDropdown(false);
-                              openAddLoanModal();
-                            }}
-                            className="w-full flex items-start gap-3 p-2.5 rounded-xl hover:bg-emerald-50/70 transition text-left group cursor-pointer"
-                          >
-                            <div className="p-2 rounded-lg bg-emerald-100/70 text-emerald-800 group-hover:bg-emerald-200/80 transition shrink-0 mt-0.5">
-                              <CreditCard className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <div className="text-xs font-bold text-slate-800 group-hover:text-emerald-900">
-                                EMI / Loan / Card
-                              </div>
-                              <div className="text-[11px] text-slate-500 line-clamp-1">
-                                Consumer EMI, credit card, bank loan
-                              </div>
-                            </div>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowAddObligationDropdown(false);
-                              setLoansViewSubTab("savings");
-                              setTriggerAddSavings(true);
-                            }}
-                            className="w-full flex items-start gap-3 p-2.5 rounded-xl hover:bg-teal-50/70 transition text-left group cursor-pointer"
-                          >
-                            <div className="p-2 rounded-lg bg-teal-100/70 text-teal-800 group-hover:bg-teal-200/80 transition shrink-0 mt-0.5">
-                              <Landmark className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <div className="text-xs font-bold text-slate-800 group-hover:text-teal-900">
-                                DPS / FDR Scheme
-                              </div>
-                              <div className="text-[11px] text-slate-500 line-clamp-1">
-                                Monthly DPS, fixed deposit scheme
-                              </div>
-                            </div>
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-
+              {/* Sleek Sub-tab Switcher & Action Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 {/* Subtabs Switcher */}
-                <div className="w-full">
-                  <Tabs
-                    value={loansViewSubTab}
-                    onChange={(val) => setLoansViewSubTab(val as any)}
-                    variant="segmented"
-                    size="sm"
-                    fullWidth
-                    items={[
-                      { id: "dashboard", label: "Ledger" },
-                      { id: "matrix", label: "Matrix" },
-                      {
-                        id: "savings",
-                        label: "DPS & FDR",
-                        count: savingsStats.total > 0 ? savingsStats.total : undefined,
-                      },
-                    ]}
-                  />
+                <div className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-full border border-slate-200/70 w-full sm:w-auto shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setLoansViewSubTab("dashboard")}
+                    className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 py-1 px-4 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
+                      loansViewSubTab === "dashboard"
+                        ? "bg-white text-slate-900 font-bold shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900 font-medium"
+                    }`}
+                  >
+                    <span>Ledger</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLoansViewSubTab("matrix")}
+                    className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 py-1 px-4 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
+                      loansViewSubTab === "matrix"
+                        ? "bg-white text-slate-900 font-bold shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900 font-medium"
+                    }`}
+                  >
+                    <span>Matrix</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLoansViewSubTab("savings")}
+                    className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 py-1 px-4 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
+                      loansViewSubTab === "savings"
+                        ? "bg-white text-slate-900 font-bold shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900 font-medium"
+                    }`}
+                  >
+                    <span>DPS & FDR</span>
+                    {savingsStats.total > 0 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-50 text-emerald-800">
+                        {savingsStats.total}
+                      </span>
+                    )}
+                  </button>
                 </div>
 
-                {/* Full-width Add Obligation Button on Mobile (matching mockup) */}
+                {/* Desktop Add Button */}
+                <div className="relative hidden sm:block">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddObligationDropdown((prev) => !prev)}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-1.5 text-xs font-bold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer shrink-0"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add Obligation</span>
+                    <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${showAddObligationDropdown ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {showAddObligationDropdown && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-30"
+                        onClick={() => setShowAddObligationDropdown(false)}
+                      />
+                      <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white p-1.5 shadow-xl border border-slate-200/90 z-40 text-left animate-in fade-in zoom-in-95 duration-100">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAddObligationDropdown(false);
+                            openAddLoanModal();
+                          }}
+                          className="w-full flex items-start gap-3 p-2.5 rounded-xl hover:bg-emerald-50/70 transition text-left group cursor-pointer"
+                        >
+                          <div className="p-2 rounded-lg bg-emerald-100/70 text-emerald-800 group-hover:bg-emerald-200/80 transition shrink-0 mt-0.5">
+                            <CreditCard className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-slate-800 group-hover:text-emerald-900">
+                              EMI / Loan / Card
+                            </div>
+                            <div className="text-[11px] text-slate-500 line-clamp-1">
+                              Consumer EMI, credit card, bank loan
+                            </div>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAddObligationDropdown(false);
+                            setLoansViewSubTab("savings");
+                            setTriggerAddSavings(true);
+                          }}
+                          className="w-full flex items-start gap-3 p-2.5 rounded-xl hover:bg-teal-50/70 transition text-left group cursor-pointer"
+                        >
+                          <div className="p-2 rounded-lg bg-teal-100/70 text-teal-800 group-hover:bg-teal-200/80 transition shrink-0 mt-0.5">
+                            <Landmark className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-slate-800 group-hover:text-teal-900">
+                              DPS / FDR Scheme
+                            </div>
+                            <div className="text-[11px] text-slate-500 line-clamp-1">
+                              Monthly DPS, fixed deposit scheme
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Mobile Add Obligation Button */}
                 <button
                   type="button"
                   onClick={() => setShowAddObligationDropdown(true)}
-                  className="sm:hidden w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-2.5 text-xs font-bold text-white shadow-xs active:scale-[0.99] transition cursor-pointer"
+                  className="sm:hidden w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-2 text-xs font-bold text-white shadow-xs active:scale-[0.99] transition cursor-pointer"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-3.5 w-3.5" />
                   <span>Add Obligation</span>
-                  <ChevronDown className="h-3.5 w-3.5 ml-0.5 opacity-80" />
+                  <ChevronDown className="h-3 w-3 ml-0.5 opacity-80" />
                 </button>
               </div>
 
@@ -3220,10 +3298,10 @@ export function DailyExpensesPage() {
                       </table>
                     </div>
                   </div>
-
-                  {/* ========================================================= */}
-                  {/* 2. TENURE COMMITMENT SUMMARY (For Loans & EMIs)           */}
-                  {/* ========================================================= */}
+                </div>
+              ) : loansViewSubTab === "matrix" ? (
+                <div className="space-y-6">
+                  {/* Tenure Commitment Summary */}
                   {loans.length > 0 && (
                     <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
                       <div className="p-4 border-b border-slate-100 flex items-center justify-between">
@@ -3332,134 +3410,6 @@ export function DailyExpensesPage() {
                     </div>
                   )}
 
-                  {/* ========================================================= */}
-                  {/* 3. MONTHLY OBLIGATION MATRIX: Exact Spreadsheet Mirror    */}
-                  {/* ========================================================= */}
-                  {emiMatrixData.rows.length > 0 && (
-                    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-                      <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                        <div>
-                          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
-                            <CalendarRange className="w-3.5 h-3.5 text-teal-600" />
-                            <span>Monthly Cashflow & Obligation Matrix</span>
-                          </h3>
-                          <p className="text-[11px] text-slate-500 mt-0.5">
-                            Spreadsheet timeline of all monthly installments. Click any cell to toggle payment!
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => openCategoryTrend("Loan & EMI Repayment")}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-semibold transition cursor-pointer shadow-2xs"
-                          title="Monthly Obligation Trend Analysis"
-                        >
-                          <LineChart className="w-3.5 h-3.5 text-teal-600" />
-                          <span>Obligation Trends</span>
-                        </button>
-                      </div>
-
-                      <div className="overflow-x-auto max-h-[500px]">
-                        <table className="w-full text-left text-xs border-collapse">
-                          <thead className="sticky top-0 z-10 bg-slate-100 border-b border-slate-200">
-                            <tr className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                              <th className="py-3 px-4 sticky left-0 bg-slate-100 z-20 shadow-xs border-r border-slate-200 w-36">
-                                Month / Year
-                              </th>
-                              {emiMatrixData.activeLoans.map((loan) => (
-                                <th
-                                  key={loan.id}
-                                  className="py-3 px-3 text-center border-r border-slate-200 min-w-[130px]"
-                                >
-                                  <div
-                                    onClick={() => navigate(`/my-life/expenses/loans/${loan.id}`)}
-                                    className="font-bold text-slate-800 hover:text-teal-700 cursor-pointer truncate max-w-[140px]"
-                                    title={loan.loanTitle}
-                                  >
-                                    {loan.loanTitle}
-                                  </div>
-                                  <div className="text-[10px] text-slate-400 font-normal">
-                                    {loan.tenureMonths ? `${loan.tenureMonths}m` : ""} • ৳{(loan.monthlyEmiAmount || 0).toLocaleString()}
-                                  </div>
-                                </th>
-                              ))}
-                              <th className="py-3 px-4 text-right bg-teal-50/80 font-black text-teal-900 border-l border-teal-200 min-w-[120px]">
-                                Monthly Total
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {emiMatrixData.rows.map((row) => (
-                              <tr key={row.monthLabel} className="hover:bg-slate-50/80 transition">
-                                {/* Month Label (Sticky Left) */}
-                                <td className="py-3 px-4 sticky left-0 bg-white font-bold text-slate-900 border-r border-slate-200 z-10 shadow-xs">
-                                  {row.monthLabel}
-                                </td>
-
-                                {/* Cells for each active EMI */}
-                                {emiMatrixData.activeLoans.map((loan) => {
-                                  const cell = row.loanCells[loan.id];
-                                  if (!cell || cell.amount <= 0 || !cell.segment) {
-                                    return (
-                                      <td
-                                        key={loan.id}
-                                        className="py-3 px-3 text-center text-slate-300 font-mono border-r border-slate-100"
-                                      >
-                                        —
-                                      </td>
-                                    );
-                                  }
-
-                                  return (
-                                    <td
-                                      key={loan.id}
-                                      className="py-2 px-2 text-center border-r border-slate-100"
-                                    >
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          cell.segment && handleToggleMatrixCell(loan.id, cell.segment.id)
-                                        }
-                                        className={`w-full py-1.5 px-2 rounded-xl text-xs font-mono font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
-                                          cell.isPaid
-                                            ? "bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300"
-                                            : "bg-slate-100 hover:bg-teal-50 hover:border-teal-300 text-slate-800 border border-slate-200"
-                                        }`}
-                                        title={
-                                          cell.isPaid
-                                            ? "Paid! Click to mark as unpaid"
-                                            : "Click to mark as paid"
-                                        }
-                                      >
-                                        {cell.isPaid ? (
-                                          <>
-                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                            <span>৳{cell.amount.toLocaleString()}</span>
-                                          </>
-                                        ) : (
-                                          <>
-                                            <Circle className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                            <span>৳{cell.amount.toLocaleString()}</span>
-                                          </>
-                                        )}
-                                      </button>
-                                    </td>
-                                  );
-                                })}
-
-                                {/* Monthly Total (Rightmost Column) */}
-                                <td className="py-3 px-4 text-right font-mono font-black text-sm text-teal-800 bg-teal-50/50 border-l border-teal-100">
-                                  ৳{row.rowTotal.toLocaleString()}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : loansViewSubTab === "matrix" ? (
-                <div className="space-y-6">
                   {emiMatrixData.rows.length > 0 ? (
                     <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
                       <div className="p-4 border-b border-slate-100 flex items-center justify-between">

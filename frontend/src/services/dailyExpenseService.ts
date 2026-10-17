@@ -1030,11 +1030,28 @@ export async function addLoanRepaymentSegment(
 
 export async function deleteMemberLoan(id: string): Promise<void> {
   const localList = getLocalLoans();
+  const target = localList.find((l) => l.id === id);
   saveLocalLoans(localList.filter((l) => l.id !== id));
+
+  // Clean up any synced daily expenses belonging to this loan
+  if (target) {
+    const expenses = getLocalExpenses();
+    const filteredExpenses = expenses.filter((e) => {
+      const matchDesc = e.description?.includes(target.loanTitle);
+      const matchNotes = e.notes?.includes(target.loanTitle) || e.notes?.includes(id);
+      return !(matchDesc || matchNotes);
+    });
+    if (filteredExpenses.length !== expenses.length) {
+      saveLocalExpenses(filteredExpenses);
+    }
+  }
 
   if (!id.startsWith("loan_")) {
     try {
       await supabase.from(LOANS_TABLE).delete().eq("id", id);
+      if (target) {
+        await supabase.from(TABLE).delete().ilike("description", `%${target.loanTitle}%`);
+      }
     } catch {}
   }
 }
@@ -1520,12 +1537,29 @@ export async function updateMemberSavings(
 
 export async function deleteMemberSavings(id: string): Promise<boolean> {
   const localList = getLocalSavings();
+  const target = localList.find((s) => s.id === id);
   const filtered = localList.filter((s) => s.id !== id);
   saveLocalSavings(filtered);
+
+  // Clean up any synced daily expenses belonging to this savings scheme
+  if (target) {
+    const expenses = getLocalExpenses();
+    const filteredExpenses = expenses.filter((e) => {
+      const matchDesc = e.description?.includes(target.title);
+      const matchNotes = e.notes?.includes(target.title) || e.notes?.includes(id);
+      return !(matchDesc || matchNotes);
+    });
+    if (filteredExpenses.length !== expenses.length) {
+      saveLocalExpenses(filteredExpenses);
+    }
+  }
 
   if (!id.startsWith("sav_")) {
     try {
       await supabase.from(SAVINGS_TABLE).delete().eq("id", id);
+      if (target) {
+        await supabase.from(TABLE).delete().ilike("description", `%${target.title}%`);
+      }
     } catch (err) {
       console.warn("deleteMemberSavings remote error:", err);
     }
