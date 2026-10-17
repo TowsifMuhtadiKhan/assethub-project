@@ -1590,7 +1590,9 @@ export function DailyExpensesPage() {
                 }`}
               >
                 <Wallet className="h-3.5 w-3.5 text-emerald-700" />
-                <span>Daily Expenses</span>
+                <span>
+                  <span className="hidden sm:inline">Daily </span>Expenses
+                </span>
                 <span
                   className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
                     activeTab === "expenses"
@@ -1612,7 +1614,9 @@ export function DailyExpensesPage() {
                 }`}
               >
                 <Landmark className="h-3.5 w-3.5 text-emerald-700" />
-                <span>Banking & Obligations</span>
+                <span>
+                  Banking<span className="hidden sm:inline"> & Obligations</span>
+                </span>
                 <span
                   className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
                     activeTab === "banking"
@@ -1972,7 +1976,9 @@ export function DailyExpensesPage() {
               }`}
             >
               <Wallet className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
-              <span>Daily Expenses</span>
+              <span>
+                <span className="hidden sm:inline">Daily </span>Expenses
+              </span>
               <span
                 className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
                   activeTab === "expenses" ? "bg-emerald-50 text-emerald-800" : "bg-slate-200/70 text-slate-600"
@@ -1992,7 +1998,9 @@ export function DailyExpensesPage() {
               }`}
             >
               <Landmark className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
-              <span>Banking & Obligations</span>
+              <span>
+                Banking<span className="hidden sm:inline"> & Obligations</span>
+              </span>
               <span
                 className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
                   activeTab === "banking"
