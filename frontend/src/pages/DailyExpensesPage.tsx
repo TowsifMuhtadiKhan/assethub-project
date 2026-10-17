@@ -31,7 +31,6 @@ import {
   Bike,
   Smartphone,
   Laptop,
-  Coins,
   Zap,
   UtensilsCrossed,
   ShoppingBag,
@@ -1995,42 +1994,44 @@ export function DailyExpensesPage() {
           </div>
 
           {activeTab === "expenses" && (
-            <div className="space-y-3 sm:space-y-6">
-              {/* Clean Responsive Stats Cards */}
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-2.5 sm:p-4 shadow-2xs">
-                  <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Today
+            <div className="space-y-2.5 sm:space-y-4">
+              {/* Ultra-compact Sleek Summary Bar: Today, This Month, Daily Avg, Top Cat */}
+              <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-2xs px-3 py-2 sm:py-2.5">
+                <div className="grid grid-cols-3 sm:grid-cols-4 divide-x divide-slate-100">
+                  <div className="pr-2 sm:px-2 py-0.5">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">
+                      Today
+                    </div>
+                    <div className="mt-0.5 text-xs sm:text-base font-black font-mono text-slate-900 truncate">
+                      ৳{stats.todayTotal.toLocaleString()}
+                    </div>
                   </div>
-                  <div className="mt-1 text-xs sm:text-xl font-black font-mono text-slate-900 truncate">
-                    ৳{stats.todayTotal.toLocaleString()}
-                  </div>
-                </div>
 
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-2.5 sm:p-4 shadow-2xs">
-                  <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">
-                    This Month
+                  <div className="px-2 sm:px-3 py-0.5">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">
+                      This Month
+                    </div>
+                    <div className="mt-0.5 text-xs sm:text-base font-black font-mono text-emerald-600 truncate">
+                      ৳{stats.monthTotal.toLocaleString()}
+                    </div>
                   </div>
-                  <div className="mt-1 text-xs sm:text-xl font-black font-mono text-emerald-600 truncate">
-                    ৳{stats.monthTotal.toLocaleString()}
-                  </div>
-                </div>
 
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-2.5 sm:p-4 shadow-2xs">
-                  <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Daily Avg
+                  <div className="pl-2 sm:px-3 py-0.5">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">
+                      Daily Avg
+                    </div>
+                    <div className="mt-0.5 text-xs sm:text-base font-black font-mono text-amber-600 truncate">
+                      ৳{stats.dailyAvg.toLocaleString()}
+                    </div>
                   </div>
-                  <div className="mt-1 text-xs sm:text-xl font-black font-mono text-amber-600 truncate">
-                    ৳{stats.dailyAvg.toLocaleString()}
-                  </div>
-                </div>
 
-                <div className="hidden sm:block rounded-2xl border border-slate-200/90 bg-white p-2.5 sm:p-4 shadow-2xs">
-                  <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Top Category
-                  </div>
-                  <div className="mt-1 text-sm sm:text-base font-bold text-slate-900 truncate">
-                    {stats.topCat}
+                  <div className="hidden sm:block pl-3 py-0.5">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">
+                      Top Category
+                    </div>
+                    <div className="mt-0.5 text-xs sm:text-base font-bold text-slate-900 truncate">
+                      {stats.topCat}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2575,52 +2576,50 @@ export function DailyExpensesPage() {
 
           {/* BANKING & FINANCIAL OBLIGATIONS VIEW */}
           {activeTab === "banking" && (
-            <div className="space-y-6">
-              {/* Summary Dashboard Cards: Due This Month, Pending, Paid, Total */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-2xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Due This Month</span>
-                    <CalendarRange className="h-3.5 w-3.5 text-emerald-700" />
+            <div className="space-y-2.5 sm:space-y-4">
+              {/* Ultra-compact Sleek Summary Bar: Due This Month, Pending, Paid, Total */}
+              <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/90 shadow-2xs px-3 py-2 sm:py-2.5">
+                <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 gap-y-1.5 sm:gap-y-0">
+                  <div className="pr-2 sm:px-2 py-0.5">
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <span>Due This Month</span>
+                      <CalendarRange className="h-3 w-3 text-emerald-700" />
+                    </div>
+                    <div className="text-sm sm:text-base font-black font-mono text-slate-900 mt-0.5 truncate">
+                      ৳{bankingMetrics.totalMonthlyDue.toLocaleString()}
+                    </div>
                   </div>
-                  <div className="mt-1 text-base sm:text-xl font-black font-mono text-slate-900 truncate">
-                    ৳{bankingMetrics.totalMonthlyDue.toLocaleString()}
-                  </div>
-                </div>
 
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-2xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Pending to Clear</span>
-                    <Clock className="h-3.5 w-3.5 text-amber-500" />
+                  <div className="pl-2 sm:px-3 py-0.5">
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <span>Pending</span>
+                      <Clock className="h-3 w-3 text-amber-500" />
+                    </div>
+                    <div className="text-sm sm:text-base font-black font-mono text-amber-600 mt-0.5 truncate">
+                      ৳{bankingMetrics.totalRemaining.toLocaleString()}
+                    </div>
                   </div>
-                  <div className="mt-1 text-base sm:text-xl font-black font-mono text-amber-600 truncate">
-                    ৳{bankingMetrics.totalRemaining.toLocaleString()}
-                  </div>
-                </div>
 
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-2xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Paid So Far</span>
-                    <Coins className="h-3.5 w-3.5 text-emerald-600" />
-                  </div>
-                  <div className="mt-1 flex items-baseline gap-1.5 truncate">
-                    <span className="text-base sm:text-xl font-black font-mono text-emerald-600 truncate">
+                  <div className="pt-1.5 sm:pt-0.5 pr-2 sm:px-3">
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <span>Paid</span>
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded-full border border-emerald-200/60 shrink-0">
+                        {bankingMetrics.overallPct}%
+                      </span>
+                    </div>
+                    <div className="text-sm sm:text-base font-black font-mono text-emerald-600 mt-0.5 truncate">
                       ৳{bankingMetrics.cumulativePaid.toLocaleString()}
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200/60 shrink-0">
-                      {bankingMetrics.overallPct}%
-                    </span>
+                    </div>
                   </div>
-                </div>
 
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-2xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Total Commitments</span>
-                    <Wallet className="h-3.5 w-3.5 text-indigo-500" />
-                  </div>
-                  <div className="mt-1 text-base sm:text-xl font-black font-mono text-slate-900 truncate">
-                    ৳{bankingMetrics.totalTarget.toLocaleString()}
-                    <span className="text-xs font-normal text-slate-400 ml-1.5">({bankingMetrics.activeCount} active)</span>
+                  <div className="pt-1.5 sm:pt-0.5 pl-2 sm:px-3">
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      <span>Commitments</span>
+                      <span className="text-[10px] text-slate-400 font-normal">({bankingMetrics.activeCount})</span>
+                    </div>
+                    <div className="text-sm sm:text-base font-black font-mono text-slate-900 mt-0.5 truncate">
+                      ৳{bankingMetrics.totalTarget.toLocaleString()}
+                    </div>
                   </div>
                 </div>
               </div>
