@@ -2646,44 +2646,8 @@ export function DailyExpensesPage() {
 
               {/* Type-wise Filter Toolbar & Add Obligation Button */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                {/* Horizontal Scrollable Type Filter Chips */}
-                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-                  {[
-                    { id: "ALL", label: "All", count: unifiedObligations.length },
-                    { id: "CARD", label: "Credit Cards", count: bankingMetrics.cardCount },
-                    { id: "EMI", label: "EMIs", count: bankingMetrics.emiCount },
-                    { id: "LOAN", label: "Loans", count: bankingMetrics.loanCount },
-                    { id: "SAVINGS", label: "DPS & Savings", count: bankingMetrics.savingsCount },
-                  ].map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        setBankingFilter(item.id as any);
-                        if (loansViewSubTab !== "dashboard") setLoansViewSubTab("dashboard");
-                      }}
-                      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition cursor-pointer select-none ${
-                        bankingFilter === item.id && loansViewSubTab === "dashboard"
-                          ? "bg-[#064e3b] text-white shadow-xs"
-                          : "bg-white border border-slate-200/90 text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      <span>{item.label}</span>
-                      <span
-                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                          bankingFilter === item.id && loansViewSubTab === "dashboard"
-                            ? "bg-emerald-700 text-white"
-                            : "bg-slate-100 text-slate-500"
-                        }`}
-                      >
-                        {item.count}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Right side: View Toggle & Add Obligation Button */}
-                <div className="flex items-center gap-2 shrink-0">
+                {/* View Toggle & Add Obligation Button (At TOP on mobile, RIGHT on desktop) */}
+                <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 sm:order-2">
                   {/* Cashflow Matrix Toggle */}
                   <button
                     type="button"
@@ -2717,7 +2681,7 @@ export function DailyExpensesPage() {
                           className="fixed inset-0 z-30"
                           onClick={() => setShowAddObligationDropdown(false)}
                         />
-                        <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white p-1.5 shadow-xl border border-slate-200/90 z-40 text-left animate-in fade-in zoom-in-95 duration-100">
+                        <div className="hidden sm:block absolute right-0 mt-2 w-64 rounded-2xl bg-white p-1.5 shadow-xl border border-slate-200/90 z-40 text-left animate-in fade-in zoom-in-95 duration-100">
                           <button
                             type="button"
                             onClick={() => {
@@ -2764,6 +2728,42 @@ export function DailyExpensesPage() {
                       </>
                     )}
                   </div>
+                </div>
+
+                {/* Horizontal Scrollable Type Filter Chips (At BOTTOM on mobile, LEFT on desktop) */}
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 sm:order-1">
+                  {[
+                    { id: "ALL", label: "All", count: unifiedObligations.length },
+                    { id: "CARD", label: "Credit Cards", count: bankingMetrics.cardCount },
+                    { id: "EMI", label: "EMIs", count: bankingMetrics.emiCount },
+                    { id: "LOAN", label: "Loans", count: bankingMetrics.loanCount },
+                    { id: "SAVINGS", label: "DPS & Savings", count: bankingMetrics.savingsCount },
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setBankingFilter(item.id as any);
+                        if (loansViewSubTab !== "dashboard") setLoansViewSubTab("dashboard");
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition cursor-pointer select-none ${
+                        bankingFilter === item.id && loansViewSubTab === "dashboard"
+                          ? "bg-[#064e3b] text-white shadow-xs"
+                          : "bg-white border border-slate-200/90 text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span>{item.label}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                          bankingFilter === item.id && loansViewSubTab === "dashboard"
+                            ? "bg-emerald-700 text-white"
+                            : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {item.count}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </div>
 
