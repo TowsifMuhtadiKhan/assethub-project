@@ -1603,9 +1603,21 @@ export function DailyExpensesPage() {
 
       {/* Desktop Header & Active Member Profile */}
       <div className="hidden lg:flex items-center justify-between gap-3 border-b border-slate-200/80 pb-3 mb-4 sm:mb-6">
-        {/* Left: Primary Switcher between Daily Expenses & Banking */}
-        <div className="min-w-0 flex items-center gap-3">
-          {activeMember ? (
+        {/* Left: Consistent Page Title & Subtitle */}
+        <div className="min-w-0">
+          <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
+            {activeTab === "expenses" ? "Daily Expenses" : "Banking & Financial Obligations"}
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5 hidden sm:block">
+            {activeTab === "expenses"
+              ? "Track daily family expenditures, categorize costs, and view spending patterns."
+              : "Track credit card debts, bank loans, EMIs, and recurring investments."}
+          </p>
+        </div>
+
+        {/* Right: Primary Switcher between Daily Expenses & Banking + Active Member Profile */}
+        <div className="flex items-center gap-3 shrink-0">
+          {activeMember && (
             <div className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-full border border-slate-200/70 shadow-2xs">
               <button
                 type="button"
@@ -1655,12 +1667,7 @@ export function DailyExpensesPage() {
                 </span>
               </button>
             </div>
-          ) : (
-            <h1 className="text-lg font-bold tracking-tight text-slate-900 truncate">
-              Daily Expenses
-            </h1>
           )}
-        </div>
 
         {/* Right: Sleek, compact profile switcher */}
         {activeMember ? (
@@ -1713,6 +1720,7 @@ export function DailyExpensesPage() {
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* Mobile Add Obligation Bottom Sheet Popup (rendered at top level so it is visible on mobile) */}
