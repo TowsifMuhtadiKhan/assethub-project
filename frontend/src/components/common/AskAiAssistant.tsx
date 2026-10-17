@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   RefreshCw,
   ExternalLink,
+  ChevronLeft,
 } from "lucide-react";
 import {
   askLifeNestAi,
@@ -350,40 +351,50 @@ export function AskAiAssistant() {
       {/* 2. Interactive AI Assistant Dialog */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-end sm:p-5 bg-slate-950/40 backdrop-blur-xs animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex flex-col bg-white sm:bg-slate-950/40 sm:backdrop-blur-xs sm:items-center sm:justify-end sm:p-5 animate-in fade-in duration-150"
           onClick={() => setIsOpen(false)}
         >
           <div
-            className="w-full sm:w-[480px] h-[88dvh] sm:h-[640px] max-h-[92dvh] flex flex-col rounded-t-3xl sm:rounded-3xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-950/20 text-slate-900 overflow-hidden animate-in slide-in-from-bottom-6 duration-200"
+            className="w-full h-full sm:h-[640px] sm:max-h-[90dvh] sm:w-[480px] flex flex-col bg-white sm:rounded-3xl sm:border sm:border-slate-200/90 sm:shadow-2xl text-slate-900 overflow-hidden animate-in slide-in-from-bottom duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100 bg-white/95 backdrop-blur-sm">
-              <div className="flex items-center gap-3">
-                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#064e3b] via-[#0d825c] to-emerald-500 text-white shadow-md shadow-emerald-950/20 ring-2 ring-emerald-50">
-                  <Bot className="h-5 w-5" />
+            <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3.5 border-b border-slate-100 bg-white/95 backdrop-blur-sm pt-[calc(0.6rem+env(safe-area-inset-top,0px))] sm:pt-3.5 shrink-0">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                {/* Mobile Back Chevron */}
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="sm:hidden -ml-1 flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 active:scale-95 transition cursor-pointer"
+                  aria-label="Back"
+                >
+                  <ChevronLeft className="h-5 w-5 stroke-[2.25]" />
+                </button>
+
+                <div className="relative flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#064e3b] via-[#0d825c] to-emerald-500 text-white shadow-md shadow-emerald-950/20 ring-2 ring-emerald-50">
+                  <Bot className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
                   <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
                 </div>
-                <div>
-                  <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5 leading-tight">
-                    <span>Likhe Rakho AI</span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[9px] font-bold border border-emerald-200/70">
+                <div className="min-w-0">
+                  <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5 leading-tight truncate">
+                    <span className="truncate">Likhe Rakho AI</span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-1.5 py-0.2 sm:px-2 sm:py-0.5 text-[9px] font-bold border border-emerald-200/70 shrink-0">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       Grounded
                     </span>
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">
+                  <div className="text-[10px] text-slate-400 mt-0.5 truncate">
                     Live context from your authentic records
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
                 <button
                   type="button"
                   onClick={() => setApiKeyModal(true)}
                   title="Configure Gemini API Key"
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 active:scale-90 transition cursor-pointer"
                 >
                   <KeyRound className="h-4 w-4" />
                 </button>
@@ -391,7 +402,7 @@ export function AskAiAssistant() {
                   type="button"
                   onClick={handleClearChat}
                   title="Clear conversation"
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-rose-600 transition cursor-pointer"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-rose-600 active:scale-90 transition cursor-pointer"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -399,17 +410,17 @@ export function AskAiAssistant() {
                   type="button"
                   onClick={() => setIsOpen(false)}
                   title="Close AI Assistant"
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
+                  className="hidden sm:flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-800 transition cursor-pointer"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
-            {/* Quick Prompt Pills (Shown only on first-time unstarted chat; once user asks questions, not required) */}
+            {/* Quick Prompt Suggestions */}
             {!hasUserInteracted && (
-              <div className="flex items-center gap-1.5 px-3 py-2 border-b border-slate-100 bg-slate-50/70 overflow-x-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden shrink-0 animate-in fade-in duration-200">
-                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider shrink-0 pl-1 mr-0.5">
+              <div className="flex items-center gap-1.5 px-3 sm:px-4 py-2 border-b border-slate-100 bg-slate-50/80 overflow-x-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden shrink-0 animate-in fade-in duration-200">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider shrink-0 pl-1 mr-0.5">
                   Suggestions:
                 </span>
                 {quickPrompts.map((qp, i) => (
@@ -418,7 +429,7 @@ export function AskAiAssistant() {
                     type="button"
                     onClick={() => handleSend(qp.prompt)}
                     disabled={loading}
-                    className="whitespace-nowrap rounded-full bg-white border border-slate-200/90 px-3 py-1 text-[11px] font-medium text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all cursor-pointer shrink-0 disabled:opacity-50 shadow-2xs active:scale-95"
+                    className="whitespace-nowrap rounded-full bg-white border border-slate-200/90 px-3 py-1 text-[11px] font-medium text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 transition-all cursor-pointer shrink-0 disabled:opacity-50 shadow-2xs active:scale-95"
                   >
                     {qp.label}
                   </button>
@@ -427,25 +438,25 @@ export function AskAiAssistant() {
             )}
 
             {/* Chat Messages Body */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50/40">
+            <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-[#f8fafc]/70">
               {messages.map((m) => {
                 const isUser = m.sender === "user";
                 return (
                   <div
                     key={m.id}
-                    className={`flex gap-2.5 ${isUser ? "justify-end" : "justify-start"}`}
+                    className={`flex gap-2 sm:gap-2.5 ${isUser ? "justify-end" : "justify-start"}`}
                   >
                     {!isUser && (
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-50 to-purple-100 text-indigo-700 mt-0.5 border border-indigo-200/60 shadow-2xs">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100/90 text-emerald-800 mt-0.5 border border-emerald-200/70 shadow-2xs">
                         <Bot className="h-3.5 w-3.5" />
                       </div>
                     )}
 
                     <div
-                      className={`max-w-[85%] rounded-2xl px-4 py-3 text-xs leading-relaxed ${
+                      className={`max-w-[88%] sm:max-w-[82%] rounded-2xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs leading-relaxed ${
                         isUser
-                          ? "bg-gradient-to-br from-slate-900 to-indigo-950 text-white shadow-md shadow-slate-900/10 rounded-tr-xs"
-                          : "bg-white border border-slate-200/90 text-slate-800 shadow-xs rounded-tl-xs"
+                          ? "bg-gradient-to-br from-[#064e3b] to-[#0d825c] text-white shadow-sm shadow-emerald-950/20 rounded-tr-xs"
+                          : "bg-white border border-slate-200/90 text-slate-800 shadow-2xs rounded-tl-xs"
                       }`}
                     >
                       {isUser ? (
@@ -455,7 +466,7 @@ export function AskAiAssistant() {
                       )}
                       <div
                         className={`text-[9px] mt-1.5 text-right font-medium ${
-                          isUser ? "text-indigo-200/70" : "text-slate-400"
+                          isUser ? "text-emerald-100/80" : "text-slate-400"
                         }`}
                       >
                         {m.timestamp}
@@ -473,11 +484,11 @@ export function AskAiAssistant() {
 
               {loading && (
                 <div className="flex gap-2.5 justify-start items-center">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-50 to-purple-100 text-indigo-700 border border-indigo-200/60 shadow-2xs">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100/90 text-emerald-800 border border-emerald-200/70 shadow-2xs">
                     <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                   </div>
                   <div className="rounded-full bg-white border border-slate-200 px-3.5 py-1.5 text-xs text-slate-500 shadow-2xs flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 animate-ping" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
                     Checking your real records...
                   </div>
                 </div>
@@ -487,13 +498,13 @@ export function AskAiAssistant() {
             </div>
 
             {/* Chat Input Bar */}
-            <div className="p-3 border-t border-slate-100 bg-white pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.5rem))]">
+            <div className="p-2.5 sm:p-3 border-t border-slate-100 bg-white pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.5rem))] shrink-0">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleSend();
                 }}
-                className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50/80 p-1.5 pl-4 focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-500/15 transition-all shadow-inner"
+                className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50/90 p-1.5 pl-3.5 sm:pl-4 focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all shadow-inner"
               >
                 <input
                   type="text"
