@@ -2822,7 +2822,7 @@ export function DailyExpensesPage() {
                         <div
                           key={`${item.kind}-${item.id}`}
                           onClick={() => navigate(item.targetUrl)}
-                          className="p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 bg-white hover:border-emerald-300 hover:shadow-xs transition cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 group"
+                          className="p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 bg-white hover:border-emerald-300 hover:shadow-xs transition cursor-pointer flex flex-col md:grid md:grid-cols-[minmax(0,1fr)_240px_280px] lg:grid-cols-[minmax(0,1fr)_280px_300px] md:items-center gap-3.5 md:gap-6 group"
                         >
                           {/* Left: Icon, Title, Institution, Type Badge */}
                           <div className="flex items-center gap-3 min-w-0">
@@ -2844,8 +2844,8 @@ export function DailyExpensesPage() {
                             </div>
                           </div>
 
-                          {/* Middle: Progress Bar & Paid vs Total */}
-                          <div className="md:w-60 shrink-0">
+                          {/* Middle: Progress Bar & Paid vs Total (Aligned to column) */}
+                          <div className="w-full">
                             <div className="flex items-center justify-between text-xs mb-1">
                               <span className="font-bold text-emerald-700 font-mono">৳{item.cumulativePaid.toLocaleString()} paid</span>
                               <span className="text-slate-400 font-mono text-[11px] font-bold">{pct}%</span>
@@ -2863,8 +2863,8 @@ export function DailyExpensesPage() {
                           </div>
 
                           {/* Right: Monthly Due, Status & Go Inside Arrow */}
-                          <div className="flex items-center justify-between md:justify-end gap-3 sm:gap-4 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
-                            <div className="text-left md:text-right">
+                          <div className="flex items-center justify-between md:justify-end gap-2 sm:gap-2.5 shrink-0 pt-2.5 md:pt-0 border-t md:border-t-0 border-slate-100">
+                            <div className="text-left md:text-right shrink-0">
                               <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
                                 Monthly Due
                               </div>
@@ -2873,7 +2873,7 @@ export function DailyExpensesPage() {
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                               <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
                                 item.isCleared
                                   ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
@@ -2883,7 +2883,7 @@ export function DailyExpensesPage() {
                               </span>
 
                               {/* Go Inside Details Pill */}
-                              <div className="flex items-center gap-1 text-xs font-bold text-emerald-800 bg-emerald-50 group-hover:bg-emerald-100 px-2.5 py-1.5 rounded-xl transition">
+                              <div className="flex items-center gap-1 text-xs font-bold text-emerald-800 bg-emerald-50 group-hover:bg-emerald-100 px-2.5 py-1.5 rounded-xl transition shrink-0">
                                 <span className="hidden sm:inline">Details</span>
                                 <ChevronRight className="h-3.5 w-3.5 text-emerald-700 group-hover:translate-x-0.5 transition" />
                               </div>
@@ -2899,14 +2899,14 @@ export function DailyExpensesPage() {
                                     setSavingToDelete(item.rawSaving);
                                   }
                                 }}
-                                className="p-1.5 rounded-xl border border-slate-200 bg-white hover:border-rose-300 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition cursor-pointer shadow-2xs"
+                                className="p-1.5 rounded-xl border border-slate-200 bg-white hover:border-rose-300 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition cursor-pointer shadow-2xs shrink-0"
                                 title="Delete Obligation"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
 
                               {/* Row Actions Menu */}
-                              <div onClick={(e) => e.stopPropagation()}>
+                              <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
                                 <TableRowActions
                                   title={item.title}
                                   subtitle={`${item.typeLabel} • ${item.institution}`}
