@@ -409,7 +409,6 @@ export function DailyExpensesPage() {
   const [bankingFilter, setBankingFilter] = useState<"ALL" | "EMI" | "CARD" | "LOAN" | "SAVINGS">("ALL");
   const [savingsList, setSavingsList] = useState<MemberSavings[]>([]);
   const [loadingSavings, setLoadingSavings] = useState(false);
-  const [savingsStats, setSavingsStats] = useState({ total: 0, activeCount: 0 });
   const [triggerAddSavings, setTriggerAddSavings] = useState(false);
 
   // Loans & Segment Repayments State
@@ -663,8 +662,6 @@ export function DailyExpensesPage() {
       const activeMem = members.find((m) => m.id === memberId);
       const data = await listMemberSavings(memberId, activeMem?.fullName);
       setSavingsList(data);
-      const activeCount = data.filter((s) => s.status === "ACTIVE").length;
-      setSavingsStats({ total: data.length, activeCount });
     } catch (err) {
       console.error(err);
     } finally {
@@ -680,7 +677,6 @@ export function DailyExpensesPage() {
       setLoans([]);
       setSavingsList([]);
       setViewingLoanSegments(null);
-      setSavingsStats({ total: 0, activeCount: 0 });
     }
   }, [activeMemberId]);
 
@@ -793,6 +789,7 @@ export function DailyExpensesPage() {
     const totalTarget = unifiedObligations.reduce((acc, o) => acc + o.totalTarget, 0);
     const cumulativePaid = unifiedObligations.reduce((acc, o) => acc + o.cumulativePaid, 0);
     const totalRemaining = unifiedObligations.reduce((acc, o) => acc + o.remaining, 0);
+    const totalMonthlyDue = unifiedObligations.filter((o) => !o.isCleared).reduce((acc, o) => acc + o.monthlyDue, 0);
     const activeCount = unifiedObligations.filter((o) => !o.isCleared).length;
     const emiCount = unifiedObligations.filter((o) => o.typeCategory === "EMI").length;
     const cardCount = unifiedObligations.filter((o) => o.typeCategory === "CARD").length;
@@ -804,6 +801,7 @@ export function DailyExpensesPage() {
       totalTarget,
       cumulativePaid,
       totalRemaining,
+      totalMonthlyDue,
       activeCount,
       emiCount,
       cardCount,
@@ -2578,21 +2576,31 @@ export function DailyExpensesPage() {
           {/* BANKING & FINANCIAL OBLIGATIONS VIEW */}
           {activeTab === "banking" && (
             <div className="space-y-6">
-              {/* Clean Responsive Banking Metric Cards */}
+              {/* Summary Dashboard Cards: Due This Month, Pending, Paid, Total */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
                 <div className="rounded-2xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-2xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Total Commitments</span>
-                    <Wallet className="h-3.5 w-3.5 text-indigo-500" />
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Due This Month</span>
+                    <CalendarRange className="h-3.5 w-3.5 text-emerald-700" />
                   </div>
                   <div className="mt-1 text-base sm:text-xl font-black font-mono text-slate-900 truncate">
-                    ৳{bankingMetrics.totalTarget.toLocaleString()}
+                    ৳{bankingMetrics.totalMonthlyDue.toLocaleString()}
                   </div>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-2xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Paid / Deposited</span>
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Pending to Clear</span>
+                    <Clock className="h-3.5 w-3.5 text-amber-500" />
+                  </div>
+                  <div className="mt-1 text-base sm:text-xl font-black font-mono text-amber-600 truncate">
+                    ৳{bankingMetrics.totalRemaining.toLocaleString()}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Paid So Far</span>
                     <Coins className="h-3.5 w-3.5 text-emerald-600" />
                   </div>
                   <div className="mt-1 flex items-baseline gap-1.5 truncate">
@@ -2607,152 +2615,143 @@ export function DailyExpensesPage() {
 
                 <div className="rounded-2xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-2xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Remaining</span>
-                    <Clock className="h-3.5 w-3.5 text-amber-500" />
-                  </div>
-                  <div className="mt-1 text-base sm:text-xl font-black font-mono text-amber-600 truncate">
-                    ৳{bankingMetrics.totalRemaining.toLocaleString()}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-2xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Active</span>
-                    <CheckCircle2 className="h-3.5 w-3.5 text-slate-400" />
+                    <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-400">Total Commitments</span>
+                    <Wallet className="h-3.5 w-3.5 text-indigo-500" />
                   </div>
                   <div className="mt-1 text-base sm:text-xl font-black font-mono text-slate-900 truncate">
-                    {bankingMetrics.activeCount}
-                    <span className="text-xs font-normal text-slate-400 ml-1">/ {unifiedObligations.length}</span>
+                    ৳{bankingMetrics.totalTarget.toLocaleString()}
+                    <span className="text-xs font-normal text-slate-400 ml-1.5">({bankingMetrics.activeCount} active)</span>
                   </div>
                 </div>
               </div>
 
-              {/* Sleek Sub-tab Switcher & Action Bar */}
+              {/* Type-wise Filter Toolbar & Add Obligation Button */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                {/* Subtabs Switcher */}
-                <div className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-full border border-slate-200/70 w-full sm:w-auto shadow-2xs">
-                  <button
-                    type="button"
-                    onClick={() => setLoansViewSubTab("dashboard")}
-                    className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 py-1 px-4 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
-                      loansViewSubTab === "dashboard"
-                        ? "bg-white text-slate-900 font-bold shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900 font-medium"
-                    }`}
-                  >
-                    <span>Ledger</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLoansViewSubTab("matrix")}
-                    className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 py-1 px-4 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
-                      loansViewSubTab === "matrix"
-                        ? "bg-white text-slate-900 font-bold shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900 font-medium"
-                    }`}
-                  >
-                    <span>Matrix</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLoansViewSubTab("savings")}
-                    className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 py-1 px-4 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
-                      loansViewSubTab === "savings"
-                        ? "bg-white text-slate-900 font-bold shadow-2xs"
-                        : "text-slate-600 hover:text-slate-900 font-medium"
-                    }`}
-                  >
-                    <span>DPS & FDR</span>
-                    {savingsStats.total > 0 && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-50 text-emerald-800">
-                        {savingsStats.total}
+                {/* Horizontal Scrollable Type Filter Chips */}
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                  {[
+                    { id: "ALL", label: "All", count: unifiedObligations.length },
+                    { id: "CARD", label: "Credit Cards", count: bankingMetrics.cardCount },
+                    { id: "EMI", label: "EMIs", count: bankingMetrics.emiCount },
+                    { id: "LOAN", label: "Loans", count: bankingMetrics.loanCount },
+                    { id: "SAVINGS", label: "DPS & Savings", count: bankingMetrics.savingsCount },
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setBankingFilter(item.id as any);
+                        if (loansViewSubTab !== "dashboard") setLoansViewSubTab("dashboard");
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition cursor-pointer select-none ${
+                        bankingFilter === item.id && loansViewSubTab === "dashboard"
+                          ? "bg-[#064e3b] text-white shadow-xs"
+                          : "bg-white border border-slate-200/90 text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span>{item.label}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                          bankingFilter === item.id && loansViewSubTab === "dashboard"
+                            ? "bg-emerald-700 text-white"
+                            : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {item.count}
                       </span>
-                    )}
-                  </button>
+                    </button>
+                  ))}
                 </div>
 
-                {/* Desktop Add Button */}
-                <div className="relative hidden sm:block">
+                {/* Right side: View Toggle & Add Obligation Button */}
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Cashflow Matrix Toggle */}
                   <button
                     type="button"
-                    onClick={() => setShowAddObligationDropdown((prev) => !prev)}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-1.5 text-xs font-bold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer shrink-0"
+                    onClick={() => setLoansViewSubTab((prev) => (prev === "matrix" ? "dashboard" : "matrix"))}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition cursor-pointer ${
+                      loansViewSubTab === "matrix"
+                        ? "bg-slate-900 text-white border-slate-900"
+                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                    }`}
+                    title="Toggle spreadsheet cashflow matrix"
                   >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>Add Obligation</span>
-                    <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${showAddObligationDropdown ? "rotate-180" : ""}`} />
+                    <CalendarRange className="h-3.5 w-3.5" />
+                    <span>{loansViewSubTab === "matrix" ? "List View" : "Matrix"}</span>
                   </button>
 
-                  {showAddObligationDropdown && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-30"
-                        onClick={() => setShowAddObligationDropdown(false)}
-                      />
-                      <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white p-1.5 shadow-xl border border-slate-200/90 z-40 text-left animate-in fade-in zoom-in-95 duration-100">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAddObligationDropdown(false);
-                            openAddLoanModal();
-                          }}
-                          className="w-full flex items-start gap-3 p-2.5 rounded-xl hover:bg-emerald-50/70 transition text-left group cursor-pointer"
-                        >
-                          <div className="p-2 rounded-lg bg-emerald-100/70 text-emerald-800 group-hover:bg-emerald-200/80 transition shrink-0 mt-0.5">
-                            <CreditCard className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <div className="text-xs font-bold text-slate-800 group-hover:text-emerald-900">
-                              EMI / Loan / Card
-                            </div>
-                            <div className="text-[11px] text-slate-500 line-clamp-1">
-                              Consumer EMI, credit card, bank loan
-                            </div>
-                          </div>
-                        </button>
+                  {/* Add Obligation Button */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddObligationDropdown((prev) => !prev)}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Add Obligation</span>
+                      <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${showAddObligationDropdown ? "rotate-180" : ""}`} />
+                    </button>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAddObligationDropdown(false);
-                            setLoansViewSubTab("savings");
-                            setTriggerAddSavings(true);
-                          }}
-                          className="w-full flex items-start gap-3 p-2.5 rounded-xl hover:bg-teal-50/70 transition text-left group cursor-pointer"
-                        >
-                          <div className="p-2 rounded-lg bg-teal-100/70 text-teal-800 group-hover:bg-teal-200/80 transition shrink-0 mt-0.5">
-                            <Landmark className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <div className="text-xs font-bold text-slate-800 group-hover:text-teal-900">
-                              DPS / FDR Scheme
+                    {showAddObligationDropdown && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-30"
+                          onClick={() => setShowAddObligationDropdown(false)}
+                        />
+                        <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white p-1.5 shadow-xl border border-slate-200/90 z-40 text-left animate-in fade-in zoom-in-95 duration-100">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAddObligationDropdown(false);
+                              openAddLoanModal();
+                            }}
+                            className="w-full flex items-start gap-3 p-2.5 rounded-xl hover:bg-emerald-50/70 transition text-left group cursor-pointer"
+                          >
+                            <div className="p-2 rounded-lg bg-emerald-100/70 text-emerald-800 group-hover:bg-emerald-200/80 transition shrink-0 mt-0.5">
+                              <CreditCard className="w-4 h-4" />
                             </div>
-                            <div className="text-[11px] text-slate-500 line-clamp-1">
-                              Monthly DPS, fixed deposit scheme
+                            <div>
+                              <div className="text-xs font-bold text-slate-800 group-hover:text-emerald-900">
+                                EMI / Loan / Card
+                              </div>
+                              <div className="text-[11px] text-slate-500 line-clamp-1">
+                                Consumer EMI, credit card, bank loan
+                              </div>
                             </div>
-                          </div>
-                        </button>
-                      </div>
-                    </>
-                  )}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAddObligationDropdown(false);
+                              setLoansViewSubTab("savings");
+                              setTriggerAddSavings(true);
+                            }}
+                            className="w-full flex items-start gap-3 p-2.5 rounded-xl hover:bg-teal-50/70 transition text-left group cursor-pointer"
+                          >
+                            <div className="p-2 rounded-lg bg-teal-100/70 text-teal-800 group-hover:bg-teal-200/80 transition shrink-0 mt-0.5">
+                              <Landmark className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-slate-800 group-hover:text-teal-900">
+                                DPS / FDR Scheme
+                              </div>
+                              <div className="text-[11px] text-slate-500 line-clamp-1">
+                                Monthly DPS, fixed deposit scheme
+                              </div>
+                            </div>
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
-
-                {/* Mobile Add Obligation Button */}
-                <button
-                  type="button"
-                  onClick={() => setShowAddObligationDropdown(true)}
-                  className="sm:hidden w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-2 text-xs font-bold text-white shadow-xs active:scale-[0.99] transition cursor-pointer"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Add Obligation</span>
-                  <ChevronDown className="h-3 w-3 ml-0.5 opacity-80" />
-                </button>
               </div>
 
               {/* Banking & Financial Obligations Content */}
               {loadingLoans || loadingSavings ? (
                 <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 text-xs text-slate-500">
-                  <div className="h-6 w-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <div className="h-6 w-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                   Loading financial commitments and savings...
                 </div>
               ) : loansViewSubTab === "savings" && activeMember ? (
@@ -2765,336 +2764,163 @@ export function DailyExpensesPage() {
                     if (activeMemberId) loadSavingsSummary(activeMemberId);
                   }}
                 />
-              ) : unifiedObligations.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center space-y-3">
-                  <div className="h-12 w-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mx-auto">
-                    <Landmark className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">No Financial Obligations Recorded</h3>
-                    <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                      Keep all your Consumer EMIs, Credit Card Bills, Bank Loans, and DPS / FDR savings under one roof with automated tracking.
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-center gap-2 pt-2">
+              ) : loansViewSubTab === "dashboard" ? (
+                filteredObligations.length === 0 ? (
+                  <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-12 text-center space-y-3">
+                    <div className="h-12 w-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 mx-auto">
+                      <Landmark className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">No obligations found</h3>
+                      <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+                        {bankingFilter !== "ALL"
+                          ? "No records match this type filter."
+                          : "Start by recording your first Loan, Consumer EMI, Credit Card bill or DPS savings."}
+                      </p>
+                    </div>
                     <button
                       type="button"
                       onClick={openAddLoanModal}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-[#064e3b] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#073f30] transition cursor-pointer"
                     >
                       <Plus className="h-3.5 w-3.5" />
-                      <span>Add EMI / Loan</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLoansViewSubTab("savings");
-                        setTriggerAddSavings(true);
-                      }}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      <span>Add DPS / FDR</span>
+                      <span>Add First Obligation</span>
                     </button>
                   </div>
-                </div>
-              ) : loansViewSubTab === "dashboard" ? (
-                <div className="space-y-4">
-                  {/* Horizontal Scrollable Filter Chips (matching mockup) */}
-                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
-                    {[
-                      { id: "ALL", label: "All", count: unifiedObligations.length },
-                      { id: "EMI", label: "EMIs", count: bankingMetrics.emiCount },
-                      { id: "CARD", label: "Credit Cards", count: bankingMetrics.cardCount },
-                      { id: "LOAN", label: "Loans", count: bankingMetrics.loanCount },
-                      { id: "SAVINGS", label: "Savings", count: bankingMetrics.savingsCount },
-                    ].map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setBankingFilter(item.id as any)}
-                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition cursor-pointer select-none ${
-                          bankingFilter === item.id
-                            ? "bg-[#064e3b] text-white shadow-xs"
-                            : "bg-white border border-slate-200/90 text-slate-700 hover:bg-slate-50"
-                        }`}
-                      >
-                        <span>{item.label}</span>
-                        <span
-                          className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                            bankingFilter === item.id
-                              ? "bg-emerald-700 text-white"
-                              : "bg-slate-100 text-slate-500"
-                          }`}
+                ) : (
+                  <div className="space-y-2.5">
+                    {filteredObligations.map((item) => {
+                      const iconCfg = getObligationIcon(item.title, item.typeCategory);
+                      const IconComp = iconCfg.icon;
+                      const pct = item.totalTarget > 0
+                        ? Math.min(100, Math.round((item.cumulativePaid / item.totalTarget) * 100))
+                        : 0;
+
+                      return (
+                        <div
+                          key={`${item.kind}-${item.id}`}
+                          onClick={() => navigate(item.targetUrl)}
+                          className="p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 bg-white hover:border-emerald-300 hover:shadow-xs transition cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 group"
                         >
-                          {item.count}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden">
-                    <div className="p-3.5 sm:p-4 border-b border-slate-100 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Table className="w-4 h-4 text-slate-500 shrink-0" />
-                        <h3 className="text-sm font-bold text-slate-900">
-                          Obligations
-                        </h3>
-                        <span className="text-xs text-slate-400 font-mono">
-                          ({filteredObligations.length})
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Mobile Obligations Cards List (sm:hidden, matching user mockup) */}
-                    <div className="sm:hidden divide-y divide-slate-100">
-                      {filteredObligations.length === 0 ? (
-                        <div className="py-12 text-center text-xs text-slate-400">
-                          No financial obligations match the selected filter.
-                        </div>
-                      ) : (
-                        filteredObligations.map((item) => {
-                          const iconCfg = getObligationIcon(item.title, item.typeCategory);
-                          const IconComp = iconCfg.icon;
-                          const pct =
-                            item.totalTarget > 0
-                              ? Math.min(100, Math.round((item.cumulativePaid / item.totalTarget) * 100))
-                              : 0;
-
-                          return (
-                            <div
-                              key={`${item.kind}-${item.id}`}
-                              onClick={() => navigate(item.targetUrl)}
-                              className="p-3.5 flex items-center gap-3 hover:bg-slate-50/80 active:bg-slate-100 transition cursor-pointer"
-                            >
-                              {/* Left Icon Box */}
-                              <div className={`h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 border ${iconCfg.bg}`}>
-                                <IconComp className="h-5 w-5" />
-                              </div>
-
-                              {/* Middle: Title, Subtitle, Progress Bar */}
-                              <div className="flex-1 min-w-0">
-                                <div className="font-bold text-sm text-slate-900 truncate">
+                          {/* Left: Icon, Title, Institution, Type Badge */}
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 border ${iconCfg.bg}`}>
+                              <IconComp className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-sm font-bold text-slate-900 group-hover:text-emerald-800 transition truncate">
                                   {item.title}
-                                </div>
-                                <div className="text-xs text-slate-400 mt-0.5 truncate">
-                                  {item.institution} • {item.typeLabel}
-                                </div>
-                                {/* Progress bar */}
-                                <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
-                                  <div
-                                    className="bg-emerald-500 h-1.5 rounded-full transition-all duration-300"
-                                    style={{ width: `${pct}%` }}
-                                  />
-                                </div>
+                                </h4>
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border border-slate-200 bg-slate-50 text-slate-600 shrink-0">
+                                  {item.typeLabel}
+                                </span>
                               </div>
+                              <p className="text-xs text-slate-400 mt-0.5 truncate">
+                                {item.institution} {item.tenureText !== "—" ? `• ${item.tenureText}` : ""}
+                              </p>
+                            </div>
+                          </div>
 
-                              {/* Right: Monthly Due, % badge, Chevron */}
-                              <div className="flex items-center gap-2 shrink-0">
-                                <div className="text-right">
-                                  <div className="text-xs font-bold font-mono text-amber-600">
-                                    {item.monthlyDue > 0 ? `৳${item.monthlyDue.toLocaleString()}` : `৳${item.totalTarget.toLocaleString()}`}
-                                  </div>
-                                  <div className="mt-0.5">
-                                    <span
-                                      className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                        pct >= 100
-                                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
-                                          : "bg-amber-50 text-amber-600 border border-amber-200/60"
-                                      }`}
-                                    >
-                                      {pct}%
-                                    </span>
-                                  </div>
-                                </div>
-                                <ChevronRight className="h-4 w-4 text-slate-300" />
+                          {/* Middle: Progress Bar & Paid vs Total */}
+                          <div className="md:w-60 shrink-0">
+                            <div className="flex items-center justify-between text-xs mb-1">
+                              <span className="font-bold text-emerald-700 font-mono">৳{item.cumulativePaid.toLocaleString()} paid</span>
+                              <span className="text-slate-400 font-mono text-[11px] font-bold">{pct}%</span>
+                            </div>
+                            <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1 font-mono">
+                              <span>Total ৳{item.totalTarget.toLocaleString()}</span>
+                              <span className="font-bold text-amber-700">৳{item.remaining.toLocaleString()} left</span>
+                            </div>
+                          </div>
+
+                          {/* Right: Monthly Due, Status & Go Inside Arrow */}
+                          <div className="flex items-center justify-between md:justify-end gap-3 sm:gap-4 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
+                            <div className="text-left md:text-right">
+                              <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+                                Monthly Due
+                              </div>
+                              <div className="text-sm font-black font-mono text-slate-900">
+                                {item.monthlyDue > 0 ? `৳${item.monthlyDue.toLocaleString()}` : "—"}
                               </div>
                             </div>
-                          );
-                        })
-                      )}
-                    </div>
 
-                    {/* Desktop Obligations Table (hidden sm:block) */}
-                    <div className="hidden sm:block overflow-x-auto">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                          <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                            <th className="py-3 px-3 text-center w-10">#</th>
-                            <th className="py-3 px-4">Title & Commitment</th>
-                            <th className="py-3 px-3">Institution / Lender</th>
-                            <th className="py-3 px-3 text-center">Type</th>
-                            <th className="py-3 px-3 text-center">Tenure</th>
-                            <th className="py-3 px-3 text-right">Monthly Due</th>
-                            <th className="py-3 px-4 text-right">Total Commitment</th>
-                            <th className="py-3 px-4 text-right">Cumulative Paid</th>
-                            <th className="py-3 px-4 text-right">Remaining Balance</th>
-                            <th className="py-3 px-3 text-center">Status</th>
-                            <th className="py-3 px-4 text-right w-24">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {filteredObligations.length === 0 ? (
-                            <tr>
-                              <td colSpan={11} className="py-12 text-center text-slate-400">
-                                No financial obligations match the selected filter.
-                              </td>
-                            </tr>
-                          ) : (
-                            filteredObligations.map((item, idx) => {
-                              const typeColor: ChipColor =
-                                item.typeCategory === "CARD"
-                                  ? "rose"
-                                  : item.typeCategory === "EMI"
-                                  ? "emerald"
-                                  : item.typeCategory === "SAVINGS"
-                                  ? "blue"
-                                  : "amber";
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                                item.isCleared
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : "bg-amber-50 text-amber-700 border border-amber-200"
+                              }`}>
+                                {item.status}
+                              </span>
 
-                              return (
-                                <tr
-                                  key={`${item.kind}-${item.id}`}
-                                  onClick={() => navigate(item.targetUrl)}
-                                  className="hover:bg-slate-50/80 transition cursor-pointer group"
-                                >
-                                  <td className="py-3 px-3 text-center text-slate-400 font-mono text-[11px]">
-                                    {idx + 1}
-                                  </td>
-                                  <td className="py-3 px-4 font-bold text-slate-900 group-hover:text-emerald-700 transition">
-                                    <div className="flex items-center gap-1.5">
-                                      <span>{item.title}</span>
-                                      <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
-                                    </div>
-                                  </td>
-                                  <td className="py-3 px-3 text-slate-600">
-                                    {item.institution}
-                                  </td>
-                                  <td className="py-3 px-3 text-center">
-                                    <Chip
-                                      size="sm"
-                                      color={typeColor}
-                                      label={item.typeLabel}
-                                      className="border border-current/20"
-                                    />
-                                  </td>
-                                  <td className="py-3 px-3 text-center font-mono">
-                                    <Chip
-                                      size="sm"
-                                      color="slate"
-                                      label={item.tenureText}
-                                      className="border border-slate-200/80 font-mono"
-                                    />
-                                  </td>
-                                  <td className="py-3 px-3 text-right font-mono font-bold text-slate-800">
-                                    {item.monthlyDue > 0 ? `৳${item.monthlyDue.toLocaleString()}` : "—"}
-                                  </td>
-                                  <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
-                                    ৳{item.totalTarget.toLocaleString()}
-                                  </td>
-                                  <td className="py-3 px-4 text-right font-mono font-bold text-emerald-600">
-                                    ৳{item.cumulativePaid.toLocaleString()}
-                                  </td>
-                                  <td className="py-3 px-4 text-right font-mono font-bold text-amber-700">
-                                    ৳{item.remaining.toLocaleString()}
-                                  </td>
-                                  <td className="py-3 px-3 text-center">
-                                    <Chip
-                                      size="sm"
-                                      color={item.isCleared ? "emerald" : "amber"}
-                                      label={`${item.status} (${item.pct}%)`}
-                                      className="border border-current/20 font-bold"
-                                    />
-                                  </td>
-                                  <td className="py-3 px-4 text-right">
-                                    <TableRowActions
-                                      title={item.title}
-                                      subtitle={`${item.typeLabel} • ${item.institution}`}
-                                      actions={[
-                                        {
-                                          label: "View Schedule & Ledger",
-                                          description: "Open breakdown, installments & records",
-                                          icon: ExternalLink,
-                                          onClick: () => navigate(item.targetUrl),
-                                        },
-                                        ...(item.kind === "LOAN" && item.rawLoan
-                                          ? [
-                                              {
-                                                label: "Edit Obligation Details",
-                                                description: "Update principal, tenure, lender or notes",
-                                                icon: Pencil,
-                                                onClick: () => openEditLoanModal(item.rawLoan!),
-                                              },
-                                              {
-                                                label: "Delete Obligation",
-                                                description: "Permanently delete this loan & all segments",
-                                                icon: Trash2,
-                                                variant: "danger" as const,
-                                                onClick: () => setLoanToDelete(item.rawLoan!),
-                                              },
-                                            ]
-                                          : item.kind === "SAVINGS" && item.rawSaving
-                                          ? [
-                                              {
-                                                label: "View & Edit Scheme",
-                                                description: "Open savings milestones & ledger",
-                                                icon: ExternalLink,
-                                                onClick: () => navigate(item.targetUrl),
-                                              },
-                                              {
-                                                label: "Delete Savings Scheme",
-                                                description: "Permanently delete this savings scheme",
-                                                icon: Trash2,
-                                                variant: "danger" as const,
-                                                onClick: () => setSavingToDelete(item.rawSaving!),
-                                              },
-                                            ]
-                                          : []),
-                                      ]}
-                                    />
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                        {filteredObligations.length > 0 && (
-                          <tfoot>
-                            <tr className="bg-slate-100/90 text-slate-900 font-bold border-t-2 border-slate-300">
-                              <td className="py-3.5 px-4 uppercase tracking-wider text-[11px] text-slate-800 font-black" colSpan={4}>
-                                Filtered Total ({filteredObligations.length} items)
-                              </td>
-                              <td className="py-3.5 px-3 text-center font-mono text-slate-700 font-bold">
-                                —
-                              </td>
-                              <td className="py-3.5 px-3 text-right font-mono text-slate-900 text-xs font-black">
-                                ৳{filteredObligations.reduce((sum, o) => sum + o.monthlyDue, 0).toLocaleString()}
-                              </td>
-                              <td className="py-3.5 px-4 text-right font-mono text-slate-900 text-sm font-black">
-                                ৳{filteredObligations.reduce((sum, o) => sum + o.totalTarget, 0).toLocaleString()}
-                              </td>
-                              <td className="py-3.5 px-4 text-right font-mono text-emerald-700 text-sm font-black">
-                                ৳{filteredObligations.reduce((sum, o) => sum + o.cumulativePaid, 0).toLocaleString()}
-                              </td>
-                              <td className="py-3.5 px-4 text-right font-mono text-amber-800 text-sm font-black">
-                                ৳{filteredObligations.reduce((sum, o) => sum + o.remaining, 0).toLocaleString()}
-                              </td>
-                              <td className="py-3.5 px-3 text-center text-emerald-700 font-mono text-xs font-bold">
-                                {(() => {
-                                  const totalT = filteredObligations.reduce((sum, o) => sum + o.totalTarget, 0);
-                                  const totalP = filteredObligations.reduce((sum, o) => sum + o.cumulativePaid, 0);
-                                  return totalT > 0 ? Math.min(100, Math.round((totalP / totalT) * 100)) : 0;
-                                })()}%
-                              </td>
-                              <td className="py-3.5 px-4 text-right font-mono text-xs text-slate-500">
-                                —
-                              </td>
-                            </tr>
-                          </tfoot>
-                        )}
-                      </table>
-                    </div>
+                              {/* Go Inside Details Pill */}
+                              <div className="flex items-center gap-1 text-xs font-bold text-emerald-800 bg-emerald-50 group-hover:bg-emerald-100 px-2.5 py-1.5 rounded-xl transition">
+                                <span className="hidden sm:inline">Details</span>
+                                <ChevronRight className="h-3.5 w-3.5 text-emerald-700 group-hover:translate-x-0.5 transition" />
+                              </div>
+
+                              {/* Row Actions Menu */}
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <TableRowActions
+                                  title={item.title}
+                                  subtitle={`${item.typeLabel} • ${item.institution}`}
+                                  actions={[
+                                    {
+                                      label: "View Schedule & Ledger",
+                                      description: "Open breakdown, installments & records",
+                                      icon: ExternalLink,
+                                      onClick: () => navigate(item.targetUrl),
+                                    },
+                                    ...(item.kind === "LOAN" && item.rawLoan
+                                      ? [
+                                          {
+                                            label: "Edit Obligation Details",
+                                            description: "Update principal, tenure, lender or notes",
+                                            icon: Pencil,
+                                            onClick: () => openEditLoanModal(item.rawLoan!),
+                                          },
+                                          {
+                                            label: "Delete Obligation",
+                                            description: "Permanently delete this loan & all segments",
+                                            icon: Trash2,
+                                            variant: "danger" as const,
+                                            onClick: () => setLoanToDelete(item.rawLoan!),
+                                          },
+                                        ]
+                                      : item.kind === "SAVINGS" && item.rawSaving
+                                      ? [
+                                          {
+                                            label: "View & Edit Scheme",
+                                            description: "Open savings milestones & ledger",
+                                            icon: ExternalLink,
+                                            onClick: () => navigate(item.targetUrl),
+                                          },
+                                          {
+                                            label: "Delete Savings Scheme",
+                                            description: "Permanently delete this savings scheme",
+                                            icon: Trash2,
+                                            variant: "danger" as const,
+                                            onClick: () => setSavingToDelete(item.rawSaving!),
+                                          },
+                                        ]
+                                      : []),
+                                  ]}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                </div>
+                )
               ) : loansViewSubTab === "matrix" ? (
                 <div className="space-y-6">
                   {/* Tenure Commitment Summary */}
