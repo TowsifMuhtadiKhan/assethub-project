@@ -965,7 +965,7 @@ export function TasksPage() {
                   <button
                     type="button"
                     onClick={() => openAddWithStatus("Pending")}
-                    className="rounded-lg p-1 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition cursor-pointer"
+                    className="hidden md:flex rounded-lg p-1 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition cursor-pointer"
                     title="Add task to To Do"
                   >
                     <Plus className="h-4 w-4" />
@@ -1031,7 +1031,7 @@ export function TasksPage() {
                   <button
                     type="button"
                     onClick={() => openAddWithStatus("In Progress")}
-                    className="rounded-lg p-1 text-blue-600 hover:bg-blue-100 transition cursor-pointer"
+                    className="hidden md:flex rounded-lg p-1 text-blue-600 hover:bg-blue-100 transition cursor-pointer"
                     title="Add task to In Progress"
                   >
                     <Plus className="h-4 w-4" />
@@ -1097,7 +1097,7 @@ export function TasksPage() {
                   <button
                     type="button"
                     onClick={() => openAddWithStatus("Completed")}
-                    className="rounded-lg p-1 text-emerald-600 hover:bg-emerald-100 transition cursor-pointer"
+                    className="hidden md:flex rounded-lg p-1 text-emerald-600 hover:bg-emerald-100 transition cursor-pointer"
                     title="Add task to Done"
                   >
                     <Plus className="h-4 w-4" />
@@ -1168,7 +1168,7 @@ export function TasksPage() {
                   <button
                     type="button"
                     onClick={() => openAddWithStatus("Cancelled")}
-                    className="rounded-lg p-1 text-rose-600 hover:bg-rose-100 transition cursor-pointer"
+                    className="hidden md:flex rounded-lg p-1 text-rose-600 hover:bg-rose-100 transition cursor-pointer"
                     title="Add task directly to Cancelled"
                   >
                     <Plus className="h-4 w-4" />

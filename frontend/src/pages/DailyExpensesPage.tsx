@@ -1464,16 +1464,36 @@ export function DailyExpensesPage() {
         activeMember &&
         createPortal(
           <div className="flex items-center gap-1.5 lg:hidden relative">
+            {activeTab === "expenses" ? (
+              <button
+                type="button"
+                onClick={openCreateModal}
+                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs active:scale-95 transition cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Add Expense</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowAddObligationDropdown(true)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs active:scale-95 transition cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Add Obligation</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setShowMobileOptionsMenu((prev) => !prev)}
-              className="flex items-center gap-1.5 bg-[#dcfce7] hover:bg-emerald-200/80 active:scale-95 border border-emerald-300/90 rounded-full px-2.5 py-1 shadow-2xs transition cursor-pointer"
+              className="flex items-center gap-1 bg-[#dcfce7] hover:bg-emerald-200/80 active:scale-95 border border-emerald-300/90 rounded-full px-2 py-1 shadow-2xs transition cursor-pointer"
               title={`Active Profile: ${activeMember.fullName} (Click to manage)`}
             >
               <span className="text-xs font-bold text-[#064e3b]">
                 {activeMember.fullName.charAt(0)}
               </span>
-              <Lock className="h-3.5 w-3.5 text-[#064e3b]" />
+              <Lock className="h-3 w-3 text-[#064e3b]" />
             </button>
 
               {showMobileOptionsMenu && (
@@ -2198,11 +2218,11 @@ export function DailyExpensesPage() {
                 listValue="table"
               />
 
-              {/* Log Expense Button */}
+              {/* Log Expense Button (Desktop only; on mobile rendered in top header) */}
               <button
                 type="button"
                 onClick={openCreateModal}
-                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3 sm:px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer shrink-0"
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3 sm:px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer shrink-0"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span className="hidden xs:inline">Log Expense</span>
@@ -2655,8 +2675,8 @@ export function DailyExpensesPage() {
 
               {/* Type-wise Filter Toolbar & Add Obligation Button */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                {/* View Toggle & Add Obligation Button (At TOP on mobile, RIGHT on desktop) */}
-                <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 sm:order-2">
+                {/* View Toggle (At TOP on mobile, RIGHT on desktop) */}
+                <div className="flex items-center justify-end gap-2 shrink-0 sm:order-2">
                   {/* Cashflow Matrix Toggle */}
                   <button
                     type="button"
@@ -2672,8 +2692,8 @@ export function DailyExpensesPage() {
                     <span>{loansViewSubTab === "matrix" ? "List View" : "Matrix"}</span>
                   </button>
 
-                  {/* Add Obligation Button */}
-                  <div className="relative">
+                  {/* Add Obligation Button (Desktop only; on mobile rendered in top header) */}
+                  <div className="relative hidden sm:block">
                     <button
                       type="button"
                       onClick={() => setShowAddObligationDropdown((prev) => !prev)}
