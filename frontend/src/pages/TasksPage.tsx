@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   CheckCircle2,
   Circle,
@@ -406,6 +407,29 @@ export function TasksPage() {
     }
   };
 
+  // Mobile Header Portal State
+  const [headerPortalEl, setHeaderPortalEl] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const el = document.getElementById("mobile-header-right");
+    if (el) {
+      setHeaderPortalEl(el);
+      return;
+    }
+    const interval = setInterval(() => {
+      const found = document.getElementById("mobile-header-right");
+      if (found) {
+        setHeaderPortalEl(found);
+        clearInterval(interval);
+      }
+    }, 50);
+    const timeout = setTimeout(() => clearInterval(interval), 2000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, []);
+
   useEffect(() => {
     loadAll();
   }, []);
@@ -671,8 +695,25 @@ export function TasksPage() {
 
   return (
     <div className="space-y-4 w-full">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+      {/* Mobile Top Header Integration via Portal into MobileHeader */}
+      {headerPortalEl &&
+        canCreate &&
+        createPortal(
+          <div className="flex items-center gap-1.5 lg:hidden">
+            <button
+              type="button"
+              onClick={() => openAddWithStatus("Pending")}
+              className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs active:scale-95 transition cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add Task</span>
+            </button>
+          </div>,
+          headerPortalEl
+        )}
+
+      {/* Desktop Header (hidden on mobile since top MobileHeader has page title and + Add Task button) */}
+      <div className="hidden lg:flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
         <div className="min-w-0">
           <h1 className="text-base sm:text-xl font-bold tracking-tight text-slate-900 font-display truncate">
             To-Do List & Tasks
@@ -1171,15 +1212,15 @@ export function TasksPage() {
       {/* CREATE ISSUE MODAL */}
       {isAddOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-2.5 sm:p-4 backdrop-blur-xs overflow-y-auto"
           onMouseDown={() => setIsAddOpen(false)}
         >
           <div
-            className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-200/90"
+            className="w-full max-w-lg max-h-[92dvh] flex flex-col overflow-hidden rounded-2xl sm:rounded-3xl bg-white shadow-2xl border border-slate-200/90 my-auto"
             onMouseDown={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
               <h2 className="text-base font-bold tracking-tight text-slate-900">
                 New Task
               </h2>
@@ -1194,11 +1235,11 @@ export function TasksPage() {
             </div>
 
             {/* Modal Tabs: General vs Advanced */}
-            <div className="flex border-b border-slate-200/90 px-6 bg-white">
+            <div className="flex border-b border-slate-200/90 px-4 sm:px-6 bg-white shrink-0 overflow-x-auto no-scrollbar">
               <button
                 type="button"
                 onClick={() => setAddModalTab("general")}
-                className={`py-2.5 text-xs font-semibold border-b-2 mr-6 transition cursor-pointer flex items-center gap-1.5 ${
+                className={`py-2.5 text-xs font-semibold border-b-2 mr-4 sm:mr-6 transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                   addModalTab === "general"
                     ? "border-slate-900 text-slate-900 font-bold"
                     : "border-transparent text-slate-500 hover:text-slate-800"
@@ -1209,7 +1250,7 @@ export function TasksPage() {
               <button
                 type="button"
                 onClick={() => setAddModalTab("advanced")}
-                className={`py-2.5 text-xs font-semibold border-b-2 transition cursor-pointer flex items-center gap-1.5 ${
+                className={`py-2.5 text-xs font-semibold border-b-2 transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                   addModalTab === "advanced"
                     ? "border-slate-900 text-slate-900 font-bold"
                     : "border-transparent text-slate-500 hover:text-slate-800"
@@ -1222,343 +1263,345 @@ export function TasksPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-              {/* TAB 1: GENERAL (Summary, Description, Priority, Due Date, Due Time, Status) */}
-              <div className={addModalTab === "general" ? "space-y-4" : "hidden"}>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Summary / Title <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    name="title"
-                    required
-                    placeholder="e.g. Renew car tax token, Pay DESCO electricity bill"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Description / Notes
-                  </label>
-                  <textarea
-                    name="description"
-                    rows={2}
-                    placeholder="Additional context, account numbers, or steps to complete..."
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
-                  />
-                </div>
-
-                {/* Status & Priority */}
-                <div className="grid grid-cols-2 gap-3.5">
+            <form onSubmit={handleCreate} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+                {/* TAB 1: GENERAL (Summary, Description, Priority, Due Date, Due Time, Status) */}
+                <div className={addModalTab === "general" ? "space-y-4" : "hidden"}>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Initial Status
-                    </label>
-                    <FormControl size="small" fullWidth>
-                      <Select
-                        name="status"
-                        defaultValue={defaultAddStatus}
-                        sx={{
-                          fontSize: "0.75rem",
-                          fontFamily: '"Plus Jakarta Sans", sans-serif',
-                          borderRadius: "0.75rem",
-                          backgroundColor: "#f8fafc",
-                          "& .MuiSelect-select": {
-                            fontSize: "0.75rem",
-                            py: "8px",
-                          },
-                        }}
-                      >
-                        <MenuItem value="Pending" sx={{ fontSize: "0.75rem" }}>To Do</MenuItem>
-                        <MenuItem value="In Progress" sx={{ fontSize: "0.75rem" }}>In Progress</MenuItem>
-                        <MenuItem value="Completed" sx={{ fontSize: "0.75rem" }}>Done</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Priority
-                    </label>
-                    <FormControl size="small" fullWidth>
-                      <Select
-                        name="priority"
-                        defaultValue="Medium"
-                        sx={{
-                          fontSize: "0.75rem",
-                          fontFamily: '"Plus Jakarta Sans", sans-serif',
-                          borderRadius: "0.75rem",
-                          backgroundColor: "#f8fafc",
-                          "& .MuiSelect-select": {
-                            fontSize: "0.75rem",
-                            py: "8px",
-                          },
-                        }}
-                      >
-                        {priorities.map((p) => (
-                          <MenuItem key={p} value={p} sx={{ fontSize: "0.75rem" }}>
-                            <span className="inline-flex items-center gap-2">
-                              <span
-                                className={`h-2 w-2 rounded-full ${
-                                  p === "Urgent"
-                                    ? "bg-rose-600 animate-pulse"
-                                    : p === "High"
-                                      ? "bg-orange-500"
-                                      : p === "Medium"
-                                        ? "bg-amber-500"
-                                        : "bg-slate-400"
-                                }`}
-                              />
-                              <span
-                                className={
-                                  p === "Urgent"
-                                    ? "text-rose-700 font-bold"
-                                    : p === "High"
-                                      ? "text-orange-700 font-semibold"
-                                      : p === "Medium"
-                                        ? "text-amber-800 font-medium"
-                                        : "text-slate-700"
-                                }
-                              >
-                                {p} Priority {p === "Urgent" ? "(Critical)" : ""}
-                              </span>
-                            </span>
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </div>
-                </div>
-
-                {/* Due Date & Due Time in First Tab */}
-                <div className="grid grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                      <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                      Due Date
+                      Summary / Title <span className="text-rose-500">*</span>
                     </label>
                     <input
-                      name="dueDate"
-                      type="date"
-                      value={modalDueDate}
-                      onChange={(e) => setModalDueDate(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5 text-emerald-600" />
-                      Due Time (Hour & Min)
-                    </label>
-                    <input
-                      name="dueTime"
-                      type="time"
-                      value={modalDueTime}
-                      onChange={(e) => setModalDueTime(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 font-mono"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* TAB 2: ADVANCED (Recurrence, Category, Assignee, Vehicle, Property, WhatsApp) */}
-              <div className={addModalTab === "advanced" ? "space-y-4" : "hidden"}>
-                {/* Recurrence & Category */}
-                <div className="grid grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                      <Repeat className="h-3.5 w-3.5 text-slate-400" />
-                      Recurrence
-                    </label>
-                    <FormControl size="small" fullWidth>
-                      <Select
-                        name="recurrence"
-                        defaultValue="None"
-                        sx={{
-                          fontSize: "0.75rem",
-                          fontFamily: '"Plus Jakarta Sans", sans-serif',
-                          borderRadius: "0.75rem",
-                          backgroundColor: "#f8fafc",
-                          "& .MuiSelect-select": {
-                            fontSize: "0.75rem",
-                            py: "8px",
-                          },
-                        }}
-                      >
-                        {recurrences.map((r) => (
-                          <MenuItem key={r} value={r} sx={{ fontSize: "0.75rem" }}>
-                            {r}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Category
-                    </label>
-                    <input
-                      name="category"
-                      defaultValue="General"
-                      placeholder="e.g. Bills, Vehicle, Family"
+                      name="title"
+                      required
+                      placeholder="e.g. Renew car tax token, Pay DESCO electricity bill"
                       className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                     />
                   </div>
-                </div>
-
-                {/* Assignee */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Assignee (Family Member)
-                  </label>
-                  <FormControl size="small" fullWidth>
-                    <Select
-                      name="familyMemberId"
-                      defaultValue=""
-                      displayEmpty
-                      sx={{
-                        fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
-                        borderRadius: "0.75rem",
-                        backgroundColor: "#f8fafc",
-                        "& .MuiSelect-select": {
-                          fontSize: "0.75rem",
-                          py: "8px",
-                        },
-                      }}
-                    >
-                      <MenuItem value="" sx={{ fontSize: "0.75rem" }}>Personal / Self</MenuItem>
-                      {members.map((m) => (
-                        <MenuItem key={m.id} value={m.id} sx={{ fontSize: "0.75rem" }}>
-                          👤 {m.fullName}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </div>
-
-                {/* Linked Records (Optional) */}
-                <div className="grid grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Link Vehicle (Optional)
-                    </label>
-                    <FormControl size="small" fullWidth>
-                      <Select
-                        name="vehicleId"
-                        defaultValue=""
-                        displayEmpty
-                        sx={{
-                          fontSize: "0.75rem",
-                          fontFamily: '"Plus Jakarta Sans", sans-serif',
-                          borderRadius: "0.75rem",
-                          backgroundColor: "#f8fafc",
-                          "& .MuiSelect-select": {
-                            fontSize: "0.75rem",
-                            py: "8px",
-                          },
-                        }}
-                      >
-                        <MenuItem value="" sx={{ fontSize: "0.75rem" }}>None</MenuItem>
-                        {vehicles.map((v) => (
-                          <MenuItem key={v.id} value={v.id} sx={{ fontSize: "0.75rem" }}>
-                            🚗 {v.name}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Link Property (Optional)
+                      Description / Notes
                     </label>
-                    <FormControl size="small" fullWidth>
-                      <Select
-                        name="propertyId"
-                        defaultValue=""
-                        displayEmpty
-                        sx={{
-                          fontSize: "0.75rem",
-                          fontFamily: '"Plus Jakarta Sans", sans-serif',
-                          borderRadius: "0.75rem",
-                          backgroundColor: "#f8fafc",
-                          "& .MuiSelect-select": {
-                            fontSize: "0.75rem",
-                            py: "8px",
-                          },
-                        }}
-                      >
-                        <MenuItem value="" sx={{ fontSize: "0.75rem" }}>None</MenuItem>
-                        {properties.map((p) => (
-                          <MenuItem key={p.id} value={p.id} sx={{ fontSize: "0.75rem" }}>
-                            🏢 {p.name}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                    <textarea
+                      name="description"
+                      rows={2}
+                      placeholder="Additional context, account numbers, or steps to complete..."
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                    />
                   </div>
-                </div>
 
-                {/* Simplified WhatsApp Alert Card */}
-                <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/80 p-3.5 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label htmlFor="reminderWhatsapp" className="flex items-center gap-2 cursor-pointer">
+                  {/* Status & Priority */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Initial Status
+                      </label>
+                      <FormControl size="small" fullWidth>
+                        <Select
+                          name="status"
+                          defaultValue={defaultAddStatus}
+                          sx={{
+                            fontSize: "0.75rem",
+                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            borderRadius: "0.75rem",
+                            backgroundColor: "#f8fafc",
+                            "& .MuiSelect-select": {
+                              fontSize: "0.75rem",
+                              py: "8px",
+                            },
+                          }}
+                        >
+                          <MenuItem value="Pending" sx={{ fontSize: "0.75rem" }}>To Do</MenuItem>
+                          <MenuItem value="In Progress" sx={{ fontSize: "0.75rem" }}>In Progress</MenuItem>
+                          <MenuItem value="Completed" sx={{ fontSize: "0.75rem" }}>Done</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Priority
+                      </label>
+                      <FormControl size="small" fullWidth>
+                        <Select
+                          name="priority"
+                          defaultValue="Medium"
+                          sx={{
+                            fontSize: "0.75rem",
+                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            borderRadius: "0.75rem",
+                            backgroundColor: "#f8fafc",
+                            "& .MuiSelect-select": {
+                              fontSize: "0.75rem",
+                              py: "8px",
+                            },
+                          }}
+                        >
+                          {priorities.map((p) => (
+                            <MenuItem key={p} value={p} sx={{ fontSize: "0.75rem" }}>
+                              <span className="inline-flex items-center gap-2">
+                                <span
+                                  className={`h-2 w-2 rounded-full ${
+                                    p === "Urgent"
+                                      ? "bg-rose-600 animate-pulse"
+                                      : p === "High"
+                                        ? "bg-orange-500"
+                                        : p === "Medium"
+                                          ? "bg-amber-500"
+                                          : "bg-slate-400"
+                                  }`}
+                                />
+                                <span
+                                  className={
+                                    p === "Urgent"
+                                      ? "text-rose-700 font-bold"
+                                      : p === "High"
+                                        ? "text-orange-700 font-semibold"
+                                        : p === "Medium"
+                                          ? "text-amber-800 font-medium"
+                                          : "text-slate-700"
+                                  }
+                                >
+                                  {p} Priority {p === "Urgent" ? "(Critical)" : ""}
+                                </span>
+                              </span>
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </div>
+                  </div>
+
+                  {/* Due Date & Due Time in First Tab */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                        <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                        Due Date
+                      </label>
                       <input
-                        type="checkbox"
-                        id="reminderWhatsapp"
-                        name="reminderWhatsapp"
-                        defaultChecked={false}
-                        className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        name="dueDate"
+                        type="date"
+                        value={modalDueDate}
+                        onChange={(e) => setModalDueDate(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 font-mono"
                       />
-                      <span className="text-xs font-bold text-emerald-950">
-                        Send WhatsApp reminder for this task
-                      </span>
-                    </label>
+                    </div>
 
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] text-slate-600 font-medium">Remind:</span>
-                      <select
-                        name="taskReminderLead"
-                        value={modalReminderLead}
-                        onChange={(e) => setModalReminderLead(e.target.value)}
-                        className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium shadow-2xs"
-                      >
-                        <option value="At due time">At due time</option>
-                        <option value="15 minutes before">15 mins before</option>
-                        <option value="1 hour before">1 hour before</option>
-                        <option value="1 day before">1 day before</option>
-                      </select>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5 text-emerald-600" />
+                        Due Time (Hour & Min)
+                      </label>
+                      <input
+                        name="dueTime"
+                        type="time"
+                        value={modalDueTime}
+                        onChange={(e) => setModalDueTime(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* TAB 2: ADVANCED (Recurrence, Category, Assignee, Vehicle, Property, WhatsApp) */}
+                <div className={addModalTab === "advanced" ? "space-y-4" : "hidden"}>
+                  {/* Recurrence & Category */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                        <Repeat className="h-3.5 w-3.5 text-slate-400" />
+                        Recurrence
+                      </label>
+                      <FormControl size="small" fullWidth>
+                        <Select
+                          name="recurrence"
+                          defaultValue="None"
+                          sx={{
+                            fontSize: "0.75rem",
+                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            borderRadius: "0.75rem",
+                            backgroundColor: "#f8fafc",
+                            "& .MuiSelect-select": {
+                              fontSize: "0.75rem",
+                              py: "8px",
+                            },
+                          }}
+                        >
+                          {recurrences.map((r) => (
+                            <MenuItem key={r} value={r} sx={{ fontSize: "0.75rem" }}>
+                              {r}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Category
+                      </label>
+                      <input
+                        name="category"
+                        defaultValue="General"
+                        placeholder="e.g. Bills, Vehicle, Family"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                      />
                     </div>
                   </div>
 
-                  {reminderPreviewText && (
-                    <div className="text-[11px] text-emerald-800 bg-emerald-100/70 border border-emerald-200/90 rounded-lg px-2.5 py-1 font-medium flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                      <span>{reminderPreviewText}</span>
-                    </div>
-                  )}
+                  {/* Assignee */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Assignee (Family Member)
+                    </label>
+                    <FormControl size="small" fullWidth>
+                      <Select
+                        name="familyMemberId"
+                        defaultValue=""
+                        displayEmpty
+                        sx={{
+                          fontSize: "0.75rem",
+                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          borderRadius: "0.75rem",
+                          backgroundColor: "#f8fafc",
+                          "& .MuiSelect-select": {
+                            fontSize: "0.75rem",
+                            py: "8px",
+                          },
+                        }}
+                      >
+                        <MenuItem value="" sx={{ fontSize: "0.75rem" }}>Personal / Self</MenuItem>
+                        {members.map((m) => (
+                          <MenuItem key={m.id} value={m.id} sx={{ fontSize: "0.75rem" }}>
+                            👤 {m.fullName}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </div>
 
-                  <ItemRecipientSelector
-                    selectedRecipients={taskRecipients}
-                    onChange={setTaskRecipients}
-                    label="Send Alert To:"
-                    helperText="Select which phone alias receives the reminder."
-                  />
+                  {/* Linked Records (Optional) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Link Vehicle (Optional)
+                      </label>
+                      <FormControl size="small" fullWidth>
+                        <Select
+                          name="vehicleId"
+                          defaultValue=""
+                          displayEmpty
+                          sx={{
+                            fontSize: "0.75rem",
+                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            borderRadius: "0.75rem",
+                            backgroundColor: "#f8fafc",
+                            "& .MuiSelect-select": {
+                              fontSize: "0.75rem",
+                              py: "8px",
+                            },
+                          }}
+                        >
+                          <MenuItem value="" sx={{ fontSize: "0.75rem" }}>None</MenuItem>
+                          {vehicles.map((v) => (
+                            <MenuItem key={v.id} value={v.id} sx={{ fontSize: "0.75rem" }}>
+                              🚗 {v.name}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Link Property (Optional)
+                      </label>
+                      <FormControl size="small" fullWidth>
+                        <Select
+                          name="propertyId"
+                          defaultValue=""
+                          displayEmpty
+                          sx={{
+                            fontSize: "0.75rem",
+                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            borderRadius: "0.75rem",
+                            backgroundColor: "#f8fafc",
+                            "& .MuiSelect-select": {
+                              fontSize: "0.75rem",
+                              py: "8px",
+                            },
+                          }}
+                        >
+                          <MenuItem value="" sx={{ fontSize: "0.75rem" }}>None</MenuItem>
+                          {properties.map((p) => (
+                            <MenuItem key={p.id} value={p.id} sx={{ fontSize: "0.75rem" }}>
+                              🏢 {p.name}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </div>
+                  </div>
+
+                  {/* Simplified WhatsApp Alert Card */}
+                  <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/80 p-3.5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="reminderWhatsapp" className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id="reminderWhatsapp"
+                          name="reminderWhatsapp"
+                          defaultChecked={false}
+                          className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <span className="text-xs font-bold text-emerald-950">
+                          Send WhatsApp reminder for this task
+                        </span>
+                      </label>
+
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-slate-600 font-medium">Remind:</span>
+                        <select
+                          name="taskReminderLead"
+                          value={modalReminderLead}
+                          onChange={(e) => setModalReminderLead(e.target.value)}
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium shadow-2xs"
+                        >
+                          <option value="At due time">At due time</option>
+                          <option value="15 minutes before">15 mins before</option>
+                          <option value="1 hour before">1 hour before</option>
+                          <option value="1 day before">1 day before</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {reminderPreviewText && (
+                      <div className="text-[11px] text-emerald-800 bg-emerald-100/70 border border-emerald-200/90 rounded-lg px-2.5 py-1 font-medium flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                        <span>{reminderPreviewText}</span>
+                      </div>
+                    )}
+
+                    <ItemRecipientSelector
+                      selectedRecipients={taskRecipients}
+                      onChange={setTaskRecipients}
+                      label="Send Alert To:"
+                      helperText="Select which phone alias receives the reminder."
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Footer Actions */}
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                <div>
+              <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5 p-4 sm:px-6 sm:py-3.5 border-t border-slate-100 bg-slate-50/40 shrink-0">
+                <div className="text-center sm:text-left">
                   {addModalTab === "general" ? (
                     <button
                       type="button"
                       onClick={() => setAddModalTab("advanced")}
-                      className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer"
+                      className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer py-1"
                     >
                       Configure Advanced &rarr;
                     </button>
@@ -1566,25 +1609,25 @@ export function TasksPage() {
                     <button
                       type="button"
                       onClick={() => setAddModalTab("general")}
-                      className="text-xs text-slate-500 hover:text-slate-800 font-semibold cursor-pointer"
+                      className="text-xs text-slate-500 hover:text-slate-800 font-semibold cursor-pointer py-1"
                     >
                       &larr; Back to General
                     </button>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={() => setIsAddOpen(false)}
-                    className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                    className="flex-1 sm:flex-none rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer text-center"
                   >
                     Cancel
                   </button>
                   <button
                     disabled={saving}
                     type="submit"
-                    className="rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition shadow-xs cursor-pointer"
+                    className="flex-1 sm:flex-none rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition shadow-xs cursor-pointer text-center whitespace-nowrap"
                   >
                     {saving ? "Saving..." : "Create Task"}
                   </button>
@@ -1598,24 +1641,24 @@ export function TasksPage() {
       {/* Task Details & Edit Modal */}
       {selectedTask && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2.5 sm:p-4 overflow-y-auto"
           onMouseDown={() => setSelectedTask(null)}
         >
           <div
-            className="relative w-full max-w-2xl rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden my-8"
+            className="relative w-full max-w-2xl max-h-[92dvh] flex flex-col rounded-2xl sm:rounded-3xl bg-white border border-slate-200 shadow-2xl overflow-hidden my-auto"
             onMouseDown={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/50">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+            <div className="border-b border-slate-100 px-4 sm:px-6 py-3 sm:py-4 bg-slate-50/60 shrink-0">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center flex-wrap gap-1.5 min-w-0">
+                  <span className="font-mono text-[11px] sm:text-xs font-bold text-slate-600 bg-slate-200/70 px-2 py-0.5 rounded">
                     TASK-{selectedTask.id.slice(0, 6).toUpperCase()}
                   </span>
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${getPriorityBadgeStyle(editPriority)}`}>
+                  <span className={`text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full ${getPriorityBadgeStyle(editPriority)}`}>
                     {editPriority}
                   </span>
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                  <span className={`text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full ${
                     editStatus === "Completed"
                       ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                       : editStatus === "In Progress"
@@ -1625,44 +1668,50 @@ export function TasksPage() {
                     {editStatus}
                   </span>
                 </div>
-                <h3 className="text-base font-bold text-slate-900">Task Details & Edit</h3>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleSendTaskWhatsApp(selectedTask)}
+                    disabled={sendingTaskId === selectedTask.id}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-semibold rounded-lg transition cursor-pointer whitespace-nowrap ${
+                      sendSuccessId === selectedTask.id
+                        ? "bg-emerald-600 text-white"
+                        : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                    }`}
+                    title="Send WhatsApp alert now"
+                  >
+                    <Send className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${sendingTaskId === selectedTask.id ? "animate-spin" : ""}`} />
+                    <span>
+                      {sendingTaskId === selectedTask.id
+                        ? "Sending..."
+                        : sendSuccessId === selectedTask.id
+                        ? "Sent!"
+                        : "WA Alert Now"}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTask(null)}
+                    className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer"
+                    aria-label="Close"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleSendTaskWhatsApp(selectedTask)}
-                  disabled={sendingTaskId === selectedTask.id}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
-                    sendSuccessId === selectedTask.id
-                      ? "bg-emerald-600 text-white"
-                      : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
-                  }`}
-                  title="Send WhatsApp alert now"
-                >
-                  <Send className={`h-3.5 w-3.5 ${sendingTaskId === selectedTask.id ? "animate-spin" : ""}`} />
-                  {sendingTaskId === selectedTask.id
-                    ? "Sending..."
-                    : sendSuccessId === selectedTask.id
-                    ? "Alert Sent!"
-                    : "WA Alert Now"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedTask(null)}
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 mt-2">
+                Task Details & Edit
+              </h3>
             </div>
 
             {/* Modal Tabs: General vs Advanced */}
-            <div className="flex border-b border-slate-200/90 px-6 bg-white">
+            <div className="flex border-b border-slate-200/90 px-4 sm:px-6 bg-white shrink-0 overflow-x-auto no-scrollbar">
               <button
                 type="button"
                 onClick={() => setEditModalTab("general")}
-                className={`py-2.5 text-xs font-semibold border-b-2 mr-6 transition cursor-pointer flex items-center gap-1.5 ${
+                className={`py-2.5 text-xs font-semibold border-b-2 mr-4 sm:mr-6 transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                   editModalTab === "general"
                     ? "border-slate-900 text-slate-900 font-bold"
                     : "border-transparent text-slate-500 hover:text-slate-800"
@@ -1673,7 +1722,7 @@ export function TasksPage() {
               <button
                 type="button"
                 onClick={() => setEditModalTab("advanced")}
-                className={`py-2.5 text-xs font-semibold border-b-2 transition cursor-pointer flex items-center gap-1.5 ${
+                className={`py-2.5 text-xs font-semibold border-b-2 transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                   editModalTab === "advanced"
                     ? "border-slate-900 text-slate-900 font-bold"
                     : "border-transparent text-slate-500 hover:text-slate-800"
@@ -1686,323 +1735,327 @@ export function TasksPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveEditedTask} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-              {/* TAB 1: GENERAL (Title, Description, Status, Priority, Due Date, Due Time) */}
-              <div className={editModalTab === "general" ? "space-y-4" : "hidden"}>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Task Title <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    placeholder="Task title"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-medium text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Description
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={editDescription}
-                    onChange={(e) => setEditDescription(e.target.value)}
-                    placeholder="Detailed instructions or context..."
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 resize-none"
-                  />
-                </div>
-
-                {/* Status & Priority */}
-                <div className="grid grid-cols-2 gap-3.5">
+            <form onSubmit={handleSaveEditedTask} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+                {/* TAB 1: GENERAL (Title, Description, Status, Priority, Due Date, Due Time) */}
+                <div className={editModalTab === "general" ? "space-y-4" : "hidden"}>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Status
-                    </label>
-                    <FormControl size="small" fullWidth>
-                      <Select
-                        value={editStatus}
-                        onChange={(e) => setEditStatus(e.target.value as TaskStatus)}
-                        sx={{
-                          fontSize: "0.75rem",
-                          fontFamily: '"Plus Jakarta Sans", sans-serif',
-                          borderRadius: "0.75rem",
-                          backgroundColor: "#f8fafc",
-                          "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
-                        }}
-                      >
-                        <MenuItem value="Pending" sx={{ fontSize: "0.75rem" }}>Pending (To Do)</MenuItem>
-                        <MenuItem value="In Progress" sx={{ fontSize: "0.75rem" }}>In Progress</MenuItem>
-                        <MenuItem value="Completed" sx={{ fontSize: "0.75rem" }}>Completed (Done)</MenuItem>
-                        <MenuItem value="Cancelled" sx={{ fontSize: "0.75rem" }}>Cancelled</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Priority
-                    </label>
-                    <FormControl size="small" fullWidth>
-                      <Select
-                        value={editPriority}
-                        onChange={(e) => setEditPriority(e.target.value as TaskPriority)}
-                        sx={{
-                          fontSize: "0.75rem",
-                          fontFamily: '"Plus Jakarta Sans", sans-serif',
-                          borderRadius: "0.75rem",
-                          backgroundColor: "#f8fafc",
-                          "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
-                        }}
-                      >
-                        {priorities.map((p) => (
-                          <MenuItem key={p} value={p} sx={{ fontSize: "0.75rem" }}>
-                            {p}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </div>
-                </div>
-
-                {/* Due Date & Due Time in First Tab */}
-                <div className="grid grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                      <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                      Due Date
+                      Task Title <span className="text-rose-500">*</span>
                     </label>
                     <input
-                      type="date"
-                      value={editDueDate}
-                      onChange={(e) => setEditDueDate(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 font-mono"
+                      type="text"
+                      required
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      placeholder="Task title"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs font-medium text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5 text-emerald-600" />
-                      Due Time (Hour & Min)
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Description
                     </label>
-                    <input
-                      type="time"
-                      value={editDueTime}
-                      onChange={(e) => setEditDueTime(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 font-mono"
+                    <textarea
+                      rows={2}
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      placeholder="Detailed instructions or context..."
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 resize-none"
                     />
                   </div>
-                </div>
-              </div>
 
-              {/* TAB 2: ADVANCED (Recurrence, Category, Assignee, Vehicle, Property, WhatsApp) */}
-              <div className={editModalTab === "advanced" ? "space-y-4" : "hidden"}>
-                <div className="grid grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                      <Repeat className="h-3.5 w-3.5 text-slate-400" />
-                      Recurrence
-                    </label>
-                    <FormControl size="small" fullWidth>
-                      <Select
-                        value={editRecurrence}
-                        onChange={(e) => setEditRecurrence(e.target.value as TaskRecurrence)}
-                        sx={{
-                          fontSize: "0.75rem",
-                          fontFamily: '"Plus Jakarta Sans", sans-serif',
-                          borderRadius: "0.75rem",
-                          backgroundColor: "#f8fafc",
-                          "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
-                        }}
-                      >
-                        {recurrences.map((r) => (
-                          <MenuItem key={r} value={r} sx={{ fontSize: "0.75rem" }}>
-                            {r}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Category
-                    </label>
-                    <input
-                      value={editCategory}
-                      onChange={(e) => setEditCategory(e.target.value)}
-                      placeholder="e.g. Bills, Vehicle, Family"
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
-                    />
-                  </div>
-                </div>
-
-                {/* Assignee */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Assignee
-                  </label>
-                  <FormControl size="small" fullWidth>
-                    <Select
-                      value={editFamilyMemberId}
-                      onChange={(e) => setEditFamilyMemberId(e.target.value)}
-                      displayEmpty
-                      sx={{
-                        fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
-                        borderRadius: "0.75rem",
-                        backgroundColor: "#f8fafc",
-                        "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
-                      }}
-                    >
-                      <MenuItem value="" sx={{ fontSize: "0.75rem" }}>Personal / Self</MenuItem>
-                      {members.map((m) => (
-                        <MenuItem key={m.id} value={m.id} sx={{ fontSize: "0.75rem" }}>
-                          👤 {m.fullName}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </div>
-
-                {/* Linked Records (Optional) */}
-                <div className="grid grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Linked Vehicle
-                    </label>
-                    <FormControl size="small" fullWidth>
-                      <Select
-                        value={editVehicleId}
-                        onChange={(e) => setEditVehicleId(e.target.value)}
-                        displayEmpty
-                        sx={{
-                          fontSize: "0.75rem",
-                          fontFamily: '"Plus Jakarta Sans", sans-serif',
-                          borderRadius: "0.75rem",
-                          backgroundColor: "#f8fafc",
-                          "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
-                        }}
-                      >
-                        <MenuItem value="" sx={{ fontSize: "0.75rem" }}>None</MenuItem>
-                        {vehicles.map((v) => (
-                          <MenuItem key={v.id} value={v.id} sx={{ fontSize: "0.75rem" }}>
-                            🚗 {v.name}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Linked Property
-                    </label>
-                    <FormControl size="small" fullWidth>
-                      <Select
-                        value={editPropertyId}
-                        onChange={(e) => setEditPropertyId(e.target.value)}
-                        displayEmpty
-                        sx={{
-                          fontSize: "0.75rem",
-                          fontFamily: '"Plus Jakarta Sans", sans-serif',
-                          borderRadius: "0.75rem",
-                          backgroundColor: "#f8fafc",
-                          "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
-                        }}
-                      >
-                        <MenuItem value="" sx={{ fontSize: "0.75rem" }}>None</MenuItem>
-                        {properties.map((p) => (
-                          <MenuItem key={p.id} value={p.id} sx={{ fontSize: "0.75rem" }}>
-                            🏢 {p.name}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </div>
-                </div>
-
-                {/* Simplified WhatsApp Notification Card */}
-                <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/80 p-3.5 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label htmlFor="editReminderWhatsapp" className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        id="editReminderWhatsapp"
-                        checked={editReminderWhatsapp}
-                        onChange={(e) => setEditReminderWhatsapp(e.target.checked)}
-                        className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                      />
-                      <span className="text-xs font-bold text-emerald-950">
-                        Send WhatsApp reminder for this task
-                      </span>
-                    </label>
-
-                    {editReminderWhatsapp && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-slate-600 font-medium">Remind:</span>
-                        <select
-                          value={editReminderLead}
-                          onChange={(e) => setEditReminderLead(e.target.value)}
-                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium shadow-2xs"
+                  {/* Status & Priority */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Status
+                      </label>
+                      <FormControl size="small" fullWidth>
+                        <Select
+                          value={editStatus}
+                          onChange={(e) => setEditStatus(e.target.value as TaskStatus)}
+                          sx={{
+                            fontSize: "0.75rem",
+                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            borderRadius: "0.75rem",
+                            backgroundColor: "#f8fafc",
+                            "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
+                          }}
                         >
-                          <option value="At due time">At due time</option>
-                          <option value="15 minutes before">15 mins before</option>
-                          <option value="1 hour before">1 hour before</option>
-                          <option value="1 day before">1 day before</option>
-                        </select>
-                      </div>
-                    )}
+                          <MenuItem value="Pending" sx={{ fontSize: "0.75rem" }}>Pending (To Do)</MenuItem>
+                          <MenuItem value="In Progress" sx={{ fontSize: "0.75rem" }}>In Progress</MenuItem>
+                          <MenuItem value="Completed" sx={{ fontSize: "0.75rem" }}>Completed (Done)</MenuItem>
+                          <MenuItem value="Cancelled" sx={{ fontSize: "0.75rem" }}>Cancelled</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Priority
+                      </label>
+                      <FormControl size="small" fullWidth>
+                        <Select
+                          value={editPriority}
+                          onChange={(e) => setEditPriority(e.target.value as TaskPriority)}
+                          sx={{
+                            fontSize: "0.75rem",
+                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            borderRadius: "0.75rem",
+                            backgroundColor: "#f8fafc",
+                            "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
+                          }}
+                        >
+                          {priorities.map((p) => (
+                            <MenuItem key={p} value={p} sx={{ fontSize: "0.75rem" }}>
+                              {p}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </div>
                   </div>
 
-                  {editReminderWhatsapp && (
-                    <>
-                      {editReminderPreviewText && (
-                        <div className="text-[11px] text-emerald-800 bg-emerald-100/70 border border-emerald-200/90 rounded-lg px-2.5 py-1 font-medium flex items-center gap-1.5">
-                          <Clock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                          <span>{editReminderPreviewText}</span>
+                  {/* Due Date & Due Time in First Tab */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                        <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                        <span>Due Date</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={editDueDate}
+                        onChange={(e) => setEditDueDate(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>Due Time (Hour & Min)</span>
+                      </label>
+                      <input
+                        type="time"
+                        value={editDueTime}
+                        onChange={(e) => setEditDueTime(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900 font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* TAB 2: ADVANCED (Recurrence, Category, Assignee, Vehicle, Property, WhatsApp) */}
+                <div className={editModalTab === "advanced" ? "space-y-4" : "hidden"}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                        <Repeat className="h-3.5 w-3.5 text-slate-400" />
+                        Recurrence
+                      </label>
+                      <FormControl size="small" fullWidth>
+                        <Select
+                          value={editRecurrence}
+                          onChange={(e) => setEditRecurrence(e.target.value as TaskRecurrence)}
+                          sx={{
+                            fontSize: "0.75rem",
+                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            borderRadius: "0.75rem",
+                            backgroundColor: "#f8fafc",
+                            "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
+                          }}
+                        >
+                          {recurrences.map((r) => (
+                            <MenuItem key={r} value={r} sx={{ fontSize: "0.75rem" }}>
+                              {r}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Category
+                      </label>
+                      <input
+                        value={editCategory}
+                        onChange={(e) => setEditCategory(e.target.value)}
+                        placeholder="e.g. Bills, Vehicle, Family"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2 text-xs text-slate-900 outline-none transition focus:border-slate-900 focus:bg-white focus:ring-1 focus:ring-slate-900"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Assignee */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Assignee
+                    </label>
+                    <FormControl size="small" fullWidth>
+                      <Select
+                        value={editFamilyMemberId}
+                        onChange={(e) => setEditFamilyMemberId(e.target.value)}
+                        displayEmpty
+                        sx={{
+                          fontSize: "0.75rem",
+                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          borderRadius: "0.75rem",
+                          backgroundColor: "#f8fafc",
+                          "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
+                        }}
+                      >
+                        <MenuItem value="" sx={{ fontSize: "0.75rem" }}>Personal / Self</MenuItem>
+                        {members.map((m) => (
+                          <MenuItem key={m.id} value={m.id} sx={{ fontSize: "0.75rem" }}>
+                            👤 {m.fullName}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </div>
+
+                  {/* Linked Records (Optional) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-3.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Linked Vehicle
+                      </label>
+                      <FormControl size="small" fullWidth>
+                        <Select
+                          value={editVehicleId}
+                          onChange={(e) => setEditVehicleId(e.target.value)}
+                          displayEmpty
+                          sx={{
+                            fontSize: "0.75rem",
+                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            borderRadius: "0.75rem",
+                            backgroundColor: "#f8fafc",
+                            "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
+                          }}
+                        >
+                          <MenuItem value="" sx={{ fontSize: "0.75rem" }}>None</MenuItem>
+                          {vehicles.map((v) => (
+                            <MenuItem key={v.id} value={v.id} sx={{ fontSize: "0.75rem" }}>
+                              🚗 {v.name}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Linked Property
+                      </label>
+                      <FormControl size="small" fullWidth>
+                        <Select
+                          value={editPropertyId}
+                          onChange={(e) => setEditPropertyId(e.target.value)}
+                          displayEmpty
+                          sx={{
+                            fontSize: "0.75rem",
+                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            borderRadius: "0.75rem",
+                            backgroundColor: "#f8fafc",
+                            "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
+                          }}
+                        >
+                          <MenuItem value="" sx={{ fontSize: "0.75rem" }}>None</MenuItem>
+                          {properties.map((p) => (
+                            <MenuItem key={p.id} value={p.id} sx={{ fontSize: "0.75rem" }}>
+                              🏢 {p.name}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </div>
+                  </div>
+
+                  {/* Simplified WhatsApp Notification Card */}
+                  <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/80 p-3.5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="editReminderWhatsapp" className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id="editReminderWhatsapp"
+                          checked={editReminderWhatsapp}
+                          onChange={(e) => setEditReminderWhatsapp(e.target.checked)}
+                          className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <span className="text-xs font-bold text-emerald-950">
+                          Send WhatsApp reminder for this task
+                        </span>
+                      </label>
+
+                      {editReminderWhatsapp && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-slate-600 font-medium">Remind:</span>
+                          <select
+                            value={editReminderLead}
+                            onChange={(e) => setEditReminderLead(e.target.value)}
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium shadow-2xs"
+                          >
+                            <option value="At due time">At due time</option>
+                            <option value="15 minutes before">15 mins before</option>
+                            <option value="1 hour before">1 hour before</option>
+                            <option value="1 day before">1 day before</option>
+                          </select>
                         </div>
                       )}
+                    </div>
 
-                      <ItemRecipientSelector
-                        selectedRecipients={editRecipients}
-                        onChange={setEditRecipients}
-                        label="Send Alert To:"
-                        helperText="Select which phone alias receives the reminder."
-                      />
-                    </>
-                  )}
+                    {editReminderWhatsapp && (
+                      <>
+                        {editReminderPreviewText && (
+                          <div className="text-[11px] text-emerald-800 bg-emerald-100/70 border border-emerald-200/90 rounded-lg px-2.5 py-1 font-medium flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                            <span>{editReminderPreviewText}</span>
+                          </div>
+                        )}
+
+                        <ItemRecipientSelector
+                          selectedRecipients={editRecipients}
+                          onChange={setEditRecipients}
+                          label="Send Alert To:"
+                          helperText="Select which phone alias receives the reminder."
+                        />
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 
               {/* Footer Actions */}
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                {canDelete && (
+              <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5 p-4 sm:px-6 sm:py-3.5 border-t border-slate-100 bg-slate-50/40 shrink-0">
+                {canDelete ? (
                   <button
                     type="button"
                     onClick={() => handleDelete(selectedTask.id, selectedTask.title)}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 px-3.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 active:bg-rose-100 transition cursor-pointer"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                    Delete Task
+                    <span>Delete Task</span>
                   </button>
+                ) : (
+                  <div />
                 )}
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={() => setSelectedTask(null)}
-                    className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                    className="flex-1 sm:flex-none rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer text-center"
                   >
                     Cancel
                   </button>
                   <button
                     disabled={isUpdating}
                     type="submit"
-                    className="rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition shadow-xs cursor-pointer"
+                    className="flex-1 sm:flex-none rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition shadow-xs cursor-pointer text-center whitespace-nowrap"
                   >
                     {isUpdating ? "Saving..." : "Save Changes"}
                   </button>
