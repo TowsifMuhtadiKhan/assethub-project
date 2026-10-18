@@ -24,18 +24,38 @@ export const getUserEmail = () => {
 
 export async function login(email: string, password: string) {
   const cleanEmail = email.trim().toLowerCase();
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: cleanEmail,
-    password,
-  });
-  if (error) throw error;
-  if (data.session) {
-    saveToken(data.session.access_token);
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
+      if (error) throw error;
+      if (data.session) {
+        saveToken(data.session.access_token);
+      }
+      if (data.user?.email) {
+        localStorage.setItem(USER_EMAIL_KEY, data.user.email);
+      }
+      return data.user;
+    } catch (err) {
+      lastError = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      // If mobile network dropped or WebKit threw transient "Load failed", retry once
+      if (
+        attempt < 2 &&
+        (msg.includes("Load failed") || msg.includes("Failed to fetch") || msg.includes("NetworkError"))
+      ) {
+        await new Promise((res) => setTimeout(res, 800));
+        continue;
+      }
+      break;
+    }
   }
-  if (data.user?.email) {
-    localStorage.setItem(USER_EMAIL_KEY, data.user.email);
-  }
-  return data.user;
+
+  throw lastError;
 }
 
 export async function register(email: string, password: string) {

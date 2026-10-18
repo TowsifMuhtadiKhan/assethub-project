@@ -58,9 +58,12 @@ export function AuthPage({ initialMode = "sign-in", onSwitchMode, onBackToLandin
         }
       }
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Authentication failed"
-      );
+      const raw = error instanceof Error ? error.message : "Authentication failed";
+      if (raw.includes("Load failed") || raw.includes("Failed to fetch") || raw.includes("NetworkError")) {
+        setMessage("Connection failed (Load failed). Please check your mobile data/Wi-Fi connection, turn off any VPN or iCloud Private Relay, and try again.");
+      } else {
+        setMessage(raw);
+      }
       setBusy(false);
     }
   };
