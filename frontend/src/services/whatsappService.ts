@@ -49,22 +49,18 @@ export function formatRecipientNumber(countryCode: string, inputPhone: string): 
 
 async function fetchWithFallback(path: string, options?: RequestInit): Promise<Response> {
   const apiUrl = getBackendApiUrl();
-  const urls = [`${apiUrl}${path}`, path];
-  let lastErr: unknown;
-
-  for (const url of urls) {
+  const primaryUrl = `${apiUrl}${path}`;
+  try {
+    const res = await fetch(primaryUrl, options);
+    return res;
+  } catch (err) {
     try {
-      const res = await fetch(url, options);
-      if (res.ok) return res;
-    } catch (e) {
-      lastErr = e;
+      const fallbackRes = await fetch(path, options);
+      return fallbackRes;
+    } catch {
+      throw err;
     }
   }
-
-  // Final attempt with primary url to throw or return response
-  return fetch(`${apiUrl}${path}`, options).catch((err) => {
-    throw lastErr || err;
-  });
 }
 
 /**

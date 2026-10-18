@@ -63,6 +63,27 @@ export function parseTimeString(timeStr?: string): { hours: number; minutes: num
 }
 
 /**
+ * Computes exact ISO reminder date timestamp from dueDate, dueTime, and lead time/notes
+ */
+export function computeReminderDateISO(
+  dueDate?: string,
+  dueTime?: string,
+  leadOrNotes?: string,
+): string | undefined {
+  if (!dueDate) return undefined;
+  const parts = dueDate.split("-").map(Number);
+  if (parts.length < 3 || isNaN(parts[0]) || isNaN(parts[1]) || isNaN(parts[2])) return undefined;
+
+  const { hours, minutes } = parseTimeString(dueTime);
+  const baseDate = new Date(parts[0], parts[1] - 1, parts[2], hours, minutes, 0, 0);
+  if (isNaN(baseDate.getTime())) return undefined;
+
+  const leadMinutes = parseLeadMinutes(leadOrNotes);
+  const triggerDate = new Date(baseDate.getTime() - leadMinutes * 60 * 1000);
+  return triggerDate.toISOString();
+}
+
+/**
  * Resolves recipient phone numbers from notes or defaults
  */
 export function resolveRecipientsFromNotes(
@@ -189,6 +210,8 @@ export async function dispatchTaskReminderNow(
     }
 
     if (dispatchedTo.length > 0) {
+      const scheduleSignature = `${task.dueDate || ""}_${task.dueTime || "09:00"}_${task.reminderDate || ""}`;
+      localStorage.setItem(`lifenest_task_dispatched_${task.id}_${scheduleSignature}`, new Date().toISOString());
       localStorage.setItem(`lifenest_task_dispatched_${task.id}`, new Date().toISOString());
       return { success: true, dispatchedTo };
     }
@@ -320,23 +343,30 @@ export async function checkAndDispatchDueReminders(): Promise<number> {
     const tasks = await listTasks().catch(() => []);
     if (tasks && tasks.length > 0) {
       for (const task of tasks) {
-        if (!task.reminderWhatsapp || task.status === "Completed") continue;
+        if (!task.reminderWhatsapp || task.status === "Completed" || task.status === "Cancelled") continue;
         if (!task.dueDate) continue;
 
-        const dispatchKey = `lifenest_task_dispatched_${task.id}`;
+        const scheduleSignature = `${task.dueDate}_${task.dueTime || "09:00"}_${task.reminderDate || ""}`;
+        const dispatchKey = `lifenest_task_dispatched_${task.id}_${scheduleSignature}`;
         if (localStorage.getItem(dispatchKey)) continue;
 
-        const dateParts = task.dueDate.split("-");
-        if (dateParts.length < 3) continue;
-        const year = parseInt(dateParts[0], 10);
-        const month = parseInt(dateParts[1], 10) - 1;
-        const day = parseInt(dateParts[2], 10);
+        let triggerTime: Date | null = null;
+        if (task.reminderDate) {
+          const parsed = new Date(task.reminderDate);
+          if (!isNaN(parsed.getTime())) triggerTime = parsed;
+        }
 
-        const { hours, minutes } = parseTimeString(task.dueTime);
-        const dueDateTime = new Date(year, month, day, hours, minutes, 0);
+        if (!triggerTime) {
+          const dateParts = task.dueDate.split("-").map(Number);
+          if (dateParts.length >= 3 && !isNaN(dateParts[0]) && !isNaN(dateParts[1]) && !isNaN(dateParts[2])) {
+            const { hours, minutes } = parseTimeString(task.dueTime);
+            const dueDateTime = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], hours, minutes, 0);
+            const leadMinutes = parseLeadMinutes(task.notes);
+            triggerTime = new Date(dueDateTime.getTime() - leadMinutes * 60 * 1000);
+          }
+        }
 
-        const leadMinutes = parseLeadMinutes(task.notes);
-        const triggerTime = new Date(dueDateTime.getTime() - leadMinutes * 60 * 1000);
+        if (!triggerTime || isNaN(triggerTime.getTime())) continue;
 
         const diffMs = now.getTime() - triggerTime.getTime();
         const isDue = diffMs >= 0 && diffMs <= 48 * 3600 * 1000;
@@ -357,15 +387,23 @@ export async function checkAndDispatchDueReminders(): Promise<number> {
                 to: r.phone,
                 message,
               });
-              if (res.success) sentAny = true;
+              if (res.success) {
+                sentAny = true;
+                console.log(
+                  `[LifeNest ReminderDaemon] Dispatched WhatsApp reminder for task "${task.title}" to ${r.alias} (${r.phone})`
+                );
+              } else {
+                console.warn(
+                  `[LifeNest ReminderDaemon] WhatsApp reminder send failed for task "${task.title}" to ${r.alias} (${r.phone}):`,
+                  res.error
+                );
+              }
             }
 
             if (sentAny) {
               localStorage.setItem(dispatchKey, new Date().toISOString());
+              localStorage.setItem(`lifenest_task_dispatched_${task.id}`, new Date().toISOString());
               sentCount++;
-              console.log(
-                `[LifeNest ReminderDaemon] Dispatched WhatsApp reminder for task "${task.title}" to ${recipients.map((r) => r.alias).join(", ")}`,
-              );
             }
           }
         }

@@ -55,6 +55,7 @@ import {
   dispatchTaskReminderNow,
   checkAndDispatchDueReminders,
   parseLeadMinutes,
+  computeReminderDateISO,
 } from "../services/reminderDaemon";
 
 const priorities: TaskPriority[] = ["Low", "Medium", "High", "Urgent"];
@@ -208,6 +209,7 @@ export function TasksPage() {
   const [error, setError] = useState("");
   const [userAccess, setUserAccess] = useState<CurrentUserAccessResult | null>(null);
   const [taskRecipients, setTaskRecipients] = useState<string[]>(["Personal"]);
+  const [modalReminderWhatsapp, setModalReminderWhatsapp] = useState(true);
 
   // Modal Date, Time & Minute-wise Reminder Lead state
   const [modalDueDate, setModalDueDate] = useState("");
@@ -378,6 +380,9 @@ export function TasksPage() {
 
       const cleanExistingNotes = (selectedTask.notes || "").replace(/\s*\[Reminder:[^\]]+\]/gi, "").trim();
       const updatedNotes = `${cleanExistingNotes}${reminderNote}`.trim();
+      const calculatedReminderDate = editReminderWhatsapp
+        ? computeReminderDateISO(editDueDate, editDueTime, rawLead)
+        : undefined;
 
       const updated = await updateTask(selectedTask.id, {
         title: editTitle.trim(),
@@ -392,10 +397,17 @@ export function TasksPage() {
         propertyId: editPropertyId || undefined,
         status: editStatus,
         reminderWhatsapp: editReminderWhatsapp,
+        reminderDate: calculatedReminderDate,
         notes: updatedNotes,
       });
 
-      localStorage.removeItem(`lifenest_task_dispatched_${selectedTask.id}`);
+      // Clear any prior dispatch marker so updated schedule triggers
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(`lifenest_task_dispatched_${selectedTask.id}`)) {
+          localStorage.removeItem(key);
+        }
+      }
       setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
       setSelectedTask(null);
 
@@ -471,7 +483,7 @@ export function TasksPage() {
     setError("");
     const form = new FormData(formElement);
     try {
-      const isReminder = Boolean(form.get("reminderWhatsapp"));
+      const isReminder = modalReminderWhatsapp;
       const rawLead = modalReminderLead === "custom"
         ? `${modalCustomLeadMinutes} ${modalCustomLeadUnit} before`
         : modalReminderLead;
@@ -480,6 +492,9 @@ export function TasksPage() {
       const timeNote = dueTime ? `, Due Time: ${formatTime12h(dueTime)}` : "";
       const rec = taskRecipients.length > 0 ? `, Recipients: ${taskRecipients.join(", ")}` : "";
       const reminderNote = isReminder ? ` [Reminder: ${rawLead}${timeNote}${rec}]` : "";
+      const calculatedReminderDate = isReminder
+        ? computeReminderDateISO(dueDate, dueTime, rawLead)
+        : undefined;
 
       const newTask = await createTask({
         title: String(form.get("title")),
@@ -494,6 +509,7 @@ export function TasksPage() {
         propertyId: String(form.get("propertyId") || "") || undefined,
         status: (String(form.get("status")) as TaskStatus) || defaultAddStatus || "Pending",
         reminderWhatsapp: isReminder,
+        reminderDate: calculatedReminderDate,
         notes: `${String(form.get("notes") || "")}${reminderNote}`.trim(),
       });
 
@@ -501,6 +517,7 @@ export function TasksPage() {
       formElement?.reset?.();
       setModalDueDate("");
       setModalDueTime("");
+      setModalReminderWhatsapp(true);
       setModalReminderLead("15 minutes before");
       setModalCustomLeadMinutes(15);
       setModalCustomLeadUnit("minutes");
@@ -1403,6 +1420,61 @@ export function TasksPage() {
                       />
                     </div>
                   </div>
+
+                  {/* Primary WhatsApp Reminder Alert Card */}
+                  <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/80 p-3.5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="modalReminderWhatsapp" className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          id="modalReminderWhatsapp"
+                          checked={modalReminderWhatsapp}
+                          onChange={(e) => setModalReminderWhatsapp(e.target.checked)}
+                          className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                          <MessageSquare className="h-3.5 w-3.5 text-emerald-600" />
+                          Send WhatsApp reminder for this task
+                        </span>
+                      </label>
+
+                      {modalReminderWhatsapp && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-slate-600 font-medium">Remind:</span>
+                          <select
+                            value={modalReminderLead}
+                            onChange={(e) => setModalReminderLead(e.target.value)}
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium shadow-2xs"
+                          >
+                            <option value="At due time">At due time</option>
+                            <option value="5 minutes before">5 mins before</option>
+                            <option value="15 minutes before">15 mins before</option>
+                            <option value="30 minutes before">30 mins before</option>
+                            <option value="1 hour before">1 hour before</option>
+                            <option value="1 day before">1 day before</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    {modalReminderWhatsapp && (
+                      <>
+                        {reminderPreviewText && (
+                          <div className="text-[11px] text-emerald-800 bg-emerald-100/70 border border-emerald-200/90 rounded-lg px-2.5 py-1 font-medium flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                            <span>{reminderPreviewText}</span>
+                          </div>
+                        )}
+
+                        <ItemRecipientSelector
+                          selectedRecipients={taskRecipients}
+                          onChange={setTaskRecipients}
+                          label="Send Alert To:"
+                          helperText="Select which phone alias receives the reminder."
+                        />
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {/* TAB 2: ADVANCED (Recurrence, Category, Assignee, Vehicle, Property, WhatsApp) */}
@@ -1543,53 +1615,6 @@ export function TasksPage() {
                         </Select>
                       </FormControl>
                     </div>
-                  </div>
-
-                  {/* Simplified WhatsApp Alert Card */}
-                  <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/80 p-3.5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <label htmlFor="reminderWhatsapp" className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          id="reminderWhatsapp"
-                          name="reminderWhatsapp"
-                          defaultChecked={false}
-                          className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                        />
-                        <span className="text-xs font-bold text-emerald-950">
-                          Send WhatsApp reminder for this task
-                        </span>
-                      </label>
-
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-slate-600 font-medium">Remind:</span>
-                        <select
-                          name="taskReminderLead"
-                          value={modalReminderLead}
-                          onChange={(e) => setModalReminderLead(e.target.value)}
-                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium shadow-2xs"
-                        >
-                          <option value="At due time">At due time</option>
-                          <option value="15 minutes before">15 mins before</option>
-                          <option value="1 hour before">1 hour before</option>
-                          <option value="1 day before">1 day before</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {reminderPreviewText && (
-                      <div className="text-[11px] text-emerald-800 bg-emerald-100/70 border border-emerald-200/90 rounded-lg px-2.5 py-1 font-medium flex items-center gap-1.5">
-                        <Clock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                        <span>{reminderPreviewText}</span>
-                      </div>
-                    )}
-
-                    <ItemRecipientSelector
-                      selectedRecipients={taskRecipients}
-                      onChange={setTaskRecipients}
-                      label="Send Alert To:"
-                      helperText="Select which phone alias receives the reminder."
-                    />
                   </div>
                 </div>
               </div>
@@ -1846,6 +1871,61 @@ export function TasksPage() {
                       />
                     </div>
                   </div>
+
+                  {/* Primary WhatsApp Notification Card */}
+                  <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/80 p-3.5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="editReminderWhatsapp" className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          id="editReminderWhatsapp"
+                          checked={editReminderWhatsapp}
+                          onChange={(e) => setEditReminderWhatsapp(e.target.checked)}
+                          className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                          <MessageSquare className="h-3.5 w-3.5 text-emerald-600" />
+                          Send WhatsApp reminder for this task
+                        </span>
+                      </label>
+
+                      {editReminderWhatsapp && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-slate-600 font-medium">Remind:</span>
+                          <select
+                            value={editReminderLead}
+                            onChange={(e) => setEditReminderLead(e.target.value)}
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium shadow-2xs"
+                          >
+                            <option value="At due time">At due time</option>
+                            <option value="5 minutes before">5 mins before</option>
+                            <option value="15 minutes before">15 mins before</option>
+                            <option value="30 minutes before">30 mins before</option>
+                            <option value="1 hour before">1 hour before</option>
+                            <option value="1 day before">1 day before</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    {editReminderWhatsapp && (
+                      <>
+                        {editReminderPreviewText && (
+                          <div className="text-[11px] text-emerald-800 bg-emerald-100/70 border border-emerald-200/90 rounded-lg px-2.5 py-1 font-medium flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                            <span>{editReminderPreviewText}</span>
+                          </div>
+                        )}
+
+                        <ItemRecipientSelector
+                          selectedRecipients={editRecipients}
+                          onChange={setEditRecipients}
+                          label="Send Alert To:"
+                          helperText="Select which phone alias receives the reminder."
+                        />
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {/* TAB 2: ADVANCED (Recurrence, Category, Assignee, Vehicle, Property, WhatsApp) */}
@@ -1973,58 +2053,6 @@ export function TasksPage() {
                         </Select>
                       </FormControl>
                     </div>
-                  </div>
-
-                  {/* Simplified WhatsApp Notification Card */}
-                  <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/80 p-3.5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <label htmlFor="editReminderWhatsapp" className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          id="editReminderWhatsapp"
-                          checked={editReminderWhatsapp}
-                          onChange={(e) => setEditReminderWhatsapp(e.target.checked)}
-                          className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                        />
-                        <span className="text-xs font-bold text-emerald-950">
-                          Send WhatsApp reminder for this task
-                        </span>
-                      </label>
-
-                      {editReminderWhatsapp && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[11px] text-slate-600 font-medium">Remind:</span>
-                          <select
-                            value={editReminderLead}
-                            onChange={(e) => setEditReminderLead(e.target.value)}
-                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium shadow-2xs"
-                          >
-                            <option value="At due time">At due time</option>
-                            <option value="15 minutes before">15 mins before</option>
-                            <option value="1 hour before">1 hour before</option>
-                            <option value="1 day before">1 day before</option>
-                          </select>
-                        </div>
-                      )}
-                    </div>
-
-                    {editReminderWhatsapp && (
-                      <>
-                        {editReminderPreviewText && (
-                          <div className="text-[11px] text-emerald-800 bg-emerald-100/70 border border-emerald-200/90 rounded-lg px-2.5 py-1 font-medium flex items-center gap-1.5">
-                            <Clock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                            <span>{editReminderPreviewText}</span>
-                          </div>
-                        )}
-
-                        <ItemRecipientSelector
-                          selectedRecipients={editRecipients}
-                          onChange={setEditRecipients}
-                          label="Send Alert To:"
-                          helperText="Select which phone alias receives the reminder."
-                        />
-                      </>
-                    )}
                   </div>
                 </div>
               </div>

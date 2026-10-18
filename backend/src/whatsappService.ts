@@ -152,9 +152,9 @@ async function startSocket(): Promise<void> {
 
         const logoCandidates = [
           path.resolve(process.cwd(), "likhe-rakho-logo.png"),
+          path.resolve(process.cwd(), "backend/likhe-rakho-logo.png"),
           path.resolve(process.cwd(), "../frontend/public/likhe-rakho-logo.png"),
-          path.resolve(__dirname, "../likhe-rakho-logo.png"),
-          path.resolve(__dirname, "../../frontend/public/likhe-rakho-logo.png"),
+          path.resolve(process.cwd(), "frontend/public/likhe-rakho-logo.png"),
         ];
         const logoPath = logoCandidates.find((p) => fs.existsSync(p));
         if (logoPath && s.user?.id) {
@@ -323,9 +323,9 @@ export async function syncWhatsAppProfile(): Promise<{ success: boolean; error?:
 
     const logoCandidates = [
       path.resolve(process.cwd(), "likhe-rakho-logo.png"),
+      path.resolve(process.cwd(), "backend/likhe-rakho-logo.png"),
       path.resolve(process.cwd(), "../frontend/public/likhe-rakho-logo.png"),
-      path.resolve(__dirname, "../likhe-rakho-logo.png"),
-      path.resolve(__dirname, "../../frontend/public/likhe-rakho-logo.png"),
+      path.resolve(process.cwd(), "frontend/public/likhe-rakho-logo.png"),
     ];
     const logoPath = logoCandidates.find((p) => fs.existsSync(p));
     if (logoPath && sock.user?.id) {
