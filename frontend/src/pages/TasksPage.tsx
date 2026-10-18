@@ -56,7 +56,11 @@ import {
   checkAndDispatchDueReminders,
   parseLeadMinutes,
   computeReminderDateISO,
+  buildTaskWhatsAppMessage,
+  resolveTaskRecipientNumbers,
 } from "../services/reminderDaemon";
+import { getDirectWhatsAppUrl } from "../services/whatsappService";
+import { getUserSettings } from "../services/settingsService";
 
 const priorities: TaskPriority[] = ["Low", "Medium", "High", "Urgent"];
 const recurrences: TaskRecurrence[] = [
@@ -543,7 +547,30 @@ export function TasksPage() {
         setSendSuccessId(task.id);
         setTimeout(() => setSendSuccessId(null), 3000);
       } else {
-        alert(res.error || "WhatsApp gateway could not deliver alert. Check connection.");
+        // Fallback: If automated gateway is unreachable (e.g. on mobile/iOS or offline),
+        // seamlessly open WhatsApp directly so the reminder can be sent from the device
+        const settings = await getUserSettings().catch(() => null);
+        const recipients = resolveTaskRecipientNumbers(
+          task,
+          settings?.whatsappNumber,
+          settings?.countryCode,
+        );
+
+        if (recipients.length > 0) {
+          const target = recipients[0];
+          const msg = buildTaskWhatsAppMessage(task);
+          const directUrl = getDirectWhatsAppUrl(target.phone, msg);
+          const confirmOpen = window.confirm(
+            `Automated background server gateway is unreachable on this device.\n\nOpen WhatsApp directly to send this alert to ${target.alias} (${target.phone})?`
+          );
+          if (confirmOpen) {
+            window.open(directUrl, "_blank");
+            setSendSuccessId(task.id);
+            setTimeout(() => setSendSuccessId(null), 3000);
+          }
+        } else {
+          alert(res.error || "WhatsApp gateway could not deliver alert. Check connection.");
+        }
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to dispatch WhatsApp alert");

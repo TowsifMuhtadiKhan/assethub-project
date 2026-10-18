@@ -13,8 +13,19 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const initialCheckDone = useRef(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session) {
+        const { data: { user }, error } = await supabase.auth.getUser().catch(() => ({ data: { user: null }, error: true }));
+        if (!user || error) {
+          // Stale / expired session: auto sign out cleanly
+          await supabase.auth.signOut().catch(() => {});
+          setSession(null);
+        } else {
+          setSession(session);
+        }
+      } else {
+        setSession(null);
+      }
       setLoading(false);
       initialCheckDone.current = true;
     });
@@ -22,6 +33,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === "SIGNED_OUT") {
+        setSession(null);
+        setLoading(false);
+        return;
+      }
       // If user just signed in from AuthPage, show smooth welcoming transition
       if (initialCheckDone.current && event === "SIGNED_IN" && nextSession) {
         setIsWelcoming(true);

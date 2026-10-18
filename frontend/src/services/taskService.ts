@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabase";
+import { supabase, requireAuthUser } from "../lib/supabase";
 import type { TaskItem } from "../types";
 
 const TABLE = "lifenest_tasks";
@@ -16,7 +16,12 @@ export async function listTasks(): Promise<TaskItem[]> {
     )
     .order("created_at", { ascending: false });
 
-  if (error) throw error;
+  if (error) {
+    if (error.code === "PGRST301" || error.message?.includes("JWT") || error.message?.includes("expired")) {
+      await requireAuthUser().catch(() => {});
+    }
+    throw error;
+  }
   return (data || []).map((row: any) => ({
     id: row.id,
     title: row.title,
@@ -47,10 +52,7 @@ export async function listTasks(): Promise<TaskItem[]> {
 export async function createTask(
   input: Omit<TaskItem, "id" | "createdAt">,
 ): Promise<TaskItem> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
+  const user = await requireAuthUser();
 
   const rowData = {
     owner_id: user.id,

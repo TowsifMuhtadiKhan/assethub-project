@@ -23,8 +23,9 @@ export const getUserEmail = () => {
 };
 
 export async function login(email: string, password: string) {
+  const cleanEmail = email.trim().toLowerCase();
   const { data, error } = await supabase.auth.signInWithPassword({
-    email,
+    email: cleanEmail,
     password,
   });
   if (error) throw error;
@@ -38,6 +39,7 @@ export async function login(email: string, password: string) {
 }
 
 export async function register(email: string, password: string) {
+  const cleanEmail = email.trim().toLowerCase();
   const emailRedirectTo =
     typeof window !== "undefined" &&
     !window.location.origin.includes("localhost") &&
@@ -45,7 +47,7 @@ export async function register(email: string, password: string) {
       ? window.location.origin
       : "https://likherakho.vercel.app";
   const { data, error } = await supabase.auth.signUp({
-    email,
+    email: cleanEmail,
     password,
     options: {
       emailRedirectTo,

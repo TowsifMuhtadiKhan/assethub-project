@@ -40,11 +40,12 @@ export function AuthPage({ initialMode = "sign-in", onSwitchMode, onBackToLandin
       setBusy(false);
       return;
     }
+    const cleanEmail = email.trim().toLowerCase();
     try {
       if (mode === "sign-in") {
-        await login(email, password);
+        await login(cleanEmail, password);
       } else {
-        await register(email, password);
+        await register(cleanEmail, password);
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -149,6 +150,9 @@ export function AuthPage({ initialMode = "sign-in", onSwitchMode, onBackToLandin
               <input
                 type="email"
                 required
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="name@example.com"
