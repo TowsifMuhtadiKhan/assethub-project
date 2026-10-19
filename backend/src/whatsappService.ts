@@ -32,7 +32,9 @@ let lastError: string | null = null;
 let reconnectAttempts = 0;
 let firstQrResolver: (() => void) | null = null;
 
-const AUTH_DIR = path.resolve(process.cwd(), "whatsapp_auth");
+const AUTH_DIR = process.env.WHATSAPP_AUTH_DIR
+  ? path.resolve(process.env.WHATSAPP_AUTH_DIR)
+  : path.resolve(process.cwd(), "whatsapp_auth");
 const CREDS_FILE = path.join(AUTH_DIR, "creds.json");
 
 function ensureAuthDir(): void {

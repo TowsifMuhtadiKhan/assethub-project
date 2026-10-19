@@ -29,6 +29,7 @@ import {
   initWhatsAppGateway,
   syncWhatsAppProfile,
 } from "./whatsappService.js";
+import { startServerScheduler, checkAndDispatchDueTasks } from "./scheduler.js";
 
 process.on("unhandledRejection", (reason) => {
   console.warn("[Server] Unhandled rejection intercepted:", reason);
@@ -755,6 +756,35 @@ app.post("/api/whatsapp/batch-send", async (req: Request, res: Response) => {
   }
 });
 
+app.get("/api/scheduler/status", async (_req: Request, res: Response) => {
+  try {
+    const wa = await getWhatsAppStatus();
+    res.json({
+      success: true,
+      active: true,
+      whatsappStatus: wa.status,
+      connectedPhone: wa.connectedPhone,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to fetch scheduler status",
+    });
+  }
+});
+
+app.post("/api/scheduler/trigger", async (_req: Request, res: Response) => {
+  try {
+    const dispatched = await checkAndDispatchDueTasks();
+    res.json({ success: true, dispatched });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Scheduler trigger failed",
+    });
+  }
+});
+
 app.post("/api/documents/upload-drive", async (req: Request, res: Response) => {
   try {
     const {
@@ -886,4 +916,5 @@ if (process.env.VERCEL !== "1")
       `AssetHub API running on http://localhost:${process.env.PORT ?? 4000}`,
     );
     void initWhatsAppGateway();
+    startServerScheduler();
   });

@@ -169,9 +169,39 @@ export function openDocumentFile(doc: {
 export function getBackendApiUrl(): string {
   const envUrl =
     (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_URL ||
-    (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE_URL;
-  if (envUrl) return envUrl.replace(/\/api\/?$/, "");
+    (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE_URL ||
+    (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_BACKEND_URL;
+  if (envUrl) return envUrl.replace(/\/api\/?$/, "").replace(/\/+$/, "");
+
+  try {
+    const saved = localStorage.getItem("lifenest_backend_url");
+    if (saved && saved.trim()) {
+      return saved.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "");
+    }
+  } catch {}
+
+  // If running in browser and not on localhost, use default production Render backend
+  if (typeof window !== "undefined" && window.location) {
+    const host = window.location.hostname;
+    if (host !== "localhost" && host !== "127.0.0.1") {
+      return "https://likherakho-backend.onrender.com";
+    }
+  }
+
   return "http://localhost:4000";
+}
+
+export function setBackendApiUrl(url: string): void {
+  try {
+    if (url && url.trim()) {
+      localStorage.setItem(
+        "lifenest_backend_url",
+        url.trim().replace(/\/api\/?$/, "").replace(/\/+$/, ""),
+      );
+    } else {
+      localStorage.removeItem("lifenest_backend_url");
+    }
+  } catch {}
 }
 
 /**

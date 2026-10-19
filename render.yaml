@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: likherakho-backend
+    runtime: node
+    rootDir: backend
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/whatsapp/status
+    disk:
+      name: whatsapp-storage
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: WHATSAPP_AUTH_DIR
+        value: /var/data
+      - key: CORS_ORIGIN
+        value: https://likherakho.vercel.app,http://localhost:5173,http://localhost:5174
+      - key: SUPABASE_URL
+        value: https://rbrseemfyiqcdezxhssx.supabase.co
+      - key: SUPABASE_ANON_KEY
+        value: sb_publishable_92TM31rqlGU11iEeaRlfHQ_rDEtYluh
+      - key: JWT_SECRET
+        generateValue: true

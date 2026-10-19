@@ -20,6 +20,9 @@ import {
   Save,
   Download,
   Crown,
+  Server,
+  Globe,
+  Activity,
 } from "lucide-react";
 import { AdminSubscriptionTab } from "../components/admin/AdminSubscriptionTab";
 import {
@@ -45,6 +48,8 @@ import {
   checkMasterDriveStatus,
   requestMasterAuthorization,
   getGoogleDriveDirectDownloadUrl,
+  getBackendApiUrl,
+  setBackendApiUrl,
 } from "../utils/googleDrive";
 import {
   getApkConfig,
@@ -156,6 +161,16 @@ export function AdminPage() {
   });
   const [savedGatewayNotice, setSavedGatewayNotice] = useState(false);
 
+  // Backend & Scheduler State
+  const [backendUrlInput, setBackendUrlInput] = useState(() => getBackendApiUrl());
+  const [backendSaveSuccess, setBackendSaveSuccess] = useState(false);
+  const [schedulerStatus, setSchedulerStatus] = useState<{
+    active?: boolean;
+    whatsappStatus?: string;
+    connectedPhone?: string;
+  } | null>(null);
+  const [triggeringScheduler, setTriggeringScheduler] = useState(false);
+
   // Google Drive State
   const [driveStatus, setDriveStatus] = useState<DriveStatusState>({
     configured: false,
@@ -186,6 +201,21 @@ export function AdminPage() {
     due: string;
   }>>([]);
 
+  const fetchSchedulerStatus = async () => {
+    try {
+      const apiUrl = getBackendApiUrl();
+      const res = await fetch(`${apiUrl}/api/scheduler/status`);
+      if (res.ok) {
+        const data = await res.json();
+        setSchedulerStatus(data);
+      } else {
+        setSchedulerStatus(null);
+      }
+    } catch {
+      setSchedulerStatus(null);
+    }
+  };
+
   const refreshAll = async () => {
     if (!isAuthenticated) return;
     setLoadingStats(true);
@@ -199,6 +229,7 @@ export function AdminPage() {
       setWhatsappStatus(wa);
       setDriveStatus(drv);
       setMessageLogs(msgs);
+      fetchSchedulerStatus();
     } catch {
       // ignore
     } finally {
@@ -352,6 +383,28 @@ export function AdminPage() {
     localStorage.setItem("lifenest_alert_delivery_time", dailyDispatchTime);
     setSavedGatewayNotice(true);
     setTimeout(() => setSavedGatewayNotice(false), 3000);
+  };
+
+  const handleSaveBackendUrl = () => {
+    setBackendApiUrl(backendUrlInput);
+    setBackendSaveSuccess(true);
+    setTimeout(() => setBackendSaveSuccess(false), 3000);
+    refreshAll();
+  };
+
+  const handleTriggerScheduler = async () => {
+    setTriggeringScheduler(true);
+    try {
+      const apiUrl = getBackendApiUrl();
+      const res = await fetch(`${apiUrl}/api/scheduler/trigger`, { method: "POST" });
+      const data = await res.json();
+      alert(`Autonomous Scheduler Ran!\nDispatched: ${data.dispatched ?? 0} reminders.`);
+      refreshAll();
+    } catch (e) {
+      alert(`Scheduler Trigger Failed: ${e instanceof Error ? e.message : "Backend unreachable"}`);
+    } finally {
+      setTriggeringScheduler(false);
+    }
   };
 
   // Drive Admin Actions
@@ -979,6 +1032,93 @@ export function AdminPage() {
                   </button>
                 )}
               </div>
+            </div>
+
+            {/* Backend Service & 24/7 Scheduler Status Card */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Server className="h-4 w-4 text-indigo-600" />
+                  <span className="text-xs font-bold text-slate-800">
+                    Backend Service & Autonomous 24/7 Reminder Scheduler
+                  </span>
+                  {schedulerStatus?.active ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Active 24/7
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                      Checking / Offline
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleTriggerScheduler}
+                    disabled={triggeringScheduler}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 text-[11px] font-bold transition cursor-pointer disabled:opacity-50"
+                  >
+                    <Activity className={`h-3 w-3 ${triggeringScheduler ? "animate-spin" : ""}`} />
+                    <span>{triggeringScheduler ? "Checking..." : "Trigger Due Reminders Now"}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div className="relative flex-1">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <Globe className="h-3.5 w-3.5" />
+                  </div>
+                  <input
+                    type="url"
+                    value={backendUrlInput}
+                    onChange={(e) => setBackendUrlInput(e.target.value)}
+                    placeholder="https://likherakho-backend.onrender.com"
+                    className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSaveBackendUrl}
+                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition cursor-pointer shrink-0"
+                >
+                  Save URL
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBackendUrlInput("http://localhost:4000");
+                    setBackendApiUrl("http://localhost:4000");
+                    refreshAll();
+                  }}
+                  className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-[11px] font-semibold transition cursor-pointer shrink-0"
+                  title="Reset to local port 4000"
+                >
+                  Localhost
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBackendUrlInput("https://likherakho-backend.onrender.com");
+                    setBackendApiUrl("https://likherakho-backend.onrender.com");
+                    refreshAll();
+                  }}
+                  className="px-2.5 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-[11px] font-semibold transition cursor-pointer shrink-0"
+                  title="Use default Render backend"
+                >
+                  Render Production
+                </button>
+              </div>
+
+              {backendSaveSuccess && (
+                <div className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Backend endpoint updated and saved!
+                </div>
+              )}
             </div>
 
             {/* WhatsApp Gateway Status Banner (Shown when connected) */}
