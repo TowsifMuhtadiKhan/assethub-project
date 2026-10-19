@@ -167,25 +167,27 @@ export function openDocumentFile(doc: {
 }
 
 export function getBackendApiUrl(): string {
-  const envUrl =
-    (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_URL ||
-    (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE_URL ||
-    (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_BACKEND_URL;
-  if (envUrl) return envUrl.replace(/\/api\/?$/, "").replace(/\/+$/, "");
-
+  // 1. Explicit user choice in localStorage
   try {
     const saved = localStorage.getItem("lifenest_backend_url");
     if (saved && saved.trim()) {
       const clean = saved.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "");
-      // Vercel only hosts the static frontend, not the backend server.
-      // If a user saved a .vercel.app domain, ignore it so it falls back to Render.
       if (!clean.includes(".vercel.app")) {
         return clean;
       }
     }
   } catch {}
 
-  // If running in browser and not on localhost, use default production Render backend
+  // 2. Environment variables (ignoring any mistakenly configured .vercel.app frontend domains)
+  const envUrl =
+    (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_URL ||
+    (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE_URL ||
+    (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_BACKEND_URL;
+  if (envUrl && !envUrl.includes(".vercel.app")) {
+    return envUrl.replace(/\/api\/?$/, "").replace(/\/+$/, "");
+  }
+
+  // 3. In browser in production (not localhost), always default to the live Render backend
   if (typeof window !== "undefined" && window.location) {
     const host = window.location.hostname;
     if (host !== "localhost" && host !== "127.0.0.1") {
