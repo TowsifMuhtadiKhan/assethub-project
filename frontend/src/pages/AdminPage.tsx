@@ -208,11 +208,9 @@ export function AdminPage() {
       if (res.ok) {
         const data = await res.json();
         setSchedulerStatus(data);
-      } else {
-        setSchedulerStatus(null);
       }
     } catch {
-      setSchedulerStatus(null);
+      // Retain last known state to prevent flickering
     }
   };
 
@@ -221,19 +219,19 @@ export function AdminPage() {
     setLoadingStats(true);
     try {
       const [, wa, drv, msgs] = await Promise.all([
-        getAdminStats(),
-        getWhatsAppSystemStatus(),
-        checkMasterDriveStatus(),
-        getAdminMessages(),
+        getAdminStats().catch(() => null),
+        getWhatsAppSystemStatus().catch(() => null),
+        checkMasterDriveStatus().catch(() => null),
+        getAdminMessages().catch(() => []),
       ]);
-      setWhatsappStatus(wa);
-      setDriveStatus(drv);
-      setMessageLogs(msgs);
-      fetchSchedulerStatus();
+      if (wa) setWhatsappStatus(wa);
+      if (drv) setDriveStatus(drv);
+      if (msgs) setMessageLogs(msgs);
     } catch {
       // ignore
     } finally {
       setLoadingStats(false);
+      void fetchSchedulerStatus();
     }
   };
 
