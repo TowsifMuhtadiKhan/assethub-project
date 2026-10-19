@@ -2,7 +2,16 @@ import { useState } from "react";
 import { login, register } from "../services/api";
 import { supabase } from "../lib/supabase";
 import { SigninOverlay } from "../components/common/LoadingStates";
-import { Mail, Lock, Eye, EyeOff, ShieldCheck, ArrowRight, CheckCircle2, XCircle } from "lucide-react";
+import {
+  ShieldCheck,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  XCircle,
+  Globe,
+  ArrowLeft,
+} from "lucide-react";
 
 export interface AuthPageProps {
   initialMode?: "sign-in" | "sign-up";
@@ -60,7 +69,7 @@ export function AuthPage({ initialMode = "sign-in", onSwitchMode, onBackToLandin
     } catch (error) {
       const raw = error instanceof Error ? error.message : "Authentication failed";
       if (raw.includes("Load failed") || raw.includes("Failed to fetch") || raw.includes("NetworkError")) {
-        setMessage("Connection failed (Load failed). Please check your mobile data/Wi-Fi connection, turn off any VPN or iCloud Private Relay, and try again.");
+        setMessage("Connection failed. Please check your internet connection and try again.");
       } else {
         setMessage(raw);
       }
@@ -69,87 +78,113 @@ export function AuthPage({ initialMode = "sign-in", onSwitchMode, onBackToLandin
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-[#f4fbf7] via-[#ebf7f1] to-slate-100 p-4 overflow-hidden">
-      {/* Background Ambient Glows */}
-      <div className="absolute h-96 w-96 rounded-full bg-emerald-400/20 blur-3xl -top-20 -left-20 pointer-events-none" />
-      <div className="absolute h-96 w-96 rounded-full bg-teal-400/20 blur-3xl -bottom-20 -right-20 pointer-events-none" />
+    <div className="min-h-screen w-full bg-[#07130D] text-slate-100 flex flex-col lg:grid lg:grid-cols-12 selection:bg-[#7EE0AC] selection:text-[#07130D]">
+      {/* ===================================================================
+          LEFT BRAND & STORYTELLING PANEL (Col 1-6 or 1-7)
+          =================================================================== */}
+      <div className="relative lg:col-span-6 xl:col-span-7 bg-[#0C1E16] border-b lg:border-b-0 lg:border-r border-[#153423] p-6 sm:p-10 lg:p-16 flex flex-col justify-between overflow-hidden">
+        {/* Subtle Ambient Glow Backgrounds */}
+        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-[#1A422E]/40 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-[#123623]/30 blur-3xl pointer-events-none" />
 
-      {/* Main Authentication Card */}
-      <div className="relative w-full max-w-md rounded-3xl border border-emerald-100/90 bg-white/95 p-7 sm:p-8 shadow-2xl shadow-emerald-950/10 backdrop-blur-xl text-slate-900">
-        {onBackToLanding && (
-          <button
-            type="button"
-            onClick={onBackToLanding}
-            className="absolute top-5 left-5 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800 hover:text-emerald-950 bg-emerald-50/80 hover:bg-emerald-100/80 px-2.5 py-1 rounded-lg border border-emerald-200/60 transition cursor-pointer"
-          >
-            ← Back
-          </button>
-        )}
-        {/* Brand Header */}
-        <div className="text-center space-y-2 mb-6">
-          <div className="inline-flex items-center justify-center p-2 rounded-2xl bg-white border border-emerald-100 shadow-md shadow-emerald-950/5 mb-1">
+        {/* Top: Brand Logo Card */}
+        <div className="relative z-10 flex items-center justify-between">
+          <div className="inline-flex items-center gap-3 bg-white px-4 py-2.5 rounded-2xl shadow-xl shadow-black/20 border border-white/20">
             <img
               src="/logo.png"
-              alt="Likhe Rakho"
-              className="h-12 w-12 rounded-xl object-contain"
+              alt="Likhe Rakho Logo"
+              className="h-9 w-9 object-contain rounded-lg"
             />
+            <div className="flex flex-col">
+              <span className="text-sm font-black tracking-tight text-[#071A11] leading-none">
+                Likhe Rakho
+              </span>
+              <span className="text-[10px] font-semibold text-[#00a859] mt-0.5">
+                Family Asset Management
+              </span>
+            </div>
           </div>
-          <div>
-            <div className="text-base font-extrabold tracking-tight flex items-center justify-center gap-1">
-              <span className="text-[#064e3b]">Likhe</span>
-              <span className="text-[#00a859]">Rakho</span>
-            </div>
-            <div className="text-xs font-semibold text-[#064e3b]/90 mt-1">
-              “Remember less, manage more with Likhe Rakho.”
-            </div>
 
-            <h1 className="mt-3.5 text-2xl font-black tracking-tight text-slate-900">
-              {mode === "sign-in" ? "Welcome Back" : "Create Free Account"}
-            </h1>
-            <p className="mt-1.5 text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
+          {onBackToLanding && (
+            <button
+              type="button"
+              onClick={onBackToLanding}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#A2C7B1] hover:text-white bg-[#10291D] hover:bg-[#153626] px-3 py-1.5 rounded-xl border border-[#1C4730] transition cursor-pointer"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Back</span>
+            </button>
+          )}
+        </div>
+
+        {/* Center: Editorial Slogan & Numbered Highlights */}
+        <div className="relative z-10 my-12 lg:my-auto max-w-xl">
+          <p className="text-[10.5px] font-bold tracking-[0.22em] text-[#749D84] uppercase">
+            A little order. A lot of peace of mind.
+          </p>
+
+          <h1 className="mt-4 text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white leading-[1.15]">
+            Everything you own. <br />
+            <span className="font-serif italic font-normal text-[#8FE3B0]">
+              Remembered together.
+            </span>
+          </h1>
+
+          <p className="mt-5 text-xs sm:text-sm text-[#A0C0AF] leading-relaxed max-w-lg">
+            A thoughtful, secure vault for your family’s assets, financial records, rent collections, vehicle documents, and the details that matter.
+          </p>
+
+          {/* Numbered Feature List */}
+          <div className="mt-8 sm:mt-10 space-y-4 pt-6 border-t border-[#163625]">
+            <div className="flex items-center gap-4 text-xs">
+              <span className="font-mono text-[#58856B] font-bold text-xs">01</span>
+              <span className="text-[#CFE3D7] font-medium">Know what you have in one organized dashboard</span>
+            </div>
+            <div className="flex items-center gap-4 text-xs">
+              <span className="font-mono text-[#58856B] font-bold text-xs">02</span>
+              <span className="text-[#CFE3D7] font-medium">Keep the right people informed with 24/7 automated WhatsApp reminders</span>
+            </div>
+            <div className="flex items-center gap-4 text-xs">
+              <span className="font-mono text-[#58856B] font-bold text-xs">03</span>
+              <span className="text-[#CFE3D7] font-medium">Make room for peace of mind across generations</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Left: Security & Region Badge */}
+        <div className="relative z-10 flex items-center gap-2 text-[11px] text-[#6E957E] pt-6 border-t border-[#132F20] lg:border-t-0">
+          <ShieldCheck className="h-4 w-4 text-[#7EE0AC] shrink-0" />
+          <span>Private encrypted family workspace &bull; বাংলাদেশ</span>
+        </div>
+      </div>
+
+      {/* ===================================================================
+          RIGHT AUTHENTICATION FORM PANEL (Col 7-12 or 8-12)
+          =================================================================== */}
+      <div className="lg:col-span-6 xl:col-span-5 bg-[#07130D] p-6 sm:p-12 lg:p-16 flex flex-col justify-between items-center">
+        <div className="w-full max-w-sm my-auto">
+          {/* Form Header */}
+          <div className="mb-7">
+            <span className="text-[10px] font-bold tracking-[0.2em] text-[#58856B] uppercase block">
+              Your Family's Digital Memory
+            </span>
+            <h2 className="mt-2 text-2xl sm:text-3xl font-bold text-white tracking-tight">
+              {mode === "sign-in" ? "Welcome back" : "Create an account"}
+            </h2>
+            <p className="mt-1 text-xs text-[#87A895]">
               {mode === "sign-in"
-                ? "Access your household expenses, vehicle papers, warranties, and emergency documents in seconds."
-                : "Never lose important documents or miss expensive renewal deadlines again. All your records in one place."}
+                ? "Sign in to access your family workspace."
+                : "Start organizing your family records and assets."}
             </p>
           </div>
-        </div>
 
-        {/* Mode Switcher Tabs */}
-        <div className="grid grid-cols-2 p-1 rounded-2xl bg-emerald-50/80 border border-emerald-200/70 mb-5 text-xs font-semibold shadow-xs">
-          <button
-            type="button"
-            onClick={() => handleModeChange("sign-in")}
-            className={`py-2.5 rounded-xl transition cursor-pointer text-center ${
-              mode === "sign-in"
-                ? "bg-gradient-to-r from-[#064e3b] to-[#0d825c] text-white shadow-sm shadow-emerald-950/20 font-bold"
-                : "text-emerald-900/70 hover:text-emerald-950 font-semibold"
-            }`}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            onClick={() => handleModeChange("sign-up")}
-            className={`py-2.5 rounded-xl transition cursor-pointer text-center ${
-              mode === "sign-up"
-                ? "bg-gradient-to-r from-[#064e3b] to-[#0d825c] text-white shadow-sm shadow-emerald-950/20 font-bold"
-                : "text-emerald-900/70 hover:text-emerald-950 font-semibold"
-            }`}
-          >
-            Sign Up
-          </button>
-        </div>
-
-        <form onSubmit={submit} className="space-y-4">
-          {/* Email Input */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Email Address
-            </label>
-            <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-700/60 pointer-events-none">
-                <Mail className="h-4 w-4" />
-              </span>
+          {/* Form */}
+          <form onSubmit={submit} className="space-y-4">
+            {/* Email Address */}
+            <div>
+              <label className="block text-xs font-medium text-[#B2CEC0] mb-1.5">
+                Email address
+              </label>
               <input
                 type="email"
                 required
@@ -159,20 +194,35 @@ export function AuthPage({ initialMode = "sign-in", onSwitchMode, onBackToLandin
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="name@example.com"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-emerald-600 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition"
+                className="w-full rounded-xl bg-[#0C1E16] border border-[#173926] px-3.5 py-2.5 text-xs text-white placeholder-[#4E735E] outline-none focus:border-[#7EE0AC] focus:ring-1 focus:ring-[#7EE0AC] transition"
               />
             </div>
-          </div>
 
-          {/* Password Input */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Password
-            </label>
-            <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-700/60 pointer-events-none">
-                <Lock className="h-4 w-4" />
-              </span>
+            {/* Password */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-medium text-[#B2CEC0]">
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-[11px] font-medium text-[#749D84] hover:text-[#7EE0AC] transition flex items-center gap-1 cursor-pointer"
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <>
+                      <EyeOff className="h-3 w-3" />
+                      <span>Hide</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="h-3 w-3" />
+                      <span>Show</span>
+                    </>
+                  )}
+                </button>
+              </div>
               <input
                 type={showPassword ? "text" : "password"}
                 required
@@ -180,51 +230,53 @@ export function AuthPage({ initialMode = "sign-in", onSwitchMode, onBackToLandin
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-10 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none focus:border-emerald-600 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition font-mono"
+                className="w-full rounded-xl bg-[#0C1E16] border border-[#173926] px-3.5 py-2.5 text-xs text-white placeholder-[#4E735E] outline-none focus:border-[#7EE0AC] focus:ring-1 focus:ring-[#7EE0AC] transition font-mono"
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-800 transition cursor-pointer p-0.5"
-                title={showPassword ? "Hide password" : "Show password"}
-                tabIndex={-1}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </button>
             </div>
-          </div>
 
-          {/* Confirm Password Input (Sign Up Mode Only) */}
-          {mode === "sign-up" && (
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-slate-700">
-                  Confirm Password
-                </label>
-                {confirmPassword.length > 0 && (
-                  <div className="flex items-center gap-1">
-                    {password === confirmPassword ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                        <span>Passwords Match</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
-                        <XCircle className="h-3.5 w-3.5 text-rose-500" />
-                        <span>Passwords Do Not Match</span>
-                      </span>
+            {/* Confirm Password (Sign-up only) */}
+            {mode === "sign-up" && (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-medium text-[#B2CEC0]">
+                    Confirm Password
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="text-[11px] font-medium text-[#749D84] hover:text-[#7EE0AC] transition flex items-center gap-1 cursor-pointer"
+                      tabIndex={-1}
+                    >
+                      {showConfirmPassword ? (
+                        <>
+                          <EyeOff className="h-3 w-3" />
+                          <span>Hide</span>
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-3 w-3" />
+                          <span>Show</span>
+                        </>
+                      )}
+                    </button>
+                    {confirmPassword.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        {password === confirmPassword ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#7EE0AC]">
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span>Matched</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-400">
+                            <XCircle className="h-3 w-3" />
+                            <span>Mismatch</span>
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-700/60 pointer-events-none">
-                  <Lock className="h-4 w-4" />
-                </span>
+                </div>
                 <input
                   type={showConfirmPassword ? "text" : "password"}
                   required
@@ -232,73 +284,100 @@ export function AuthPage({ initialMode = "sign-in", onSwitchMode, onBackToLandin
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
                   placeholder="••••••••"
-                  className={`w-full rounded-xl border pl-10 pr-10 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none transition font-mono ${
+                  className={`w-full rounded-xl bg-[#0C1E16] border px-3.5 py-2.5 text-xs text-white placeholder-[#4E735E] outline-none transition font-mono ${
                     confirmPassword.length > 0
                       ? password === confirmPassword
-                        ? "border-emerald-500 bg-emerald-50/20 focus:ring-4 focus:ring-emerald-500/10"
-                        : "border-rose-400 bg-rose-50/20 focus:ring-4 focus:ring-rose-500/10"
-                      : "border-slate-200 bg-slate-50/70 focus:border-emerald-600 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                        ? "border-[#7EE0AC] focus:border-[#7EE0AC]"
+                        : "border-rose-500 focus:border-rose-400"
+                      : "border-[#173926] focus:border-[#7EE0AC]"
                   }`}
                 />
+              </div>
+            )}
+
+            {/* Alerts */}
+            {message && (
+              <div className="rounded-xl border border-rose-900/50 bg-rose-950/40 p-3 text-xs text-rose-300">
+                {message}
+              </div>
+            )}
+            {successMessage && (
+              <div className="rounded-xl border border-emerald-800/60 bg-emerald-950/40 p-3 text-xs text-[#8FE3B0]">
+                {successMessage}
+              </div>
+            )}
+
+            {/* Mint Action Button */}
+            <button
+              type="submit"
+              disabled={busy}
+              className="w-full mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-[#7EE0AC] hover:bg-[#6ed49e] active:scale-[0.99] py-3 text-xs font-bold text-[#071A11] shadow-lg shadow-[#7EE0AC]/10 transition cursor-pointer disabled:opacity-50"
+            >
+              <span>{mode === "sign-in" ? "Sign in" : "Create account"}</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </form>
+
+          {/* Secondary Links */}
+          <div className="mt-5 flex items-center justify-between text-xs text-[#87A895]">
+            {mode === "sign-in" ? (
+              <>
                 <button
                   type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-800 transition cursor-pointer p-0.5"
-                  title={showConfirmPassword ? "Hide password" : "Show password"}
-                  tabIndex={-1}
+                  onClick={() => alert("Password reset instructions will be sent to your email address if registered.")}
+                  className="hover:text-white transition cursor-pointer"
                 >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
+                  Forgot password?
                 </button>
-              </div>
-            </div>
-          )}
+                <button
+                  type="button"
+                  onClick={() => handleModeChange("sign-up")}
+                  className="text-[#7EE0AC] hover:underline font-semibold transition cursor-pointer"
+                >
+                  Create an account
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-[#648B74]">Already have an account?</span>
+                <button
+                  type="button"
+                  onClick={() => handleModeChange("sign-in")}
+                  className="text-[#7EE0AC] hover:underline font-semibold transition cursor-pointer"
+                >
+                  Sign in
+                </button>
+              </>
+            )}
+          </div>
 
-          {/* Error & Success Alerts */}
-          {message && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50/90 p-3 text-xs text-rose-700 font-medium">
-              {message}
-            </div>
-          )}
-          {successMessage && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/90 p-3 text-xs text-emerald-800 font-medium">
-              {successMessage}
-            </div>
-          )}
+          {/* Release / Footnote Notice */}
+          <div className="mt-8 pt-6 border-t border-[#132F20] text-[11px] text-[#58856B] leading-relaxed">
+            Foundation release &bull; Family asset records, vehicle documents, and 24/7 autonomous WhatsApp reminders.
+          </div>
+        </div>
 
-          {/* Submit Action Button */}
-          <button
-            type="submit"
-            disabled={busy}
-            className="w-full mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-3 text-xs font-bold text-white shadow-md shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] active:scale-[0.99] transition cursor-pointer disabled:opacity-50"
-          >
-            <span>
-              {mode === "sign-in"
-                ? "Sign In to Vault"
-                : "Create Free Account"}
-            </span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </button>
-        </form>
-
-        {/* Security Badge Footer */}
-        <div className="mt-6 pt-4 border-t border-emerald-100 flex items-center justify-center gap-1.5 text-[11px] text-emerald-900/80 font-semibold bg-emerald-50/50 py-2.5 px-3 rounded-xl border border-emerald-100/60">
-          <ShieldCheck className="h-4 w-4 text-[#00a859] shrink-0" />
-          <span>100% Encrypted & Secure Personal Vault</span>
+        {/* Bottom Theme & Language Bar */}
+        <div className="w-full max-w-sm mt-8 flex items-center justify-between text-[11px] text-[#58856B]">
+          <div className="flex items-center gap-1.5">
+            <Globe className="h-3.5 w-3.5 text-[#4E735E]" />
+            <span>বাংলা / English</span>
+          </div>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0C1E16] border border-[#173926] text-[#749D84]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#7EE0AC]" />
+            <span>Theme: Forest Night</span>
+          </div>
         </div>
       </div>
 
-      {/* Multi-Phase Full-Screen Animated Sign In Overlay */}
+      {/* Loading Overlay */}
       {busy && (
         <SigninOverlay
           email={email}
           customMessage={
             mode === "sign-in"
               ? "Verifying Credentials & Unlocking..."
-              : "Creating Encrypted Vault..."
+              : "Creating Encrypted Family Workspace..."
           }
         />
       )}
