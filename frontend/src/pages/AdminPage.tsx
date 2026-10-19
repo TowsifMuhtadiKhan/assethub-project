@@ -203,7 +203,7 @@ export function AdminPage() {
 
   const fetchSchedulerStatus = async () => {
     try {
-      const apiUrl = getBackendApiUrl();
+      const apiUrl = (backendUrlInput.trim() || getBackendApiUrl()).replace(/\/api\/?$/, "").replace(/\/+$/, "");
       const res = await fetch(`${apiUrl}/api/scheduler/status`);
       if (res.ok) {
         const data = await res.json();
@@ -395,7 +395,7 @@ export function AdminPage() {
   const handleTriggerScheduler = async () => {
     setTriggeringScheduler(true);
     try {
-      const apiUrl = getBackendApiUrl();
+      const apiUrl = (backendUrlInput.trim() || getBackendApiUrl()).replace(/\/api\/?$/, "").replace(/\/+$/, "");
       const res = await fetch(`${apiUrl}/api/scheduler/trigger`, { method: "POST" });
       const data = await res.json();
       alert(`Autonomous Scheduler Ran!\nDispatched: ${data.dispatched ?? 0} reminders.`);
@@ -1092,6 +1092,8 @@ export function AdminPage() {
                   onClick={() => {
                     setBackendUrlInput("http://localhost:4000");
                     setBackendApiUrl("http://localhost:4000");
+                    setBackendSaveSuccess(true);
+                    setTimeout(() => setBackendSaveSuccess(false), 3000);
                     refreshAll();
                   }}
                   className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-[11px] font-semibold transition cursor-pointer shrink-0"
@@ -1104,6 +1106,8 @@ export function AdminPage() {
                   onClick={() => {
                     setBackendUrlInput("https://likherakho-backend.onrender.com");
                     setBackendApiUrl("https://likherakho-backend.onrender.com");
+                    setBackendSaveSuccess(true);
+                    setTimeout(() => setBackendSaveSuccess(false), 3000);
                     refreshAll();
                   }}
                   className="px-2.5 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-[11px] font-semibold transition cursor-pointer shrink-0"

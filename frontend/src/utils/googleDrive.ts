@@ -176,7 +176,12 @@ export function getBackendApiUrl(): string {
   try {
     const saved = localStorage.getItem("lifenest_backend_url");
     if (saved && saved.trim()) {
-      return saved.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "");
+      const clean = saved.trim().replace(/\/api\/?$/, "").replace(/\/+$/, "");
+      // Vercel only hosts the static frontend, not the backend server.
+      // If a user saved a .vercel.app domain, ignore it so it falls back to Render.
+      if (!clean.includes(".vercel.app")) {
+        return clean;
+      }
     }
   } catch {}
 
