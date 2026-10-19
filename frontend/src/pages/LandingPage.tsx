@@ -30,23 +30,11 @@ export function LandingPage({ onOpenAuth }: LandingPageProps) {
 
   if (authMode) {
     return (
-      <div className="relative">
-        {/* Floating return to landing button */}
-        <div className="fixed top-4 left-4 z-50">
-          <button
-            type="button"
-            onClick={() => setAuthMode(null)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-white/90 backdrop-blur-md px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm border border-slate-200/80 hover:bg-white hover:text-slate-900 transition cursor-pointer"
-          >
-            ← ফিরে যান / Back to Home
-          </button>
-        </div>
-        <AuthPage
-          initialMode={authMode}
-          onSwitchMode={(m) => setAuthMode(m)}
-          onBackToLanding={() => setAuthMode(null)}
-        />
-      </div>
+      <AuthPage
+        initialMode={authMode}
+        onSwitchMode={(m) => setAuthMode(m)}
+        onBackToLanding={() => setAuthMode(null)}
+      />
     );
   }
 
