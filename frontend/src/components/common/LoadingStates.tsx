@@ -15,10 +15,12 @@ export function AnimatedPageLoader({
   message = "Loading your space...",
   subtitle = "Syncing encrypted records & workspace",
   fullscreen = true,
+  minimal = true,
 }: {
   message?: string;
   subtitle?: string;
   fullscreen?: boolean;
+  minimal?: boolean;
 }) {
   const containerClass = fullscreen
     ? "fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#f6faf7]/95 backdrop-blur-xl px-4 text-slate-900"
@@ -27,7 +29,7 @@ export function AnimatedPageLoader({
   return (
     <div className={containerClass} role="status" aria-live="polite">
       {/* Animated Glowing Dual Rings + Likhe Rakho Brand Logo */}
-      <div className="relative flex items-center justify-center mb-5">
+      <div className="relative flex items-center justify-center">
         {/* Soft Ambient Glow */}
         <div className="absolute h-28 w-28 rounded-full bg-emerald-500/20 blur-2xl animate-pulse" />
 
@@ -50,31 +52,35 @@ export function AnimatedPageLoader({
         </div>
       </div>
 
-      {/* Brand Wordmark */}
-      <div className="text-center mb-1">
-        <div className="text-lg font-extrabold tracking-tight flex items-center justify-center gap-0.5">
-          <span className="text-[#064e3b]">Likhe</span>
-          <span className="text-[#00a859]">Rakho</span>
-        </div>
-        <div className="text-[11px] font-semibold text-[#064e3b]/85 leading-none flex items-center justify-center gap-1.5 mt-1">
-          <span className="h-px w-3 bg-emerald-400" />
-          <span>লিখে রাখো</span>
-          <span className="h-px w-3 bg-emerald-400" />
-        </div>
-      </div>
+      {!minimal && (
+        <>
+          {/* Brand Wordmark */}
+          <div className="text-center mb-1 mt-5">
+            <div className="text-lg font-extrabold tracking-tight flex items-center justify-center gap-0.5">
+              <span className="text-[#064e3b]">Likhe</span>
+              <span className="text-[#00a859]">Rakho</span>
+            </div>
+            <div className="text-[11px] font-semibold text-[#064e3b]/85 leading-none flex items-center justify-center gap-1.5 mt-1">
+              <span className="h-px w-3 bg-emerald-400" />
+              <span>লিখে রাখো</span>
+              <span className="h-px w-3 bg-emerald-400" />
+            </div>
+          </div>
 
-      {/* Primary Message */}
-      <h3 className="text-sm font-semibold tracking-tight text-slate-700 text-center mt-3">{message}</h3>
+          {/* Primary Message */}
+          <h3 className="text-sm font-semibold tracking-tight text-slate-700 text-center mt-3">{message}</h3>
 
-      {/* Subtitle with Animated Bouncing Dots */}
-      <div className="mt-1 flex items-center justify-center gap-1.5 text-xs text-slate-500 text-center">
-        <span>{subtitle}</span>
-        <span className="inline-flex gap-1 items-center">
-          <span className="h-1 w-1 rounded-full bg-emerald-600 animate-bounce" style={{ animationDelay: "0ms" }} />
-          <span className="h-1 w-1 rounded-full bg-emerald-600 animate-bounce" style={{ animationDelay: "150ms" }} />
-          <span className="h-1 w-1 rounded-full bg-emerald-600 animate-bounce" style={{ animationDelay: "300ms" }} />
-        </span>
-      </div>
+          {/* Subtitle with Animated Bouncing Dots */}
+          <div className="mt-1 flex items-center justify-center gap-1.5 text-xs text-slate-500 text-center">
+            <span>{subtitle}</span>
+            <span className="inline-flex gap-1 items-center">
+              <span className="h-1 w-1 rounded-full bg-emerald-600 animate-bounce" style={{ animationDelay: "0ms" }} />
+              <span className="h-1 w-1 rounded-full bg-emerald-600 animate-bounce" style={{ animationDelay: "150ms" }} />
+              <span className="h-1 w-1 rounded-full bg-emerald-600 animate-bounce" style={{ animationDelay: "300ms" }} />
+            </span>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -469,18 +475,20 @@ export function DashboardSkeleton() {
  * Matches the Daily Expenses loader for all major feature pages.
  */
 export function BrandLogoLoader({
-  message = "Loading records...",
-  subtitle = "Syncing encrypted workspace data",
+  message,
+  subtitle,
   minHeight = "min-h-[50vh]",
+  minimal = true,
 }: {
   message?: string;
   subtitle?: string;
   minHeight?: string;
+  minimal?: boolean;
 }) {
   return (
     <div className={`flex flex-col items-center justify-center ${minHeight} w-full py-16 px-4 text-center`}>
       {/* Animated Glowing Dual Rings + Brand Logo */}
-      <div className="relative flex items-center justify-center mb-5">
+      <div className="relative flex items-center justify-center">
         <div className="absolute h-24 w-24 rounded-full bg-emerald-500/20 blur-xl animate-pulse" />
         <div className="h-20 w-20 rounded-full border-2 border-transparent border-t-[#064e3b] border-r-emerald-500 animate-spin" />
         <div
@@ -492,31 +500,20 @@ export function BrandLogoLoader({
         </div>
       </div>
 
-      <div className="text-center mb-1">
-        <div className="text-base font-extrabold tracking-tight flex items-center justify-center gap-0.5">
-          <span className="text-[#064e3b]">Likhe</span>
-          <span className="text-[#00a859]">Rakho</span>
+      {!minimal && (message || subtitle) && (
+        <div className="mt-4">
+          {message && (
+            <h3 className="text-xs font-semibold tracking-tight text-slate-700">
+              {message}
+            </h3>
+          )}
+          {subtitle && (
+            <p className="mt-0.5 text-[11px] text-slate-500 max-w-xs">
+              {subtitle}
+            </p>
+          )}
         </div>
-        <div className="text-[10px] font-semibold text-[#064e3b]/85 leading-none flex items-center justify-center gap-1 mt-0.5">
-          <span className="h-px w-2 bg-emerald-400" />
-          <span>লিখে রাখো</span>
-          <span className="h-px w-2 bg-emerald-400" />
-        </div>
-      </div>
-
-      <h3 className="text-xs font-semibold tracking-tight text-slate-700 mt-2">
-        {message}
-      </h3>
-      {subtitle && (
-        <p className="mt-0.5 text-[11px] text-slate-500 max-w-xs">
-          {subtitle}
-        </p>
       )}
-
-      {/* Centered themed pulse bar */}
-      <div className="mt-5 w-44 h-1.5 overflow-hidden rounded-full bg-emerald-100/80 p-0.5">
-        <div className="h-full bg-gradient-to-r from-[#064e3b] to-emerald-500 rounded-full animate-pulse w-3/4 mx-auto" />
-      </div>
     </div>
   );
 }

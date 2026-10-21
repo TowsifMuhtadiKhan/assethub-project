@@ -25,6 +25,7 @@ import {
   Activity,
 } from "lucide-react";
 import { AdminSubscriptionTab } from "../components/admin/AdminSubscriptionTab";
+import { AnimatedPageLoader, BrandLogoLoader } from "../components/common/LoadingStates";
 import {
   adminLogin,
   getAdminStats,
@@ -477,6 +478,10 @@ export function AdminPage() {
   // =========================================================================
   // VIEW 1: PRIVATE ADMIN LOGIN GATE
   // =========================================================================
+  if (isLoggingIn) {
+    return <AnimatedPageLoader minimal={true} />;
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-50/70 flex items-center justify-center p-4">
@@ -1277,9 +1282,8 @@ export function AdminPage() {
                           className="w-56 h-56 rounded-lg shadow-xs object-contain bg-white p-1 border border-slate-200"
                         />
                       ) : whatsappStatus.status === "connecting" || refreshingGateway ? (
-                        <div className="w-56 h-56 flex flex-col items-center justify-center text-slate-500 text-xs gap-2">
-                          <RefreshCw className="h-6 w-6 animate-spin text-emerald-600" />
-                          <span>Connecting to WhatsApp...</span>
+                        <div className="w-56 h-56 flex items-center justify-center">
+                          <BrandLogoLoader minHeight="min-h-[14rem]" minimal={true} />
                         </div>
                       ) : (
                         <div className="w-56 h-56 flex flex-col items-center justify-center text-center text-slate-500 text-xs gap-3 px-3">
