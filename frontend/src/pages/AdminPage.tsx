@@ -142,9 +142,7 @@ export function AdminPage() {
     provider: "baileys_qr",
     status: "idle",
   });
-  const [senderSimNumber, setSenderSimNumber] = useState<string>(
-    () => localStorage.getItem("lifenest_sender_number") || "01577243515"
-  );
+  const senderSimNumber = "01577243515";
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [requestingPairing, setRequestingPairing] = useState(false);
   const [pairingError, setPairingError] = useState<string | null>(null);
@@ -333,12 +331,8 @@ export function AdminPage() {
 
   // WhatsApp Admin Actions
   const handleRequestPairingCode = async () => {
-    const fullNumber = formatRecipientNumber("+880", senderSimNumber);
-    if (!fullNumber || fullNumber.length < 10) {
-      alert("Enter Likhe Rakho's sender phone number (e.g. 017xxxxxxxx).");
-      return;
-    }
-    localStorage.setItem("lifenest_sender_number", senderSimNumber);
+    const targetNumber = senderSimNumber?.trim() || "01577243515";
+    const fullNumber = formatRecipientNumber("+880", targetNumber);
     setRequestingPairing(true);
     setPairingError(null);
     try {
@@ -1215,31 +1209,36 @@ export function AdminPage() {
                           </span>
                         </h4>
                         <p className="text-[11px] text-slate-500 mt-0.5">
-                          No camera scanning required! Enter LifeNest's dedicated WhatsApp phone number to generate a secure pairing code:
+                          No camera scanning required. Click below to generate an instant pairing code for Likhe Rakho's permanent number:
                         </p>
                       </div>
 
-                      <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-                        <div className="flex-1 flex gap-2">
-                          <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-mono font-semibold text-slate-600">
-                            +880
-                          </span>
-                          <input
-                            type="tel"
-                            value={senderSimNumber}
-                            onChange={(e) => setSenderSimNumber(e.target.value)}
-                            placeholder="Likhe Rakho Sender Number (e.g. 017xxxxxxxx)"
-                            className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 font-mono shadow-inner"
-                          />
+                      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800 font-bold shrink-0">
+                            <Smartphone className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                              Permanent WhatsApp Sender Number
+                            </div>
+                            <div className="text-sm font-mono font-extrabold text-slate-900 flex items-center gap-2">
+                              <span>+880 1577-243515</span>
+                              <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-300">
+                                Likhe Rakho Bot
+                              </span>
+                            </div>
+                          </div>
                         </div>
+
                         <button
                           type="button"
-                          disabled={requestingPairing || !senderSimNumber.trim()}
+                          disabled={requestingPairing}
                           onClick={handleRequestPairingCode}
-                          className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 disabled:opacity-50 transition cursor-pointer shrink-0"
+                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 disabled:opacity-50 transition cursor-pointer shrink-0"
                         >
-                          <Smartphone className="h-3.5 w-3.5" />
-                          {requestingPairing ? "Generating Code..." : "Generate Pairing Code"}
+                          <Smartphone className="h-4 w-4" />
+                          <span>{requestingPairing ? "Generating Code..." : "Generate Pairing Code"}</span>
                         </button>
                       </div>
                     </div>
