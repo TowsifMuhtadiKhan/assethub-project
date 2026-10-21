@@ -150,6 +150,87 @@ export function buildTaskWhatsAppMessage(task: any): string {
   return lines.join("\n");
 }
 
+
+export function extractTaskTriggerTime(task: {
+  due_date?: string;
+  due_time?: string;
+  reminder_date?: string;
+  notes?: string;
+}): Date | null {
+  const notes = task.notes || "";
+  const dueDate = task.due_date;
+  const dueTime = task.due_time;
+  const reminderDate = task.reminder_date;
+
+  // 1. Check if exact absolute ISO Trigger is stored in notes
+  const trigMatch = notes.match(/Trigger:\s*([^\s,\]\n]+)/i);
+  if (trigMatch) {
+    const d = new Date(trigMatch[1]);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // 2. Check if reminderDate is a full ISO timestamp with time component (contains 'T')
+  if (reminderDate && String(reminderDate).includes("T")) {
+    const d = new Date(reminderDate);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // 3. Check if notes has exact trigger pattern like [Reminder: Exact at YYYY-MM-DD HH:MM]
+  const exactMatch = notes.match(/Exact at\s*(\d{4}-\d{2}-\d{2})\s*([0-9:]+\s*(?:AM|PM)?)/i);
+  if (exactMatch) {
+    const dateStr = exactMatch[1];
+    const timeStr = exactMatch[2];
+    const parts = dateStr.split("-").map(Number);
+    const { hours, minutes } = parseTimeString(timeStr);
+    const d = new Date(parts[0], parts[1] - 1, parts[2], hours, minutes, 0, 0);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // 4. Compute from dueDate, dueTime, and lead time in notes
+  if (!dueDate) return null;
+
+  let year = 0, month = 0, day = 0;
+  if (dueDate.includes("-")) {
+    const parts = dueDate.split("-").map(Number);
+    if (parts.length >= 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      year = parts[0];
+      month = parts[1] - 1;
+      day = parts[2];
+    }
+  } else if (dueDate.includes("/")) {
+    const parts = dueDate.split("/").map(Number);
+    if (parts.length >= 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      if (parts[2] > 1000) {
+        year = parts[2];
+        month = parts[0] - 1;
+        day = parts[1];
+      } else {
+        year = parts[0];
+        month = parts[1] - 1;
+        day = parts[2];
+      }
+    }
+  }
+
+  if (!year || isNaN(year)) return null;
+
+  const { hours, minutes } = parseTimeString(dueTime);
+
+  // If running in backend (Node.js without window) and TzOffset is specified:
+  const tzMatch = notes.match(/TzOffset:\s*(-?\d+)/i);
+  if (tzMatch) {
+    const offsetMin = parseInt(tzMatch[1], 10);
+    const dueUtcMs = Date.UTC(year, month, day, hours, minutes, 0) + offsetMin * 60 * 1000;
+    const leadMinutes = parseLeadMinutes(notes);
+    return new Date(dueUtcMs - leadMinutes * 60 * 1000);
+  }
+
+  // Default fallback assuming Bangladesh (UTC+6, offset -360) if not specified
+  const defUtcMs = Date.UTC(year, month, day, hours, minutes, 0) + (-360) * 60 * 1000;
+  const leadMinutes = parseLeadMinutes(notes);
+  return new Date(defUtcMs - leadMinutes * 60 * 1000);
+}
+
 export async function checkAndDispatchDueTasks(): Promise<number> {
   const wa = await getWhatsAppStatus();
   if (wa.status !== "connected") {
@@ -186,30 +267,17 @@ export async function checkAndDispatchDueTasks(): Promise<number> {
     for (const task of tasks) {
       if (!task.due_date) continue;
 
-      const scheduleSignature = `${task.id}_${task.due_date}_${task.due_time || "09:00"}_${task.reminder_date || ""}`;
+      const trigMatch = (task.notes || "").match(/Trigger:\s*([^\s,\]\n]+)/i);
+      const scheduleSignature = `${task.id}_${task.due_date}_${task.due_time || "09:00"}_${trigMatch ? trigMatch[1] : (task.reminder_date || "")}`;
       if (dispatchedSet.has(scheduleSignature)) continue;
 
-      let triggerTime: Date | null = null;
-      if (task.reminder_date) {
-        const parsed = new Date(task.reminder_date);
-        if (!isNaN(parsed.getTime())) triggerTime = parsed;
-      }
-
-      if (!triggerTime) {
-        const dateParts = String(task.due_date).split("-").map(Number);
-        if (dateParts.length >= 3 && !isNaN(dateParts[0]) && !isNaN(dateParts[1]) && !isNaN(dateParts[2])) {
-          const { hours, minutes } = parseTimeString(task.due_time);
-          const dueDateTime = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], hours, minutes, 0);
-          const leadMinutes = parseLeadMinutes(task.notes);
-          triggerTime = new Date(dueDateTime.getTime() - leadMinutes * 60 * 1000);
-        }
-      }
-
+      const triggerTime = extractTaskTriggerTime(task);
       if (!triggerTime || isNaN(triggerTime.getTime())) continue;
 
       const diffMs = now.getTime() - triggerTime.getTime();
-      // Due if triggerTime has arrived and is within last 48 hours
-      const isDue = diffMs >= 0 && diffMs <= 48 * 3600 * 1000;
+      // Due ONLY if triggerTime has arrived (diffMs >= 0) and is within last 24 hours
+      // NEVER dispatch early when triggerTime is in the future (diffMs < 0)!
+      const isDue = diffMs >= 0 && diffMs <= 24 * 3600 * 1000;
 
       if (isDue) {
         // Resolve recipient numbers

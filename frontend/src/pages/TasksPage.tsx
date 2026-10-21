@@ -55,10 +55,45 @@ import {
   dispatchTaskReminderNow,
   checkAndDispatchDueReminders,
   parseLeadMinutes,
+  parseTimeString,
   computeReminderDateISO,
+  computeExactReminderDateISO,
+  extractTaskTriggerTime,
   buildTaskWhatsAppMessage,
   resolveTaskRecipientNumbers,
 } from "../services/reminderDaemon";
+
+export function toLocalDateInputValue(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+export function toLocalTimeInputValue(d: Date): string {
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+export function getRelativeTriggerBadge(triggerDate: Date | null): { text: string; isPast: boolean } {
+  if (!triggerDate || isNaN(triggerDate.getTime())) return { text: "", isPast: false };
+  const now = new Date();
+  const diffMs = triggerDate.getTime() - now.getTime();
+  if (diffMs <= 0) {
+    return { text: "Overdue — triggers on save", isPast: true };
+  }
+  const diffMin = Math.round(diffMs / 60000);
+  if (diffMin < 60) {
+    return { text: `in ${diffMin} min${diffMin === 1 ? "" : "s"}`, isPast: false };
+  }
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) {
+    return { text: `in ${diffHr} hr${diffHr === 1 ? "" : "s"}`, isPast: false };
+  }
+  const diffDay = Math.round(diffHr / 24);
+  return { text: `in ${diffDay} day${diffDay === 1 ? "" : "s"}`, isPast: false };
+}
 import { getDirectWhatsAppUrl } from "../services/whatsappService";
 import { getUserSettings } from "../services/settingsService";
 
@@ -221,56 +256,56 @@ export function TasksPage() {
   const [modalReminderLead, setModalReminderLead] = useState("15 minutes before");
   const [modalCustomLeadMinutes, setModalCustomLeadMinutes] = useState(15);
   const [modalCustomLeadUnit, setModalCustomLeadUnit] = useState<"minutes" | "hours" | "days">("minutes");
+  // Changeable trigger mode & direct exact date/time controls
+  const [modalTriggerMode, setModalTriggerMode] = useState<"preset" | "exact">("preset");
+  const [modalExactDate, setModalExactDate] = useState("");
+  const [modalExactTime, setModalExactTime] = useState("");
+  const [modalShowExactEditor, setModalShowExactEditor] = useState(false);
 
-  const reminderPreviewText = useMemo(() => {
-    if (!modalDueDate) return null;
-    const baseDate = new Date(modalDueDate);
-    if (modalDueTime) {
-      const [hh, mm] = modalDueTime.split(":").map(Number);
-      baseDate.setHours(hh, mm, 0, 0);
-    } else {
-      baseDate.setHours(9, 0, 0, 0);
+  const modalComputedTriggerDate = useMemo(() => {
+    if (modalTriggerMode === "exact" && modalExactDate) {
+      const parts = modalExactDate.split("-").map(Number);
+      const { hours, minutes } = parseTimeString(modalExactTime || "09:00");
+      const d = new Date(parts[0], parts[1] - 1, parts[2], hours, minutes, 0, 0);
+      return isNaN(d.getTime()) ? null : d;
     }
+    if (!modalDueDate) return null;
+    let year = 0, month = 0, day = 0;
+    if (modalDueDate.includes("-")) {
+      const parts = modalDueDate.split("-").map(Number);
+      if (parts.length >= 3) { year = parts[0]; month = parts[1] - 1; day = parts[2]; }
+    }
+    if (!year || isNaN(year)) return null;
 
+    const { hours, minutes } = parseTimeString(modalDueTime || "09:00");
+    const baseDate = new Date(year, month, day, hours, minutes, 0, 0);
     if (isNaN(baseDate.getTime())) return null;
 
-    const triggerDate = new Date(baseDate);
-
+    let leadMinutes = 15;
     if (modalReminderLead === "custom") {
       const val = Number(modalCustomLeadMinutes) || 0;
-      if (modalCustomLeadUnit === "minutes") {
-        triggerDate.setMinutes(triggerDate.getMinutes() - val);
-      } else if (modalCustomLeadUnit === "hours") {
-        triggerDate.setHours(triggerDate.getHours() - val);
-      } else {
-        triggerDate.setDate(triggerDate.getDate() - val);
-      }
-    } else if (modalReminderLead === "At due time") {
-      // 0 min
-    } else if (modalReminderLead === "5 minutes before") {
-      triggerDate.setMinutes(triggerDate.getMinutes() - 5);
-    } else if (modalReminderLead === "10 minutes before") {
-      triggerDate.setMinutes(triggerDate.getMinutes() - 10);
-    } else if (modalReminderLead === "15 minutes before") {
-      triggerDate.setMinutes(triggerDate.getMinutes() - 15);
-    } else if (modalReminderLead === "30 minutes before") {
-      triggerDate.setMinutes(triggerDate.getMinutes() - 30);
-    } else if (modalReminderLead === "45 minutes before") {
-      triggerDate.setMinutes(triggerDate.getMinutes() - 45);
-    } else if (modalReminderLead === "1 hour before") {
-      triggerDate.setHours(triggerDate.getHours() - 1);
-    } else if (modalReminderLead === "2 hours before") {
-      triggerDate.setHours(triggerDate.getHours() - 2);
-    } else if (modalReminderLead === "1 day before") {
-      triggerDate.setDate(triggerDate.getDate() - 1);
-    } else if (modalReminderLead === "2 days before") {
-      triggerDate.setDate(triggerDate.getDate() - 2);
+      if (modalCustomLeadUnit === "minutes") leadMinutes = val;
+      else if (modalCustomLeadUnit === "hours") leadMinutes = val * 60;
+      else leadMinutes = val * 1440;
+    } else {
+      leadMinutes = parseLeadMinutes(modalReminderLead);
     }
+    return new Date(baseDate.getTime() - leadMinutes * 60 * 1000);
+  }, [modalTriggerMode, modalExactDate, modalExactTime, modalDueDate, modalDueTime, modalReminderLead, modalCustomLeadMinutes, modalCustomLeadUnit]);
 
-    const timeStr = triggerDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-    const dateStr = triggerDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  useEffect(() => {
+    if (modalTriggerMode === "preset" && modalComputedTriggerDate) {
+      setModalExactDate(toLocalDateInputValue(modalComputedTriggerDate));
+      setModalExactTime(toLocalTimeInputValue(modalComputedTriggerDate));
+    }
+  }, [modalComputedTriggerDate, modalTriggerMode]);
+
+  const reminderPreviewText = useMemo(() => {
+    if (!modalComputedTriggerDate) return null;
+    const timeStr = modalComputedTriggerDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    const dateStr = modalComputedTriggerDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     return `Notification triggers at ${timeStr} on ${dateStr}`;
-  }, [modalDueDate, modalDueTime, modalReminderLead, modalCustomLeadMinutes, modalCustomLeadUnit]);
+  }, [modalComputedTriggerDate]);
 
   // Edit & Details Modal State
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
@@ -290,6 +325,11 @@ export function TasksPage() {
   const [editCustomLeadMinutes, setEditCustomLeadMinutes] = useState(15);
   const [editCustomLeadUnit, setEditCustomLeadUnit] = useState<"minutes" | "hours" | "days">("minutes");
   const [editRecipients, setEditRecipients] = useState<string[]>(["Personal"]);
+  // Changeable trigger mode & direct exact date/time controls
+  const [editTriggerMode, setEditTriggerMode] = useState<"preset" | "exact">("preset");
+  const [editExactDate, setEditExactDate] = useState("");
+  const [editExactTime, setEditExactTime] = useState("");
+  const [editShowExactEditor, setEditShowExactEditor] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
   const openTaskDetails = (task: TaskItem) => {
@@ -308,6 +348,24 @@ export function TasksPage() {
     setEditStatus(task.status || "Pending");
     setEditReminderWhatsapp(task.reminderWhatsapp ?? true);
 
+    const isExact = Boolean(task.notes && /Exact at/i.test(task.notes));
+    const extractedTrigger = extractTaskTriggerTime(task);
+    if (extractedTrigger) {
+      setEditExactDate(toLocalDateInputValue(extractedTrigger));
+      setEditExactTime(toLocalTimeInputValue(extractedTrigger));
+    } else {
+      setEditExactDate(task.dueDate || "");
+      setEditExactTime(task.dueTime || "09:00");
+    }
+
+    if (isExact) {
+      setEditTriggerMode("exact");
+      setEditShowExactEditor(true);
+    } else {
+      setEditTriggerMode("preset");
+      setEditShowExactEditor(false);
+    }
+
     const minutes = parseLeadMinutes(task.notes);
     if (minutes === 0) setEditReminderLead("At due time");
     else if (minutes === 5) setEditReminderLead("5 minutes before");
@@ -325,7 +383,7 @@ export function TasksPage() {
       setEditCustomLeadUnit("minutes");
     }
 
-    const recMatch = task.notes?.match(/Recipients:\s*([^\]\n]+)/i);
+    const recMatch = task.notes?.match(/Recipients:\s*([^\s,\]\n]+)/i);
     if (recMatch) {
       const parsed = recMatch[1].split(",").map((s) => s.trim()).filter(Boolean);
       setEditRecipients(parsed.length > 0 ? parsed : ["Personal"]);
@@ -334,39 +392,50 @@ export function TasksPage() {
     }
   };
 
-  const editReminderPreviewText = useMemo(() => {
-    if (!editDueDate) return null;
-    const baseDate = new Date(editDueDate);
-    if (editDueTime) {
-      const [hh, mm] = editDueTime.split(":").map(Number);
-      baseDate.setHours(hh, mm, 0, 0);
-    } else {
-      baseDate.setHours(9, 0, 0, 0);
+  const editComputedTriggerDate = useMemo(() => {
+    if (editTriggerMode === "exact" && editExactDate) {
+      const parts = editExactDate.split("-").map(Number);
+      const { hours, minutes } = parseTimeString(editExactTime || "09:00");
+      const d = new Date(parts[0], parts[1] - 1, parts[2], hours, minutes, 0, 0);
+      return isNaN(d.getTime()) ? null : d;
     }
+    if (!editDueDate) return null;
+    let year = 0, month = 0, day = 0;
+    if (editDueDate.includes("-")) {
+      const parts = editDueDate.split("-").map(Number);
+      if (parts.length >= 3) { year = parts[0]; month = parts[1] - 1; day = parts[2]; }
+    }
+    if (!year || isNaN(year)) return null;
+
+    const { hours, minutes } = parseTimeString(editDueTime || "09:00");
+    const baseDate = new Date(year, month, day, hours, minutes, 0, 0);
     if (isNaN(baseDate.getTime())) return null;
 
-    const triggerDate = new Date(baseDate);
+    let leadMinutes = 15;
     if (editReminderLead === "custom") {
       const val = Number(editCustomLeadMinutes) || 0;
-      if (editCustomLeadUnit === "minutes") triggerDate.setMinutes(triggerDate.getMinutes() - val);
-      else if (editCustomLeadUnit === "hours") triggerDate.setHours(triggerDate.getHours() - val);
-      else triggerDate.setDate(triggerDate.getDate() - val);
-    } else if (editReminderLead === "At due time") {
-      // 0 min
-    } else if (editReminderLead === "5 minutes before") triggerDate.setMinutes(triggerDate.getMinutes() - 5);
-    else if (editReminderLead === "10 minutes before") triggerDate.setMinutes(triggerDate.getMinutes() - 10);
-    else if (editReminderLead === "15 minutes before") triggerDate.setMinutes(triggerDate.getMinutes() - 15);
-    else if (editReminderLead === "30 minutes before") triggerDate.setMinutes(triggerDate.getMinutes() - 30);
-    else if (editReminderLead === "45 minutes before") triggerDate.setMinutes(triggerDate.getMinutes() - 45);
-    else if (editReminderLead === "1 hour before") triggerDate.setHours(triggerDate.getHours() - 1);
-    else if (editReminderLead === "2 hours before") triggerDate.setHours(triggerDate.getHours() - 2);
-    else if (editReminderLead === "1 day before") triggerDate.setDate(triggerDate.getDate() - 1);
-    else if (editReminderLead === "2 days before") triggerDate.setDate(triggerDate.getDate() - 2);
+      if (editCustomLeadUnit === "minutes") leadMinutes = val;
+      else if (editCustomLeadUnit === "hours") leadMinutes = val * 60;
+      else leadMinutes = val * 1440;
+    } else {
+      leadMinutes = parseLeadMinutes(editReminderLead);
+    }
+    return new Date(baseDate.getTime() - leadMinutes * 60 * 1000);
+  }, [editTriggerMode, editExactDate, editExactTime, editDueDate, editDueTime, editReminderLead, editCustomLeadMinutes, editCustomLeadUnit]);
 
-    const timeStr = triggerDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-    const dateStr = triggerDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  useEffect(() => {
+    if (editTriggerMode === "preset" && editComputedTriggerDate) {
+      setEditExactDate(toLocalDateInputValue(editComputedTriggerDate));
+      setEditExactTime(toLocalTimeInputValue(editComputedTriggerDate));
+    }
+  }, [editComputedTriggerDate, editTriggerMode]);
+
+  const editReminderPreviewText = useMemo(() => {
+    if (!editComputedTriggerDate) return null;
+    const timeStr = editComputedTriggerDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    const dateStr = editComputedTriggerDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     return `Notification triggers at ${timeStr} on ${dateStr}`;
-  }, [editDueDate, editDueTime, editReminderLead, editCustomLeadMinutes, editCustomLeadUnit]);
+  }, [editComputedTriggerDate]);
 
   const handleSaveEditedTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -375,18 +444,28 @@ export function TasksPage() {
     setError("");
 
     try {
-      const rawLead = editReminderLead === "custom"
+      let calculatedReminderDate: string | undefined = undefined;
+      let leadDesc = editReminderLead === "custom"
         ? `${editCustomLeadMinutes} ${editCustomLeadUnit} before`
         : editReminderLead;
+
+      if (editReminderWhatsapp) {
+        if (editTriggerMode === "exact" && editExactDate && editExactTime) {
+          calculatedReminderDate = computeExactReminderDateISO(editExactDate, editExactTime);
+          leadDesc = `Exact at ${editExactDate} ${formatTime12h(editExactTime)}`;
+        } else {
+          calculatedReminderDate = computeReminderDateISO(editDueDate, editDueTime, leadDesc);
+        }
+      }
+
       const timeNote = editDueTime ? `, Due Time: ${formatTime12h(editDueTime)}` : "";
+      const trigNote = calculatedReminderDate ? `, Trigger: ${calculatedReminderDate}` : "";
+      const tzNote = `, TzOffset: ${new Date().getTimezoneOffset()}`;
       const rec = editRecipients.length > 0 ? `, Recipients: ${editRecipients.join(", ")}` : "";
-      const reminderNote = editReminderWhatsapp ? ` [Reminder: ${rawLead}${timeNote}${rec}]` : "";
+      const reminderNote = editReminderWhatsapp ? ` [Reminder: ${leadDesc}${timeNote}${trigNote}${tzNote}${rec}]` : "";
 
       const cleanExistingNotes = (selectedTask.notes || "").replace(/\s*\[Reminder:[^\]]+\]/gi, "").trim();
       const updatedNotes = `${cleanExistingNotes}${reminderNote}`.trim();
-      const calculatedReminderDate = editReminderWhatsapp
-        ? computeReminderDateISO(editDueDate, editDueTime, rawLead)
-        : undefined;
 
       const updated = await updateTask(selectedTask.id, {
         title: editTitle.trim(),
@@ -488,17 +567,28 @@ export function TasksPage() {
     const form = new FormData(formElement);
     try {
       const isReminder = modalReminderWhatsapp;
-      const rawLead = modalReminderLead === "custom"
-        ? `${modalCustomLeadMinutes} ${modalCustomLeadUnit} before`
-        : modalReminderLead;
       const dueDate = modalDueDate || String(form.get("dueDate") || "");
       const dueTime = modalDueTime || String(form.get("dueTime") || "");
+
+      let calculatedReminderDate: string | undefined = undefined;
+      let rawLead = modalReminderLead === "custom"
+        ? `${modalCustomLeadMinutes} ${modalCustomLeadUnit} before`
+        : modalReminderLead;
+
+      if (isReminder) {
+        if (modalTriggerMode === "exact" && modalExactDate && modalExactTime) {
+          calculatedReminderDate = computeExactReminderDateISO(modalExactDate, modalExactTime);
+          rawLead = `Exact at ${modalExactDate} ${formatTime12h(modalExactTime)}`;
+        } else {
+          calculatedReminderDate = computeReminderDateISO(dueDate, dueTime, rawLead);
+        }
+      }
+
       const timeNote = dueTime ? `, Due Time: ${formatTime12h(dueTime)}` : "";
+      const trigNote = calculatedReminderDate ? `, Trigger: ${calculatedReminderDate}` : "";
+      const tzNote = `, TzOffset: ${new Date().getTimezoneOffset()}`;
       const rec = taskRecipients.length > 0 ? `, Recipients: ${taskRecipients.join(", ")}` : "";
-      const reminderNote = isReminder ? ` [Reminder: ${rawLead}${timeNote}${rec}]` : "";
-      const calculatedReminderDate = isReminder
-        ? computeReminderDateISO(dueDate, dueTime, rawLead)
-        : undefined;
+      const reminderNote = isReminder ? ` [Reminder: ${rawLead}${timeNote}${trigNote}${tzNote}${rec}]` : "";
 
       const newTask = await createTask({
         title: String(form.get("title")),
@@ -525,6 +615,10 @@ export function TasksPage() {
       setModalReminderLead("15 minutes before");
       setModalCustomLeadMinutes(15);
       setModalCustomLeadUnit("minutes");
+      setModalTriggerMode("preset");
+      setModalShowExactEditor(false);
+      setModalExactDate("");
+      setModalExactTime("");
       setIsAddOpen(false);
 
       // Trigger reminder scanner immediately in case task is due now
@@ -1450,7 +1544,7 @@ export function TasksPage() {
 
                   {/* Primary WhatsApp Reminder Alert Card */}
                   <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/80 p-3.5 space-y-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
                       <label htmlFor="modalReminderWhatsapp" className="flex items-center gap-2 cursor-pointer select-none">
                         <input
                           type="checkbox"
@@ -1469,9 +1563,18 @@ export function TasksPage() {
                         <div className="flex items-center gap-1.5">
                           <span className="text-[11px] text-slate-600 font-medium">Remind:</span>
                           <select
-                            value={modalReminderLead}
-                            onChange={(e) => setModalReminderLead(e.target.value)}
-                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium shadow-2xs"
+                            value={modalTriggerMode === "exact" ? "exact" : modalReminderLead}
+                            onChange={(e) => {
+                              if (e.target.value === "exact") {
+                                setModalTriggerMode("exact");
+                                setModalShowExactEditor(true);
+                              } else {
+                                setModalTriggerMode("preset");
+                                setModalReminderLead(e.target.value);
+                                setModalShowExactEditor(false);
+                              }
+                            }}
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium shadow-2xs cursor-pointer"
                           >
                             <option value="At due time">At due time</option>
                             <option value="5 minutes before">5 mins before</option>
@@ -1479,6 +1582,7 @@ export function TasksPage() {
                             <option value="30 minutes before">30 mins before</option>
                             <option value="1 hour before">1 hour before</option>
                             <option value="1 day before">1 day before</option>
+                            <option value="exact">Specific Date & Time...</option>
                           </select>
                         </div>
                       )}
@@ -1486,12 +1590,114 @@ export function TasksPage() {
 
                     {modalReminderWhatsapp && (
                       <>
-                        {reminderPreviewText && (
-                          <div className="text-[11px] text-emerald-800 bg-emerald-100/70 border border-emerald-200/90 rounded-lg px-2.5 py-1 font-medium flex items-center gap-1.5">
-                            <Clock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                            <span>{reminderPreviewText}</span>
+                        {/* Interactive Notification Trigger Banner with [Change] button */}
+                        <div className="rounded-lg bg-emerald-100/80 border border-emerald-300/90 p-2.5 flex flex-col gap-2">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="text-[11px] text-emerald-900 font-semibold flex items-center flex-wrap gap-1.5">
+                              <Clock className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
+                              <span>{reminderPreviewText || "Set due date & time above to schedule reminder"}</span>
+                              {modalComputedTriggerDate && (
+                                <span className={`ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  getRelativeTriggerBadge(modalComputedTriggerDate).isPast
+                                    ? "bg-amber-200 text-amber-900"
+                                    : "bg-emerald-200 text-emerald-950"
+                                }`}>
+                                  {getRelativeTriggerBadge(modalComputedTriggerDate).text}
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setModalShowExactEditor((prev) => !prev);
+                                if (!modalShowExactEditor) {
+                                  setModalTriggerMode("exact");
+                                }
+                              }}
+                              className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 bg-white/80 hover:bg-white border border-emerald-300 rounded-md px-2 py-0.5 transition cursor-pointer shadow-2xs"
+                            >
+                              {modalShowExactEditor ? "Hide Direct Pickers" : "Change Time"}
+                            </button>
                           </div>
-                        )}
+
+                          {/* Quick Preset Chips */}
+                          <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-emerald-200/70">
+                            <span className="text-[10px] text-emerald-800 font-medium mr-0.5">Quick Presets:</span>
+                            {[
+                              { label: "At due time", val: "At due time" },
+                              { label: "5m before", val: "5 minutes before" },
+                              { label: "15m before", val: "15 minutes before" },
+                              { label: "30m before", val: "30 minutes before" },
+                              { label: "1h before", val: "1 hour before" },
+                              { label: "1d before", val: "1 day before" },
+                            ].map((preset) => (
+                              <button
+                                key={preset.val}
+                                type="button"
+                                onClick={() => {
+                                  setModalTriggerMode("preset");
+                                  setModalReminderLead(preset.val);
+                                  setModalShowExactEditor(false);
+                                }}
+                                className={`px-2 py-0.5 text-[10px] rounded-md font-semibold transition cursor-pointer ${
+                                  modalTriggerMode === "preset" && modalReminderLead === preset.val
+                                    ? "bg-emerald-700 text-white shadow-xs"
+                                    : "bg-white/80 text-emerald-900 border border-emerald-200 hover:bg-emerald-50"
+                                }`}
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setModalTriggerMode("exact");
+                                setModalShowExactEditor(true);
+                              }}
+                              className={`px-2 py-0.5 text-[10px] rounded-md font-semibold transition cursor-pointer ${
+                                modalTriggerMode === "exact"
+                                  ? "bg-emerald-700 text-white shadow-xs"
+                                  : "bg-white/80 text-emerald-900 border border-emerald-200 hover:bg-emerald-50"
+                              }`}
+                            >
+                              Exact Time
+                            </button>
+                          </div>
+
+                          {/* Direct Date & Time Inputs when editing exact trigger */}
+                          {modalShowExactEditor && (
+                            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-emerald-200/80 bg-white/70 p-2 rounded-lg">
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                                  Exact Trigger Date
+                                </label>
+                                <input
+                                  type="date"
+                                  value={modalExactDate}
+                                  onChange={(e) => {
+                                    setModalExactDate(e.target.value);
+                                    setModalTriggerMode("exact");
+                                  }}
+                                  className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-mono"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                                  Exact Trigger Time
+                                </label>
+                                <input
+                                  type="time"
+                                  value={modalExactTime}
+                                  onChange={(e) => {
+                                    setModalExactTime(e.target.value);
+                                    setModalTriggerMode("exact");
+                                  }}
+                                  className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-mono"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
 
                         <ItemRecipientSelector
                           selectedRecipients={taskRecipients}
@@ -1901,7 +2107,7 @@ export function TasksPage() {
 
                   {/* Primary WhatsApp Notification Card */}
                   <div className="rounded-xl bg-emerald-50/70 border border-emerald-200/80 p-3.5 space-y-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
                       <label htmlFor="editReminderWhatsapp" className="flex items-center gap-2 cursor-pointer select-none">
                         <input
                           type="checkbox"
@@ -1920,9 +2126,18 @@ export function TasksPage() {
                         <div className="flex items-center gap-1.5">
                           <span className="text-[11px] text-slate-600 font-medium">Remind:</span>
                           <select
-                            value={editReminderLead}
-                            onChange={(e) => setEditReminderLead(e.target.value)}
-                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium shadow-2xs"
+                            value={editTriggerMode === "exact" ? "exact" : editReminderLead}
+                            onChange={(e) => {
+                              if (e.target.value === "exact") {
+                                setEditTriggerMode("exact");
+                                setEditShowExactEditor(true);
+                              } else {
+                                setEditTriggerMode("preset");
+                                setEditReminderLead(e.target.value);
+                                setEditShowExactEditor(false);
+                              }
+                            }}
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-medium shadow-2xs cursor-pointer"
                           >
                             <option value="At due time">At due time</option>
                             <option value="5 minutes before">5 mins before</option>
@@ -1930,6 +2145,7 @@ export function TasksPage() {
                             <option value="30 minutes before">30 mins before</option>
                             <option value="1 hour before">1 hour before</option>
                             <option value="1 day before">1 day before</option>
+                            <option value="exact">Specific Date & Time...</option>
                           </select>
                         </div>
                       )}
@@ -1937,12 +2153,114 @@ export function TasksPage() {
 
                     {editReminderWhatsapp && (
                       <>
-                        {editReminderPreviewText && (
-                          <div className="text-[11px] text-emerald-800 bg-emerald-100/70 border border-emerald-200/90 rounded-lg px-2.5 py-1 font-medium flex items-center gap-1.5">
-                            <Clock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                            <span>{editReminderPreviewText}</span>
+                        {/* Interactive Notification Trigger Banner with [Change] button */}
+                        <div className="rounded-lg bg-emerald-100/80 border border-emerald-300/90 p-2.5 flex flex-col gap-2">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="text-[11px] text-emerald-900 font-semibold flex items-center flex-wrap gap-1.5">
+                              <Clock className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
+                              <span>{editReminderPreviewText || "Set due date & time above to schedule reminder"}</span>
+                              {editComputedTriggerDate && (
+                                <span className={`ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  getRelativeTriggerBadge(editComputedTriggerDate).isPast
+                                    ? "bg-amber-200 text-amber-900"
+                                    : "bg-emerald-200 text-emerald-950"
+                                }`}>
+                                  {getRelativeTriggerBadge(editComputedTriggerDate).text}
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditShowExactEditor((prev) => !prev);
+                                if (!editShowExactEditor) {
+                                  setEditTriggerMode("exact");
+                                }
+                              }}
+                              className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 bg-white/80 hover:bg-white border border-emerald-300 rounded-md px-2 py-0.5 transition cursor-pointer shadow-2xs"
+                            >
+                              {editShowExactEditor ? "Hide Direct Pickers" : "Change Time"}
+                            </button>
                           </div>
-                        )}
+
+                          {/* Quick Preset Chips */}
+                          <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-emerald-200/70">
+                            <span className="text-[10px] text-emerald-800 font-medium mr-0.5">Quick Presets:</span>
+                            {[
+                              { label: "At due time", val: "At due time" },
+                              { label: "5m before", val: "5 minutes before" },
+                              { label: "15m before", val: "15 minutes before" },
+                              { label: "30m before", val: "30 minutes before" },
+                              { label: "1h before", val: "1 hour before" },
+                              { label: "1d before", val: "1 day before" },
+                            ].map((preset) => (
+                              <button
+                                key={preset.val}
+                                type="button"
+                                onClick={() => {
+                                  setEditTriggerMode("preset");
+                                  setEditReminderLead(preset.val);
+                                  setEditShowExactEditor(false);
+                                }}
+                                className={`px-2 py-0.5 text-[10px] rounded-md font-semibold transition cursor-pointer ${
+                                  editTriggerMode === "preset" && editReminderLead === preset.val
+                                    ? "bg-emerald-700 text-white shadow-xs"
+                                    : "bg-white/80 text-emerald-900 border border-emerald-200 hover:bg-emerald-50"
+                                }`}
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditTriggerMode("exact");
+                                setEditShowExactEditor(true);
+                              }}
+                              className={`px-2 py-0.5 text-[10px] rounded-md font-semibold transition cursor-pointer ${
+                                editTriggerMode === "exact"
+                                  ? "bg-emerald-700 text-white shadow-xs"
+                                  : "bg-white/80 text-emerald-900 border border-emerald-200 hover:bg-emerald-50"
+                              }`}
+                            >
+                              Exact Time
+                            </button>
+                          </div>
+
+                          {/* Direct Date & Time Inputs when editing exact trigger */}
+                          {editShowExactEditor && (
+                            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-emerald-200/80 bg-white/70 p-2 rounded-lg">
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                                  Exact Trigger Date
+                                </label>
+                                <input
+                                  type="date"
+                                  value={editExactDate}
+                                  onChange={(e) => {
+                                    setEditExactDate(e.target.value);
+                                    setEditTriggerMode("exact");
+                                  }}
+                                  className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-mono"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                                  Exact Trigger Time
+                                </label>
+                                <input
+                                  type="time"
+                                  value={editExactTime}
+                                  onChange={(e) => {
+                                    setEditExactTime(e.target.value);
+                                    setEditTriggerMode("exact");
+                                  }}
+                                  className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 outline-none focus:border-emerald-600 font-mono"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
 
                         <ItemRecipientSelector
                           selectedRecipients={editRecipients}

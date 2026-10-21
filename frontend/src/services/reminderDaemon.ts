@@ -71,16 +71,143 @@ export function computeReminderDateISO(
   leadOrNotes?: string,
 ): string | undefined {
   if (!dueDate) return undefined;
-  const parts = dueDate.split("-").map(Number);
-  if (parts.length < 3 || isNaN(parts[0]) || isNaN(parts[1]) || isNaN(parts[2])) return undefined;
+  let year = 0, month = 0, day = 0;
+  if (dueDate.includes("-")) {
+    const parts = dueDate.split("-").map(Number);
+    if (parts.length >= 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      year = parts[0];
+      month = parts[1] - 1;
+      day = parts[2];
+    }
+  } else if (dueDate.includes("/")) {
+    const parts = dueDate.split("/").map(Number);
+    if (parts.length >= 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      if (parts[2] > 1000) {
+        year = parts[2];
+        month = parts[0] - 1;
+        day = parts[1];
+      } else {
+        year = parts[0];
+        month = parts[1] - 1;
+        day = parts[2];
+      }
+    }
+  }
+  if (!year || isNaN(year)) return undefined;
 
   const { hours, minutes } = parseTimeString(dueTime);
-  const baseDate = new Date(parts[0], parts[1] - 1, parts[2], hours, minutes, 0, 0);
+  const baseDate = new Date(year, month, day, hours, minutes, 0, 0);
   if (isNaN(baseDate.getTime())) return undefined;
 
   const leadMinutes = parseLeadMinutes(leadOrNotes);
   const triggerDate = new Date(baseDate.getTime() - leadMinutes * 60 * 1000);
   return triggerDate.toISOString();
+}
+
+/**
+ * Computes exact ISO reminder date from user-specified trigger date and time
+ */
+export function computeExactReminderDateISO(
+  triggerDateStr?: string,
+  triggerTimeStr?: string,
+): string | undefined {
+  if (!triggerDateStr) return undefined;
+  const parts = triggerDateStr.split("-").map(Number);
+  if (parts.length < 3 || isNaN(parts[0]) || isNaN(parts[1]) || isNaN(parts[2])) return undefined;
+
+  const { hours, minutes } = parseTimeString(triggerTimeStr);
+  const triggerDate = new Date(parts[0], parts[1] - 1, parts[2], hours, minutes, 0, 0);
+  if (isNaN(triggerDate.getTime())) return undefined;
+  return triggerDate.toISOString();
+}
+
+/**
+ * Robustly extracts the exact trigger Date for a task.
+ * Prioritizes absolute ISO Trigger stored in notes or reminderDate with 'T'.
+ * Never uses date-only strings without time components as midnight triggers.
+ */
+export function extractTaskTriggerTime(task: {
+  dueDate?: string;
+  due_date?: string;
+  dueTime?: string;
+  due_time?: string;
+  reminderDate?: string;
+  reminder_date?: string;
+  notes?: string;
+}): Date | null {
+  const notes = task.notes || "";
+  const dueDate = task.dueDate || task.due_date;
+  const dueTime = task.dueTime || task.due_time;
+  const reminderDate = task.reminderDate || task.reminder_date;
+
+  // 1. Check if exact absolute ISO Trigger is stored in notes
+  const trigMatch = notes.match(/Trigger:\s*([^\s,\]\n]+)/i);
+  if (trigMatch) {
+    const d = new Date(trigMatch[1]);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // 2. Check if reminderDate is a full ISO timestamp with time component (contains 'T')
+  if (reminderDate && String(reminderDate).includes("T")) {
+    const d = new Date(reminderDate);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // 3. Check if notes has exact trigger pattern like [Reminder: Exact at YYYY-MM-DD HH:MM]
+  const exactMatch = notes.match(/Exact at\s*(\d{4}-\d{2}-\d{2})\s*([0-9:]+\s*(?:AM|PM)?)/i);
+  if (exactMatch) {
+    const dateStr = exactMatch[1];
+    const timeStr = exactMatch[2];
+    const parts = dateStr.split("-").map(Number);
+    const { hours, minutes } = parseTimeString(timeStr);
+    const d = new Date(parts[0], parts[1] - 1, parts[2], hours, minutes, 0, 0);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // 4. Compute from dueDate, dueTime, and lead time in notes
+  if (!dueDate) return null;
+
+  let year = 0, month = 0, day = 0;
+  if (dueDate.includes("-")) {
+    const parts = dueDate.split("-").map(Number);
+    if (parts.length >= 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      year = parts[0];
+      month = parts[1] - 1;
+      day = parts[2];
+    }
+  } else if (dueDate.includes("/")) {
+    const parts = dueDate.split("/").map(Number);
+    if (parts.length >= 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      if (parts[2] > 1000) {
+        year = parts[2];
+        month = parts[0] - 1;
+        day = parts[1];
+      } else {
+        year = parts[0];
+        month = parts[1] - 1;
+        day = parts[2];
+      }
+    }
+  }
+
+  if (!year || isNaN(year)) return null;
+
+  const { hours, minutes } = parseTimeString(dueTime);
+
+  // If running in backend (Node.js without window) and TzOffset is specified:
+  const tzMatch = notes.match(/TzOffset:\s*(-?\d+)/i);
+  if (typeof window === "undefined" && tzMatch) {
+    const offsetMin = parseInt(tzMatch[1], 10);
+    const dueUtcMs = Date.UTC(year, month, day, hours, minutes, 0) + offsetMin * 60 * 1000;
+    const leadMinutes = parseLeadMinutes(notes);
+    return new Date(dueUtcMs - leadMinutes * 60 * 1000);
+  }
+
+  const dueDateTime = new Date(year, month, day, hours, minutes, 0, 0);
+  if (isNaN(dueDateTime.getTime())) return null;
+
+  const leadMinutes = parseLeadMinutes(notes);
+  return new Date(dueDateTime.getTime() - leadMinutes * 60 * 1000);
 }
 
 /**
@@ -346,30 +473,18 @@ export async function checkAndDispatchDueReminders(): Promise<number> {
         if (!task.reminderWhatsapp || task.status === "Completed" || task.status === "Cancelled") continue;
         if (!task.dueDate) continue;
 
-        const scheduleSignature = `${task.dueDate}_${task.dueTime || "09:00"}_${task.reminderDate || ""}`;
+        const trigMatch = (task.notes || "").match(/Trigger:\s*([^\s,\]\n]+)/i);
+        const scheduleSignature = `${task.dueDate}_${task.dueTime || "09:00"}_${trigMatch ? trigMatch[1] : (task.reminderDate || "")}`;
         const dispatchKey = `lifenest_task_dispatched_${task.id}_${scheduleSignature}`;
         if (localStorage.getItem(dispatchKey)) continue;
 
-        let triggerTime: Date | null = null;
-        if (task.reminderDate) {
-          const parsed = new Date(task.reminderDate);
-          if (!isNaN(parsed.getTime())) triggerTime = parsed;
-        }
-
-        if (!triggerTime) {
-          const dateParts = task.dueDate.split("-").map(Number);
-          if (dateParts.length >= 3 && !isNaN(dateParts[0]) && !isNaN(dateParts[1]) && !isNaN(dateParts[2])) {
-            const { hours, minutes } = parseTimeString(task.dueTime);
-            const dueDateTime = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], hours, minutes, 0);
-            const leadMinutes = parseLeadMinutes(task.notes);
-            triggerTime = new Date(dueDateTime.getTime() - leadMinutes * 60 * 1000);
-          }
-        }
-
+        const triggerTime = extractTaskTriggerTime(task);
         if (!triggerTime || isNaN(triggerTime.getTime())) continue;
 
         const diffMs = now.getTime() - triggerTime.getTime();
-        const isDue = diffMs >= 0 && diffMs <= 48 * 3600 * 1000;
+        // ONLY due if trigger time has actually arrived (diffMs >= 0) and is within last 24 hours
+        // If trigger is in the future (diffMs < 0), isDue is FALSE - NEVER dispatch early!
+        const isDue = diffMs >= 0 && diffMs <= 24 * 3600 * 1000;
 
         if (isDue) {
           const recipients = resolveTaskRecipientNumbers(
