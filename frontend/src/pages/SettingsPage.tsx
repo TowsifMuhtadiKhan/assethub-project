@@ -431,7 +431,7 @@ export function SettingsPage() {
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Automated reminders for expiring vehicle papers, upcoming
+                    Automated reminders delivered directly from Likhe Rakho (+880 1577-243515) for
                     rent, and tasks.
                   </p>
                 </div>

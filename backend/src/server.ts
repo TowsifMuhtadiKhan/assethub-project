@@ -9,7 +9,7 @@ import express, {
 import jwt from "jsonwebtoken";
 import fs from "fs";
 import path from "path";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "./db.js";
 import { z } from "zod";
 import {
   getDriveStatus,
@@ -28,6 +28,8 @@ import {
   requestWhatsAppPairingCode,
   initWhatsAppGateway,
   syncWhatsAppProfile,
+  exportSessionData,
+  importSessionData,
 } from "./whatsappService.js";
 import { startServerScheduler, checkAndDispatchDueTasks } from "./scheduler.js";
 
@@ -38,7 +40,7 @@ process.on("uncaughtException", (err) => {
   console.error("[Server] Uncaught exception intercepted:", err);
 });
 
-const prisma = new PrismaClient();
+
 const app = express();
 const jwtSecret = process.env.JWT_SECRET ?? "";
 if (!jwtSecret) throw new Error("JWT_SECRET is required");
@@ -518,6 +520,28 @@ app.post("/api/whatsapp/sync-profile", async (_req: Request, res: Response) => {
 });
 
 
+app.get("/api/whatsapp/export-session", async (_req: Request, res: Response) => {
+  try {
+    const data = await exportSessionData();
+    res.json({ success: Boolean(data), session: data });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Failed to export session" });
+  }
+});
+
+app.post("/api/whatsapp/import-session", async (req: Request, res: Response) => {
+  try {
+    const { session } = req.body;
+    if (!session || typeof session !== "object") {
+      return res.status(400).json({ success: false, error: "Valid session object is required" });
+    }
+    const success = await importSessionData(session);
+    res.json({ success });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Failed to import session" });
+  }
+});
+
 interface DispatchedMessageLog {
   id: string;
   timestamp: string;
@@ -917,4 +941,11 @@ if (process.env.VERCEL !== "1")
     );
     void initWhatsAppGateway();
     startServerScheduler();
+    const pingUrl = process.env.RENDER_EXTERNAL_URL || process.env.PING_URL;
+    if (pingUrl) {
+      console.log(`[Likhe Rakho] Keep-alive ping activated for ${pingUrl}`);
+      setInterval(() => {
+        fetch(`${pingUrl}/api/health`).catch(() => {});
+      }, 9 * 60 * 1000);
+    }
   });

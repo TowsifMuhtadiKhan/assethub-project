@@ -169,6 +169,35 @@ export function getDirectWhatsAppUrl(phone: string, text: string, countryCode = 
   return `https://wa.me/${formatted}?text=${encodeURIComponent(text)}`;
 }
 
+/**
+ * Export active session credentials for cloud backup
+ */
+export async function exportWhatsAppSession(): Promise<{ success: boolean; session?: Record<string, string> }> {
+  try {
+    const res = await fetchWithFallback("/api/whatsapp/export-session");
+    return await res.json();
+  } catch {
+    return { success: false };
+  }
+}
+
+/**
+ * Import session credentials directly to restore on cloud
+ */
+export async function importWhatsAppSession(session: Record<string, string>): Promise<boolean> {
+  try {
+    const res = await fetchWithFallback("/api/whatsapp/import-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session }),
+    });
+    const data = await res.json();
+    return Boolean(data.success);
+  } catch {
+    return false;
+  }
+}
+
 export interface BatchAlertItem {
   to: string;
   message: string;

@@ -20,6 +20,7 @@ import QRCode from "qrcode";
 import pino from "pino";
 import path from "path";
 import fs from "fs";
+import { prisma } from "./db.js";
 
 export type GatewayStatus = "idle" | "connecting" | "qr_ready" | "qr_expired" | "connected";
 
@@ -52,6 +53,119 @@ function wipeAuthDir(): void {
     }
   } catch {}
   ensureAuthDir();
+}
+
+/** Ensure the database table for persisting the WhatsApp session exists */
+async function ensureSessionTable(): Promise<void> {
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS system_whatsapp_session (
+        id TEXT PRIMARY KEY,
+        phone TEXT DEFAULT '',
+        session_data TEXT NOT NULL,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+  } catch (err) {
+    console.warn("[Likhe Rakho WhatsApp] ensureSessionTable warning:", err);
+  }
+}
+
+/** Exports the current session files into a key-value object */
+export async function exportSessionData(): Promise<Record<string, string> | null> {
+  try {
+    if (!fs.existsSync(AUTH_DIR)) return null;
+    const files = fs.readdirSync(AUTH_DIR);
+    if (!files.includes("creds.json")) return null;
+
+    const payload: Record<string, string> = {};
+    for (const file of files) {
+      const fullPath = path.join(AUTH_DIR, file);
+      if (fs.statSync(fullPath).isFile()) {
+        payload[file] = fs.readFileSync(fullPath, "utf-8");
+      }
+    }
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+/** Imports a session key-value object directly to disk & database and restarts the socket */
+export async function importSessionData(payload: Record<string, string>): Promise<boolean> {
+  try {
+    if (!payload || !payload["creds.json"]) return false;
+    ensureAuthDir();
+    for (const [filename, content] of Object.entries(payload)) {
+      fs.writeFileSync(path.join(AUTH_DIR, filename), content, "utf-8");
+    }
+    await saveSessionToDatabase();
+    await restartWhatsAppGateway();
+    return true;
+  } catch (err) {
+    console.error("[Likhe Rakho WhatsApp] importSessionData failed:", err);
+    return false;
+  }
+}
+
+/** Persists session files to PostgreSQL so Render/server restarts never lose connection */
+export async function saveSessionToDatabase(): Promise<void> {
+  try {
+    const payload = await exportSessionData();
+    if (!payload) return;
+
+    await ensureSessionTable();
+    const jsonStr = JSON.stringify(payload);
+    const phone = connectedPhone || "8801577243515";
+
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO system_whatsapp_session (id, phone, session_data, updated_at)
+       VALUES ('primary', $1, $2, NOW())
+       ON CONFLICT (id) DO UPDATE SET
+         phone = EXCLUDED.phone,
+         session_data = EXCLUDED.session_data,
+         updated_at = NOW();`,
+      phone,
+      jsonStr,
+    );
+    console.log(`[Likhe Rakho WhatsApp] Session for ${phone} persisted to database (${Object.keys(payload).length} files).`);
+  } catch (err) {
+    console.warn("[Likhe Rakho WhatsApp] Could not persist session to database:", err);
+  }
+}
+
+/** Restores session files from PostgreSQL into AUTH_DIR */
+export async function restoreSessionFromDatabase(): Promise<boolean> {
+  try {
+    await ensureSessionTable();
+    const rows = (await prisma.$queryRawUnsafe(
+      `SELECT phone, session_data FROM system_whatsapp_session WHERE id = 'primary' LIMIT 1;`,
+    )) as Array<{ phone: string; session_data: string }>;
+
+    if (!rows || rows.length === 0 || !rows[0].session_data) {
+      return false;
+    }
+
+    const payload = JSON.parse(rows[0].session_data) as Record<string, string>;
+    if (!payload["creds.json"]) return false;
+
+    ensureAuthDir();
+    for (const [filename, content] of Object.entries(payload)) {
+      fs.writeFileSync(path.join(AUTH_DIR, filename), content, "utf-8");
+    }
+
+    if (rows[0].phone) {
+      connectedPhone = rows[0].phone.startsWith("+") ? rows[0].phone : `+${rows[0].phone}`;
+    }
+
+    console.log(
+      `[Likhe Rakho WhatsApp] Restored session from database (${Object.keys(payload).length} files, phone: ${connectedPhone || rows[0].phone}).`,
+    );
+    return true;
+  } catch (err) {
+    console.warn("[Likhe Rakho WhatsApp] Error restoring session from database:", err);
+    return false;
+  }
 }
 
 /** True if a fully linked session (with an account id) is saved on disk. */
@@ -106,9 +220,9 @@ async function startSocket(): Promise<void> {
   const s = makeWASocket({
     version,
     auth: state,
-    browser: Browsers.ubuntu("Chrome"),
+    browser: Browsers.windows("Desktop"),
     logger: pino({ level: "silent" }),
-    keepAliveIntervalMs: 25_000,
+    keepAliveIntervalMs: 30_000,
     connectTimeoutMs: 60_000,
     defaultQueryTimeoutMs: 60_000,
     syncFullHistory: false,
@@ -120,6 +234,9 @@ async function startSocket(): Promise<void> {
     try {
       ensureAuthDir();
       await saveCreds();
+      if (hasLinkedSession()) {
+        void saveSessionToDatabase();
+      }
     } catch (err) {
       console.warn("[Likhe Rakho WhatsApp] could not save creds:", err);
     }
@@ -146,8 +263,9 @@ async function startSocket(): Promise<void> {
       reconnectAttempts = 0;
       const id = s.user?.id || "";
       const digits = id.split(":")[0].split("@")[0];
-      connectedPhone = digits ? `+${digits}` : null;
+      connectedPhone = digits ? `+${digits}` : "+8801577243515";
       console.log(`[Likhe Rakho WhatsApp] Linked & online as ${connectedPhone}`);
+      void saveSessionToDatabase();
 
       setTimeout(async () => {
         try {
@@ -186,6 +304,10 @@ async function startSocket(): Promise<void> {
       if (code === DisconnectReason.loggedOut) {
         // Unlinked from phone or pairing rejected -> clean slate, wait for user.
         wipeAuthDir();
+        try {
+          await ensureSessionTable();
+          await prisma.$executeRawUnsafe(`DELETE FROM system_whatsapp_session WHERE id = 'primary';`);
+        } catch {}
         connectedPhone = null;
         status = "idle";
         lastError = "WhatsApp session was logged out. Click 'Link WhatsApp' to link again.";
@@ -193,8 +315,11 @@ async function startSocket(): Promise<void> {
       }
 
       if (code === DisconnectReason.restartRequired) {
-        // Normal right after a successful scan: reconnect with the freshly saved session.
-        void startSocket();
+        // Normal right after a successful scan/pairing: give creds 1.5s to flush, then reconnect
+        status = "connecting";
+        setTimeout(() => {
+          if (myGen === generation) void startSocket();
+        }, 1500);
         return;
       }
 
@@ -219,14 +344,19 @@ async function startSocket(): Promise<void> {
   });
 }
 
-/** Called on server boot: reconnect only if an account is already linked. Never shows QR in background. */
+/** Called on server boot: restores session from PostgreSQL if missing on disk, then reconnects. */
 export async function initWhatsAppGateway(): Promise<void> {
+  if (!hasLinkedSession()) {
+    console.log("[Likhe Rakho WhatsApp] Checking PostgreSQL database for saved session...");
+    await restoreSessionFromDatabase();
+  }
+
   if (hasLinkedSession()) {
-    console.log("[LifeNest WhatsApp] Saved session found, reconnecting...");
+    console.log("[Likhe Rakho WhatsApp] Saved session found, reconnecting...");
     await startSocket();
   } else {
     status = "idle";
-    console.log("[LifeNest WhatsApp] Not linked. Waiting for user to start linking from Settings.");
+    console.log("[Likhe Rakho WhatsApp] Not linked. Ready for permanent number (01577243515) linking.");
   }
 }
 
@@ -251,11 +381,11 @@ export async function getWhatsAppStatus() {
 }
 
 export async function requestWhatsAppPairingCode(
-  phone: string,
+  phone: string = "01577243515",
 ): Promise<{ success: boolean; code?: string; error?: string }> {
-  const number = normalizePhoneNumber(phone);
+  const number = normalizePhoneNumber(phone || "01577243515");
   if (number.length < 10) return { success: false, error: "Please enter a valid phone number." };
-  if (status === "connected") return { success: false, error: "WhatsApp is already linked." };
+  if (status === "connected") return { success: false, error: `WhatsApp is already connected as ${connectedPhone || "+8801577243515"}.` };
 
   try {
     wipeAuthDir();
@@ -313,6 +443,10 @@ export async function disconnectWhatsApp(): Promise<{ success: boolean }> {
   } catch {}
   killSocket();
   wipeAuthDir();
+  try {
+    await ensureSessionTable();
+    await prisma.$executeRawUnsafe(`DELETE FROM system_whatsapp_session WHERE id = 'primary';`);
+  } catch {}
   status = "idle";
   connectedPhone = null;
   qrCodeDataUrl = null;

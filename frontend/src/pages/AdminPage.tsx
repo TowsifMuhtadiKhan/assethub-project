@@ -143,7 +143,7 @@ export function AdminPage() {
     status: "idle",
   });
   const [senderSimNumber, setSenderSimNumber] = useState<string>(
-    () => localStorage.getItem("lifenest_sender_number") || ""
+    () => localStorage.getItem("lifenest_sender_number") || "01577243515"
   );
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [requestingPairing, setRequestingPairing] = useState(false);
