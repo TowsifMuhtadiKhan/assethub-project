@@ -54,7 +54,6 @@ import type {
 import { ItemRecipientSelector } from "../components/common/ItemRecipientSelector";
 import {
   dispatchTaskReminderNow,
-  checkAndDispatchDueReminders,
   parseLeadMinutes,
   parseTimeString,
   computeReminderDateISO,
@@ -82,7 +81,7 @@ export function getRelativeTriggerBadge(triggerDate: Date | null): { text: strin
   const now = new Date();
   const diffMs = triggerDate.getTime() - now.getTime();
   if (diffMs <= 0) {
-    return { text: "Overdue — triggers on save", isPast: true };
+    return { text: "Time in the past (Select a future time)", isPast: true };
   }
   const diffMin = Math.round(diffMs / 60000);
   if (diffMin < 60) {
@@ -494,8 +493,6 @@ export function TasksPage() {
       }
       setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
       setSelectedTask(null);
-
-      checkAndDispatchDueReminders().catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update task");
     } finally {
@@ -621,9 +618,6 @@ export function TasksPage() {
       setModalExactDate("");
       setModalExactTime("");
       setIsAddOpen(false);
-
-      // Trigger reminder scanner immediately in case task is due now
-      checkAndDispatchDueReminders().catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create task");
     } finally {
@@ -759,6 +753,12 @@ export function TasksPage() {
   const openAddWithStatus = (status: TaskStatus) => {
     setDefaultAddStatus(status);
     setAddModalTab("general");
+    const target = new Date(Date.now() + 3600 * 1000);
+    setModalDueDate(toLocalDateInputValue(target));
+    setModalDueTime(toLocalTimeInputValue(target));
+    setModalTriggerMode("preset");
+    setModalReminderLead("15 minutes before");
+    setModalShowExactEditor(false);
     setIsAddOpen(true);
   };
 

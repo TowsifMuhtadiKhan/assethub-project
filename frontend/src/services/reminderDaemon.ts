@@ -2,6 +2,7 @@ import { listTasks } from "./taskService";
 import { getLocalWhatsAppContacts, getUserSettings } from "./settingsService";
 import { sendSystemWhatsAppAlert, formatRecipientNumber } from "./whatsappService";
 import { getLocalLoans } from "./dailyExpenseService";
+import { supabase } from "../lib/supabase";
 import type { TaskItem, VehicleDocument, Vehicle, MemberLoan, LoanRepaymentSegment } from "../types";
 
 /**
@@ -472,6 +473,8 @@ export async function checkAndDispatchDueReminders(): Promise<number> {
       for (const task of tasks) {
         if (!task.reminderWhatsapp || task.status === "Completed" || task.status === "Cancelled") continue;
         if (!task.dueDate) continue;
+        // Skip if already marked dispatched in notes
+        if (task.notes && task.notes.includes("[Dispatched:")) continue;
 
         const trigMatch = (task.notes || "").match(/Trigger:\s*([^\s,\]\n]+)/i);
         const scheduleSignature = `${task.dueDate}_${task.dueTime || "09:00"}_${trigMatch ? trigMatch[1] : (task.reminderDate || "")}`;
@@ -481,10 +484,23 @@ export async function checkAndDispatchDueReminders(): Promise<number> {
         const triggerTime = extractTaskTriggerTime(task);
         if (!triggerTime || isNaN(triggerTime.getTime())) continue;
 
+        // Guard against past triggers: if trigger was before the task was created, skip it
+        const createdAtMs = task.createdAt ? new Date(task.createdAt).getTime() : 0;
+        if (createdAtMs > 0 && triggerTime.getTime() < createdAtMs - 60000) {
+          localStorage.setItem(dispatchKey, new Date().toISOString());
+          continue;
+        }
+
         const diffMs = now.getTime() - triggerTime.getTime();
-        // ONLY due if trigger time has actually arrived (diffMs >= 0) and is within last 24 hours
-        // If trigger is in the future (diffMs < 0), isDue is FALSE - NEVER dispatch early!
-        const isDue = diffMs >= 0 && diffMs <= 24 * 3600 * 1000;
+        // NEVER dispatch early when triggerTime is in the future (diffMs < 0)!
+        if (diffMs < 0) continue;
+        // NEVER dispatch stale/expired alerts older than 5 minutes
+        if (diffMs > 5 * 60 * 1000) {
+          localStorage.setItem(dispatchKey, new Date().toISOString());
+          continue;
+        }
+
+        const isDue = true;
 
         if (isDue) {
           const recipients = resolveTaskRecipientNumbers(
@@ -519,6 +535,16 @@ export async function checkAndDispatchDueReminders(): Promise<number> {
               localStorage.setItem(dispatchKey, new Date().toISOString());
               localStorage.setItem(`lifenest_task_dispatched_${task.id}`, new Date().toISOString());
               sentCount++;
+              // Persist in Supabase DB immediately so neither backend nor frontend can ever re-dispatch!
+              void Promise.resolve(
+                supabase
+                  .from("lifenest_tasks")
+                  .update({
+                    reminder_whatsapp: false,
+                    notes: `${task.notes || ""} [Dispatched: ${new Date().toISOString()}]`.trim(),
+                  })
+                  .eq("id", task.id)
+              ).catch(() => {});
             }
           }
         }

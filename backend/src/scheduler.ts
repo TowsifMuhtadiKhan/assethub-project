@@ -266,6 +266,8 @@ export async function checkAndDispatchDueTasks(): Promise<number> {
 
     for (const task of tasks) {
       if (!task.due_date) continue;
+      // Skip if already marked dispatched in notes
+      if (task.notes && task.notes.includes("[Dispatched:")) continue;
 
       const trigMatch = (task.notes || "").match(/Trigger:\s*([^\s,\]\n]+)/i);
       const scheduleSignature = `${task.id}_${task.due_date}_${task.due_time || "09:00"}_${trigMatch ? trigMatch[1] : (task.reminder_date || "")}`;
@@ -274,10 +276,23 @@ export async function checkAndDispatchDueTasks(): Promise<number> {
       const triggerTime = extractTaskTriggerTime(task);
       if (!triggerTime || isNaN(triggerTime.getTime())) continue;
 
+      // Guard against past triggers: if trigger was before the task was created, skip it
+      const createdAtMs = task.created_at ? new Date(task.created_at).getTime() : 0;
+      if (createdAtMs > 0 && triggerTime.getTime() < createdAtMs - 60000) {
+        dispatchedSet.add(scheduleSignature);
+        continue;
+      }
+
       const diffMs = now.getTime() - triggerTime.getTime();
-      // Due ONLY if triggerTime has arrived (diffMs >= 0) and is within last 24 hours
-      // NEVER dispatch early when triggerTime is in the future (diffMs < 0)!
-      const isDue = diffMs >= 0 && diffMs <= 24 * 3600 * 1000;
+      // If trigger is in the future (diffMs < 0), NEVER dispatch early!
+      if (diffMs < 0) continue;
+      // If trigger was more than 5 minutes ago (diffMs > 5 * 60 * 1000), do NOT blast stale/expired messages!
+      if (diffMs > 5 * 60 * 1000) {
+        dispatchedSet.add(scheduleSignature);
+        continue;
+      }
+
+      const isDue = true;
 
       if (isDue) {
         // Resolve recipient numbers
@@ -367,6 +382,18 @@ export async function checkAndDispatchDueTasks(): Promise<number> {
         if (sentAny) {
           dispatchedSet.add(scheduleSignature);
           dispatchedCount++;
+          // Persist in Supabase DB immediately so neither backend nor frontend can ever re-dispatch!
+          try {
+            await supabase
+              .from("lifenest_tasks")
+              .update({
+                reminder_whatsapp: false,
+                notes: `${task.notes || ""} [Dispatched: ${new Date().toISOString()}]`.trim(),
+              })
+              .eq("id", task.id);
+          } catch (dbErr) {
+            console.warn("[Server Scheduler] Failed to mark task dispatched in DB:", dbErr);
+          }
         }
       }
     }
