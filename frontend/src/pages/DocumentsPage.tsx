@@ -1029,211 +1029,196 @@ export function DocumentsPage() {
         </div>
       ) : (
         <div className="space-y-4 min-h-[70vh]" onContextMenu={handleCanvasContextMenu}>
-          {/* Quick Filter Navigation Tabs (Theme-matching segmented control) */}
-          <div className="flex items-center justify-between border-b border-slate-200/80 pb-2 flex-wrap gap-2">
-            <div className="p-1 bg-slate-100/90 rounded-xl border border-slate-200/70 inline-flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab("drive");
-                  setCurrentFolderId(null);
-                }}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
-                  activeTab === "drive"
-                    ? "bg-white text-[#064e3b] shadow-2xs font-bold"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <Folder className={`h-3.5 w-3.5 ${activeTab === "drive" ? "text-[#064e3b]" : "text-slate-400"}`} />
-                <span>My Drive</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab("starred")}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
-                  activeTab === "starred"
-                    ? "bg-white text-amber-600 shadow-2xs font-bold"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <Star
-                  className={`h-3.5 w-3.5 ${
-                    activeTab === "starred" ? "fill-amber-500 text-amber-500" : "text-slate-400"
-                  }`}
-                />
-                <span>Starred</span>
-                {starredCount > 0 && (
-                  <span
-                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
-                      activeTab === "starred" ? "bg-amber-100 text-amber-800" : "bg-slate-200/70 text-slate-600"
-                    }`}
-                  >
-                    {starredCount}
-                  </span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab("expiring")}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
-                  activeTab === "expiring"
-                    ? "bg-white text-rose-600 shadow-2xs font-bold"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <Clock className={`h-3.5 w-3.5 ${activeTab === "expiring" ? "text-rose-500" : "text-slate-400"}`} />
-                <span>Expiring Soon</span>
-                {expiringCount > 0 && (
-                  <span
-                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
-                      activeTab === "expiring" ? "bg-rose-100 text-rose-800" : "bg-slate-200/70 text-slate-600"
-                    }`}
-                  >
-                    {expiringCount}
-                  </span>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Breadcrumbs & Search Toolbar */}
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs">
-            {/* Breadcrumb Trail (Google Drive clickable navigation) */}
-            <div className="flex items-center gap-1.5 text-xs flex-wrap min-w-0">
-              {activeTab === "drive" ? (
-                <>
-                  {currentFolderId && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!currentFolder?.parentId) {
-                          setCurrentFolderId(null);
-                        } else {
-                          const parent = folders.find(
-                            (f) =>
-                              f.id === currentFolder.parentId ||
-                              f.name.toLowerCase() === currentFolder.parentId?.toLowerCase(),
-                          );
-                          setCurrentFolderId(parent ? parent.id : null);
-                        }
-                      }}
-                      className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition mr-1 cursor-pointer"
-                      title="Go Back Up"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                  )}
-
-                  {breadcrumbs.map((crumb, idx) => {
-                    const isLast = idx === breadcrumbs.length - 1;
-                    return (
-                      <div key={crumb.id || "root"} className="flex items-center gap-1.5">
-                        {idx > 0 && <ChevronRight className="h-3.5 w-3.5 text-slate-300" />}
-                        {isLast ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-slate-900 bg-slate-100/90 px-2 py-0.5 rounded-lg flex items-center gap-1.5">
-                              {idx === 0 ? (
-                                <Folder className="h-3.5 w-3.5 text-emerald-700" />
-                              ) : (
-                                <FolderOpen className="h-3.5 w-3.5 text-emerald-700" />
-                              )}
-                              <span>{crumb.name}</span>
-                            </span>
-
-                            {/* Folder Context Menu (Rename / Color / Delete) if inside custom folder */}
-                            {currentFolder && (
-                              <div className="relative">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenFolderMenuId(
-                                      openFolderMenuId === "current-folder-menu" ? null : "current-folder-menu",
-                                    );
-                                  }}
-                                  className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-                                  title="Folder Actions"
-                                >
-                                  <MoreVertical className="h-3.5 w-3.5" />
-                                </button>
-
-                                {openFolderMenuId === "current-folder-menu" && (
-                                  <div
-                                    className="absolute left-0 top-7 z-40 w-44 rounded-xl border border-slate-200 bg-white py-1.5 shadow-xl text-xs"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setOpenFolderMenuId(null);
-                                        setFolderToRename(currentFolder);
-                                        setRenameInputValue(currentFolder.name);
-                                      }}
-                                      className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition cursor-pointer text-left"
-                                    >
-                                      <Edit2 className="h-3.5 w-3.5 text-slate-400" />
-                                      <span>Rename Folder</span>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setOpenFolderMenuId(null);
-                                        setFolderToColor(currentFolder);
-                                      }}
-                                      className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition cursor-pointer text-left"
-                                    >
-                                      <Palette className="h-3.5 w-3.5 text-slate-400" />
-                                      <span>Change Color</span>
-                                    </button>
-                                    <div className="my-1 border-t border-slate-100" />
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setOpenFolderMenuId(null);
-                                        promptDeleteFolder(currentFolder.name, currentFolder.id);
-                                      }}
-                                      className="w-full flex items-center gap-2 px-3 py-1.5 text-rose-600 hover:bg-rose-50 transition cursor-pointer text-left"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5 text-rose-600" />
-                                      <span>Delete Folder</span>
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setCurrentFolderId(crumb.id)}
-                            className="font-medium text-slate-500 hover:text-emerald-700 hover:bg-slate-50 px-1.5 py-0.5 rounded transition cursor-pointer"
-                          >
-                            {crumb.name}
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                    {activeTab === "starred" ? (
-                      <Star className="h-4 w-4 fill-amber-400 text-amber-500" />
-                    ) : (
-                      <Clock className="h-4 w-4 text-rose-500" />
-                    )}
-                    <span>{activeTab === "starred" ? "Starred Documents" : "Expiring Documents"}</span>
-                  </span>
+          {/* Unified Top Navigation & Search Toolbar */}
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 rounded-2xl border border-slate-200/90 bg-white p-2.5 sm:p-3 shadow-2xs">
+            {/* Left: Navigation Tabs or Folder Breadcrumbs */}
+            <div className="flex items-center gap-2 flex-wrap min-w-0">
+              {currentFolderId ? (
+                /* Subfolder Navigation: Back button + folder path */
+                <div className="flex items-center gap-1.5 text-xs flex-wrap">
                   <button
                     type="button"
-                    onClick={() => setActiveTab("drive")}
-                    className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 transition ml-2 cursor-pointer flex items-center gap-1"
+                    onClick={() => {
+                      if (!currentFolder?.parentId) {
+                        setCurrentFolderId(null);
+                      } else {
+                        const parent = folders.find(
+                          (f) =>
+                            f.id === currentFolder.parentId ||
+                            f.name.toLowerCase() === currentFolder.parentId?.toLowerCase(),
+                        );
+                        setCurrentFolderId(parent ? parent.id : null);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition cursor-pointer"
+                    title="Go Back"
                   >
-                    <ChevronLeft className="h-3 w-3" />
-                    Back to Drive
+                    <ChevronLeft className="h-4 w-4" />
+                    <span>Back</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentFolderId(null)}
+                    className="font-medium text-slate-500 hover:text-emerald-700 hover:bg-slate-50 px-2 py-1 rounded-lg transition cursor-pointer"
+                  >
+                    My Drive
+                  </button>
+
+                  {breadcrumbs
+                    .filter((crumb) => crumb.id !== null)
+                    .map((crumb, idx, arr) => {
+                      const isLast = idx === arr.length - 1;
+                      return (
+                        <div key={crumb.id || "crumb"} className="flex items-center gap-1.5">
+                          <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+                          {isLast ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-slate-900 bg-slate-100/90 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+                                <FolderOpen className="h-3.5 w-3.5 text-emerald-700" />
+                                <span>{crumb.name}</span>
+                              </span>
+
+                              {/* Folder Context Menu (Rename / Color / Delete) if inside custom folder */}
+                              {currentFolder && (
+                                <div className="relative">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenFolderMenuId(
+                                        openFolderMenuId === "current-folder-menu" ? null : "current-folder-menu",
+                                      );
+                                    }}
+                                    className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                                    title="Folder Actions"
+                                  >
+                                    <MoreVertical className="h-3.5 w-3.5" />
+                                  </button>
+
+                                  {openFolderMenuId === "current-folder-menu" && (
+                                    <div
+                                      className="absolute left-0 top-7 z-40 w-44 rounded-xl border border-slate-200 bg-white py-1.5 shadow-xl text-xs"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setOpenFolderMenuId(null);
+                                          setFolderToRename(currentFolder);
+                                          setRenameInputValue(currentFolder.name);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition cursor-pointer text-left"
+                                      >
+                                        <Edit2 className="h-3.5 w-3.5 text-slate-400" />
+                                        <span>Rename Folder</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setOpenFolderMenuId(null);
+                                          setFolderToColor(currentFolder);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-1.5 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition cursor-pointer text-left"
+                                      >
+                                        <Palette className="h-3.5 w-3.5 text-slate-400" />
+                                        <span>Change Color</span>
+                                      </button>
+                                      <div className="my-1 border-t border-slate-100" />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setOpenFolderMenuId(null);
+                                          promptDeleteFolder(currentFolder.name, currentFolder.id);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-1.5 text-rose-600 hover:bg-rose-50 transition cursor-pointer text-left"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                                        <span>Delete Folder</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setCurrentFolderId(crumb.id)}
+                              className="font-medium text-slate-500 hover:text-emerald-700 hover:bg-slate-50 px-1.5 py-0.5 rounded transition cursor-pointer"
+                            >
+                              {crumb.name}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              ) : (
+                /* Root view: Top Tabs (My Drive, Starred, Expiring Soon) */
+                <div className="p-1 bg-slate-100/90 rounded-xl border border-slate-200/70 inline-flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("drive");
+                      setCurrentFolderId(null);
+                    }}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                      activeTab === "drive"
+                        ? "bg-white text-[#064e3b] shadow-2xs font-bold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <Folder className={`h-3.5 w-3.5 ${activeTab === "drive" ? "text-[#064e3b]" : "text-slate-400"}`} />
+                    <span>My Drive</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("starred")}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                      activeTab === "starred"
+                        ? "bg-white text-amber-600 shadow-2xs font-bold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <Star
+                      className={`h-3.5 w-3.5 ${
+                        activeTab === "starred" ? "fill-amber-500 text-amber-500" : "text-slate-400"
+                      }`}
+                    />
+                    <span>Starred</span>
+                    {starredCount > 0 && (
+                      <span
+                        className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
+                          activeTab === "starred" ? "bg-amber-100 text-amber-800" : "bg-slate-200/70 text-slate-600"
+                        }`}
+                      >
+                        {starredCount}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("expiring")}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                      activeTab === "expiring"
+                        ? "bg-white text-rose-600 shadow-2xs font-bold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <Clock className={`h-3.5 w-3.5 ${activeTab === "expiring" ? "text-rose-500" : "text-slate-400"}`} />
+                    <span>Expiring Soon</span>
+                    {expiringCount > 0 && (
+                      <span
+                        className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
+                          activeTab === "expiring" ? "bg-rose-100 text-rose-800" : "bg-slate-200/70 text-slate-600"
+                        }`}
+                      >
+                        {expiringCount}
+                      </span>
+                    )}
                   </button>
                 </div>
               )}
