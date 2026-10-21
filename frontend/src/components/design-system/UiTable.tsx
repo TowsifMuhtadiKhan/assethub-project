@@ -23,10 +23,15 @@ export interface UiTableProps<T> {
   data: T[];
   keyExtractor: (row: T) => string;
   searchPlaceholder?: string;
+  searchValue?: string;
   onSearch?: (query: string) => void;
+  showSearch?: boolean;
   onFilterClick?: () => void;
   emptyState?: React.ReactNode;
   className?: string;
+  // Dynamic Height
+  fullHeight?: boolean;
+  minHeight?: string;
   // Pagination
   pagination?: boolean;
   pageSize?: number;
@@ -34,6 +39,9 @@ export interface UiTableProps<T> {
   // Row Actions
   rowActions?: (row: T) => React.ReactNode;
   onRowClick?: (row: T) => void;
+  // Custom toolbar extension slots
+  leftActions?: React.ReactNode;
+  rightActions?: React.ReactNode;
 }
 
 export function UiTable<T>({
@@ -41,15 +49,21 @@ export function UiTable<T>({
   data,
   keyExtractor,
   searchPlaceholder = "Search by name, email, or role...",
+  searchValue,
   onSearch,
+  showSearch = true,
   onFilterClick,
   emptyState,
   className = "",
+  fullHeight = true,
+  minHeight = "min-h-[500px]",
   pagination = true,
   pageSize: initialPageSize = 10,
   pageSizeOptions = [5, 10, 25, 50],
   rowActions,
   onRowClick,
+  leftActions,
+  rightActions,
 }: UiTableProps<T>) {
   const [internalSearch, setInternalSearch] = useState("");
   const [density, setDensity] = useState<"compact" | "normal" | "relaxed">("normal");
@@ -95,16 +109,17 @@ export function UiTable<T>({
   };
 
   // If onSearch is not provided externally, perform internal client filtering
+  const effectiveQuery = searchValue !== undefined ? searchValue : internalSearch;
   const filteredData = useMemo(() => {
-    if (onSearch || !internalSearch.trim()) return data;
-    const q = internalSearch.toLowerCase();
+    if (onSearch || !effectiveQuery.trim()) return data;
+    const q = effectiveQuery.toLowerCase();
     return data.filter((row: any) => {
       return Object.values(row).some((val) => {
         if (val === null || val === undefined) return false;
         return String(val).toLowerCase().includes(q);
       });
     });
-  }, [data, internalSearch, onSearch]);
+  }, [data, effectiveQuery, onSearch]);
 
   // Pagination calculation
   const totalRecords = filteredData.length;
@@ -150,11 +165,15 @@ export function UiTable<T>({
   }, [totalPages, currentPage]);
 
   return (
-    <div className={`bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden ${className}`}>
-      {/* Table Action Toolbar (Matching Enterprise Pattern) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 border-b border-slate-200/80 bg-slate-50/50">
-        {/* Left Toolbar: Columns, Filters, Density */}
-        <div className="flex items-center gap-2 flex-wrap">
+    <div
+      className={`bg-white rounded-xl border border-slate-200/90 shadow-2xs flex flex-col ${
+        fullHeight ? "flex-1 min-h-[calc(100vh-270px)]" : minHeight
+      } w-full overflow-hidden ${className}`}
+    >
+      {/* Table Action Toolbar (Unified Enterprise Toolbar) */}
+      <div className="shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-3 p-3.5 border-b border-slate-200/80 bg-slate-50/50">
+        {/* Left Toolbar: Columns, Filters, Density + Left Actions */}
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
           {/* Columns Toggle Dropdown */}
           <div className="relative" ref={columnsMenuRef}>
             <button
@@ -193,15 +212,17 @@ export function UiTable<T>({
           </div>
 
           {/* Filters Button */}
-          <button
-            type="button"
-            onClick={onFilterClick}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
-            title="Filter Data"
-          >
-            <Filter className="h-3.5 w-3.5 text-slate-500" />
-            <span>Filters</span>
-          </button>
+          {onFilterClick && (
+            <button
+              type="button"
+              onClick={onFilterClick}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
+              title="Filter Data"
+            >
+              <Filter className="h-3.5 w-3.5 text-slate-500" />
+              <span>Filters</span>
+            </button>
+          )}
 
           {/* Density Toggle Button */}
           <button
@@ -217,26 +238,33 @@ export function UiTable<T>({
             <AlignJustify className="h-3.5 w-3.5 text-slate-500" />
             <span>Density</span>
           </button>
+
+          {leftActions}
         </div>
 
-        {/* Right Toolbar: Search Input */}
-        <div className="relative min-w-[220px] max-w-xs w-full sm:w-auto">
-          <Search className="h-3.5 w-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={internalSearch}
-            onChange={handleSearchChange}
-            placeholder={searchPlaceholder}
-            className="w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/20 transition"
-          />
+        {/* Right Toolbar: Search Input + Right Actions */}
+        <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto flex-wrap">
+          {showSearch && (
+            <div className="relative min-w-[200px] max-w-xs w-full sm:w-auto">
+              <Search className="h-3.5 w-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={effectiveQuery}
+                onChange={handleSearchChange}
+                placeholder={searchPlaceholder}
+                className="w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/20 transition"
+              />
+            </div>
+          )}
+          {rightActions}
         </div>
       </div>
 
-      {/* Main Table */}
-      <div className="overflow-x-auto">
+      {/* Main Table Body - Expands vertically to fill available space */}
+      <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0">
         <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+          <thead className="sticky top-0 z-10">
+            <tr className="border-b border-slate-200/80 bg-slate-50/95 backdrop-blur-xs text-[11px] font-bold text-slate-600 uppercase tracking-wider">
               {visibleColumns.map((col) => (
                 <th
                   key={col.key}
@@ -281,9 +309,9 @@ export function UiTable<T>({
               ))
             ) : (
               <tr>
-                <td colSpan={visibleColumns.length + 1} className="py-16 text-center">
+                <td colSpan={visibleColumns.length + 1} className="py-20 text-center">
                   {emptyState || (
-                    <div className="text-xs text-slate-500">No records found.</div>
+                    <div className="text-xs text-slate-500 font-medium">No records found.</div>
                   )}
                 </td>
               </tr>
@@ -292,8 +320,8 @@ export function UiTable<T>({
         </table>
       </div>
 
-      {/* Table Footer: Record count & Pagination (Enterprise Style) */}
-      <div className="p-3 border-t border-slate-100 bg-slate-50/40 text-[11px] font-medium text-slate-600 flex flex-col sm:flex-row items-center justify-between gap-3">
+      {/* Table Footer: Record count & Pagination (Pinned at bottom) */}
+      <div className="mt-auto shrink-0 p-3 border-t border-slate-100 bg-slate-50/50 text-[11px] font-medium text-slate-600 flex flex-col sm:flex-row items-center justify-between gap-3">
         {/* Record count info */}
         <div>
           Showing {totalRecords === 0 ? "0" : `${startRecord} to ${endRecord}`} out of {totalRecords} Records
@@ -327,7 +355,7 @@ export function UiTable<T>({
                 type="button"
                 disabled={currentPage <= 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="p-1 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                className="p-1 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
                 title="Previous page"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
@@ -339,7 +367,7 @@ export function UiTable<T>({
                     key={p}
                     type="button"
                     onClick={() => setCurrentPage(p)}
-                    className={`min-w-[26px] h-[26px] px-1.5 rounded-md text-xs font-semibold transition ${
+                    className={`min-w-[26px] h-[26px] px-1.5 rounded-md text-xs font-semibold transition cursor-pointer ${
                       currentPage === p
                         ? "bg-emerald-700 text-white shadow-2xs"
                         : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
@@ -358,7 +386,7 @@ export function UiTable<T>({
                 type="button"
                 disabled={currentPage >= totalPages}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className="p-1 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                className="p-1 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
                 title="Next page"
               >
                 <ChevronRight className="h-3.5 w-3.5" />

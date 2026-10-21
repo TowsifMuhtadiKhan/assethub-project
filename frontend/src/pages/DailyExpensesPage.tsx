@@ -18,7 +18,6 @@ import {
   Clock,
   CreditCard,
   Banknote,
-  Filter,
   LineChart,
   Table,
   CalendarRange,
@@ -314,11 +313,6 @@ export function DailyExpensesPage() {
     }
     return "table";
   });
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-
-  const activeFilterCount =
-    (timeFilter !== "month" ? 1 : 0) +
-    (categoryFilter !== "all" ? 1 : 0);
 
   // Create / Edit Expense Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -2106,385 +2100,370 @@ export function DailyExpensesPage() {
                 </div>
               </div>
 
-          {/* Filter Bar & Controls - Unified in one line */}
-          <div className="bg-white p-2 sm:p-2.5 rounded-2xl border border-slate-200/90 shadow-2xs">
-            <div className="flex items-center justify-between gap-1.5 sm:gap-2 w-full">
-              {/* Search Box */}
-              <div className="relative flex-1 min-w-[100px]">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search item, merchant..."
-                  className="w-full pl-7 sm:pl-8 pr-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50/60 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-600 focus:bg-white transition"
-                />
-              </div>
-
-              {/* Time Range Pills & Category Dropdown (inline on md+) */}
-              <div className="hidden md:flex items-center gap-2 shrink-0">
-                {/* Time Range Pills */}
-                <div className="inline-flex items-center p-0.5 rounded-full border border-slate-200 bg-slate-100 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setTimeFilter("today")}
-                    className={`px-3 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
-                      timeFilter === "today"
-                        ? "bg-white text-slate-900 shadow-2xs font-bold"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Today
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTimeFilter("week")}
-                    className={`px-3 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
-                      timeFilter === "week"
-                        ? "bg-white text-slate-900 shadow-2xs font-bold"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    This Week
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTimeFilter("month")}
-                    className={`px-3 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
-                      timeFilter === "month"
-                        ? "bg-white text-slate-900 shadow-2xs font-bold"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    This Month
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTimeFilter("all")}
-                    className={`px-3 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
-                      timeFilter === "all"
-                        ? "bg-white text-slate-900 shadow-2xs font-bold"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    All Time
-                  </button>
-                </div>
-
-                {/* Proper MUI Category Dropdown */}
-                <FormControl size="small">
-                  <Select
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    sx={{
-                      fontSize: "0.75rem",
-                      fontWeight: 600,
-                      fontFamily: '"Inter", sans-serif',
-                      borderRadius: "0.75rem",
-                      backgroundColor: "#f8fafc",
-                      "& .MuiSelect-select": {
-                        py: "5px",
-                        px: "10px",
-                      },
-                    }}
-                  >
-                    <MenuItem value="all" sx={{ fontSize: "0.75rem", fontWeight: 700 }}>
-                      All Categories
-                    </MenuItem>
-                    {CATEGORIES.filter((c) => c.label !== "Others").map((c) => (
-                      <MenuItem key={c.label} value={c.label} sx={{ fontSize: "0.75rem" }}>
-                        {c.label}
-                      </MenuItem>
-                    ))}
-                    {allCategoryOptions.map((opt) => (
-                      <MenuItem key={opt} value={opt} sx={{ fontSize: "0.75rem" }}>
-                        🏷️ {opt}
-                      </MenuItem>
-                    ))}
-                    <MenuItem value="Others" sx={{ fontSize: "0.75rem" }}>Others</MenuItem>
-                  </Select>
-                </FormControl>
-              </div>
-
-              {/* Mobile Filter Toggle Button (< md only) */}
-              <button
-                type="button"
-                onClick={() => setMobileFiltersOpen((prev) => !prev)}
-                className={`md:hidden inline-flex items-center gap-1 rounded-xl border px-2 py-1.5 text-xs font-semibold transition shrink-0 cursor-pointer ${
-                  mobileFiltersOpen || activeFilterCount > 0
-                    ? "border-emerald-500 bg-emerald-50 text-[#064e3b]"
-                    : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
-                }`}
-                title="Filters"
-              >
-                <Filter className="h-3.5 w-3.5" />
-                <span className="hidden xs:inline text-xs">Filter</span>
-                {activeFilterCount > 0 && (
-                  <span className="flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-emerald-700 px-1 text-[9px] font-bold text-white">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </button>
-
-              {/* View mode toggle */}
-              <ViewModeToggle
-                viewMode={viewMode}
-                onChange={(mode) => {
-                  const nextMode = mode as "table" | "grid";
-                  setViewMode(nextMode);
-                  try {
-                    localStorage.setItem("lifenest_daily_expenses_view_mode", nextMode);
-                  } catch {}
-                }}
-                gridLabel="Grid"
-                listLabel="Table"
-                listValue="table"
-              />
-
-              {/* Log Expense Button (Desktop only; on mobile rendered in top header) */}
-              <button
-                type="button"
-                onClick={openCreateModal}
-                className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3 sm:px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer shrink-0"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span className="hidden xs:inline">Log Expense</span>
-              </button>
-            </div>
-
-            {/* Mobile Expanded Filters Panel */}
-            {mobileFiltersOpen && (
-              <div className="md:hidden flex flex-wrap items-center gap-2 pt-2 mt-2 border-t border-slate-100 animate-in fade-in slide-in-from-top-1 duration-150">
-                {/* Time Range Pills */}
-                <div className="inline-flex items-center p-0.5 rounded-full border border-slate-200 bg-slate-100 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setTimeFilter("today")}
-                    className={`px-2.5 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
-                      timeFilter === "today"
-                        ? "bg-white text-slate-900 shadow-2xs font-bold"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Today
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTimeFilter("week")}
-                    className={`px-2.5 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
-                      timeFilter === "week"
-                        ? "bg-white text-slate-900 shadow-2xs font-bold"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Week
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTimeFilter("month")}
-                    className={`px-2.5 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
-                      timeFilter === "month"
-                        ? "bg-white text-slate-900 shadow-2xs font-bold"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    Month
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTimeFilter("all")}
-                    className={`px-2.5 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
-                      timeFilter === "all"
-                        ? "bg-white text-slate-900 shadow-2xs font-bold"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    All
-                  </button>
-                </div>
-
-                {/* Category Dropdown */}
-                <FormControl size="small">
-                  <Select
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    sx={{
-                      fontSize: "0.75rem",
-                      fontWeight: 600,
-                      fontFamily: '"Inter", sans-serif',
-                      borderRadius: "0.75rem",
-                      backgroundColor: "#f8fafc",
-                      "& .MuiSelect-select": {
-                        py: "5px",
-                        px: "10px",
-                      },
-                    }}
-                  >
-                    <MenuItem value="all" sx={{ fontSize: "0.75rem", fontWeight: 700 }}>
-                      All Categories
-                    </MenuItem>
-                    {CATEGORIES.filter((c) => c.label !== "Others").map((c) => (
-                      <MenuItem key={c.label} value={c.label} sx={{ fontSize: "0.75rem" }}>
-                        {c.label}
-                      </MenuItem>
-                    ))}
-                    {allCategoryOptions.map((opt) => (
-                      <MenuItem key={opt} value={opt} sx={{ fontSize: "0.75rem" }}>
-                        🏷️ {opt}
-                      </MenuItem>
-                    ))}
-                    <MenuItem value="Others" sx={{ fontSize: "0.75rem" }}>Others</MenuItem>
-                  </Select>
-                </FormControl>
-              </div>
-            )}
-          </div>
-
-          {/* Expense Entries Table / Grid */}
-          <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs">
-            <div className="p-2.5 sm:p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <h3 className="text-xs font-bold text-slate-900 truncate">
-                  Expenses History
-                </h3>
-                <p className="text-[10px] text-slate-400">
-                  {filteredExpenses.length} entries
-                </p>
-              </div>
-
-              <div className="text-xs font-bold font-mono text-slate-900 shrink-0">
-                Total: <span className="text-emerald-600">৳{filteredExpenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()}</span>
-              </div>
-            </div>
-
-            {filteredExpenses.length === 0 ? (
-              <div className="p-12 text-center text-slate-400">
-                <Wallet className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-                <h4 className="text-sm font-semibold text-slate-800">No daily expenses logged</h4>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Click "+ Log Expense" above to record food, groceries, transport, or shopping.
-                </p>
-                <button
-                  type="button"
-                  onClick={openCreateModal}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
-                >
-                  <Plus className="h-3 w-3" /> Log First Expense
-                </button>
-              </div>
-            ) : viewMode === "table" ? (
-              /* ENTERPRISE DATA TABLE WITH PAGINATION & TOOLBAR */
-              <UiTable<DailyExpense>
-                columns={[
-                  {
-                    key: "date",
-                    header: "Date",
-                    width: "110px",
-                    render: (exp) => (
-                      <span className="whitespace-nowrap font-mono text-[11px] text-slate-700">
-                        {exp.date}
-                      </span>
-                    ),
-                  },
-                  {
-                    key: "category",
-                    header: "Category",
-                    render: (exp) => {
-                      const catConfig = getCategoryBadge(exp.category);
-                      return (
-                        <Chip
-                          size="sm"
-                          color={catConfig.chipColor}
-                          label={exp.category}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openCategoryTrend(exp.category);
-                          }}
-                          className="border border-current/15 shadow-2xs"
-                          title={`Click to view trend graph for ${exp.category}`}
-                        />
-                      );
-                    },
-                  },
-                  {
-                    key: "description",
-                    header: "Description / Merchant",
-                    render: (exp) => (
-                      <div>
-                        <div className="font-semibold text-slate-900 text-xs group-hover:text-emerald-700 transition flex items-center gap-1.5">
-                          <span>{exp.description || "Daily Expense"}</span>
-                          <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
-                        </div>
-                        {exp.merchant && (
-                          <div className="text-[11px] text-slate-400">
-                            Store: {exp.merchant}
-                          </div>
-                        )}
-                      </div>
-                    ),
-                  },
-                  {
-                    key: "paymentMethod",
-                    header: "Payment Method",
-                    render: (exp) => (
+          {viewMode === "table" ? (
+            /* ENTERPRISE DATA TABLE WITH UNIFIED TOOLBAR & FULL-PAGE DYNAMIC HEIGHT */
+            <UiTable<DailyExpense>
+              columns={[
+                {
+                  key: "date",
+                  header: "Date",
+                  width: "110px",
+                  render: (exp) => (
+                    <span className="whitespace-nowrap font-mono text-[11px] text-slate-700">
+                      {exp.date}
+                    </span>
+                  ),
+                },
+                {
+                  key: "category",
+                  header: "Category",
+                  render: (exp) => {
+                    const catConfig = getCategoryBadge(exp.category);
+                    return (
                       <Chip
                         size="sm"
-                        color="slate"
-                        label={exp.paymentMethod}
-                        className="border border-slate-200/80 font-medium"
+                        color={catConfig.chipColor}
+                        label={exp.category}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openCategoryTrend(exp.category);
+                        }}
+                        className="border border-current/15 shadow-2xs"
+                        title={`Click to view trend graph for ${exp.category}`}
                       />
-                    ),
+                    );
                   },
-                  {
-                    key: "amount",
-                    header: "Amount",
-                    className: "text-right",
-                    render: (exp) => (
-                      <span className="whitespace-nowrap font-mono font-bold text-slate-900 text-right text-sm">
-                        ৳{exp.amount.toLocaleString()}
-                      </span>
-                    ),
-                  },
-                ]}
-                data={filteredExpenses}
-                keyExtractor={(exp) => exp.id}
-                searchPlaceholder="Search by description, merchant..."
-                pagination={true}
-                pageSize={10}
-                pageSizeOptions={[5, 10, 20, 50]}
-                onRowClick={(exp) => setViewingExpenseDetail(exp)}
-                rowActions={(exp) => (
-                  <TableRowActions
-                    title={exp.description || exp.category}
-                    subtitle={`${exp.date} • ৳${exp.amount.toLocaleString()} (${exp.paymentMethod})`}
-                    actions={[
-                      {
-                        label: "View Full Details",
-                        description: "Odometer, receipt image, merchant, notes",
-                        icon: ExternalLink,
-                        variant: "emerald",
-                        onClick: () => setViewingExpenseDetail(exp),
-                      },
-                      {
-                        label: "Edit Expense Record",
-                        description: "Update amount, category, date or payment method",
-                        icon: Edit2,
-                        onClick: () => openEditModal(exp),
-                      },
-                      {
-                        label: "Delete Expense",
-                        description: "Permanently delete this entry",
-                        icon: Trash2,
-                        variant: "danger",
-                        onClick: () => setExpenseToDelete(exp),
-                      },
-                    ]}
+                },
+                {
+                  key: "description",
+                  header: "Description / Merchant",
+                  render: (exp) => (
+                    <div>
+                      <div className="font-semibold text-slate-900 text-xs group-hover:text-emerald-700 transition flex items-center gap-1.5">
+                        <span>{exp.description || "Daily Expense"}</span>
+                        <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                      </div>
+                      {exp.merchant && (
+                        <div className="text-[11px] text-slate-400">
+                          Store: {exp.merchant}
+                        </div>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  key: "paymentMethod",
+                  header: "Payment Method",
+                  render: (exp) => (
+                    <Chip
+                      size="sm"
+                      color="slate"
+                      label={exp.paymentMethod}
+                      className="border border-slate-200/80 font-medium"
+                    />
+                  ),
+                },
+                {
+                  key: "amount",
+                  header: "Amount",
+                  className: "text-right",
+                  render: (exp) => (
+                    <span className="whitespace-nowrap font-mono font-bold text-slate-900 text-right text-sm">
+                      ৳{exp.amount.toLocaleString()}
+                    </span>
+                  ),
+                },
+              ]}
+              data={filteredExpenses}
+              keyExtractor={(exp) => exp.id}
+              searchPlaceholder="Search item, merchant..."
+              searchValue={searchQuery}
+              onSearch={setSearchQuery}
+              pagination={true}
+              pageSize={15}
+              pageSizeOptions={[10, 15, 25, 50]}
+              fullHeight={true}
+              leftActions={
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Time Range Pills */}
+                  <div className="inline-flex items-center p-0.5 rounded-full border border-slate-200 bg-slate-100 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setTimeFilter("today")}
+                      className={`px-2.5 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
+                        timeFilter === "today"
+                          ? "bg-white text-slate-900 shadow-2xs font-bold"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      Today
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTimeFilter("week")}
+                      className={`px-2.5 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
+                        timeFilter === "week"
+                          ? "bg-white text-slate-900 shadow-2xs font-bold"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      Week
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTimeFilter("month")}
+                      className={`px-2.5 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
+                        timeFilter === "month"
+                          ? "bg-white text-slate-900 shadow-2xs font-bold"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      Month
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTimeFilter("all")}
+                      className={`px-2.5 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
+                        timeFilter === "all"
+                          ? "bg-white text-slate-900 shadow-2xs font-bold"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                    >
+                      All
+                    </button>
+                  </div>
+
+                  {/* Category Dropdown */}
+                  <FormControl size="small">
+                    <Select
+                      value={categoryFilter}
+                      onChange={(e) => setCategoryFilter(e.target.value)}
+                      sx={{
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        fontFamily: '"Inter", sans-serif',
+                        borderRadius: "0.75rem",
+                        backgroundColor: "#fff",
+                        "& .MuiSelect-select": {
+                          py: "4px",
+                          px: "8px",
+                        },
+                      }}
+                    >
+                      <MenuItem value="all" sx={{ fontSize: "0.75rem", fontWeight: 700 }}>
+                        All Categories
+                      </MenuItem>
+                      {CATEGORIES.filter((c) => c.label !== "Others").map((c) => (
+                        <MenuItem key={c.label} value={c.label} sx={{ fontSize: "0.75rem" }}>
+                          {c.label}
+                        </MenuItem>
+                      ))}
+                      {allCategoryOptions.map((opt) => (
+                        <MenuItem key={opt} value={opt} sx={{ fontSize: "0.75rem" }}>
+                          🏷️ {opt}
+                        </MenuItem>
+                      ))}
+                      <MenuItem value="Others" sx={{ fontSize: "0.75rem" }}>Others</MenuItem>
+                    </Select>
+                  </FormControl>
+                </div>
+              }
+              rightActions={
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:inline-flex text-xs font-bold font-mono text-slate-900 bg-emerald-50 border border-emerald-200/70 px-2.5 py-1 rounded-lg">
+                    Total: <span className="text-emerald-700 ml-1">৳{filteredExpenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()}</span>
+                  </div>
+                  <ViewModeToggle
+                    viewMode={viewMode}
+                    onChange={(mode) => {
+                      const nextMode = mode as "table" | "grid";
+                      setViewMode(nextMode);
+                      try {
+                        localStorage.setItem("lifenest_daily_expenses_view_mode", nextMode);
+                      } catch {}
+                    }}
+                    gridLabel="Grid"
+                    listLabel="Table"
+                    listValue="table"
                   />
-                )}
-              />
-            ) : (
-              /* GRID / CARDS VIEW */
-              <div>
+                </div>
+              }
+              emptyState={
+                <div className="p-12 text-center text-slate-400">
+                  <Wallet className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+                  <h4 className="text-sm font-semibold text-slate-800">No daily expenses logged</h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Click "+ Log Expense" above to record food, groceries, transport, or shopping.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={openCreateModal}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+                  >
+                    <Plus className="h-3 w-3" /> Log First Expense
+                  </button>
+                </div>
+              }
+              onRowClick={(exp) => setViewingExpenseDetail(exp)}
+              rowActions={(exp) => (
+                <TableRowActions
+                  title={exp.description || exp.category}
+                  subtitle={`${exp.date} • ৳${exp.amount.toLocaleString()} (${exp.paymentMethod})`}
+                  actions={[
+                    {
+                      label: "View Full Details",
+                      description: "Odometer, receipt image, merchant, notes",
+                      icon: ExternalLink,
+                      variant: "emerald",
+                      onClick: () => setViewingExpenseDetail(exp),
+                    },
+                    {
+                      label: "Edit Expense Record",
+                      description: "Update amount, category, date or payment method",
+                      icon: Edit2,
+                      onClick: () => openEditModal(exp),
+                    },
+                    {
+                      label: "Delete Expense",
+                      description: "Permanently delete this entry",
+                      icon: Trash2,
+                      variant: "danger",
+                      onClick: () => setExpenseToDelete(exp),
+                    },
+                  ]}
+                />
+              )}
+            />
+          ) : (
+            <div className="space-y-4">
+              {/* Filter Bar for Grid Mode */}
+              <div className="bg-white p-2 sm:p-2.5 rounded-2xl border border-slate-200/90 shadow-2xs">
+                <div className="flex items-center justify-between gap-1.5 sm:gap-2 w-full">
+                  <div className="relative flex-1 min-w-[100px]">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search item, merchant..."
+                      className="w-full pl-7 sm:pl-8 pr-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50/60 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-600 focus:bg-white transition"
+                    />
+                  </div>
+
+                  <div className="hidden md:flex items-center gap-2 shrink-0">
+                    <div className="inline-flex items-center p-0.5 rounded-full border border-slate-200 bg-slate-100 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setTimeFilter("today")}
+                        className={`px-3 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
+                          timeFilter === "today"
+                            ? "bg-white text-slate-900 shadow-2xs font-bold"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTimeFilter("week")}
+                        className={`px-3 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
+                          timeFilter === "week"
+                            ? "bg-white text-slate-900 shadow-2xs font-bold"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        This Week
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTimeFilter("month")}
+                        className={`px-3 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
+                          timeFilter === "month"
+                            ? "bg-white text-slate-900 shadow-2xs font-bold"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        This Month
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTimeFilter("all")}
+                        className={`px-3 py-1 rounded-full font-semibold transition cursor-pointer text-center text-xs ${
+                          timeFilter === "all"
+                            ? "bg-white text-slate-900 shadow-2xs font-bold"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        All Time
+                      </button>
+                    </div>
+
+                    <FormControl size="small">
+                      <Select
+                        value={categoryFilter}
+                        onChange={(e) => setCategoryFilter(e.target.value)}
+                        sx={{
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          fontFamily: '"Inter", sans-serif',
+                          borderRadius: "0.75rem",
+                          backgroundColor: "#f8fafc",
+                          "& .MuiSelect-select": {
+                            py: "5px",
+                            px: "10px",
+                          },
+                        }}
+                      >
+                        <MenuItem value="all" sx={{ fontSize: "0.75rem", fontWeight: 700 }}>
+                          All Categories
+                        </MenuItem>
+                        {CATEGORIES.filter((c) => c.label !== "Others").map((c) => (
+                          <MenuItem key={c.label} value={c.label} sx={{ fontSize: "0.75rem" }}>
+                            {c.label}
+                          </MenuItem>
+                        ))}
+                        {allCategoryOptions.map((opt) => (
+                          <MenuItem key={opt} value={opt} sx={{ fontSize: "0.75rem" }}>
+                            🏷️ {opt}
+                          </MenuItem>
+                        ))}
+                        <MenuItem value="Others" sx={{ fontSize: "0.75rem" }}>Others</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </div>
+
+                  <ViewModeToggle
+                    viewMode={viewMode}
+                    onChange={(mode) => {
+                      const nextMode = mode as "table" | "grid";
+                      setViewMode(nextMode);
+                      try {
+                        localStorage.setItem("lifenest_daily_expenses_view_mode", nextMode);
+                      } catch {}
+                    }}
+                    gridLabel="Grid"
+                    listLabel="Table"
+                    listValue="table"
+                  />
+                </div>
+              </div>
+
+              {/* Cards Grid Container */}
+              <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs">
+                <div className="p-2.5 sm:p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="text-xs font-bold text-slate-900 truncate">
+                      Expenses History
+                    </h3>
+                    <p className="text-[10px] text-slate-400">
+                      {filteredExpenses.length} entries
+                    </p>
+                  </div>
+                  <div className="text-xs font-bold font-mono text-slate-900 shrink-0">
+                    Total: <span className="text-emerald-600">৳{filteredExpenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()}</span>
+                  </div>
+                </div>
+
                 {/* Mobile Unified Expense Cards List (sm:hidden) */}
                 <div className="sm:hidden divide-y divide-slate-100">
                   {filteredExpenses.map((exp) => {
@@ -2656,10 +2635,10 @@ export function DailyExpensesPage() {
                   })}
                 </div>
               </div>
-            )}
-          </div>
-        </div>
+            </div>
           )}
+        </div>
+      )}
 
           {/* BANKING & FINANCIAL OBLIGATIONS VIEW */}
           {activeTab === "banking" && (
