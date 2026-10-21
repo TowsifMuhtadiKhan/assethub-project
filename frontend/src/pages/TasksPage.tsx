@@ -2513,13 +2513,13 @@ interface TaskCardProps {
 
 function TaskCard({
   task,
-  index,
+  index: _index,
   onStatusChange,
   onDelete,
   onSelect,
-  onSendWhatsApp,
-  isSendingWA,
-  wasSentWA,
+  onSendWhatsApp: _onSendWhatsApp,
+  isSendingWA: _isSendingWA,
+  wasSentWA: _wasSentWA,
   draggable,
   onDragStart,
   onDragEnd,
@@ -2544,20 +2544,9 @@ function TaskCard({
           : `border-slate-200/90 hover:border-slate-300 ${getPriorityCardBorder(task.priority)}`
       }`}
     >
-      {/* Top Tag Row: Key + Category */}
+      {/* Top Row: Countdown (if cancelled) + Edit/Delete hover buttons */}
       <div className="flex items-center justify-between gap-1">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="font-mono text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/70">
-            TSK-{String(index + 1).padStart(2, "0")}
-          </span>
-
-          {task.category && (
-            <span className="rounded-full bg-slate-100/90 px-2.5 py-0.5 text-[10px] font-semibold text-slate-700 border border-slate-200/70">
-              {task.category}
-            </span>
-          )}
-
-          {/* Auto-delete countdown for Cancelled tasks */}
+        <div>
           {cancelledCountdown && (
             <span
               className="rounded-full bg-rose-100 text-rose-700 px-2 py-0.5 text-[10px] font-bold border border-rose-200 flex items-center gap-1"
@@ -2569,7 +2558,7 @@ function TaskCard({
           )}
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 ml-auto">
           <button
             type="button"
             onClick={(e) => {
@@ -2614,7 +2603,7 @@ function TaskCard({
       </div>
 
       {/* Linked Entity pills */}
-      {(task.vehicleName || task.propertyName || task.recurrence !== "None" || task.reminderWhatsapp) && (
+      {(task.vehicleName || task.propertyName || (task.recurrence && task.recurrence !== "None")) && (
         <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
           {task.vehicleName && (
             <span className="rounded-full bg-amber-50 text-amber-800 border border-amber-200/60 px-2.5 py-0.5 font-semibold flex items-center gap-1.5 shadow-2xs">
@@ -2631,30 +2620,10 @@ function TaskCard({
               <Repeat className="h-2.5 w-2.5 text-teal-600" /> {task.recurrence}
             </span>
           )}
-          {task.reminderWhatsapp && (
-            <button
-              type="button"
-              disabled={isSendingWA}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSendWhatsApp?.(task);
-              }}
-              title="Click to Send WhatsApp Alert Now"
-              className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
-                wasSentWA
-                  ? "bg-emerald-600 text-white border-emerald-600"
-                  : "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200/70"
-              }`}
-            >
-              <MessageSquare className="h-2.5 w-2.5 text-current" />
-              <span>{isSendingWA ? "Sending..." : wasSentWA ? "Sent!" : "WA Alert"}</span>
-              {!isSendingWA && !wasSentWA && <Send className="h-2 w-2 opacity-70" />}
-            </button>
-          )}
         </div>
       )}
 
-      {/* Footer: Due date + Assignee + Transition Buttons */}
+      {/* Footer: Due date + Transition Buttons */}
       <div className="flex items-center justify-between pt-2 border-t border-slate-100">
         <div className="flex items-center gap-2">
           {/* Due date & time */}
@@ -2674,14 +2643,6 @@ function TaskCard({
           ) : (
             <span className="text-[10px] text-slate-400 font-mono">No date</span>
           )}
-
-          {/* Assignee Avatar */}
-          <span
-            className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-700"
-            title={task.familyMemberName || "Personal / Self"}
-          >
-            {task.familyMemberName ? task.familyMemberName.charAt(0) : "S"}
-          </span>
         </div>
 
         {/* 1-Click Status Transitions (Great for Mobile Touch!) */}
