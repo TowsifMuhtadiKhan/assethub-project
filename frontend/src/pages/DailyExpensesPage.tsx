@@ -2164,7 +2164,7 @@ export function DailyExpensesPage() {
                     sx={{
                       fontSize: "0.75rem",
                       fontWeight: 600,
-                      fontFamily: '"Plus Jakarta Sans", sans-serif',
+                      fontFamily: '"Inter", sans-serif',
                       borderRadius: "0.75rem",
                       backgroundColor: "#f8fafc",
                       "& .MuiSelect-select": {
@@ -2296,7 +2296,7 @@ export function DailyExpensesPage() {
                     sx={{
                       fontSize: "0.75rem",
                       fontWeight: 600,
-                      fontFamily: '"Plus Jakarta Sans", sans-serif',
+                      fontFamily: '"Inter", sans-serif',
                       borderRadius: "0.75rem",
                       backgroundColor: "#f8fafc",
                       "& .MuiSelect-select": {
@@ -3673,7 +3673,7 @@ export function DailyExpensesPage() {
                     sx={{
                       fontSize: "0.75rem",
                       fontWeight: 600,
-                      fontFamily: '"Plus Jakarta Sans", sans-serif',
+                      fontFamily: '"Inter", sans-serif',
                       borderRadius: "0.75rem",
                       backgroundColor: "#f8fafc",
                       "& .MuiSelect-select": { py: "8px" },
@@ -3749,7 +3749,7 @@ export function DailyExpensesPage() {
                       )}
                       sx={{
                         fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        fontFamily: '"Inter", sans-serif',
                         borderRadius: "0.75rem",
                         backgroundColor: "#f8fafc",
                         "& .MuiSelect-select": { py: "6px", px: "8px" },
@@ -3927,7 +3927,7 @@ export function DailyExpensesPage() {
                       sx={{
                         fontSize: "0.75rem",
                         fontWeight: 600,
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        fontFamily: '"Inter", sans-serif',
                         borderRadius: "0.75rem",
                         backgroundColor: "#f8fafc",
                         "& .MuiSelect-select": { py: "8px" },
@@ -4197,7 +4197,7 @@ export function DailyExpensesPage() {
                       onChange={(e) => setSegmentMethod(e.target.value as DailyExpensePaymentMethod)}
                       sx={{
                         fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        fontFamily: '"Inter", sans-serif',
                         borderRadius: "0.75rem",
                         backgroundColor: "#f8fafc",
                         "& .MuiSelect-select": { py: "8px" },
@@ -4648,7 +4648,7 @@ export function DailyExpensesPage() {
                       onChange={(e) => setEditLoanType(e.target.value as MemberLoan["loanType"])}
                       sx={{
                         fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        fontFamily: '"Inter", sans-serif',
                         borderRadius: "0.75rem",
                         backgroundColor: "#f8fafc",
                         "& .MuiSelect-select": { py: "8px" },
@@ -4695,7 +4695,7 @@ export function DailyExpensesPage() {
                       sx={{
                         fontSize: "0.75rem",
                         fontWeight: 600,
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        fontFamily: '"Inter", sans-serif',
                         borderRadius: "0.75rem",
                         backgroundColor: "#f8fafc",
                         "& .MuiSelect-select": { py: "8px" },
@@ -4874,7 +4874,7 @@ export function DailyExpensesPage() {
                       onChange={(e) => setEditSegmentMethod(e.target.value as DailyExpensePaymentMethod)}
                       sx={{
                         fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        fontFamily: '"Inter", sans-serif',
                         borderRadius: "0.75rem",
                         backgroundColor: "#f8fafc",
                         "& .MuiSelect-select": { py: "8px" },

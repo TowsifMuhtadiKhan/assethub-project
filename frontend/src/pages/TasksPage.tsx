@@ -809,7 +809,7 @@ export function TasksPage() {
                     ),
                     sx: {
                       fontSize: "0.75rem",
-                      fontFamily: '"Plus Jakarta Sans", sans-serif',
+                      fontFamily: '"Inter", sans-serif',
                       borderRadius: "0.75rem",
                       backgroundColor: "#f8fafc",
                     },
@@ -847,7 +847,7 @@ export function TasksPage() {
                 onChange={(e) => setFilterPriority(e.target.value)}
                 sx={{
                   fontSize: "0.75rem",
-                  fontFamily: '"Plus Jakarta Sans", sans-serif',
+                  fontFamily: '"Inter", sans-serif',
                   borderRadius: "0.75rem",
                   backgroundColor: "#f8fafc",
                   "& .MuiSelect-select": {
@@ -870,7 +870,7 @@ export function TasksPage() {
                 onChange={(e) => setFilterAssignee(e.target.value)}
                 sx={{
                   fontSize: "0.75rem",
-                  fontFamily: '"Plus Jakarta Sans", sans-serif',
+                  fontFamily: '"Inter", sans-serif',
                   borderRadius: "0.75rem",
                   backgroundColor: "#f8fafc",
                   "& .MuiSelect-select": {
@@ -1347,7 +1347,7 @@ export function TasksPage() {
                           defaultValue={defaultAddStatus}
                           sx={{
                             fontSize: "0.75rem",
-                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            fontFamily: '"Inter", sans-serif',
                             borderRadius: "0.75rem",
                             backgroundColor: "#f8fafc",
                             "& .MuiSelect-select": {
@@ -1373,7 +1373,7 @@ export function TasksPage() {
                           defaultValue="Medium"
                           sx={{
                             fontSize: "0.75rem",
-                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            fontFamily: '"Inter", sans-serif',
                             borderRadius: "0.75rem",
                             backgroundColor: "#f8fafc",
                             "& .MuiSelect-select": {
@@ -1519,7 +1519,7 @@ export function TasksPage() {
                           defaultValue="None"
                           sx={{
                             fontSize: "0.75rem",
-                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            fontFamily: '"Inter", sans-serif',
                             borderRadius: "0.75rem",
                             backgroundColor: "#f8fafc",
                             "& .MuiSelect-select": {
@@ -1562,7 +1562,7 @@ export function TasksPage() {
                         displayEmpty
                         sx={{
                           fontSize: "0.75rem",
-                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          fontFamily: '"Inter", sans-serif',
                           borderRadius: "0.75rem",
                           backgroundColor: "#f8fafc",
                           "& .MuiSelect-select": {
@@ -1594,7 +1594,7 @@ export function TasksPage() {
                           displayEmpty
                           sx={{
                             fontSize: "0.75rem",
-                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            fontFamily: '"Inter", sans-serif',
                             borderRadius: "0.75rem",
                             backgroundColor: "#f8fafc",
                             "& .MuiSelect-select": {
@@ -1624,7 +1624,7 @@ export function TasksPage() {
                           displayEmpty
                           sx={{
                             fontSize: "0.75rem",
-                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            fontFamily: '"Inter", sans-serif',
                             borderRadius: "0.75rem",
                             backgroundColor: "#f8fafc",
                             "& .MuiSelect-select": {
@@ -1830,7 +1830,7 @@ export function TasksPage() {
                           onChange={(e) => setEditStatus(e.target.value as TaskStatus)}
                           sx={{
                             fontSize: "0.75rem",
-                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            fontFamily: '"Inter", sans-serif',
                             borderRadius: "0.75rem",
                             backgroundColor: "#f8fafc",
                             "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
@@ -1854,7 +1854,7 @@ export function TasksPage() {
                           onChange={(e) => setEditPriority(e.target.value as TaskPriority)}
                           sx={{
                             fontSize: "0.75rem",
-                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            fontFamily: '"Inter", sans-serif',
                             borderRadius: "0.75rem",
                             backgroundColor: "#f8fafc",
                             "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
@@ -1969,7 +1969,7 @@ export function TasksPage() {
                           onChange={(e) => setEditRecurrence(e.target.value as TaskRecurrence)}
                           sx={{
                             fontSize: "0.75rem",
-                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            fontFamily: '"Inter", sans-serif',
                             borderRadius: "0.75rem",
                             backgroundColor: "#f8fafc",
                             "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
@@ -2009,7 +2009,7 @@ export function TasksPage() {
                         displayEmpty
                         sx={{
                           fontSize: "0.75rem",
-                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          fontFamily: '"Inter", sans-serif',
                           borderRadius: "0.75rem",
                           backgroundColor: "#f8fafc",
                           "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
@@ -2038,7 +2038,7 @@ export function TasksPage() {
                           displayEmpty
                           sx={{
                             fontSize: "0.75rem",
-                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            fontFamily: '"Inter", sans-serif',
                             borderRadius: "0.75rem",
                             backgroundColor: "#f8fafc",
                             "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },
@@ -2065,7 +2065,7 @@ export function TasksPage() {
                           displayEmpty
                           sx={{
                             fontSize: "0.75rem",
-                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            fontFamily: '"Inter", sans-serif',
                             borderRadius: "0.75rem",
                             backgroundColor: "#f8fafc",
                             "& .MuiSelect-select": { fontSize: "0.75rem", py: "8px" },

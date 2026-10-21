@@ -148,7 +148,7 @@ export function LicensesPage() {
               ),
               sx: {
                 fontSize: "0.8125rem",
-                fontFamily: '"Plus Jakarta Sans", sans-serif',
+                fontFamily: '"Inter", sans-serif',
                 borderRadius: "0.5rem",
                 backgroundColor: "#ffffff",
               },
@@ -325,7 +325,7 @@ export function LicensesPage() {
                       displayEmpty
                       sx={{
                         fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        fontFamily: '"Inter", sans-serif',
                         borderRadius: "0.75rem",
                         backgroundColor: "#f8fafc",
                         "& .MuiSelect-select": {
@@ -375,7 +375,7 @@ export function LicensesPage() {
                       defaultValue="Annual"
                       sx={{
                         fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        fontFamily: '"Inter", sans-serif',
                         borderRadius: "0.75rem",
                         backgroundColor: "#f8fafc",
                         "& .MuiSelect-select": {

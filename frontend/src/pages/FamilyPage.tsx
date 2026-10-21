@@ -610,7 +610,7 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                       onChange={(e) => setRelationship(e.target.value as RelationshipType)}
                       sx={{
                         fontSize: "0.75rem",
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
+                        fontFamily: '"Inter", sans-serif',
                         borderRadius: "0.75rem",
                         backgroundColor: "#f8fafc",
                         "& .MuiSelect-select": { py: "8px" },
@@ -714,7 +714,7 @@ export function FamilyPage({ embedMode = false }: { embedMode?: boolean } = {}) 
                           }}
                           sx={{
                             fontSize: "0.75rem",
-                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            fontFamily: '"Inter", sans-serif',
                             borderRadius: "0.75rem",
                             backgroundColor: "#ffffff",
                             "& .MuiSelect-select": { py: "8px" },

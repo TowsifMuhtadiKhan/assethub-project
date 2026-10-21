@@ -1254,7 +1254,7 @@ export function DocumentsPage() {
                         ) : null,
                         sx: {
                           fontSize: "0.75rem",
-                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          fontFamily: '"Inter", sans-serif',
                           borderRadius: "0.75rem",
                           backgroundColor: "#f8fafc",
                         },
@@ -1299,7 +1299,7 @@ export function DocumentsPage() {
                     onChange={(e) => setSelectedCategoryFilter(e.target.value)}
                     sx={{
                       fontSize: "0.75rem",
-                      fontFamily: '"Plus Jakarta Sans", sans-serif',
+                      fontFamily: '"Inter", sans-serif',
                       borderRadius: "0.75rem",
                       backgroundColor: "#f8fafc",
                       "& .MuiSelect-select": {
@@ -2329,7 +2329,7 @@ export function DocumentsPage() {
                         sx={{
                           fontSize: "0.75rem",
                           fontWeight: 600,
-                          fontFamily: '"Plus Jakarta Sans", sans-serif',
+                          fontFamily: '"Inter", sans-serif',
                           borderRadius: "0.75rem",
                           backgroundColor: "#f8fafc",
                           "& .MuiSelect-select": {
@@ -2414,7 +2414,7 @@ export function DocumentsPage() {
                           displayEmpty
                           sx={{
                             fontSize: "0.75rem",
-                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            fontFamily: '"Inter", sans-serif',
                             borderRadius: "0.75rem",
                             backgroundColor: "#f8fafc",
                             "& .MuiSelect-select": {
@@ -2449,7 +2449,7 @@ export function DocumentsPage() {
                           onChange={(e) => setSelectedAddCategory(e.target.value as DocumentCategory)}
                           sx={{
                             fontSize: "0.75rem",
-                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            fontFamily: '"Inter", sans-serif',
                             borderRadius: "0.75rem",
                             backgroundColor: "#f8fafc",
                             "& .MuiSelect-select": {
@@ -2494,7 +2494,7 @@ export function DocumentsPage() {
                           displayEmpty
                           sx={{
                             fontSize: "0.75rem",
-                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            fontFamily: '"Inter", sans-serif',
                             borderRadius: "0.75rem",
                             backgroundColor: "#f8fafc",
                             "& .MuiSelect-select": {
@@ -2583,7 +2583,7 @@ export function DocumentsPage() {
                           defaultValue={15}
                           sx={{
                             fontSize: "0.75rem",
-                            fontFamily: '"Plus Jakarta Sans", sans-serif',
+                            fontFamily: '"Inter", sans-serif',
                             borderRadius: "0.5rem",
                             backgroundColor: "#ffffff",
                             "& .MuiSelect-select": {
