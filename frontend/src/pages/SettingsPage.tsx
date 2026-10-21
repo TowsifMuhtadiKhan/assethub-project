@@ -25,6 +25,7 @@ import {
 import type { UserSettings } from "../types";
 import { WhatsAppContactsManager } from "../components/common/WhatsAppContactsManager";
 import { FamilyPage } from "./FamilyPage";
+import { UiPageHeader } from "../components/design-system";
 import { AccessControlPage } from "./AccessControlPage";
 import {
   getCurrentUserAccess,
@@ -205,14 +206,11 @@ export function SettingsPage() {
   return (
     <div className="space-y-4 w-full">
       {/* Header */}
-      <div className="border-b border-slate-200/80 pb-3">
-        <h1 className="text-xl font-bold tracking-tight text-slate-900">
-          Settings
-        </h1>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Configure notifications, WhatsApp automated alerts, and preferences.
-        </p>
-      </div>
+      <UiPageHeader
+        title="Settings"
+        helpTooltip="Configure account preferences, notifications, and WhatsApp gateway"
+        subtitle="Configure notifications, WhatsApp automated alerts, and preferences."
+      />
 
       {/* Tabs */}
       <div className="border-b border-slate-200/80">
@@ -277,23 +275,20 @@ export function SettingsPage() {
             onSubmit={handleSave}
             className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs space-y-4"
           >
-            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">
-                  Primary Account Owner
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Your primary account identity and login profile.
-                </p>
-              </div>
-              <button
-                type="submit"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
-              >
-                <Save className="h-3.5 w-3.5" />
-                <span>Save Profile</span>
-              </button>
-            </div>
+            <UiPageHeader
+              title="Company Information"
+              helpTooltip="Easily update your company's basic information and ensure accurate records for effective management."
+              subtitle="Easily update your company's basic information and ensure accurate records for effective management."
+              actions={
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  <span>Save Profile</span>
+                </button>
+              }
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
