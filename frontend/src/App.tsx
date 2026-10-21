@@ -24,6 +24,7 @@ import { startReminderDaemon } from "./services/reminderDaemon";
 import { LanguageProvider } from "./context/LanguageContext";
 
 import { AdminPage } from "./pages/AdminPage";
+import { DesignSystemShowcasePage } from "./pages/DesignSystemShowcasePage";
 
 function AllVehiclesPage() {
   return <VehicleEntryPage filterType="All" />;
@@ -51,6 +52,10 @@ function App() {
           {/* Fully Separate & Private SuperAdmin Panel (ID: Towsif, Pass: Admin) */}
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/admin/*" element={<AdminPage />} />
+
+          {/* Design System & Pattern Lab */}
+          <Route path="/design-system" element={<DesignSystemShowcasePage />} />
+          <Route path="/patterns" element={<DesignSystemShowcasePage />} />
 
           {/* Standard User App Layout */}
           <Route
