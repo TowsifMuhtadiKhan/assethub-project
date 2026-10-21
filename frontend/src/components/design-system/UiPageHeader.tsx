@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { ArrowLeft, HelpCircle } from "lucide-react";
 
 export interface UiPageHeaderProps {
@@ -8,7 +8,10 @@ export interface UiPageHeaderProps {
   helpTooltip?: string;
   onBack?: () => void;
   actions?: React.ReactNode;
+  sticky?: boolean;
+  bgClassName?: string;
   className?: string;
+  tabs?: React.ReactNode;
 }
 
 export function UiPageHeader({
@@ -18,47 +21,84 @@ export function UiPageHeader({
   helpTooltip,
   onBack,
   actions,
+  sticky = true,
+  bgClassName = "bg-[#f6faf7]/95 backdrop-blur-md",
   className = "",
+  tabs,
 }: UiPageHeaderProps) {
+  const [showTooltip, setShowTooltip] = useState(false);
+
   return (
     <div
-      className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80 ${className}`}
+      className={`w-full transition-all ${
+        sticky ? `sticky top-0 z-20 ${bgClassName} pt-1 pb-3 -mt-1 border-b border-slate-200/90 shadow-2xs` : "pb-3 border-b border-slate-200/80"
+      } ${className}`}
     >
-      <div className="flex items-start gap-3 min-w-0">
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            className="p-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer mt-0.5"
-            title="Go back"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-        )}
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-base font-bold text-slate-900 tracking-tight">{title}</h1>
-            {helpTooltip && (
-              <span
-                className="cursor-help text-slate-400 hover:text-slate-600 transition"
-                title={helpTooltip}
-              >
-                <HelpCircle className="h-3.5 w-3.5" />
-              </span>
-            )}
-            {countBadge !== undefined && (
-              <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                {countBadge}
-              </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {/* Left: Back button + Title + Tooltip + Subtitle */}
+        <div className="flex items-start gap-3 min-w-0">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="p-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer mt-0.5 shrink-0"
+              title="Go back"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          )}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap relative">
+              <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-tight">
+                {title}
+              </h1>
+
+              {helpTooltip && (
+                <div className="relative inline-flex items-center">
+                  <button
+                    type="button"
+                    onMouseEnter={() => setShowTooltip(true)}
+                    onMouseLeave={() => setShowTooltip(false)}
+                    onClick={() => setShowTooltip((prev) => !prev)}
+                    className="cursor-help text-slate-400 hover:text-slate-600 transition p-0.5 rounded-full hover:bg-slate-200/60"
+                    aria-label="More information"
+                  >
+                    <HelpCircle className="h-3.5 w-3.5" />
+                  </button>
+
+                  {showTooltip && (
+                    <div className="absolute left-6 top-0 z-50 w-64 p-2.5 rounded-xl bg-slate-900 text-white text-xs shadow-xl ring-1 ring-white/10 animate-in fade-in zoom-in-95 duration-100 leading-relaxed font-normal">
+                      {helpTooltip}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {countBadge !== undefined && (
+                <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                  {countBadge}
+                </span>
+              )}
+            </div>
+
+            {subtitle && (
+              <p className="text-xs text-slate-500 mt-0.5 leading-normal">
+                {subtitle}
+              </p>
             )}
           </div>
-          {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
         </div>
+
+        {/* Right: Action Buttons */}
+        {actions && (
+          <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto flex-wrap">
+            {actions}
+          </div>
+        )}
       </div>
 
-      {actions && (
-        <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">{actions}</div>
-      )}
+      {/* Optional Embedded Tabs */}
+      {tabs && <div className="mt-2.5 pt-2 border-t border-slate-200/60">{tabs}</div>}
     </div>
   );
 }

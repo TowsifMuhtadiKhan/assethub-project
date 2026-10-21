@@ -78,6 +78,7 @@ import { CategoryTrendModal } from "../components/expenses/CategoryTrendModal";
 import { Chip, type ChipColor } from "../components/common/Chip";
 import { TableRowActions } from "../components/common/TableRowActions";
 import { ViewModeToggle } from "../components/common";
+import { UiPageHeader, UiTable } from "../components/design-system";
 
 const CATEGORIES: { label: DailyExpenseCategory; color: string; bg: string; chipColor: ChipColor }[] = [
   { label: "Food & Dining", color: "text-amber-700", bg: "bg-amber-50 border-amber-200/70", chipColor: "amber" },
@@ -1601,127 +1602,141 @@ export function DailyExpensesPage() {
           headerPortalEl
         )}
 
-      {/* Desktop Header & Active Member Profile */}
-      <div className="hidden lg:flex items-center justify-between gap-3 border-b border-slate-200/80 pb-3 mb-4 sm:mb-6">
-        {/* Left: Consistent Page Title & Subtitle */}
-        <div className="min-w-0">
-          <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
-            {activeTab === "expenses" ? "Daily Expenses" : "Banking & Financial Obligations"}
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5 hidden sm:block">
-            {activeTab === "expenses"
-              ? "Track daily family expenditures, categorize costs, and view spending patterns."
-              : "Track credit card debts, bank loans, EMIs, and recurring investments."}
-          </p>
-        </div>
-
-        {/* Right: Primary Switcher between Daily Expenses & Banking + Active Member Profile */}
-        <div className="flex items-center gap-3 shrink-0">
-          {activeMember && (
-            <div className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-full border border-slate-200/70 shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setActiveTab("expenses")}
-                className={`inline-flex items-center gap-1.5 py-1 px-3.5 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
-                  activeTab === "expenses"
-                    ? "bg-white text-slate-900 font-bold shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900 font-medium"
-                }`}
-              >
-                <Wallet className="h-3.5 w-3.5 text-emerald-700" />
-                <span>
-                  <span className="hidden sm:inline">Daily </span>Expenses
-                </span>
-                <span
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
-                    activeTab === "expenses"
-                      ? "bg-emerald-50 text-emerald-800"
-                      : "bg-slate-200/70 text-slate-600"
-                  }`}
-                >
-                  {memberExpenses.length}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab("banking")}
-                className={`inline-flex items-center gap-1.5 py-1 px-3.5 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
-                  activeTab === "banking"
-                    ? "bg-white text-slate-900 font-bold shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900 font-medium"
-                }`}
-              >
-                <Landmark className="h-3.5 w-3.5 text-emerald-700" />
-                <span>
-                  Banking<span className="hidden sm:inline"> & Obligations</span>
-                </span>
-                <span
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
-                    activeTab === "banking"
-                      ? "bg-emerald-50 text-emerald-800"
-                      : "bg-slate-200/70 text-slate-600"
-                  }`}
-                >
-                  {unifiedObligations.length}
-                </span>
-              </button>
-            </div>
-          )}
-
-        {/* Right: Sleek, compact profile switcher */}
-        {activeMember ? (
-          <div className="flex items-center gap-2 bg-white border border-slate-200/80 rounded-full px-2.5 py-1 shadow-2xs">
-            <div className="h-6 w-6 rounded-full bg-emerald-50 border border-emerald-200/80 flex items-center justify-center font-bold text-[11px] uppercase text-[#064e3b]">
-              {activeMember.fullName.charAt(0)}
-            </div>
-            <div className="text-left flex items-center gap-1.5">
-              <span className="text-xs font-semibold text-slate-800 max-w-[130px] truncate">
-                {activeMember.fullName}
-              </span>
-              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200/60">
-                <Unlock className="h-2 w-2" />
-                <span className="hidden xl:inline">Unlocked</span>
-              </span>
-            </div>
-            <div className="flex items-center gap-1 pl-1.5 border-l border-slate-200/80">
-              {!hasMemberPin(activeMember.id, activeMember.fullName) && (
+      {/* Desktop Fixed Header (Enterprise Pattern B Chosen by User) */}
+      <UiPageHeader
+        title={activeTab === "expenses" ? "Daily Expenses" : "Banking & Financial Obligations"}
+        helpTooltip={
+          activeTab === "expenses"
+            ? "Track daily family expenditures, categorize costs, and view spending patterns."
+            : "Track credit card debts, bank loans, EMIs, and recurring investments."
+        }
+        subtitle={
+          activeTab === "expenses"
+            ? "Track daily family expenditures, categorize costs, and view spending patterns."
+            : "Track credit card debts, bank loans, EMIs, and recurring investments."
+        }
+        sticky={true}
+        className="hidden lg:block mb-4 sm:mb-6"
+        actions={
+          <div className="flex items-center gap-3">
+            {activeMember && (
+              <div className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-full border border-slate-200/70 shadow-2xs">
                 <button
                   type="button"
-                  onClick={() => {
-                    setPinTargetMember(activeMember);
-                    setPinInput("");
-                    setPinConfirmInput("");
-                    setPinError("");
-                  }}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 px-2 py-0.5 rounded-full transition cursor-pointer"
-                  title="Protect this ledger with a 4-digit PIN"
+                  onClick={() => setActiveTab("expenses")}
+                  className={`inline-flex items-center gap-1.5 py-1 px-3.5 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
+                    activeTab === "expenses"
+                      ? "bg-white text-slate-900 font-bold shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900 font-medium"
+                  }`}
                 >
-                  <KeyRound className="h-3 w-3" />
-                  <span>Set PIN</span>
+                  <Wallet className="h-3.5 w-3.5 text-emerald-700" />
+                  <span>
+                    <span className="hidden sm:inline">Daily </span>Expenses
+                  </span>
+                  <span
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                      activeTab === "expenses"
+                        ? "bg-emerald-50 text-emerald-800"
+                        : "bg-slate-200/70 text-slate-600"
+                    }`}
+                  >
+                    {memberExpenses.length}
+                  </span>
                 </button>
-              )}
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("banking")}
+                  className={`inline-flex items-center gap-1.5 py-1 px-3.5 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
+                    activeTab === "banking"
+                      ? "bg-white text-slate-900 font-bold shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900 font-medium"
+                  }`}
+                >
+                  <Landmark className="h-3.5 w-3.5 text-emerald-700" />
+                  <span>
+                    Banking<span className="hidden sm:inline"> & Obligations</span>
+                  </span>
+                  <span
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                      activeTab === "banking"
+                        ? "bg-emerald-50 text-emerald-800"
+                        : "bg-slate-200/70 text-slate-600"
+                    }`}
+                  >
+                    {unifiedObligations.length}
+                  </span>
+                </button>
+              </div>
+            )}
+
+            {/* Profile switcher pill */}
+            {activeMember ? (
+              <div className="flex items-center gap-2 bg-white border border-slate-200/80 rounded-full px-2.5 py-1 shadow-2xs">
+                <div className="h-6 w-6 rounded-full bg-emerald-50 border border-emerald-200/80 flex items-center justify-center font-bold text-[11px] uppercase text-[#064e3b]">
+                  {activeMember.fullName.charAt(0)}
+                </div>
+                <div className="text-left flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-slate-800 max-w-[130px] truncate">
+                    {activeMember.fullName}
+                  </span>
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200/60">
+                    <Unlock className="h-2 w-2" />
+                    <span className="hidden xl:inline">Unlocked</span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 pl-1.5 border-l border-slate-200/80">
+                  {!hasMemberPin(activeMember.id, activeMember.fullName) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPinTargetMember(activeMember);
+                        setPinInput("");
+                        setPinConfirmInput("");
+                        setPinError("");
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 px-2 py-0.5 rounded-full transition cursor-pointer"
+                      title="Protect this ledger with a 4-digit PIN"
+                    >
+                      <KeyRound className="h-3 w-3" />
+                      <span>Set PIN</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleLockProfile}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 px-2 py-0.5 rounded-full transition cursor-pointer"
+                    title="Lock and switch profile"
+                  >
+                    <Lock className="h-3 w-3 text-slate-400" />
+                    <span>Switch</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="rounded-full bg-emerald-50 border border-emerald-200/90 px-3 py-1 text-xs text-[#064e3b] font-medium flex items-center gap-1.5 shadow-2xs">
+                  <Lock className="h-3 w-3 text-emerald-600" />
+                  <span>Select profile below to unlock</span>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Action Button */}
+            {activeMember && (
               <button
                 type="button"
-                onClick={handleLockProfile}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 px-2 py-0.5 rounded-full transition cursor-pointer"
-                title="Lock and switch profile"
+                onClick={activeTab === "expenses" ? openCreateModal : openAddLoanModal}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:from-[#053d2e] hover:to-[#0a6d4d] active:scale-95 transition cursor-pointer"
               >
-                <Lock className="h-3 w-3 text-slate-400" />
-                <span>Switch</span>
+                <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
+                <span>{activeTab === "expenses" ? "+ Log Expense" : "+ Add Obligation"}</span>
               </button>
-            </div>
+            )}
           </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <div className="rounded-full bg-emerald-50 border border-emerald-200/90 px-3 py-1 text-xs text-[#064e3b] font-medium flex items-center gap-1.5 shadow-2xs">
-              <Lock className="h-3 w-3 text-emerald-600" />
-              <span>Select profile below to unlock</span>
-            </div>
-          </div>
-        )}
-        </div>
-      </div>
+        }
+      />
 
       {/* Mobile Add Obligation Bottom Sheet Popup (rendered at top level so it is visible on mobile) */}
       {showAddObligationDropdown && (
@@ -2358,100 +2373,115 @@ export function DailyExpensesPage() {
                 </button>
               </div>
             ) : viewMode === "table" ? (
-              /* TABLE VIEW (Available on both Mobile with overflow-x-auto and Desktop) */
-              <div className="overflow-x-auto no-scrollbar sm:scrollbar-auto">
-                <table className="min-w-full text-left text-xs">
-                  <thead className="border-b border-slate-100 bg-slate-50/80 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                    <tr>
-                      <th className="py-2.5 px-3 sm:px-4">Date</th>
-                      <th className="py-2.5 px-3 sm:px-4">Category</th>
-                      <th className="py-2.5 px-3 sm:px-4">Description / Merchant</th>
-                      <th className="py-2.5 px-3 sm:px-4">Payment Method</th>
-                      <th className="py-2.5 px-3 sm:px-4 font-mono text-right">Amount</th>
-                      <th className="py-2.5 px-3 sm:px-4 text-right pr-4 sm:pr-6">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredExpenses.map((exp) => {
+              /* ENTERPRISE DATA TABLE WITH PAGINATION & TOOLBAR */
+              <UiTable<DailyExpense>
+                columns={[
+                  {
+                    key: "date",
+                    header: "Date",
+                    width: "110px",
+                    render: (exp) => (
+                      <span className="whitespace-nowrap font-mono text-[11px] text-slate-700">
+                        {exp.date}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: "category",
+                    header: "Category",
+                    render: (exp) => {
                       const catConfig = getCategoryBadge(exp.category);
                       return (
-                        <tr
-                          key={exp.id}
-                          onClick={() => setViewingExpenseDetail(exp)}
-                          className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
-                        >
-                          <td className="whitespace-nowrap py-3 px-3 sm:px-4 font-mono text-[11px] text-slate-700">
-                            {exp.date}
-                          </td>
-                          <td className="py-3 px-3 sm:px-4">
-                            <Chip
-                              size="sm"
-                              color={catConfig.chipColor}
-                              label={exp.category}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openCategoryTrend(exp.category);
-                              }}
-                              className="border border-current/15 shadow-2xs"
-                              title={`Click to view trend graph for ${exp.category}`}
-                            />
-                          </td>
-                          <td className="py-3 px-3 sm:px-4">
-                            <div className="font-semibold text-slate-900 text-xs group-hover:text-emerald-700 transition flex items-center gap-1.5">
-                              <span>{exp.description || "Daily Expense"}</span>
-                              <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
-                            </div>
-                            {exp.merchant && (
-                              <div className="text-[11px] text-slate-400">
-                                Store: {exp.merchant}
-                              </div>
-                            )}
-                          </td>
-                          <td className="whitespace-nowrap py-3 px-3 sm:px-4">
-                            <Chip
-                              size="sm"
-                              color="slate"
-                              label={exp.paymentMethod}
-                              className="border border-slate-200/80 font-medium"
-                            />
-                          </td>
-                          <td className="whitespace-nowrap py-3 px-3 sm:px-4 font-mono font-bold text-slate-900 text-right text-sm">
-                            ৳{exp.amount.toLocaleString()}
-                          </td>
-                          <td className="whitespace-nowrap py-2 px-3 sm:px-4 text-right pr-4 sm:pr-6">
-                            <TableRowActions
-                              title={exp.description || exp.category}
-                              subtitle={`${exp.date} • ৳${exp.amount.toLocaleString()} (${exp.paymentMethod})`}
-                              actions={[
-                                {
-                                  label: "View Full Details",
-                                  description: "Odometer, receipt image, merchant, notes",
-                                  icon: ExternalLink,
-                                  variant: "emerald",
-                                  onClick: () => setViewingExpenseDetail(exp),
-                                },
-                                {
-                                  label: "Edit Expense Record",
-                                  description: "Update amount, category, date or payment method",
-                                  icon: Edit2,
-                                  onClick: () => openEditModal(exp),
-                                },
-                                {
-                                  label: "Delete Expense",
-                                  description: "Permanently delete this entry",
-                                  icon: Trash2,
-                                  variant: "danger",
-                                  onClick: () => setExpenseToDelete(exp),
-                                },
-                              ]}
-                            />
-                          </td>
-                        </tr>
+                        <Chip
+                          size="sm"
+                          color={catConfig.chipColor}
+                          label={exp.category}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openCategoryTrend(exp.category);
+                          }}
+                          className="border border-current/15 shadow-2xs"
+                          title={`Click to view trend graph for ${exp.category}`}
+                        />
                       );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                    },
+                  },
+                  {
+                    key: "description",
+                    header: "Description / Merchant",
+                    render: (exp) => (
+                      <div>
+                        <div className="font-semibold text-slate-900 text-xs group-hover:text-emerald-700 transition flex items-center gap-1.5">
+                          <span>{exp.description || "Daily Expense"}</span>
+                          <ExternalLink className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                        </div>
+                        {exp.merchant && (
+                          <div className="text-[11px] text-slate-400">
+                            Store: {exp.merchant}
+                          </div>
+                        )}
+                      </div>
+                    ),
+                  },
+                  {
+                    key: "paymentMethod",
+                    header: "Payment Method",
+                    render: (exp) => (
+                      <Chip
+                        size="sm"
+                        color="slate"
+                        label={exp.paymentMethod}
+                        className="border border-slate-200/80 font-medium"
+                      />
+                    ),
+                  },
+                  {
+                    key: "amount",
+                    header: "Amount",
+                    className: "text-right",
+                    render: (exp) => (
+                      <span className="whitespace-nowrap font-mono font-bold text-slate-900 text-right text-sm">
+                        ৳{exp.amount.toLocaleString()}
+                      </span>
+                    ),
+                  },
+                ]}
+                data={filteredExpenses}
+                keyExtractor={(exp) => exp.id}
+                searchPlaceholder="Search by description, merchant..."
+                pagination={true}
+                pageSize={10}
+                pageSizeOptions={[5, 10, 20, 50]}
+                onRowClick={(exp) => setViewingExpenseDetail(exp)}
+                rowActions={(exp) => (
+                  <TableRowActions
+                    title={exp.description || exp.category}
+                    subtitle={`${exp.date} • ৳${exp.amount.toLocaleString()} (${exp.paymentMethod})`}
+                    actions={[
+                      {
+                        label: "View Full Details",
+                        description: "Odometer, receipt image, merchant, notes",
+                        icon: ExternalLink,
+                        variant: "emerald",
+                        onClick: () => setViewingExpenseDetail(exp),
+                      },
+                      {
+                        label: "Edit Expense Record",
+                        description: "Update amount, category, date or payment method",
+                        icon: Edit2,
+                        onClick: () => openEditModal(exp),
+                      },
+                      {
+                        label: "Delete Expense",
+                        description: "Permanently delete this entry",
+                        icon: Trash2,
+                        variant: "danger",
+                        onClick: () => setExpenseToDelete(exp),
+                      },
+                    ]}
+                  />
+                )}
+              />
             ) : (
               /* GRID / CARDS VIEW */
               <div>

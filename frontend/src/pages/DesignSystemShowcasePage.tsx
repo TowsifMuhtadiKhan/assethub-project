@@ -61,6 +61,61 @@ const SAMPLE_USERS: SampleUser[] = [
     addedBy: "tkhan+1",
     status: "Pending",
   },
+  {
+    id: "usr_4",
+    name: "Sadia Rahman",
+    email: "sadia.r@likherakho.com",
+    department: "Human Resources",
+    role: "Manager",
+    createdOn: "16/10/26",
+    lastUpdated: "21/10/26",
+    addedBy: "tkhan+1",
+    status: "Active",
+  },
+  {
+    id: "usr_5",
+    name: "Tanvir Hasan",
+    email: "tanvir.h@pioneeraitech.com",
+    department: "Engineering",
+    role: "Editor",
+    createdOn: "17/10/26",
+    lastUpdated: "21/10/26",
+    addedBy: "tkhan+1",
+    status: "Active",
+  },
+  {
+    id: "usr_6",
+    name: "Nusrat Jahan",
+    email: "nusrat@pioneeraitech.com",
+    department: "Quality Assurance",
+    role: "Viewer",
+    createdOn: "18/10/26",
+    lastUpdated: "20/10/26",
+    addedBy: "tkhan+1",
+    status: "Pending",
+  },
+  {
+    id: "usr_7",
+    name: "Mahmudul Karim",
+    email: "karim@likherakho.com",
+    department: "Legal & Compliance",
+    role: "Legal Officer",
+    createdOn: "19/10/26",
+    lastUpdated: "21/10/26",
+    addedBy: "System",
+    status: "Active",
+  },
+  {
+    id: "usr_8",
+    name: "Rifat Chowdhury",
+    email: "rifat@pioneeraitech.com",
+    department: "Product Design",
+    role: "Editor",
+    createdOn: "20/10/26",
+    lastUpdated: "21/10/26",
+    addedBy: "tkhan+1",
+    status: "Active",
+  },
 ];
 
 export function DesignSystemShowcasePage() {
@@ -215,6 +270,9 @@ export function DesignSystemShowcasePage() {
         searchPlaceholder="Search by name, email, or role..."
         onSearch={setTableSearch}
         onFilterClick={() => alert("Filter drawer")}
+        pagination={true}
+        pageSize={5}
+        pageSizeOptions={[5, 10, 20]}
       />
 
       {/* ========================================================================= */}

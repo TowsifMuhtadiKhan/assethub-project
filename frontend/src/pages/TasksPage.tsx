@@ -41,6 +41,7 @@ import { listVehicles } from "../services/vehicleService";
 import { listProperties } from "../services/propertyService";
 import { listFamilyMembers, getCurrentUserAccess, type CurrentUserAccessResult } from "../services/familyService";
 import { BrandLogoLoader } from "../components/common/LoadingStates";
+import { UiPageHeader } from "../components/design-system";
 import type {
   TaskItem,
   TaskPriority,
@@ -850,20 +851,15 @@ export function TasksPage() {
           headerPortalEl
         )}
 
-      {/* Desktop Header (hidden on mobile since top MobileHeader has page title and + Add Task button) */}
-      <div className="hidden lg:flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
-        <div className="min-w-0">
-          <h1 className="text-base sm:text-xl font-bold tracking-tight text-slate-900 font-display truncate">
-            To-Do List & Tasks
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5 hidden sm:block">
-            Write down your daily tasks, bills to pay, and reminders.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Primary Create Button */}
-          {canCreate && (
+      {/* Desktop Header (Enterprise Pattern B Sticky Header) */}
+      <UiPageHeader
+        title="To-Do List & Tasks"
+        helpTooltip="Write down your daily tasks, bills to pay, and automated WhatsApp reminders."
+        subtitle="Write down your daily tasks, bills to pay, and reminders."
+        sticky={true}
+        className="hidden lg:block mb-2"
+        actions={
+          canCreate ? (
             <button
               type="button"
               onClick={() => openAddWithStatus("Pending")}
@@ -872,9 +868,9 @@ export function TasksPage() {
               <Plus className="h-3.5 w-3.5" />
               <span>Add Task</span>
             </button>
-          )}
-        </div>
-      </div>
+          ) : null
+        }
+      />
 
       {error && !error.toLowerCase().includes("could not find the table") && !error.includes("PGRST205") && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
