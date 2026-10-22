@@ -37,7 +37,8 @@ import { SqlSetupBanner } from "../components/common/SqlSetupBanner";
 import { TableRowActions } from "../components/common/TableRowActions";
 import { BrandLogoLoader } from "../components/common/LoadingStates";
 import { DocumentViewerModal, type ViewableDocument } from "../components/common/DocumentViewerModal";
-import { UiPageHeader } from "../components/design-system";
+import { ViewModeToggle } from "../components/common/ViewModeToggle";
+import { UiPageHeader, UiTable, type UiTableColumn } from "../components/design-system";
 import { FuelTrendModal } from "../components/vehicles/FuelTrendModal";
 import {
   createVehicleExpense,
@@ -328,6 +329,28 @@ export function VehicleDetailsPage() {
 
   const [serviceToDelete, setServiceToDelete] = useState<VehicleService | null>(null);
   const [isDeletingService, setIsDeletingService] = useState(false);
+
+  // View modes (Grid vs Table)
+  const [fuelViewMode, setFuelViewMode] = useState<"grid" | "table">(() => {
+    return (localStorage.getItem("assethub_fuel_view_mode") as "grid" | "table") || "table";
+  });
+  const [serviceViewMode, setServiceViewMode] = useState<"grid" | "table">(() => {
+    return (localStorage.getItem("assethub_service_view_mode") as "grid" | "table") || "table";
+  });
+
+  const handleFuelViewModeChange = (mode: "grid" | "table") => {
+    setFuelViewMode(mode);
+    try {
+      localStorage.setItem("assethub_fuel_view_mode", mode);
+    } catch {}
+  };
+
+  const handleServiceViewModeChange = (mode: "grid" | "table") => {
+    setServiceViewMode(mode);
+    try {
+      localStorage.setItem("assethub_service_view_mode", mode);
+    } catch {}
+  };
 
 
 
@@ -1346,6 +1369,186 @@ export function VehicleDetailsPage() {
 
   const VehicleIcon = getVehicleIcon(vehicle.type);
 
+  const fuelColumns: UiTableColumn<VehicleExpense>[] = useMemo(
+    () => [
+      {
+        key: "date",
+        header: "Date",
+        width: "110px",
+        render: (fuel) => (
+          <span className="whitespace-nowrap font-mono text-xs text-slate-700">
+            {fuel.date}
+          </span>
+        ),
+      },
+      {
+        key: "mileage",
+        header: "Odometer",
+        width: "120px",
+        render: (fuel) => (
+          <span className="whitespace-nowrap font-mono text-xs font-semibold text-slate-800">
+            {fuel.mileage.toLocaleString()} km
+          </span>
+        ),
+      },
+      {
+        key: "description",
+        header: "Details / Pump",
+        render: (fuel) => (
+          <span className="text-xs text-slate-700 font-medium">
+            {fuel.description || "Fuel fill-up"}
+          </span>
+        ),
+      },
+      {
+        key: "fuelLiters",
+        header: "Liters",
+        width: "140px",
+        render: (fuel) =>
+          fuel.fuelLiters ? (
+            <div className="font-mono text-xs text-slate-700">
+              <span>{fuel.fuelLiters} L</span>
+              {fuel.amount > 0 && fuel.fuelLiters > 0 && (
+                <span className="block text-[10px] text-slate-400">
+                  ৳{(fuel.amount / fuel.fuelLiters).toFixed(1)}/L
+                </span>
+              )}
+            </div>
+          ) : (
+            <span className="text-slate-300 text-xs">—</span>
+          ),
+      },
+      {
+        key: "amount",
+        header: "Amount",
+        width: "120px",
+        className: "text-right",
+        render: (fuel) => (
+          <div className="text-right">
+            <span className="whitespace-nowrap font-mono text-xs font-bold text-slate-900">
+              {formatMoney(fuel.amount)}
+            </span>
+          </div>
+        ),
+      },
+    ],
+    [],
+  );
+
+  const serviceColumns: UiTableColumn<VehicleService>[] = useMemo(
+    () => [
+      {
+        key: "serviceDate",
+        header: "Date & Mileage",
+        width: "140px",
+        render: (item) => (
+          <div className="whitespace-nowrap">
+            <div className="font-mono text-xs font-semibold text-slate-800">
+              {item.serviceDate}
+            </div>
+            <div className="font-mono text-[10px] text-slate-500">
+              {item.mileageAtService.toLocaleString()} km
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "serviceType",
+        header: "Service Type",
+        width: "160px",
+        render: (item) => (
+          <span className="inline-block rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 border border-emerald-200/70 whitespace-nowrap">
+            {item.serviceType}
+          </span>
+        ),
+      },
+      {
+        key: "workshopName",
+        header: "Workshop",
+        width: "170px",
+        render: (item) => (
+          <div>
+            <div className="font-semibold text-slate-800 text-xs">
+              {item.workshopName || "Workshop"}
+            </div>
+            {(item.mechanicName || item.workshopLocation) && (
+              <div className="text-[10px] text-slate-500 truncate max-w-[150px]">
+                {[item.mechanicName, item.workshopLocation].filter(Boolean).join(" • ")}
+              </div>
+            )}
+          </div>
+        ),
+      },
+      {
+        key: "description",
+        header: "Work Done / Next Due",
+        render: (item) => (
+          <div className="max-w-[260px]">
+            <div className="text-slate-700 text-xs line-clamp-2">
+              {item.description || "Service completed"}
+            </div>
+            {item.nextServiceDate ? (
+              <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-amber-700 font-medium bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
+                <Clock className="h-2.5 w-2.5 text-amber-600" />
+                <span>Next: {item.nextServiceDate}</span>
+              </div>
+            ) : (
+              <div className="text-[10px] text-slate-400">Regular servicing</div>
+            )}
+          </div>
+        ),
+      },
+      {
+        key: "cost",
+        header: "Cost",
+        width: "130px",
+        className: "text-right",
+        render: (item) => (
+          <div className="text-right">
+            <div className="whitespace-nowrap font-mono text-xs font-bold text-slate-900">
+              {formatMoney(item.cost)}
+            </div>
+            {item.partsCost > 0 || item.laborCost > 0 ? (
+              <div className="text-[10px] text-slate-400 font-normal">
+                P: {formatMoney(item.partsCost)} | L: {formatMoney(item.laborCost)}
+              </div>
+            ) : null}
+          </div>
+        ),
+      },
+      {
+        key: "receiptUrl",
+        header: "Bill",
+        width: "80px",
+        className: "text-center",
+        render: (item) => (
+          <div className="text-center">
+            {item.receiptUrl ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setViewingDoc({
+                    name: `${item.serviceType || "Maintenance"} Bill`,
+                    fileUrl: item.receiptUrl,
+                    fileType: "pdf",
+                    category: "Maintenance Receipt",
+                  })
+                }
+                className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition cursor-pointer"
+                title="View Attached Bill"
+              >
+                <FileText className="h-3 w-3" /> Bill
+              </button>
+            ) : (
+              <span className="text-slate-300 text-xs">—</span>
+            )}
+          </div>
+        ),
+      },
+    ],
+    [],
+  );
+
   return (
     <div className="w-full">
       {/* Top Header & Navigation (Enterprise Sticky Header, Zero Margin on Top/Left/Right) */}
@@ -1361,6 +1564,111 @@ export function VehicleDetailsPage() {
           </div>
         }
         countBadge={vehicle.type}
+        tabs={
+          <div className="py-2 overflow-x-auto no-scrollbar">
+            <div className="inline-flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-full border border-slate-200/70 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setActiveTab("fuel")}
+                className={`inline-flex items-center justify-center gap-1.5 py-1 px-3 rounded-full text-xs transition cursor-pointer whitespace-nowrap shrink-0 ${
+                  activeTab === "fuel"
+                    ? "bg-white text-slate-900 font-bold shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900 font-medium"
+                }`}
+                title="Fuel & Gas Consumption"
+              >
+                <Fuel className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
+                <span>Fuel</span>
+                <span
+                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
+                    activeTab === "fuel" ? "bg-emerald-50 text-emerald-800" : "bg-slate-200/70 text-slate-600"
+                  }`}
+                >
+                  {fuelExpenses.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("maintenance")}
+                className={`inline-flex items-center justify-center gap-1.5 py-1 px-3 rounded-full text-xs transition cursor-pointer whitespace-nowrap shrink-0 ${
+                  activeTab === "maintenance"
+                    ? "bg-white text-slate-900 font-bold shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900 font-medium"
+                }`}
+                title="Repairs & Servicing History"
+              >
+                <Wrench className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
+                <span>Service</span>
+                <span
+                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
+                    activeTab === "maintenance" ? "bg-emerald-50 text-emerald-800" : "bg-slate-200/70 text-slate-600"
+                  }`}
+                >
+                  {services.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("documents")}
+                className={`inline-flex items-center justify-center gap-1.5 py-1 px-3 rounded-full text-xs transition cursor-pointer whitespace-nowrap shrink-0 ${
+                  activeTab === "documents"
+                    ? "bg-white text-slate-900 font-bold shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900 font-medium"
+                }`}
+                title="BRTA Papers & Registration Documents"
+              >
+                <FileText className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
+                <span>Papers</span>
+                <span
+                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
+                    activeTab === "documents" ? "bg-emerald-50 text-emerald-800" : "bg-slate-200/70 text-slate-600"
+                  }`}
+                >
+                  {documents.length}
+                </span>
+              </button>
+
+              {(!userAccess || userAccess.isHead || userAccess.access.canAccessWarranties !== false) && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("warranties")}
+                  className={`inline-flex items-center justify-center gap-1.5 py-1 px-3 rounded-full text-xs transition cursor-pointer whitespace-nowrap shrink-0 ${
+                    activeTab === "warranties"
+                      ? "bg-white text-slate-900 font-bold shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900 font-medium"
+                  }`}
+                  title="Vehicle Warranties & Active Claims"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
+                  <span>Warranties</span>
+                  <span
+                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
+                      activeTab === "warranties" ? "bg-emerald-50 text-emerald-800" : "bg-slate-200/70 text-slate-600"
+                    }`}
+                  >
+                    {warranties.length}
+                  </span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("overview")}
+                className={`inline-flex items-center justify-center gap-1.5 py-1 px-3 rounded-full text-xs transition cursor-pointer whitespace-nowrap shrink-0 ${
+                  activeTab === "overview"
+                    ? "bg-white text-slate-900 font-bold shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900 font-medium"
+                }`}
+                title="Specifications & Overview"
+              >
+                <VehicleIcon className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
+                <span>Specs</span>
+              </button>
+            </div>
+          </div>
+        }
       />
 
       {/* Main Content Area with Page Padding */}
@@ -1403,289 +1711,157 @@ export function VehicleDetailsPage() {
         </div>
       )}
 
-      {/* Tabs - Modern Segmented Control with horizontal scroll */}
-      <div className="p-1 bg-slate-100/90 rounded-xl border border-slate-200/70 flex items-center gap-1 overflow-x-auto no-scrollbar">
-        <button
-          type="button"
-          onClick={() => setActiveTab("fuel")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer shrink-0 ${
-            activeTab === "fuel"
-              ? "bg-white text-blue-600 shadow-2xs font-bold"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
-        >
-          <Fuel className={`h-3.5 w-3.5 ${activeTab === "fuel" ? "text-blue-600" : "text-slate-400"}`} />
-          <span>Fuel & Gas</span>
-          <span
-            className={`rounded-full px-1.5 py-0.5 text-[10px] font-mono font-bold leading-none ${
-              activeTab === "fuel" ? "bg-blue-100 text-blue-800" : "bg-slate-200/70 text-slate-600"
-            }`}
-          >
-            {fuelExpenses.length}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("maintenance")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer shrink-0 ${
-            activeTab === "maintenance"
-              ? "bg-white text-emerald-600 shadow-2xs font-bold"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
-        >
-          <Wrench className={`h-3.5 w-3.5 ${activeTab === "maintenance" ? "text-emerald-600" : "text-slate-400"}`} />
-          <span>Repairs & Service</span>
-          <span
-            className={`rounded-full px-1.5 py-0.5 text-[10px] font-mono font-bold leading-none ${
-              activeTab === "maintenance" ? "bg-emerald-100 text-emerald-800" : "bg-slate-200/70 text-slate-600"
-            }`}
-          >
-            {services.length}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("documents")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer shrink-0 ${
-            activeTab === "documents"
-              ? "bg-white text-emerald-600 shadow-2xs font-bold"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
-        >
-          <FileText className={`h-3.5 w-3.5 ${activeTab === "documents" ? "text-emerald-600" : "text-slate-400"}`} />
-          <span>Papers (BRTA)</span>
-          <span
-            className={`rounded-full px-1.5 py-0.5 text-[10px] font-mono font-bold leading-none ${
-              activeTab === "documents" ? "bg-emerald-100 text-emerald-800" : "bg-slate-200/70 text-slate-600"
-            }`}
-          >
-            {documents.length}
-          </span>
-        </button>
-
-        {(!userAccess || userAccess.isHead || userAccess.access.canAccessWarranties !== false) && (
-          <button
-            type="button"
-            onClick={() => setActiveTab("warranties")}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer shrink-0 ${
-              activeTab === "warranties"
-                ? "bg-white text-amber-600 shadow-2xs font-bold"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <ShieldCheck className={`h-3.5 w-3.5 ${activeTab === "warranties" ? "text-amber-600" : "text-slate-400"}`} />
-            <span>Warranties</span>
-            <span
-              className={`rounded-full px-1.5 py-0.5 text-[10px] font-mono font-bold leading-none ${
-                activeTab === "warranties" ? "bg-amber-100 text-amber-800" : "bg-slate-200/70 text-slate-600"
-              }`}
-            >
-              {warranties.length}
-            </span>
-          </button>
-        )}
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("overview")}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer shrink-0 ${
-            activeTab === "overview"
-              ? "bg-white text-slate-900 shadow-2xs font-bold"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
-        >
-          <VehicleIcon className={`h-3.5 w-3.5 ${activeTab === "overview" ? "text-slate-900" : "text-slate-400"}`} />
-          <span>Specs & Details</span>
-        </button>
-      </div>
-
       {/* ========================================================================= */}
       {/* TAB 1: FUEL CONSUMPTION                                                   */}
       {/* ========================================================================= */}
       {activeTab === "fuel" && (
         <div className="space-y-3">
-          {/* Fuel History Table & Mobile Cards */}
-          <div className="w-full rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-5 shadow-2xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3 mb-3">
-              <div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                  Fuel Purchase History
-                </h2>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Logged receipts, odometer readings, and fuel consumption trends.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-                <span className="text-xs font-bold font-mono text-slate-900 bg-slate-100 border border-slate-200/60 px-2.5 py-1 rounded-full">
-                  {formatMoney(totalFuelCost)}
-                </span>
+          {/* Fuel Toolbar & Summary Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-xl border border-slate-200/90 shadow-2xs">
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <Fuel className="h-4 w-4 text-emerald-700" />
+                Fuel History
+              </h2>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Logged receipts, odometer readings, and fuel consumption trends.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+              <span className="text-xs font-bold font-mono text-emerald-900 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded-full">
+                Total: {formatMoney(totalFuelCost)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setFuelTrendModalOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 px-2.5 py-1.5 text-xs font-semibold shadow-2xs transition cursor-pointer"
+                title="View Fuel Spending & Consumption Trends"
+              >
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                <span className="hidden sm:inline">Trend Graph</span>
+              </button>
+              <ViewModeToggle
+                viewMode={fuelViewMode}
+                onChange={handleFuelViewModeChange}
+                listValue="table"
+              />
+              {(!userAccess || userAccess.isHead || userAccess.access.canWriteFuel !== false) && (
                 <button
                   type="button"
-                  onClick={() => setFuelTrendModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 px-3.5 py-1.5 text-xs font-semibold shadow-2xs transition cursor-pointer"
-                  title="View Fuel Spending & Consumption Trends"
+                  onClick={() => setFuelModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#064e3b] to-[#0d825c] px-3 py-1.5 text-xs font-semibold text-white shadow-2xs hover:from-[#053d2e] hover:to-[#0a6d4d] transition cursor-pointer"
                 >
-                  <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                  <span>Trend Graph</span>
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Record Fuel</span>
                 </button>
-                {(!userAccess || userAccess.isHead || userAccess.access.canWriteFuel !== false) && (
-                  <button
-                    type="button"
-                    onClick={() => setFuelModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>Record Fuel Purchase</span>
-                  </button>
-                )}
-              </div>
+              )}
             </div>
+          </div>
 
-            {fuelExpenses.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-xs text-slate-500 space-y-2">
-                <Fuel className="h-6 w-6 text-slate-400 mx-auto" />
-                <p>No fuel purchases logged yet.</p>
-                {(!userAccess || userAccess.isHead || userAccess.access.canWriteFuel !== false) && (
-                  <button
-                    type="button"
-                    onClick={() => setFuelModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Record Fuel Entry
-                  </button>
-                )}
-              </div>
-            ) : (
-              <>
-                {/* Mobile Clean Card View (sm:hidden) */}
-                <div className="space-y-2 sm:hidden">
-                  {fuelExpenses.map((fuel) => (
-                    <div
-                      key={fuel.id}
-                      className="rounded-xl border border-slate-200/90 bg-slate-50/40 p-2.5 shadow-2xs space-y-1.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <Fuel className="h-3.5 w-3.5 text-blue-600" />
-                          <span className="font-mono text-xs font-bold text-slate-900">{fuel.date}</span>
-                        </div>
-                        <span className="font-mono text-xs font-bold text-slate-900">
-                          {formatMoney(fuel.amount)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1 border-t border-slate-100">
-                        <div>
-                          <span className="font-mono font-medium text-slate-800">{fuel.mileage.toLocaleString()} km</span>
-                          {fuel.fuelLiters && (
-                            <span className="text-slate-400 ml-1.5 font-mono">
-                              · {fuel.fuelLiters} L
-                              {fuel.amount > 0 && fuel.fuelLiters > 0 && (
-                                <span> (৳{(fuel.amount / fuel.fuelLiters).toFixed(0)}/L)</span>
-                              )}
-                            </span>
+          {fuelExpenses.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-xs text-slate-500 space-y-2">
+              <Fuel className="h-6 w-6 text-slate-400 mx-auto" />
+              <p>No fuel purchases logged yet.</p>
+              {(!userAccess || userAccess.isHead || userAccess.access.canWriteFuel !== false) && (
+                <button
+                  type="button"
+                  onClick={() => setFuelModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:from-[#053d2e] hover:to-[#0a6d4d] transition cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Record Fuel Entry
+                </button>
+              )}
+            </div>
+          ) : fuelViewMode === "grid" ? (
+            /* Cards View */
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+              {fuelExpenses.map((fuel) => (
+                <div
+                  key={fuel.id}
+                  className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs space-y-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Fuel className="h-3.5 w-3.5 text-emerald-700" />
+                      <span className="font-mono text-xs font-bold text-slate-900">{fuel.date}</span>
+                    </div>
+                    <span className="font-mono text-xs font-bold text-slate-900">
+                      {formatMoney(fuel.amount)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1.5 border-t border-slate-100">
+                    <div>
+                      <span className="font-mono font-medium text-slate-800">{fuel.mileage.toLocaleString()} km</span>
+                      {fuel.fuelLiters && (
+                        <span className="text-slate-400 ml-1.5 font-mono">
+                          · {fuel.fuelLiters} L
+                          {fuel.amount > 0 && fuel.fuelLiters > 0 && (
+                            <span> (৳{(fuel.amount / fuel.fuelLiters).toFixed(0)}/L)</span>
                           )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => openEditFuelModal(fuel)}
-                            className="p-1 text-slate-400 hover:text-emerald-600 rounded"
-                            title="Edit fuel entry"
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setFuelToDelete(fuel)}
-                            className="p-1 text-slate-300 hover:text-rose-600 rounded"
-                            title="Delete fuel entry"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </div>
-                      </div>
-                      {fuel.description && (
-                        <div className="text-[10px] text-slate-500 truncate">
-                          {fuel.description}
-                        </div>
+                        </span>
                       )}
                     </div>
-                  ))}
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openEditFuelModal(fuel)}
+                        className="p-1 text-slate-400 hover:text-emerald-600 rounded transition cursor-pointer"
+                        title="Edit fuel entry"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFuelToDelete(fuel)}
+                        className="p-1 text-slate-300 hover:text-rose-600 rounded transition cursor-pointer"
+                        title="Delete fuel entry"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                  {fuel.description && (
+                    <div className="text-[11px] text-slate-500 truncate pt-0.5">
+                      {fuel.description}
+                    </div>
+                  )}
                 </div>
-
-                {/* Desktop / Tablet Table View (hidden sm:block) */}
-                <div className="hidden sm:block overflow-x-auto">
-                  <table className="min-w-full text-left text-xs">
-                    <thead className="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-semibold text-slate-600">
-                      <tr>
-                        <th className="px-3 py-2">Date</th>
-                        <th className="px-3 py-2">Odometer</th>
-                        <th className="px-3 py-2">Details / Pump</th>
-                        <th className="px-3 py-2 font-mono">Liters</th>
-                        <th className="px-3 py-2 font-mono text-right">Amount</th>
-                        <th className="px-3 py-2 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {fuelExpenses.map((fuel) => (
-                        <tr key={fuel.id} className="hover:bg-slate-50/70">
-                          <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-600">
-                            {fuel.date}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-800">
-                            {fuel.mileage.toLocaleString()} km
-                          </td>
-                          <td className="px-3 py-2 text-slate-700">
-                            {fuel.description || "Fuel fill-up"}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-slate-600">
-                            {fuel.fuelLiters ? (
-                              <div>
-                                <span>{fuel.fuelLiters} L</span>
-                                {fuel.amount > 0 && fuel.fuelLiters > 0 && (
-                                  <span className="block text-[10px] text-slate-400">
-                                    ৳{(fuel.amount / fuel.fuelLiters).toFixed(1)}/L
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              "—"
-                            )}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-2 font-mono font-bold text-slate-900 text-right">
-                            {formatMoney(fuel.amount)}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-2 text-right">
-                            <TableRowActions
-                              title="Fuel Entry Actions"
-                              subtitle={`${fuel.date} • ${formatMoney(fuel.amount)}`}
-                              actions={[
-                                {
-                                  label: "Edit Fuel Entry",
-                                  description: "Update liters, station, or cost",
-                                  icon: Edit2,
-                                  onClick: () => openEditFuelModal(fuel),
-                                },
-                                {
-                                  label: "Delete Fuel Entry",
-                                  description: "Permanently delete this record",
-                                  icon: Trash2,
-                                  variant: "danger",
-                                  onClick: () => setFuelToDelete(fuel),
-                                },
-                              ]}
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </div>
+              ))}
+            </div>
+          ) : (
+            /* Table View with UiTable */
+            <UiTable<VehicleExpense>
+              columns={fuelColumns}
+              data={fuelExpenses}
+              keyField="id"
+              pagination={true}
+              pageSize={10}
+              pageSizeOptions={[8, 10, 15, 25, 50]}
+              fullHeight={false}
+              searchPlaceholder="Search fuel records..."
+              rowActions={(fuel) => (
+                <TableRowActions
+                  title="Fuel Entry Actions"
+                  subtitle={`${fuel.date} • ${formatMoney(fuel.amount)}`}
+                  actions={[
+                    {
+                      label: "Edit Fuel Entry",
+                      description: "Update liters, station, or cost",
+                      icon: Edit2,
+                      onClick: () => openEditFuelModal(fuel),
+                    },
+                    {
+                      label: "Delete Fuel Entry",
+                      description: "Permanently delete this record",
+                      icon: Trash2,
+                      variant: "danger",
+                      onClick: () => setFuelToDelete(fuel),
+                    },
+                  ]}
+                />
+              )}
+            />
+          )}
         </div>
       )}
 
@@ -1694,244 +1870,170 @@ export function VehicleDetailsPage() {
       {/* ========================================================================= */}
       {activeTab === "maintenance" && (
         <div className="space-y-3">
-          {/* Maintenance Records List & Mobile Cards */}
-          <div className="w-full rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-5 shadow-2xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3 mb-3">
-              <div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                  Maintenance History
-                </h2>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Track all periodic servicing, oil changes, parts replacements, and attached bills.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                <span className="text-xs font-bold font-mono text-slate-900 bg-slate-100 border border-slate-200/60 px-2.5 py-1 rounded-full">
-                  {formatMoney(totalMaintenanceCost)}
-                </span>
-                {(!userAccess || userAccess.isHead || userAccess.access.canWriteMaintenance !== false) && (
-                  <button
-                    type="button"
-                    onClick={() => setMaintenanceModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>Add Record</span>
-                  </button>
-                )}
-              </div>
+          {/* Maintenance Toolbar & Summary Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-xl border border-slate-200/90 shadow-2xs">
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                <Wrench className="h-4 w-4 text-emerald-700" />
+                Maintenance History
+              </h2>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Track all periodic servicing, oil changes, parts replacements, and attached bills.
+              </p>
             </div>
-
-            {services.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-xs text-slate-500 space-y-2">
-                <Wrench className="h-6 w-6 text-slate-400 mx-auto" />
-                <p>No maintenance records yet.</p>
-                {(!userAccess || userAccess.isHead || userAccess.access.canWriteMaintenance !== false) && (
-                  <button
-                    type="button"
-                    onClick={() => setMaintenanceModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:from-[#073f30] hover:to-[#0b6e4e] transition cursor-pointer"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Add Record
-                  </button>
-                )}
-              </div>
-            ) : (
-                <>
-                  {/* Mobile Clean Card View (sm:hidden) */}
-                  <div className="space-y-2.5 sm:hidden">
-                    {services.map((item) => (
-                      <div
-                        key={item.id}
-                        className="rounded-xl border border-slate-200/90 bg-slate-50/40 p-2.5 shadow-2xs space-y-2"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="inline-block rounded-md bg-emerald-100/90 px-2 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200/60">
-                            {item.serviceType}
-                          </span>
-                          <span className="font-mono text-xs font-bold text-slate-900">
-                            {formatMoney(item.cost)}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between text-[11px] text-slate-600">
-                          <div>
-                            <span className="font-mono font-semibold text-slate-800">{item.serviceDate}</span>
-                            <span className="text-slate-400 font-mono ml-1.5">· {item.mileageAtService.toLocaleString()} km</span>
-                          </div>
-                          <span className="text-slate-700 font-medium truncate max-w-[120px]">
-                            {item.workshopName || "Workshop"}
-                          </span>
-                        </div>
-
-                        {item.description && (
-                          <div className="text-[11px] text-slate-600 bg-white/70 rounded-lg p-2 border border-slate-100">
-                            {item.description}
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[10px]">
-                          {item.nextServiceDate ? (
-                            <span className="inline-flex items-center gap-1 text-amber-700 font-medium bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
-                              <Clock className="h-2.5 w-2.5 text-amber-600" />
-                              <span>Next: {item.nextServiceDate}</span>
-                            </span>
-                          ) : (
-                            <span className="text-slate-400">Regular servicing</span>
-                          )}
-
-                          <div className="flex items-center gap-1.5">
-                            {item.receiptUrl && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setViewingDoc({
-                                    name: `${item.serviceType || "Maintenance"} Bill`,
-                                    fileUrl: item.receiptUrl,
-                                    fileType: "pdf",
-                                    category: "Maintenance Receipt",
-                                  })
-                                }
-                                className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200"
-                              >
-                                <FileText className="h-3 w-3" /> Bill
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => openEditServiceModal(item)}
-                              className="p-1 text-slate-400 hover:text-emerald-600 rounded"
-                              title="Edit service entry"
-                            >
-                              <Edit2 className="h-3 w-3" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setServiceToDelete(item)}
-                              className="p-1 text-slate-300 hover:text-rose-600 rounded"
-                              title="Delete service entry"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Desktop / Tablet Table View (hidden sm:block) */}
-                  <div className="hidden sm:block overflow-x-auto">
-                    <table className="min-w-full text-left text-xs">
-                      <thead className="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-semibold text-slate-600">
-                        <tr>
-                          <th className="px-3 py-2.5">Date & Mileage</th>
-                          <th className="px-3 py-2.5">Service Type</th>
-                          <th className="px-3 py-2.5">Workshop</th>
-                          <th className="px-3 py-2.5">Work Done / Next Due</th>
-                          <th className="px-3 py-2.5 font-mono text-right">Cost</th>
-                          <th className="px-3 py-2.5 text-center">Bill</th>
-                          <th className="px-3 py-2.5 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {services.map((item) => (
-                          <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="whitespace-nowrap px-3 py-2.5">
-                              <div className="font-mono text-[11px] font-semibold text-slate-800">
-                                {item.serviceDate}
-                              </div>
-                              <div className="font-mono text-[10px] text-slate-500">
-                                {item.mileageAtService.toLocaleString()} km
-                              </div>
-                            </td>
-                            <td className="px-3 py-2.5">
-                              <span className="inline-block rounded-md bg-emerald-100/80 px-2 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200/60 whitespace-nowrap">
-                                {item.serviceType}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2.5">
-                              <div className="font-semibold text-slate-800 text-[11px]">
-                                {item.workshopName || "Workshop"}
-                              </div>
-                              {(item.mechanicName || item.workshopLocation) && (
-                                <div className="text-[10px] text-slate-500 truncate max-w-[140px]">
-                                  {[item.mechanicName, item.workshopLocation].filter(Boolean).join(" • ")}
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-3 py-2.5 max-w-[220px]">
-                              <div className="text-slate-700 text-[11px] line-clamp-2">
-                                {item.description || "Service completed"}
-                              </div>
-                              {item.nextServiceDate ? (
-                                <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-amber-700 font-medium bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
-                                  <Clock className="h-2.5 w-2.5 text-amber-600" />
-                                  <span>Next: {item.nextServiceDate}</span>
-                                </div>
-                              ) : (
-                                <div className="text-[10px] text-slate-400">Regular servicing</div>
-                              )}
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-2.5 font-mono font-bold text-slate-900 text-right">
-                              {formatMoney(item.cost)}
-                              {item.partsCost > 0 || item.laborCost > 0 ? (
-                                <div className="text-[10px] text-slate-400 font-normal">
-                                  P: {formatMoney(item.partsCost)} | L: {formatMoney(item.laborCost)}
-                                </div>
-                              ) : null}
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-2.5 text-center">
-                              {item.receiptUrl ? (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setViewingDoc({
-                                      name: `${item.serviceType || "Maintenance"} Bill`,
-                                      fileUrl: item.receiptUrl,
-                                      fileType: "pdf",
-                                      category: "Maintenance Receipt",
-                                    })
-                                  }
-                                  className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition cursor-pointer"
-                                  title="View Attached Bill"
-                                >
-                                  <FileText className="h-3 w-3" /> Bill
-                                </button>
-                              ) : (
-                                <span className="text-slate-300 text-[11px]">—</span>
-                              )}
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-2.5 text-right">
-                              <TableRowActions
-                                title="Service Entry Actions"
-                                subtitle={`${item.serviceDate} • ${item.serviceType}`}
-                                actions={[
-                                  {
-                                    label: "Edit Service Entry",
-                                    description: "Update service details, workshop, or cost",
-                                    icon: Edit2,
-                                    onClick: () => openEditServiceModal(item),
-                                  },
-                                  {
-                                    label: "Delete Service Entry",
-                                    description: "Permanently delete this service record",
-                                    icon: Trash2,
-                                    variant: "danger",
-                                    onClick: () => setServiceToDelete(item),
-                                  },
-                                ]}
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
+            <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+              <span className="text-xs font-bold font-mono text-emerald-900 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded-full">
+                Total: {formatMoney(totalMaintenanceCost)}
+              </span>
+              <ViewModeToggle
+                viewMode={serviceViewMode}
+                onChange={handleServiceViewModeChange}
+                listValue="table"
+              />
+              {(!userAccess || userAccess.isHead || userAccess.access.canWriteMaintenance !== false) && (
+                <button
+                  type="button"
+                  onClick={() => setMaintenanceModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#064e3b] to-[#0d825c] px-3 py-1.5 text-xs font-semibold text-white shadow-2xs hover:from-[#053d2e] hover:to-[#0a6d4d] transition cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Add Record</span>
+                </button>
               )}
             </div>
           </div>
-        )}
+
+          {services.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-xs text-slate-500 space-y-2">
+              <Wrench className="h-6 w-6 text-slate-400 mx-auto" />
+              <p>No maintenance records yet.</p>
+              {(!userAccess || userAccess.isHead || userAccess.access.canWriteMaintenance !== false) && (
+                <button
+                  type="button"
+                  onClick={() => setMaintenanceModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:from-[#053d2e] hover:to-[#0a6d4d] transition cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add Record
+                </button>
+              )}
+            </div>
+          ) : serviceViewMode === "grid" ? (
+            /* Cards View */
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+              {services.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs space-y-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="inline-block rounded-md bg-emerald-100/90 px-2 py-0.5 text-[11px] font-bold text-emerald-800 border border-emerald-200/60">
+                      {item.serviceType}
+                    </span>
+                    <span className="font-mono text-xs font-bold text-slate-900">
+                      {formatMoney(item.cost)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-slate-600">
+                    <div>
+                      <span className="font-mono font-semibold text-slate-800">{item.serviceDate}</span>
+                      <span className="text-slate-400 font-mono ml-1.5">· {item.mileageAtService.toLocaleString()} km</span>
+                    </div>
+                    <span className="text-slate-700 font-medium truncate max-w-[120px]">
+                      {item.workshopName || "Workshop"}
+                    </span>
+                  </div>
+
+                  {item.description && (
+                    <div className="text-[11px] text-slate-600 bg-slate-50/70 rounded-lg p-2 border border-slate-100">
+                      {item.description}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[10px]">
+                    {item.nextServiceDate ? (
+                      <span className="inline-flex items-center gap-1 text-amber-700 font-medium bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60">
+                        <Clock className="h-2.5 w-2.5 text-amber-600" />
+                        <span>Next: {item.nextServiceDate}</span>
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">Regular servicing</span>
+                    )}
+
+                    <div className="flex items-center gap-1.5">
+                      {item.receiptUrl && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setViewingDoc({
+                              name: `${item.serviceType || "Maintenance"} Bill`,
+                              fileUrl: item.receiptUrl,
+                              fileType: "pdf",
+                              category: "Maintenance Receipt",
+                            })
+                          }
+                          className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200 cursor-pointer"
+                        >
+                          <FileText className="h-3 w-3" /> Bill
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => openEditServiceModal(item)}
+                        className="p-1 text-slate-400 hover:text-emerald-600 rounded transition cursor-pointer"
+                        title="Edit service entry"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setServiceToDelete(item)}
+                        className="p-1 text-slate-300 hover:text-rose-600 rounded transition cursor-pointer"
+                        title="Delete service entry"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* Table View with UiTable */
+            <UiTable<VehicleService>
+              columns={serviceColumns}
+              data={services}
+              keyField="id"
+              pagination={true}
+              pageSize={10}
+              pageSizeOptions={[8, 10, 15, 25, 50]}
+              fullHeight={false}
+              searchPlaceholder="Search maintenance records..."
+              rowActions={(item) => (
+                <TableRowActions
+                  title="Service Entry Actions"
+                  subtitle={`${item.serviceDate} • ${item.serviceType}`}
+                  actions={[
+                    {
+                      label: "Edit Service Entry",
+                      description: "Update service details, workshop, or cost",
+                      icon: Edit2,
+                      onClick: () => openEditServiceModal(item),
+                    },
+                    {
+                      label: "Delete Service Entry",
+                      description: "Permanently delete this service record",
+                      icon: Trash2,
+                      variant: "danger",
+                      onClick: () => setServiceToDelete(item),
+                    },
+                  ]}
+                />
+              )}
+            />
+          )}
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* TAB 3: BANGLADESH VEHICLE DOCUMENTS (TAX TOKEN, SMART CARD, LICENSE, ETC.) */}
@@ -1958,7 +2060,7 @@ export function VehicleDetailsPage() {
                     setExtractedSpecs(null); setSpecExtractionError(""); setSpecsConfirmed(false);
                     setDocModalOpen(true);
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#064e3b] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#043327] transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:from-[#053d2e] hover:to-[#0a6d4d] transition cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5" /> Upload Other Document
                 </button>
@@ -2213,7 +2315,7 @@ export function VehicleDetailsPage() {
               <button
                 type="button"
                 onClick={() => setWarrantyModalOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-amber-700 transition cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs hover:from-[#053d2e] hover:to-[#0a6d4d] transition cursor-pointer"
               >
                 <Plus className="h-3.5 w-3.5" /> Add Warranty / Claim
               </button>
