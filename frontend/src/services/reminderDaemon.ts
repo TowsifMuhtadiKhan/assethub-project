@@ -456,11 +456,16 @@ export async function dispatchVehicleDocReminderNow(
   }
 }
 
+// Module-level circuit breaker to prevent flooding when WhatsApp Gateway is offline
+let gatewayOfflineUntil = 0;
+
 /**
  * Core scanner: checks active tasks and vehicle documents and dispatches due WhatsApp alerts
  */
 export async function checkAndDispatchDueReminders(): Promise<number> {
   try {
+    if (Date.now() < gatewayOfflineUntil) return 0;
+
     const settings = await getUserSettings().catch(() => null);
     if (settings && !settings.whatsappEnabled) return 0;
 
@@ -480,6 +485,20 @@ export async function checkAndDispatchDueReminders(): Promise<number> {
         const scheduleSignature = `${task.dueDate}_${task.dueTime || "09:00"}_${trigMatch ? trigMatch[1] : (task.reminderDate || "")}`;
         const dispatchKey = `lifenest_task_dispatched_${task.id}_${scheduleSignature}`;
         if (localStorage.getItem(dispatchKey)) continue;
+
+        const attemptKey = `lifenest_task_attempt_${task.id}_${scheduleSignature}`;
+        const prevAttempts = Number(sessionStorage.getItem(attemptKey) || 0);
+        if (prevAttempts >= 3) {
+          // Max attempts reached without success; mark dispatched to stop infinite spam
+          localStorage.setItem(dispatchKey, new Date().toISOString());
+          continue;
+        }
+
+        const lastAttemptTime = Number(sessionStorage.getItem(attemptKey + "_time") || 0);
+        if (Date.now() - lastAttemptTime < 90000) {
+          // Cooldown between retries (90s)
+          continue;
+        }
 
         const triggerTime = extractTaskTriggerTime(task);
         if (!triggerTime || isNaN(triggerTime.getTime())) continue;
@@ -512,6 +531,7 @@ export async function checkAndDispatchDueReminders(): Promise<number> {
           if (recipients.length > 0) {
             const message = buildTaskWhatsAppMessage(task);
             let sentAny = false;
+            let gatewayErrorEncountered = false;
 
             for (const r of recipients) {
               const res = await sendSystemWhatsAppAlert({
@@ -528,10 +548,20 @@ export async function checkAndDispatchDueReminders(): Promise<number> {
                   `[LifeNest ReminderDaemon] WhatsApp reminder send failed for task "${task.title}" to ${r.alias} (${r.phone}):`,
                   res.error
                 );
+                const errStr = (res.error || "").toLowerCase();
+                if (
+                  errStr.includes("not linked") ||
+                  errStr.includes("disconnected") ||
+                  errStr.includes("connection closed")
+                ) {
+                  gatewayErrorEncountered = true;
+                }
               }
             }
 
             if (sentAny) {
+              sessionStorage.removeItem(attemptKey);
+              sessionStorage.removeItem(attemptKey + "_time");
               localStorage.setItem(dispatchKey, new Date().toISOString());
               localStorage.setItem(`lifenest_task_dispatched_${task.id}`, new Date().toISOString());
               sentCount++;
@@ -545,6 +575,12 @@ export async function checkAndDispatchDueReminders(): Promise<number> {
                   })
                   .eq("id", task.id)
               ).catch(() => {});
+            } else {
+              sessionStorage.setItem(attemptKey, String(prevAttempts + 1));
+              sessionStorage.setItem(attemptKey + "_time", String(Date.now()));
+              if (gatewayErrorEncountered) {
+                gatewayOfflineUntil = Date.now() + 2 * 60 * 1000;
+              }
             }
           }
         }
