@@ -84,16 +84,16 @@ export function AuthPage({ initialMode = "sign-in", onSwitchMode, onBackToLandin
   return (
     <div className="min-h-screen w-full bg-[#f6faf7] text-slate-900 flex flex-col lg:grid lg:grid-cols-12 selection:bg-emerald-200 selection:text-emerald-950 font-sans">
       {/* ===================================================================
-          LEFT BRAND & FEATURES HERO PANEL (Col 1-7, Desktop only)
+          LEFT BRAND & FEATURES HERO PANEL (Col 1-7, Desktop only: Dark Green)
           =================================================================== */}
-      <div className="hidden lg:flex relative lg:col-span-6 xl:col-span-7 bg-gradient-to-br from-white via-[#f6faf7] to-[#ebf7f0]/60 border-r border-slate-200/80 p-8 lg:p-12 xl:p-16 flex-col justify-between overflow-hidden text-slate-900">
+      <div className="hidden lg:flex relative lg:col-span-6 xl:col-span-7 bg-gradient-to-br from-[#064e3b] via-[#043e30] to-[#022c22] border-r border-[#0d825c]/30 p-8 lg:p-12 xl:p-16 flex-col justify-between overflow-hidden text-slate-100">
         {/* Soft Ambient Radial Lights */}
-        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-emerald-200/30 via-teal-100/20 to-transparent blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-emerald-100/40 blur-3xl pointer-events-none" />
+        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-emerald-500/15 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-teal-500/15 blur-3xl pointer-events-none" />
 
         {/* Top Header: Likhe Rakho Logo & Back Button */}
         <div className="relative z-10 flex items-center justify-between">
-          <div className="inline-flex items-center gap-3 bg-white px-4 py-2 rounded-2xl shadow-xs border border-slate-200/80">
+          <div className="inline-flex items-center gap-3 bg-white px-4 py-2 rounded-2xl shadow-xl shadow-black/20 border border-white/20">
             <img
               src="/logo.png"
               alt="Likhe Rakho"
@@ -105,7 +105,7 @@ export function AuthPage({ initialMode = "sign-in", onSwitchMode, onBackToLandin
                 <span className="text-sm font-black tracking-tight text-[#0d825c]">Rakho</span>
                 <span className="text-[11px] font-bold text-slate-500 ml-0.5">(লিখে রাখো)</span>
               </div>
-              <span className="text-[10px] font-semibold text-slate-500">
+              <span className="text-[10px] font-semibold text-slate-600">
                 Family Asset & Finance Vault
               </span>
             </div>
@@ -115,9 +115,9 @@ export function AuthPage({ initialMode = "sign-in", onSwitchMode, onBackToLandin
             <button
               type="button"
               onClick={onBackToLanding}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-950 bg-white hover:bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200 shadow-2xs transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-200 hover:text-white bg-white/10 hover:bg-white/15 px-3.5 py-2 rounded-xl border border-white/20 transition cursor-pointer backdrop-blur-xs"
             >
-              <ArrowLeft className="h-3.5 w-3.5 text-slate-500" />
+              <ArrowLeft className="h-3.5 w-3.5" />
               <span>Back to Home</span>
             </button>
           )}
@@ -125,70 +125,70 @@ export function AuthPage({ initialMode = "sign-in", onSwitchMode, onBackToLandin
 
         {/* Center: Likhe Rakho Core Story & Value Pillars */}
         <div className="relative z-10 my-auto py-8 max-w-xl">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200/90 text-[#064e3b] text-xs font-bold mb-5 shadow-2xs">
-            <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
-            <span>Remember less, manage more with Likhe Rakho</span>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/70 border border-emerald-500/30 text-emerald-300 text-xs font-bold mb-5 shadow-2xs backdrop-blur-xs">
+            <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+            <span>মনে রাখার ঝামেলা শেষ • লিখে রাখো</span>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.15]">
-            Everything you own. <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#064e3b] via-[#0d825c] to-[#00a859] font-serif italic font-normal">
-              Remembered together.
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-[1.15]">
+            জীবনের জরুরি সব হিসাব, <br />
+            <span className="font-serif italic font-normal text-emerald-300">
+              এক নিরাপদ ঠিকানায়।
             </span>
           </h1>
 
-          <p className="mt-4 text-xs sm:text-sm text-slate-600 leading-relaxed max-w-lg">
-            আপনার পরিবারের সমস্ত সম্পদ, খরচ ও জরুরি নথিপত্র এক জায়গায়। Never lose important documents or miss expensive renewal deadlines again.
+          <p className="mt-4 text-xs sm:text-sm text-emerald-100/80 leading-relaxed max-w-lg">
+            গাড়ি, বাড়ি, নথিপত্র, ঋণ ও দৈনন্দিন খরচের নির্ভুল ট্র্যাকিং। আর কোনো রিনিউয়াল মিস নয়, কোনো জরুরি কাগজ হারাবে না।
           </p>
 
           {/* Likhe Rakho 4 Core Modules List */}
-          <div className="mt-8 space-y-3 pt-6 border-t border-slate-200/80">
-            <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-white/90 border border-slate-200/70 shadow-2xs hover:border-emerald-300 transition">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-200/70 text-[#064e3b] shrink-0">
-                <Receipt className="h-4 w-4 text-[#064e3b]" />
+          <div className="mt-8 space-y-3 pt-6 border-t border-emerald-800/40">
+            <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-emerald-950/40 border border-emerald-800/40 hover:bg-emerald-900/50 hover:border-emerald-600/50 transition backdrop-blur-xs">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-900/80 border border-emerald-600/30 text-emerald-400 shrink-0">
+                <Receipt className="h-4 w-4" />
               </div>
               <div>
-                <span className="text-slate-900 font-bold text-xs block">Household & Family Expenses</span>
-                <span className="text-slate-500 text-[11px] block">দৈনন্দিন খরচ, বাজার ও বাজেট ট্র্যাকিং</span>
+                <span className="text-white font-bold text-xs block">দৈনন্দিন খরচ ও পারিবারিক বাজেট</span>
+                <span className="text-emerald-200/70 text-[11px] block">বাজার, ইউটিলিটি বিল, ডিপিএস ও ঋণের কিস্তির হিসাব</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-white/90 border border-slate-200/70 shadow-2xs hover:border-emerald-300 transition">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-200/70 text-[#064e3b] shrink-0">
-                <Car className="h-4 w-4 text-[#064e3b]" />
+            <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-emerald-950/40 border border-emerald-800/40 hover:bg-emerald-900/50 hover:border-emerald-600/50 transition backdrop-blur-xs">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-900/80 border border-emerald-600/30 text-emerald-400 shrink-0">
+                <Car className="h-4 w-4" />
               </div>
               <div>
-                <span className="text-slate-900 font-bold text-xs block">Vehicles & Automated WhatsApp Alerts</span>
-                <span className="text-slate-500 text-[11px] block">ট্যাক্স টোকেন, ফিটনেস ও রিনিউয়াল নোটিফিকেশন</span>
+                <span className="text-white font-bold text-xs block">গাড়ির কাগজপত্র ও সার্ভিসিং রিমাইন্ডার</span>
+                <span className="text-emerald-200/70 text-[11px] block">ট্যাক্স টোকেন, ফিটনেস ও জ্বালানি খরচের অটো ট্র্যাকিং</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-white/90 border border-slate-200/70 shadow-2xs hover:border-emerald-300 transition">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-200/70 text-[#064e3b] shrink-0">
-                <Building2 className="h-4 w-4 text-[#064e3b]" />
+            <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-emerald-950/40 border border-emerald-800/40 hover:bg-emerald-900/50 hover:border-emerald-600/50 transition backdrop-blur-xs">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-900/80 border border-emerald-600/30 text-emerald-400 shrink-0">
+                <Building2 className="h-4 w-4" />
               </div>
               <div>
-                <span className="text-slate-900 font-bold text-xs block">Properties, Units & Rent Tracking</span>
-                <span className="text-slate-500 text-[11px] block">ভাড়াটিয়া, চুক্তিপত্র ও ভাড়ার রশিদ ব্যবস্থাপনা</span>
+                <span className="text-white font-bold text-xs block">বাড়ি, ফ্ল্যাট ও ভাড়াটিয়ার হিসাব</span>
+                <span className="text-emerald-200/70 text-[11px] block">মাসিক ভাড়া আদায়, রসিদ তৈরি ও ডিজিটাল চুক্তিপত্র</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-white/90 border border-slate-200/70 shadow-2xs hover:border-emerald-300 transition">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-200/70 text-[#064e3b] shrink-0">
-                <FileText className="h-4 w-4 text-[#064e3b]" />
+            <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-emerald-950/40 border border-emerald-800/40 hover:bg-emerald-900/50 hover:border-emerald-600/50 transition backdrop-blur-xs">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-900/80 border border-emerald-600/30 text-emerald-400 shrink-0">
+                <FileText className="h-4 w-4" />
               </div>
               <div>
-                <span className="text-slate-900 font-bold text-xs block">Encrypted Document Vault</span>
-                <span className="text-slate-500 text-[11px] block">জরুরি কাগজপত্র, এনআইডি ও ওয়ারেন্টি কার্ড</span>
+                <span className="text-white font-bold text-xs block">এনক্রিপ্টেড ডিজিটাল ডকুমেন্ট ভল্ট</span>
+                <span className="text-emerald-200/70 text-[11px] block">এনআইডি, পাসপোর্ট, জমির দলিল ও জরুরি কাগজপত্র</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Bottom Left: Trust & Encryption Footnote */}
-        <div className="relative z-10 flex items-center gap-2 text-[11px] text-slate-500 pt-6 border-t border-slate-200/80">
-          <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
-          <span>100% Encrypted & Secure Family Vault &bull; বাংলাদেশ</span>
+        <div className="relative z-10 flex items-center gap-2 text-[11px] text-emerald-200/70 pt-6 border-t border-emerald-800/40">
+          <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
+          <span>১০০% এন্ড-টু-এন্ড এনক্রিপ্টেড • পারিবারিক নিরাপত্তা ও গোপনীয়তা</span>
         </div>
       </div>
 
