@@ -14,13 +14,27 @@ import {
   Lock,
   PanelLeftClose,
   PanelLeftOpen,
+  Plus,
+  User,
+  CircleUserRound,
+  Settings,
+  LogOut,
+  Globe,
+  Smartphone,
+  Download,
+  ShieldAlert,
+  Users,
 } from "lucide-react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   getCurrentUserAccess,
   type CurrentUserAccessResult,
 } from "../../services/familyService";
 import { useLanguage } from "../../context/LanguageContext";
+import {
+  downloadApkFromConfiguredDrive,
+  isNativeApk,
+} from "../../services/appUpdateService";
 
 type MenuItem = {
   to: string;
@@ -80,15 +94,78 @@ export type SidebarProps = {
   onToggleCollapse?: () => void;
   mobileOpen?: boolean;
   onCloseMobile?: () => void;
+  userProfile?: { fullName: string; email: string };
+  userAccess?: CurrentUserAccessResult | null;
+  displayName?: string;
+  onSignOut?: () => void;
+  isSigningOut?: boolean;
 };
 
 export function Sidebar({
   isCollapsed = false,
   onToggleCollapse,
   onCloseMobile,
+  userProfile,
+  userAccess: propUserAccess,
+  displayName: propDisplayName,
+  onSignOut,
+  isSigningOut = false,
 }: SidebarProps) {
   const location = useLocation();
-  const { t } = useLanguage();
+  const navigate = useNavigate();
+  const { language, setLanguage, t } = useLanguage();
+  const [desktopQuickAddOpen, setDesktopQuickAddOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  const [localUserAccess, setLocalUserAccess] = useState<CurrentUserAccessResult | null>(null);
+
+  const userAccess = propUserAccess ?? localUserAccess;
+  const displayName = propDisplayName || userProfile?.fullName || "Family Admin";
+
+  const quickAddItems = [
+    {
+      label: "New Task",
+      description: "To-do list and reminders",
+      path: "/my-life/tasks",
+      icon: CheckSquare,
+      color: "text-emerald-600 bg-emerald-50 border-emerald-100",
+    },
+    {
+      label: "Upload Document",
+      description: "National ID, Passport, Certificates",
+      path: "/documents/vault",
+      icon: FileText,
+      color: "text-indigo-600 bg-indigo-50 border-indigo-100",
+    },
+    {
+      label: "Add Vehicle",
+      description: "Car, bike, petrol/gas & repairs",
+      path: "/assets/vehicles",
+      icon: Car,
+      color: "text-amber-600 bg-amber-50 border-amber-100",
+    },
+    {
+      label: "House & Rent",
+      description: "Flats, shops, deeds & tenant rent",
+      path: "/rentals/properties",
+      icon: Building2,
+      color: "text-purple-600 bg-purple-50 border-purple-100",
+    },
+    {
+      label: "Warranty & Receipt",
+      description: "Warranty card & purchase bill",
+      path: "/assets/warranties",
+      icon: ShieldAlert,
+      color: "text-cyan-600 bg-cyan-50 border-cyan-100",
+    },
+    {
+      label: "Family Member",
+      description: "Add spouse, children, parents",
+      path: "/settings?tab=profile",
+      icon: Users,
+      color: "text-rose-600 bg-rose-50 border-rose-100",
+    },
+  ];
 
   const getGroupTitle = (groupId: string, defaultTitle: string) => {
     switch (groupId) {
@@ -158,36 +235,16 @@ export function Sidebar({
     }));
   }, [activeGroupId]);
 
-  // Track user access for granular permissions
-  const [userAccess, setUserAccess] = useState<CurrentUserAccessResult>({
-    member: null,
-    access: {
-      canLogin: true,
-      loginRole: "Admin",
-      canAccessDashboard: true,
-      canAccessVehicles: true,
-      assignedVehicleIds: [],
-      canWriteFuel: true,
-      canWriteMaintenance: true,
-      canWriteDocuments: true,
-      canAccessVault: true,
-      canAccessProperties: true,
-      canAccessWarranties: true,
-      canAccessTasks: true,
-      canAccessSchedule: true,
-      canAccessDailyExpenses: true,
-    },
-    isHead: true,
-  });
-
   useEffect(() => {
-    getCurrentUserAccess().then((res) => {
-      setUserAccess(res);
-    });
-  }, []);
+    if (!propUserAccess) {
+      getCurrentUserAccess().then((res) => {
+        setLocalUserAccess(res);
+      });
+    }
+  }, [propUserAccess]);
 
   const isItemLocked = (to: string) => {
-    if (userAccess.isHead) return false;
+    if (!userAccess || userAccess.isHead) return false;
     const acc = userAccess.access;
     if (to === "/" && acc.canAccessDashboard === false) return true;
     if (to === "/my-life/tasks" && acc.canAccessTasks === false) return true;
@@ -452,18 +509,180 @@ export function Sidebar({
 
   return (
     <>
-      {/* DESKTOP SIDEBAR (>= lg screens only) - Starts vertically below the full-width header */}
+      {/* DESKTOP SIDEBAR (>= lg screens only) - Pinned from top:0 to bottom */}
       <aside
-        className={`hidden lg:fixed lg:left-0 lg:top-14 lg:flex lg:flex-col lg:h-[calc(100dvh-3.5rem)] transition-all duration-300 ease-in-out border-r border-[#043e30] bg-[#064e3b] text-emerald-100 z-20 select-none ${
+        className={`hidden lg:fixed lg:left-0 lg:top-0 lg:flex lg:flex-col lg:h-screen lg:h-dvh transition-all duration-300 ease-in-out border-r border-[#043e30] bg-[#064e3b] text-emerald-100 z-30 select-none ${
           isCollapsed ? "w-[72px]" : "w-64"
         }`}
         aria-label="Desktop Navigation"
       >
+        {/* Top Header inside Sidebar: Brand Logo & Quick Add */}
+        {isCollapsed ? (
+          <div className="p-3 border-b border-[#043e30] flex flex-col items-center gap-3 shrink-0">
+            <NavLink
+              to="/"
+              className="flex items-center justify-center group"
+              title="Likhe Rakho"
+            >
+              <img
+                src="/logo.png"
+                alt="Likhe Rakho"
+                className="h-9 w-9 rounded-xl object-contain shadow-xs group-hover:scale-105 transition"
+              />
+            </NavLink>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setDesktopQuickAddOpen((prev) => !prev)}
+                title={t("quick_add", "Add New")}
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-white shadow-sm shadow-emerald-950/40 active:scale-95 transition cursor-pointer"
+              >
+                <Plus className="h-4 w-4 stroke-[2.5]" />
+              </button>
+
+              {desktopQuickAddOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setDesktopQuickAddOpen(false)}
+                  />
+                  <div className="absolute left-12 top-0 z-50 w-72 rounded-2xl border border-slate-200/90 bg-white p-2 shadow-2xl ring-1 ring-slate-950/10 text-slate-900 animate-in fade-in zoom-in-95 duration-100">
+                    <div className="px-3 py-2 border-b border-emerald-50 mb-1">
+                      <div className="text-xs font-bold text-[#064e3b]">
+                        Add Something New
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        Quickly save a task, paper, car, or house
+                      </div>
+                    </div>
+
+                    <div className="space-y-0.5">
+                      {quickAddItems.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <button
+                            key={item.path}
+                            type="button"
+                            onClick={() => {
+                              setDesktopQuickAddOpen(false);
+                              navigate(item.path);
+                            }}
+                            className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-left hover:bg-slate-50 transition group cursor-pointer"
+                          >
+                            <div
+                              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${item.color}`}
+                            >
+                              <Icon className="h-3.5 w-3.5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-semibold text-slate-800 group-hover:text-slate-950">
+                                {item.label}
+                              </div>
+                              <div className="text-[10px] text-slate-400 truncate">
+                                {item.description}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="p-3 border-b border-[#043e30] space-y-3 shrink-0">
+            <NavLink
+              to="/"
+              className="flex items-center gap-2.5 transition shrink-0 group"
+            >
+              <img
+                src="/logo.png"
+                alt="Likhe Rakho"
+                className="h-8.5 w-8.5 rounded-xl object-contain shadow-xs group-hover:scale-105 transition"
+              />
+              <div className="flex flex-col min-w-0">
+                <div className="text-[15px] font-extrabold tracking-tight leading-tight flex items-center gap-0.5">
+                  <span className="text-white">Likhe</span>
+                  <span className="text-emerald-400">Rakho</span>
+                </div>
+                <div className="text-[9.5px] font-medium text-emerald-200/80 leading-none mt-0.5 truncate">
+                  মনে রাখার ঝামেলা শেষ, লিখে রাখো।
+                </div>
+              </div>
+            </NavLink>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setDesktopQuickAddOpen((prev) => !prev)}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 px-3 py-2 text-xs font-bold text-white shadow-sm shadow-emerald-950/40 active:scale-95 transition cursor-pointer"
+              >
+                <Plus className="h-4 w-4 stroke-[2.5]" />
+                <span>{t("quick_add", "Add New")}</span>
+              </button>
+
+              {desktopQuickAddOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setDesktopQuickAddOpen(false)}
+                  />
+                  <div className="absolute left-0 top-11 z-50 w-72 rounded-2xl border border-slate-200/90 bg-white p-2 shadow-2xl ring-1 ring-slate-950/10 text-slate-900 animate-in fade-in zoom-in-95 duration-100">
+                    <div className="px-3 py-2 border-b border-emerald-50 mb-1">
+                      <div className="text-xs font-bold text-[#064e3b]">
+                        Add Something New
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        Quickly save a task, paper, car, or house
+                      </div>
+                    </div>
+
+                    <div className="space-y-0.5">
+                      {quickAddItems.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <button
+                            key={item.path}
+                            type="button"
+                            onClick={() => {
+                              setDesktopQuickAddOpen(false);
+                              navigate(item.path);
+                            }}
+                            className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-left hover:bg-slate-50 transition group cursor-pointer"
+                          >
+                            <div
+                              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${item.color}`}
+                            >
+                              <Icon className="h-3.5 w-3.5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-semibold text-slate-800 group-hover:text-slate-950">
+                                {item.label}
+                              </div>
+                              <div className="text-[10px] text-slate-400 truncate">
+                                {item.description}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Navigation Content */}
         {isCollapsed ? renderCollapsedNavigation() : renderFullNavigation()}
 
-        {/* Footer: Sidebar Collapse / Expand Toggle */}
-        <div className="border-t border-[#043e30] p-2.5">
+        {/* Footer: User Profile at Bottom Left + Collapse Toggle */}
+        <div className="mt-auto border-t border-[#043e30] p-2 space-y-1 shrink-0">
+          {/* Collapse / Expand Toggle Button */}
           {isCollapsed ? (
             <button
               type="button"
@@ -477,7 +696,7 @@ export function Sidebar({
             <button
               type="button"
               onClick={onToggleCollapse}
-              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-emerald-200/80 hover:text-white hover:bg-[#073f32] active:scale-[0.99] transition cursor-pointer text-xs font-semibold"
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-emerald-200/70 hover:text-white hover:bg-[#073f32] active:scale-[0.99] transition cursor-pointer text-xs font-semibold"
               title="Collapse sidebar (Ctrl+B)"
             >
               <span className="flex items-center gap-2">
@@ -489,6 +708,226 @@ export function Sidebar({
               </kbd>
             </button>
           )}
+
+          {/* User Profile Trigger at Bottom Left */}
+          <div className="relative">
+            {isCollapsed ? (
+              <button
+                type="button"
+                onClick={() => setProfileOpen((prev) => !prev)}
+                title={`${displayName} (${userAccess?.isHead ? "Family Head" : "Family Member"})`}
+                className="relative flex h-10 w-10 mx-auto items-center justify-center rounded-xl hover:bg-[#073f32] active:scale-95 transition cursor-pointer group"
+              >
+                <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-emerald-700/80 text-white font-bold text-xs ring-1 ring-emerald-400/40 group-hover:ring-emerald-300">
+                  <User className="h-4 w-4 text-emerald-100" />
+                  <span
+                    className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-[#064e3b] ${
+                      userAccess?.isHead ? "bg-emerald-400" : "bg-teal-400"
+                    }`}
+                  />
+                </div>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setProfileOpen((prev) => !prev)}
+                className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left hover:bg-[#073f32] active:scale-[0.99] transition cursor-pointer group"
+              >
+                <div className="relative flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-full bg-emerald-700/80 text-white font-bold text-xs ring-1 ring-emerald-400/40 group-hover:ring-emerald-300">
+                  <User className="h-4 w-4 text-emerald-100" />
+                  <span
+                    className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-[#064e3b] ${
+                      userAccess?.isHead ? "bg-emerald-400" : "bg-teal-400"
+                    }`}
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold text-white truncate capitalize group-hover:text-emerald-200">
+                    {displayName}
+                  </div>
+                  <div className="text-[10px] font-medium text-emerald-300/80 truncate">
+                    {userAccess?.isHead
+                      ? t("family_head", "Family Head")
+                      : userAccess?.member?.relationship
+                        ? `${userAccess.member.relationship}`
+                        : userAccess?.access?.loginRole || "Family Member"}
+                  </div>
+                </div>
+                <ChevronDown
+                  className={`h-3.5 w-3.5 text-emerald-300/70 group-hover:text-white transition-transform duration-200 ${
+                    profileOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+            )}
+
+            {/* Profile Popover opening upwards from Bottom Left */}
+            {profileOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setProfileOpen(false)}
+                />
+                <div
+                  className={`absolute bottom-full mb-2 z-50 w-72 rounded-2xl border border-slate-200/90 bg-white p-2 shadow-2xl ring-1 ring-slate-950/10 text-slate-900 animate-in fade-in zoom-in-95 duration-100 ${
+                    isCollapsed ? "left-12" : "left-0"
+                  }`}
+                >
+                  {/* Profile Card Header */}
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50/60 border border-emerald-100/80 mb-1.5">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] text-white shadow-xs ring-1 ring-emerald-300/60">
+                      <User className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-slate-900 truncate capitalize">
+                          {displayName}
+                        </span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[9px] font-bold border ${
+                            userAccess?.isHead
+                              ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                              : "bg-teal-50 text-teal-800 border-teal-200"
+                          }`}
+                        >
+                          {userAccess?.isHead
+                            ? "HEAD"
+                            : (
+                                userAccess?.access?.loginRole || "MEMBER"
+                              ).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="truncate text-[11px] text-slate-500 font-mono">
+                        {userProfile?.email}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Language Switcher Bar inside dropdown */}
+                  <div className="p-2 mb-1.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                      <Globe className="h-3.5 w-3.5 text-emerald-700" />
+                      <span>{t("language", "Language")}</span>
+                    </div>
+                    <div className="inline-flex rounded-lg bg-slate-200/80 p-0.5 text-xs font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => setLanguage("en")}
+                        className={`px-2.5 py-0.5 rounded-md transition cursor-pointer ${
+                          language === "en"
+                            ? "bg-white text-slate-900 shadow-2xs font-bold"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        English
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLanguage("bn")}
+                        className={`px-2.5 py-0.5 rounded-md transition cursor-pointer ${
+                          language === "bn"
+                            ? "bg-white text-slate-900 shadow-2xs font-bold"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        বাংলা
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Dropdown Menu Items */}
+                  <div className="space-y-0.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileOpen(false);
+                        navigate("/settings?tab=profile");
+                      }}
+                      className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
+                    >
+                      <CircleUserRound className="h-4 w-4 text-slate-400" />
+                      <span>{t("my_profile", "My Profile & Details")}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileOpen(false);
+                        navigate("/settings");
+                      }}
+                      className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950 transition text-left cursor-pointer"
+                    >
+                      <Settings className="h-4 w-4 text-slate-400" />
+                      <span>{t("settings", "Settings")}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileOpen(false);
+                        window.dispatchEvent(
+                          new CustomEvent("lifenest:open-install-prompt"),
+                        );
+                      }}
+                      className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
+                    >
+                      <Smartphone className="h-4 w-4 text-slate-400" />
+                      <span>Install App on Phone</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileOpen(false);
+                        downloadApkFromConfiguredDrive();
+                      }}
+                      className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-semibold text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100/80 hover:text-emerald-950 transition text-left cursor-pointer border border-emerald-200/50"
+                    >
+                      <Download className="h-4 w-4 text-emerald-600" />
+                      <div className="flex-1 min-w-0">
+                        <div>Download Android App (APK)</div>
+                        <div className="text-[10px] font-normal text-emerald-600/80 truncate">
+                          Direct download for your phone
+                        </div>
+                      </div>
+                    </button>
+                    {isNativeApk() && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileOpen(false);
+                          window.dispatchEvent(
+                            new CustomEvent("lifenest:check-for-updates"),
+                          );
+                        }}
+                        className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100/80 hover:text-slate-900 transition text-left cursor-pointer"
+                      >
+                        <Smartphone className="h-4 w-4 text-slate-400" />
+                        <span>Check for App Update</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="my-1.5 border-t border-slate-100" />
+
+                  {/* Sign Out Action */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileOpen(false);
+                      onSignOut?.();
+                    }}
+                    disabled={isSigningOut}
+                    className="w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition text-left cursor-pointer disabled:opacity-50"
+                  >
+                    <LogOut className="h-4 w-4 text-rose-500" />
+                    <span>
+                      {isSigningOut
+                        ? t("loading", "Signing out...")
+                        : t("sign_out", "Sign Out")}
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </aside>
     </>
