@@ -1,5 +1,4 @@
 import { AssetDashboardPage } from "./pages/AssetDashboardPage";
-import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { BrowserRouter } from "react-router-dom";
 import { AppLayout } from "./components/layout/AppLayout";
@@ -20,7 +19,6 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ErrorPage } from "./pages/ErrorPage";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
-import { startReminderDaemon } from "./services/reminderDaemon";
 import { LanguageProvider } from "./context/LanguageContext";
 
 import { AdminPage } from "./pages/AdminPage";
@@ -39,11 +37,6 @@ function BikesPage() {
 }
 
 function App() {
-  useEffect(() => {
-    const stop = startReminderDaemon(45000);
-    return () => stop();
-  }, []);
-
   return (
     <ErrorBoundary>
       <LanguageProvider>
