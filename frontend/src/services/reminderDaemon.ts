@@ -492,8 +492,8 @@ export async function checkAndDispatchDueReminders(): Promise<number> {
         }
 
         const diffMs = now.getTime() - triggerTime.getTime();
-        // NEVER dispatch early when triggerTime is in the future (diffMs < 0)!
-        if (diffMs < 0) continue;
+        // If trigger is in the future by more than 15s (diffMs < -15000), skip until due
+        if (diffMs < -15000) continue;
         // NEVER dispatch stale/expired alerts older than 5 minutes
         if (diffMs > 5 * 60 * 1000) {
           localStorage.setItem(dispatchKey, new Date().toISOString());
@@ -771,9 +771,9 @@ export async function checkLoanReminders(): Promise<number> {
 
 /**
  * Starts the global reminder daemon interval
- * Checks every 60 seconds (with background tab backoff and offline guards)
+ * Checks every 15 seconds (with background tab backoff and offline guards)
  */
-export function startReminderDaemon(intervalMs = 60000): () => void {
+export function startReminderDaemon(intervalMs = 15000): () => void {
   let isRunning = false;
   let lastRun = 0;
 
@@ -782,9 +782,9 @@ export function startReminderDaemon(intervalMs = 60000): () => void {
     if (typeof navigator !== "undefined" && !navigator.onLine) return;
     if (isRunning) return;
 
-    // In background tabs, back off to at most once every 5 minutes
+    // In background tabs, back off to at most once every 60 seconds
     if (typeof document !== "undefined" && document.hidden) {
-      if (Date.now() - lastRun < 300000) return;
+      if (Date.now() - lastRun < 60000) return;
     }
 
     isRunning = true;
@@ -796,10 +796,10 @@ export function startReminderDaemon(intervalMs = 60000): () => void {
       });
   };
 
-  // Run initial check slightly delayed (3 seconds after app launch) to let critical dashboard queries finish first
-  const initialTimeout = setTimeout(runCheck, 3000);
+  // Run initial check 2 seconds after app launch
+  const initialTimeout = setTimeout(runCheck, 2000);
 
-  const intervalId = setInterval(runCheck, Math.max(30000, intervalMs));
+  const intervalId = setInterval(runCheck, Math.max(10000, intervalMs));
 
   return () => {
     clearTimeout(initialTimeout);

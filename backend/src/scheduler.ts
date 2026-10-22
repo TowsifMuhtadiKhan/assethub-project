@@ -284,8 +284,8 @@ export async function checkAndDispatchDueTasks(): Promise<number> {
       }
 
       const diffMs = now.getTime() - triggerTime.getTime();
-      // If trigger is in the future (diffMs < 0), NEVER dispatch early!
-      if (diffMs < 0) continue;
+      // If trigger is in the future by more than 15 seconds, skip until due
+      if (diffMs < -15000) continue;
       // If trigger was more than 5 minutes ago (diffMs > 5 * 60 * 1000), do NOT blast stale/expired messages!
       if (diffMs > 5 * 60 * 1000) {
         dispatchedSet.add(scheduleSignature);
@@ -409,9 +409,9 @@ export async function checkAndDispatchDueTasks(): Promise<number> {
 }
 
 /**
- * Starts the server-side cron scheduler loop
+ * Starts the server-side cron scheduler loop (checks every 10s for high-precision dispatch)
  */
-export function startServerScheduler(intervalMs = 60000): () => void {
+export function startServerScheduler(intervalMs = 10000): () => void {
   console.log(`[Server Scheduler] Starting 24/7 autonomous reminder daemon (interval: ${intervalMs / 1000}s)`);
 
   let isChecking = false;
@@ -428,8 +428,8 @@ export function startServerScheduler(intervalMs = 60000): () => void {
     }
   };
 
-  // Initial run after 10s to let Baileys socket connect on boot
-  const initialTimer = setTimeout(run, 10000);
+  // Initial run after 3s to let Baileys socket connect on boot
+  const initialTimer = setTimeout(run, 3000);
   const intervalId = setInterval(run, intervalMs);
 
   return () => {

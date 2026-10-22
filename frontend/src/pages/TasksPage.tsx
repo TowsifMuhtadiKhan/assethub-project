@@ -54,6 +54,7 @@ import type {
 import { ItemRecipientSelector } from "../components/common/ItemRecipientSelector";
 import {
   dispatchTaskReminderNow,
+  checkAndDispatchDueReminders,
   parseLeadMinutes,
   parseTimeString,
   computeReminderDateISO,
@@ -492,6 +493,18 @@ export function TasksPage() {
         }
       }
       setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+
+      // If due within next 15 mins, arm an exact millisecond browser timer for zero-delay dispatch
+      if (editReminderWhatsapp && calculatedReminderDate) {
+        const triggerMs = new Date(calculatedReminderDate).getTime();
+        const delayMs = triggerMs - Date.now();
+        if (delayMs > 0 && delayMs <= 15 * 60 * 1000) {
+          setTimeout(() => {
+            checkAndDispatchDueReminders().catch(() => {});
+          }, Math.max(0, delayMs - 5000));
+        }
+      }
+
       setSelectedTask(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update task");
@@ -606,6 +619,18 @@ export function TasksPage() {
       });
 
       setTasks((prev) => [newTask, ...prev]);
+
+      // If due within next 15 mins, arm an exact millisecond browser timer for zero-delay dispatch
+      if (isReminder && calculatedReminderDate) {
+        const triggerMs = new Date(calculatedReminderDate).getTime();
+        const delayMs = triggerMs - Date.now();
+        if (delayMs > 0 && delayMs <= 15 * 60 * 1000) {
+          setTimeout(() => {
+            checkAndDispatchDueReminders().catch(() => {});
+          }, Math.max(0, delayMs - 5000));
+        }
+      }
+
       formElement?.reset?.();
       setModalDueDate("");
       setModalDueTime("");
