@@ -23,7 +23,7 @@ import { SqlSetupBanner } from "../components/common/SqlSetupBanner";
 import { BrandLogoLoader } from "../components/common/LoadingStates";
 import { TableRowActions } from "../components/common/TableRowActions";
 import { ViewModeToggle } from "../components/common/ViewModeToggle";
-import { UiPageHeader, UiButton } from "../components/design-system";
+import { UiPageHeader, UiButton, UiTable } from "../components/design-system";
 import {
   createVehicle,
   deleteVehicle,
@@ -695,105 +695,97 @@ export function VehicleEntryPage({
           ))}
         </div>
       ) : (
-        /* TABLE VIEW */
-        <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-2xs">
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-xs">
-              <thead className="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-semibold text-slate-600">
-                <tr>
-                  <th className="px-3.5 py-2.5">Vehicle</th>
-                  <th className="px-3.5 py-2.5 font-semibold">Brand / Model</th>
-                  <th className="px-3.5 py-2.5 font-semibold">Year</th>
-                  <th className="px-3.5 py-2.5 font-semibold">Registration</th>
-                  <th className="px-3.5 py-2.5 font-semibold text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredVehicles.map((vehicle) => {
-
-                  return (
-                    <tr
-                      key={vehicle.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => navigate(`/vehicles/${vehicle.id}`)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter")
-                          navigate(`/vehicles/${vehicle.id}`);
-                      }}
-                      className="cursor-pointer hover:bg-slate-50/80 transition-colors"
-                    >
-                      <td className="whitespace-nowrap px-3.5 py-2.5 font-medium text-slate-900">
-                        <div className="flex items-center gap-2.5">
-                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-700">
-                            <VehicleBrandLogo brand={vehicle.brand} type={vehicle.type} />
-                          </div>
-                          <div>
-                            <div className="font-semibold text-slate-900 leading-tight">
-                              {vehicle.name}
-                            </div>
-                            {vehicle.color && (
-                              <div className="text-[10px] text-slate-400">
-                                {vehicle.color}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="whitespace-nowrap px-3.5 py-2.5 text-slate-600">
-                        {vehicle.brand} {vehicle.model}
-                      </td>
-
-                      <td className="whitespace-nowrap px-3.5 py-2.5 text-slate-500 font-mono text-[11px]">
-                        {vehicle.year}
-                      </td>
-
-                      <td className="whitespace-nowrap px-3.5 py-2.5">
-                        {vehicle.registrationNumber ? (
-                          <span className="font-mono text-xs font-semibold text-slate-800 bg-slate-100/80 px-2 py-0.5 rounded border border-slate-200">
-                            {vehicle.registrationNumber}
-                          </span>
-                        ) : (
-                          <span className="font-mono text-[11px] text-slate-400">—</span>
-                        )}
-                      </td>
-
-                      <td className="px-3.5 py-2 text-right">
-                        <TableRowActions
-                          title={vehicle.name}
-                          subtitle={`${vehicle.brand} ${vehicle.model}${vehicle.registrationNumber ? ` • ${vehicle.registrationNumber}` : ""}`}
-                          actions={[
-                            {
-                              label: "View Details & Papers",
-                              description: "BRTA documents, fuel logs & servicing history",
-                              icon: ExternalLink,
-                              variant: "emerald",
-                              onClick: () => navigate(`/vehicles/${vehicle.id}`),
-                            },
-                            {
-                              label: "Edit Vehicle Specs",
-                              description: "Update model, year, registration number & color",
-                              icon: Pencil,
-                              onClick: () => openEdit(vehicle),
-                            },
-                            {
-                              label: "Delete Vehicle",
-                              description: "Remove this vehicle and related records",
-                              icon: Trash2,
-                              variant: "danger",
-                              onClick: () => void removeVehicle(vehicle),
-                            },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        /* TABLE VIEW (ENTERPRISE UI TABLE WITH PAGINATION) */
+        <UiTable<Vehicle>
+          columns={[
+            {
+              key: "name",
+              header: "Vehicle",
+              render: (vehicle) => (
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-700">
+                    <VehicleBrandLogo brand={vehicle.brand} type={vehicle.type} />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-slate-900 leading-tight">
+                      {vehicle.name}
+                    </div>
+                    {vehicle.color && (
+                      <div className="text-[10px] text-slate-400">
+                        {vehicle.color}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ),
+            },
+            {
+              key: "brand",
+              header: "Brand / Model",
+              render: (vehicle) => (
+                <span className="text-slate-600">
+                  {vehicle.brand} {vehicle.model}
+                </span>
+              ),
+            },
+            {
+              key: "year",
+              header: "Year",
+              render: (vehicle) => (
+                <span className="font-mono text-[11px] text-slate-500">
+                  {vehicle.year}
+                </span>
+              ),
+            },
+            {
+              key: "registrationNumber",
+              header: "Registration",
+              render: (vehicle) =>
+                vehicle.registrationNumber ? (
+                  <span className="font-mono text-xs font-semibold text-slate-800 bg-slate-100/80 px-2 py-0.5 rounded border border-slate-200">
+                    {vehicle.registrationNumber}
+                  </span>
+                ) : (
+                  <span className="font-mono text-[11px] text-slate-400">—</span>
+                ),
+            },
+          ]}
+          data={filteredVehicles}
+          keyExtractor={(v) => v.id}
+          onRowClick={(v) => navigate(`/vehicles/${v.id}`)}
+          pagination={true}
+          pageSize={10}
+          pageSizeOptions={[8, 10, 15, 25, 50]}
+          showSearch={false}
+          rowActions={(vehicle) => (
+            <TableRowActions
+              title={vehicle.name}
+              subtitle={`${vehicle.brand} ${vehicle.model}${vehicle.registrationNumber ? ` • ${vehicle.registrationNumber}` : ""}`}
+              actions={[
+                {
+                  label: "View Details & Papers",
+                  description: "BRTA documents, fuel logs & servicing history",
+                  icon: ExternalLink,
+                  variant: "emerald",
+                  onClick: () => navigate(`/vehicles/${vehicle.id}`),
+                },
+                {
+                  label: "Edit Vehicle Specs",
+                  description: "Update model, year, registration number & color",
+                  icon: Pencil,
+                  onClick: () => openEdit(vehicle),
+                },
+                {
+                  label: "Delete Vehicle",
+                  description: "Remove this vehicle and related records",
+                  icon: Trash2,
+                  variant: "danger",
+                  onClick: () => void removeVehicle(vehicle),
+                },
+              ]}
+            />
+          )}
+        />
       )}
 
       {formOpen && (

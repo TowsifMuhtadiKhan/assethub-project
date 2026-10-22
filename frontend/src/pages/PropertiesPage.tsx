@@ -24,7 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { PropertyMaintenanceTrendModal } from "../components/rentals/PropertyMaintenanceTrendModal";
-import type { PropertyUnit } from "../types";
+import type { Property, PropertyUnit } from "../types";
 import type { RentalFile, RentalTenancy, RentSchedule } from "../types/rentals";
 import {
   deletePropertyDocument,
@@ -62,7 +62,7 @@ import { TableRowActions } from "../components/common/TableRowActions";
 import { ViewModeToggle } from "../components/common/ViewModeToggle";
 import { checkPlanLimit, type PlanTier } from "../services/subscriptionService";
 import { PlanUpgradeModal } from "../components/common/PlanUpgradeModal";
-import { UiPageHeader, UiButton } from "../components/design-system";
+import { UiPageHeader, UiButton, UiTable, type Column } from "../components/design-system";
 
 export const BD_PROPERTY_DOC_PRESETS = [
   {
@@ -667,6 +667,116 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
     });
   }, [scopedProperties, data, activeCategory, searchQuery]);
 
+  const propertyColumns: Column<Property>[] = useMemo(
+    () => [
+      {
+        key: "name",
+        header: "Property Name",
+        sortable: true,
+        render: (p: Property) => (
+          <div className="flex items-center gap-2 font-bold text-slate-900 group-hover:text-emerald-600 transition">
+            <Building2 className="text-emerald-600 shrink-0" size={16} />
+            <span>{p.name}</span>
+          </div>
+        ),
+      },
+      {
+        key: "location",
+        header: "Address & Location",
+        sortable: true,
+        render: (p: Property) => <span className="text-slate-600">{p.location}</span>,
+      },
+      {
+        key: "type",
+        header: "Type",
+        sortable: true,
+        render: (p: Property) => (
+          <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
+            {p.type || "Residential"}
+          </span>
+        ),
+      },
+      {
+        key: "spaces",
+        header: "Flats / Spaces",
+        render: (p: Property) => {
+          const pUnits = (data?.units || []).filter((u) => u.propertyId === p.id);
+          return (
+            <span className="text-slate-600 font-mono">
+              {pUnits.filter((u) => !u.parentUnitId).length} spaces
+            </span>
+          );
+        },
+      },
+      {
+        key: "occupancy",
+        header: "Occupancy Status",
+        render: (p: Property) => {
+          const pUnits = (data?.units || []).filter((u) => u.propertyId === p.id);
+          const rentals = pUnits.filter((u) => u.rentalMode !== "rooms");
+          const occupied = rentals.filter((u) =>
+            (data?.tenancies || []).some(
+              (t) =>
+                t.unit_id === u.id &&
+                t.start_month.slice(0, 7) <= currentMonth() &&
+                (!t.end_month || t.end_month.slice(0, 7) >= currentMonth())
+            )
+          ).length;
+          return (
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                occupied === rentals.length && rentals.length > 0
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                  : occupied > 0
+                  ? "bg-amber-50 text-amber-700 border border-amber-200/60"
+                  : "bg-slate-100 text-slate-600"
+              }`}
+            >
+              {occupied}/{rentals.length} occupied
+            </span>
+          );
+        },
+      },
+      {
+        key: "monthlyRent",
+        header: "Monthly Rent",
+        render: (p: Property) => {
+          const pUnits = (data?.units || []).filter((u) => u.propertyId === p.id);
+          const rentals = pUnits.filter((u) => u.rentalMode !== "rooms");
+          const propRent = rentals.reduce((sum, u) => {
+            const tenancy = (data?.tenancies || []).find(
+              (t) =>
+                t.unit_id === u.id &&
+                t.start_month.slice(0, 7) <= currentMonth() &&
+                (!t.end_month || t.end_month.slice(0, 7) >= currentMonth())
+            );
+            if (!tenancy) return sum;
+            const schedule = (data?.schedules || []).find(
+              (s) =>
+                s.tenancy_id === tenancy.id &&
+                s.from_month.slice(0, 7) <= currentMonth() &&
+                (!s.to_month || s.to_month.slice(0, 7) >= currentMonth())
+            );
+            if (schedule) {
+              return (
+                sum +
+                schedule.base_rent +
+                schedule.charges.reduce((csum, c) => csum + c.amount, 0)
+              );
+            }
+            return sum + (u.monthlyRent || 0);
+          }, 0);
+          return (
+            <span className="font-mono font-semibold text-slate-900">
+              {propRent > 0 ? `৳${propRent.toLocaleString()}` : "—"}
+            </span>
+          );
+        },
+      },
+    ],
+    [data]
+  );
+
   if (isLocked) {
     return (
       <div className="rounded-2xl border border-slate-200/90 bg-white p-12 text-center shadow-2xs space-y-3 mt-6">
@@ -996,152 +1106,52 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
 
                   {/* Table View */}
                   {propertyView === "table" ? (
-                    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-2xs">
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-50 font-semibold text-slate-500 border-b border-slate-100">
-                          <tr>
-                            <th className="p-3">Property Name</th>
-                            <th className="p-3">Address & Location</th>
-                            <th className="p-3">Type</th>
-                            <th className="p-3">Flats / Spaces</th>
-                            <th className="p-3">Occupancy Status</th>
-                            <th className="p-3">Monthly Rent</th>
-                            <th className="p-3 text-right">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {filteredProperties.map((p) => {
-                            const pUnits = data.units.filter(
-                              (u) => u.propertyId === p.id
-                            );
-                            const rentals = pUnits.filter(
-                              (u) => u.rentalMode !== "rooms"
-                            );
-                            const occupied = rentals.filter((u) =>
-                              data.tenancies.some(
-                                (t) =>
-                                  t.unit_id === u.id &&
-                                  t.start_month.slice(0, 7) <= currentMonth() &&
-                                  (!t.end_month ||
-                                    t.end_month.slice(0, 7) >= currentMonth())
-                              )
-                            ).length;
-
-                            const propRent = rentals.reduce((sum, u) => {
-                              const tenancy = data.tenancies.find(
-                                (t) =>
-                                  t.unit_id === u.id &&
-                                  t.start_month.slice(0, 7) <= currentMonth() &&
-                                  (!t.end_month ||
-                                    t.end_month.slice(0, 7) >= currentMonth())
-                              );
-                              if (!tenancy) return sum;
-                              const schedule = data.schedules.find(
-                                (s) =>
-                                  s.tenancy_id === tenancy.id &&
-                                  s.from_month.slice(0, 7) <= currentMonth() &&
-                                  (!s.to_month ||
-                                    s.to_month.slice(0, 7) >= currentMonth())
-                              );
-                              if (schedule) {
-                                return (
-                                  sum +
-                                  schedule.base_rent +
-                                  schedule.charges.reduce((csum, c) => csum + c.amount, 0)
-                                );
-                              }
-                              return sum + (u.monthlyRent || 0);
-                            }, 0);
-
-                            return (
-                              <tr
-                                key={p.id}
-                                className="hover:bg-slate-50/70 transition"
-                              >
-                                <td className="p-3">
-                                  <button
-                                    className="flex items-center gap-2 text-left font-bold text-slate-900 hover:text-emerald-600 transition"
-                                    onClick={() => {
-                                      setParams({ property: p.id });
-                                      setTab("Flats & Renters");
-                                    }}
-                                  >
-                                    <Building2
-                                      className="text-emerald-600 shrink-0"
-                                      size={16}
-                                    />
-                                    <span>{p.name}</span>
-                                  </button>
-                                </td>
-                                <td className="p-3 text-slate-600">{p.location}</td>
-                                <td className="p-3">
-                                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
-                                    {p.type || "Residential"}
-                                  </span>
-                                </td>
-                                <td className="p-3 text-slate-600 font-mono">
-                                  {pUnits.filter((u) => !u.parentUnitId).length} spaces
-                                </td>
-                                <td className="p-3">
-                                  <span
-                                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                                      occupied === rentals.length && rentals.length > 0
-                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
-                                        : occupied > 0
-                                        ? "bg-amber-50 text-amber-700 border border-amber-200/60"
-                                        : "bg-slate-100 text-slate-600"
-                                    }`}
-                                  >
-                                    {occupied}/{rentals.length} occupied
-                                  </span>
-                                </td>
-                                <td className="p-3 font-mono font-semibold text-slate-900">
-                                  {propRent > 0 ? `৳${propRent.toLocaleString()}` : "—"}
-                                </td>
-                                <td className="p-3 text-right">
-                                  <TableRowActions
-                                    title={p.name}
-                                    subtitle={`${p.location} • ${pUnits.filter((u) => !u.parentUnitId).length} spaces`}
-                                    actions={[
-                                      {
-                                        label: "Manage Flats & Renters",
-                                        description: "View units, tenancies, and leases",
-                                        icon: Building2,
-                                        onClick: () => {
-                                          setParams({ property: p.id });
-                                          setTab("Flats & Renters");
-                                        },
-                                      },
-                                      ...((!userAccess || userAccess.isHead || userAccess.access.canDeleteProperties !== false)
-                                        ? [
-                                            {
-                                              label: "Delete Property",
-                                              description: "Permanently delete this property",
-                                              icon: Trash2,
-                                              variant: "danger" as const,
-                                              onClick: () => removeProperty(p.id, p.name),
-                                            },
-                                          ]
-                                        : []),
-                                    ]}
-                                  />
-                                </td>
-                              </tr>
-                            );
-                          })}
-                          {!filteredProperties.length && (
-                            <tr>
-                              <td
-                                colSpan={7}
-                                className="p-8 text-center text-xs text-slate-500"
-                              >
-                                No properties matching your filter. Click "+ Add property" to create one.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                    <UiTable<Property>
+                      data={filteredProperties}
+                      columns={propertyColumns}
+                      keyField="id"
+                      pagination={true}
+                      pageSize={10}
+                      pageSizeOptions={[8, 10, 15, 25, 50]}
+                      showSearch={false}
+                      fullHeight={false}
+                      onRowClick={(p) => {
+                        setParams({ property: p.id });
+                        setTab("Flats & Renters");
+                      }}
+                      rowActions={(p) => {
+                        const pUnits = (data?.units || []).filter((u) => u.propertyId === p.id);
+                        return (
+                          <TableRowActions
+                            title={p.name}
+                            subtitle={`${p.location} • ${pUnits.filter((u) => !u.parentUnitId).length} spaces`}
+                            actions={[
+                              {
+                                label: "Manage Flats & Renters",
+                                description: "View units, tenancies, and leases",
+                                icon: Building2,
+                                onClick: () => {
+                                  setParams({ property: p.id });
+                                  setTab("Flats & Renters");
+                                },
+                              },
+                              ...((!userAccess || userAccess.isHead || userAccess.access.canDeleteProperties !== false)
+                                ? [
+                                    {
+                                      label: "Delete Property",
+                                      description: "Permanently delete this property",
+                                      icon: Trash2,
+                                      variant: "danger" as const,
+                                      onClick: () => removeProperty(p.id, p.name),
+                                    },
+                                  ]
+                                : []),
+                            ]}
+                          />
+                        );
+                      }}
+                      emptyMessage="No properties matching your filter. Click '+ Add property' to create one."
+                    />
                   ) : (
                     /* Grid View */
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

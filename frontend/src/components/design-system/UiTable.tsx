@@ -4,7 +4,6 @@ import {
   Filter,
   AlignJustify,
   Search,
-  MoreVertical,
   ChevronLeft,
   ChevronRight,
   Check,
@@ -18,16 +17,20 @@ export interface UiTableColumn<T> {
   className?: string;
 }
 
+export type Column<T> = UiTableColumn<T>;
+
 export interface UiTableProps<T> {
   columns: UiTableColumn<T>[];
   data: T[];
-  keyExtractor: (row: T) => string;
+  keyExtractor?: (row: T) => string;
+  keyField?: keyof T | ((row: T) => string);
   searchPlaceholder?: string;
   searchValue?: string;
   onSearch?: (query: string) => void;
   showSearch?: boolean;
   onFilterClick?: () => void;
   emptyState?: React.ReactNode;
+  emptyMessage?: string;
   className?: string;
   // Dynamic Height
   fullHeight?: boolean;
@@ -48,18 +51,20 @@ export function UiTable<T>({
   columns,
   data,
   keyExtractor,
+  keyField,
   searchPlaceholder = "Search by name, email, or role...",
   searchValue,
   onSearch,
   showSearch = true,
   onFilterClick,
   emptyState,
+  emptyMessage,
   className = "",
-  fullHeight = true,
-  minHeight = "min-h-[500px]",
+  fullHeight = false,
+  minHeight = "",
   pagination = true,
   pageSize: initialPageSize = 10,
-  pageSizeOptions = [5, 10, 25, 50],
+  pageSizeOptions = [8, 10, 15, 25, 50],
   rowActions,
   onRowClick,
   leftActions,
@@ -72,6 +77,13 @@ export function UiTable<T>({
   const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
   const [hiddenColumnKeys, setHiddenColumnKeys] = useState<Record<string, boolean>>({});
   const columnsMenuRef = useRef<HTMLDivElement>(null);
+
+  const effectiveKeyExtractor = useMemo(() => {
+    if (keyExtractor) return keyExtractor;
+    if (typeof keyField === "function") return keyField;
+    if (keyField) return (row: T) => String((row as any)[keyField]);
+    return (row: any) => String(row.id ?? row.key ?? Math.random());
+  }, [keyExtractor, keyField]);
 
   // Close columns dropdown when clicking outside
   useEffect(() => {
@@ -274,14 +286,14 @@ export function UiTable<T>({
                   {col.header}
                 </th>
               ))}
-              <th className="py-2.5 px-3 text-right font-semibold w-10"></th>
+              {rowActions && <th className="py-2.5 px-3 text-right font-semibold w-10"></th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-slate-800">
             {paginatedData.length > 0 ? (
               paginatedData.map((row) => (
                 <tr
-                  key={keyExtractor(row)}
+                  key={effectiveKeyExtractor(row)}
                   onClick={() => onRowClick?.(row)}
                   className={`hover:bg-slate-50/80 transition-colors group ${
                     onRowClick ? "cursor-pointer" : "cursor-default"
@@ -292,26 +304,20 @@ export function UiTable<T>({
                       {col.render ? col.render(row) : (row as any)[col.key]}
                     </td>
                   ))}
-                  <td className="py-2.5 px-3 text-right" onClick={(e) => e.stopPropagation()}>
-                    {rowActions ? (
-                      rowActions(row)
-                    ) : (
-                      <button
-                        type="button"
-                        className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-                        title="Actions"
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </button>
-                    )}
-                  </td>
+                  {rowActions && (
+                    <td className="py-2.5 px-3 text-right" onClick={(e) => e.stopPropagation()}>
+                      {rowActions(row)}
+                    </td>
+                  )}
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={visibleColumns.length + 1} className="py-20 text-center">
+                <td colSpan={visibleColumns.length + (rowActions ? 1 : 0)} className="py-20 text-center">
                   {emptyState || (
-                    <div className="text-xs text-slate-500 font-medium">No records found.</div>
+                    <div className="text-xs text-slate-500 font-medium">
+                      {emptyMessage || "No records found."}
+                    </div>
                   )}
                 </td>
               </tr>

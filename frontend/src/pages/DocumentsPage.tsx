@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   FileText,
@@ -67,7 +67,7 @@ import type {
   DocumentFolder,
 } from "../types";
 import { ItemRecipientSelector } from "../components/common/ItemRecipientSelector";
-import { UiPageHeader, UiButton } from "../components/design-system";
+import { UiPageHeader, UiButton, UiTable, type Column } from "../components/design-system";
 
 const categories: DocumentCategory[] = [
   "Identity",
@@ -945,6 +945,108 @@ export function DocumentsPage() {
   // Breadcrumbs array
   const breadcrumbs = getBreadcrumbs();
 
+  const documentColumns: Column<DocumentItem>[] = useMemo(
+    () => [
+      {
+        key: "name",
+        header: "Name",
+        sortable: true,
+        render: (doc: DocumentItem) => (
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleFavorite(doc);
+              }}
+              className="text-slate-300 hover:text-amber-500 transition cursor-pointer"
+            >
+              <Star
+                className={`h-3.5 w-3.5 ${
+                  doc.isFavorite ? "fill-amber-500 text-amber-500" : ""
+                }`}
+              />
+            </button>
+            <div className="h-7 w-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+              <FileText className="h-3.5 w-3.5" />
+            </div>
+            <div className="min-w-0">
+              <span className="font-semibold text-slate-900 group-hover:text-emerald-700 transition block truncate max-w-xs">
+                {doc.name}
+              </span>
+              {doc.documentNumber && (
+                <span className="text-[10px] text-slate-400 font-mono">
+                  #{doc.documentNumber}
+                </span>
+              )}
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "category",
+        header: "Category",
+        sortable: true,
+        render: (doc: DocumentItem) => (
+          <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 whitespace-nowrap">
+            {doc.category}
+          </span>
+        ),
+      },
+      {
+        key: "familyMemberName",
+        header: "Owner",
+        sortable: true,
+        render: (doc: DocumentItem) => (
+          <span className="text-slate-600 whitespace-nowrap">
+            {doc.familyMemberName || "Personal"}
+          </span>
+        ),
+      },
+      {
+        key: "folderName",
+        header: "Folder",
+        sortable: true,
+        render: (doc: DocumentItem) => (
+          <span className="flex items-center gap-1.5 text-xs text-slate-600 whitespace-nowrap">
+            <Folder className="h-3 w-3 text-slate-400" />
+            <span>{doc.folderName || "General"}</span>
+          </span>
+        ),
+      },
+      {
+        key: "expiryDate",
+        header: "Expiry",
+        sortable: true,
+        render: (doc: DocumentItem) => {
+          const isExpiring =
+            doc.expiryDate &&
+            (new Date(doc.expiryDate).getTime() - Date.now()) / (1000 * 3600 * 24) <= 30 &&
+            (new Date(doc.expiryDate).getTime() - Date.now()) >= 0;
+          const isExpired =
+            doc.expiryDate && (new Date(doc.expiryDate).getTime() - Date.now()) < 0;
+
+          return doc.expiryDate ? (
+            <span
+              className={`text-[10px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap ${
+                isExpired
+                  ? "bg-rose-50 text-rose-700 border border-rose-200"
+                  : isExpiring
+                  ? "bg-amber-50 text-amber-700 border border-amber-200"
+                  : "text-slate-600"
+              }`}
+            >
+              {doc.expiryDate}
+            </span>
+          ) : (
+            <span className="text-slate-400 text-[10px]">—</span>
+          );
+        },
+      },
+    ],
+    []
+  );
+
   return (
     <div className="w-full">
       {/* Mobile Top Header Integration via Portal into MobileHeader */}
@@ -1640,139 +1742,53 @@ export function DocumentsPage() {
               </div>
             ) : (
               /* GOOGLE DRIVE LIST / TABLE VIEW */
-              <div className="rounded-2xl border border-slate-200/90 bg-white overflow-hidden shadow-2xs">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-600">
-                    <thead className="border-b border-slate-200/80 bg-slate-50/70 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      <tr>
-                        <th className="px-4 py-3">Name</th>
-                        <th className="px-3 py-3">Category</th>
-                        <th className="px-3 py-3">Owner</th>
-                        <th className="px-3 py-3">Folder</th>
-                        <th className="px-3 py-3">Expiry</th>
-                        <th className="px-4 py-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredDocuments.map((doc) => {
-                        const isExpiring =
-                          doc.expiryDate &&
-                          (new Date(doc.expiryDate).getTime() - Date.now()) / (1000 * 3600 * 24) <= 30 &&
-                          (new Date(doc.expiryDate).getTime() - Date.now()) >= 0;
-                        const isExpired =
-                          doc.expiryDate && (new Date(doc.expiryDate).getTime() - Date.now()) < 0;
-
-                        return (
-                          <tr
-                            key={doc.id}
-                            className="hover:bg-slate-50/80 transition cursor-pointer group"
-                            onClick={() => setPreviewDoc(doc)}
-                            onContextMenu={(e) => handleDocContextMenu(doc, e)}
-                          >
-                            <td className="px-4 py-3 font-medium text-slate-900">
-                              <div className="flex items-center gap-2.5">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleFavorite(doc);
-                                  }}
-                                  className="text-slate-300 hover:text-amber-500 transition cursor-pointer"
-                                >
-                                  <Star
-                                    className={`h-3.5 w-3.5 ${
-                                      doc.isFavorite ? "fill-amber-500 text-amber-500" : ""
-                                    }`}
-                                  />
-                                </button>
-                                <div className="h-7 w-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                                  <FileText className="h-3.5 w-3.5" />
-                                </div>
-                                <div className="min-w-0">
-                                  <span className="font-semibold text-slate-900 group-hover:text-emerald-700 transition block truncate max-w-xs">
-                                    {doc.name}
-                                  </span>
-                                  {doc.documentNumber && (
-                                    <span className="text-[10px] text-slate-400 font-mono">
-                                      #{doc.documentNumber}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-3 py-3 whitespace-nowrap">
-                              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
-                                {doc.category}
-                              </span>
-                            </td>
-                            <td className="px-3 py-3 text-slate-600 whitespace-nowrap">
-                              {doc.familyMemberName || "Personal"}
-                            </td>
-                            <td className="px-3 py-3 text-slate-600 whitespace-nowrap">
-                              <span className="flex items-center gap-1.5 text-xs">
-                                <Folder className="h-3 w-3 text-slate-400" />
-                                <span>{doc.folderName || "General"}</span>
-                              </span>
-                            </td>
-                            <td className="px-3 py-3 whitespace-nowrap">
-                              {doc.expiryDate ? (
-                                <span
-                                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
-                                    isExpired
-                                      ? "bg-rose-50 text-rose-700 border border-rose-200"
-                                      : isExpiring
-                                      ? "bg-amber-50 text-amber-700 border border-amber-200"
-                                      : "text-slate-600"
-                                  }`}
-                                >
-                                  {doc.expiryDate}
-                                </span>
-                              ) : (
-                                <span className="text-slate-400 text-[10px]">—</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                              <TableRowActions
-                                title={doc.name}
-                                subtitle={`${doc.category} • ${doc.familyMemberName || "Personal"}`}
-                                actions={[
-                                  {
-                                    label: "Preview Document",
-                                    description: "Open in viewer",
-                                    icon: Eye,
-                                    onClick: () => setPreviewDoc(doc),
-                                  },
-                                  ...(doc.fileUrl || doc.driveFileId
-                                    ? [
-                                        {
-                                          label: "Download File",
-                                          description: "Save a local copy",
-                                          icon: Download,
-                                          onClick: () => downloadDocumentFile(doc),
-                                        },
-                                      ]
-                                    : []),
-                                  ...(canDelete
-                                    ? [
-                                        {
-                                          label: "Delete Document",
-                                          description: "Remove this document",
-                                          icon: Trash2,
-                                          variant: "danger" as const,
-                                          onClick: () => setDocToDelete(doc),
-                                        },
-                                      ]
-                                    : []),
-                                ]}
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <UiTable<DocumentItem>
+                data={filteredDocuments}
+                columns={documentColumns}
+                keyField="id"
+                pagination={true}
+                pageSize={10}
+                pageSizeOptions={[8, 10, 15, 25, 50]}
+                showSearch={false}
+                fullHeight={false}
+                onRowClick={(doc) => setPreviewDoc(doc)}
+                rowActions={(doc) => (
+                  <TableRowActions
+                    title={doc.name}
+                    subtitle={`${doc.category} • ${doc.familyMemberName || "Personal"}`}
+                    actions={[
+                      {
+                        label: "Preview Document",
+                        description: "Open in viewer",
+                        icon: Eye,
+                        onClick: () => setPreviewDoc(doc),
+                      },
+                      ...(doc.fileUrl || doc.driveFileId
+                        ? [
+                            {
+                              label: "Download File",
+                              description: "Save a local copy",
+                              icon: Download,
+                              onClick: () => downloadDocumentFile(doc),
+                            },
+                          ]
+                        : []),
+                      ...(canDelete
+                        ? [
+                            {
+                              label: "Delete Document",
+                              description: "Remove this document",
+                              icon: Trash2,
+                              variant: "danger" as const,
+                              onClick: () => setDocToDelete(doc),
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
+                )}
+                emptyMessage="No documents found."
+              />
             )}
           </div>
         </div>

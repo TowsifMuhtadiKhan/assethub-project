@@ -13,7 +13,7 @@ import { DocumentViewerModal, type ViewableDocument } from "../components/common
 import { TableRowActions } from "../components/common/TableRowActions";
 import { BrandLogoLoader } from "../components/common/LoadingStates";
 import { ViewModeToggle } from "../components/common/ViewModeToggle";
-import { UiPageHeader, UiButton } from "../components/design-system";
+import { UiPageHeader, UiButton, UiTable } from "../components/design-system";
 
 export function WarrantiesPage() {
   const [warranties, setWarranties] = useState<WarrantyItem[]>([]);
@@ -522,131 +522,156 @@ export function WarrantiesPage() {
           })}
         </div>
       ) : (
-        /* TABLE VIEW */
-        <div className="overflow-x-auto rounded-xl border border-slate-200/80 bg-white shadow-2xs">
-          <table className="min-w-full text-left text-xs">
-            <thead className="border-b border-slate-200/80 bg-slate-50/80 text-[11px] font-semibold text-slate-600">
-              <tr>
-                <th className="px-3.5 py-2.5">Product & Category</th>
-                <th className="px-3.5 py-2.5">Seller & S/N</th>
-                <th className="px-3.5 py-2.5">Purchase Date</th>
-                <th className="px-3.5 py-2.5">Warranty & Expiry</th>
-                <th className="px-3.5 py-2.5 font-mono text-right">Price</th>
-                <th className="px-3.5 py-2.5 text-center">Status</th>
-                <th className="px-3.5 py-2.5 text-center">Receipt</th>
-                <th className="px-3.5 py-2.5 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filtered.map((w) => {
+        /* TABLE VIEW (ENTERPRISE UI TABLE WITH PAGINATION) */
+        <UiTable<WarrantyItem>
+          columns={[
+            {
+              key: "productName",
+              header: "Product & Category",
+              render: (w) => (
+                <div>
+                  <div className="font-bold text-slate-900 text-xs">{w.productName}</div>
+                  <span className="inline-block mt-0.5 rounded bg-slate-100 px-1.5 py-0.2 text-[10px] font-medium text-slate-600">
+                    {w.category}
+                  </span>
+                </div>
+              ),
+            },
+            {
+              key: "seller",
+              header: "Seller & S/N",
+              render: (w) => (
+                <div>
+                  <div className="font-medium text-slate-800">{w.seller || "—"}</div>
+                  {w.serialNumber && (
+                    <div className="font-mono text-[10px] text-slate-400 truncate max-w-[150px]">
+                      S/N: {w.serialNumber}
+                    </div>
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: "purchaseDate",
+              header: "Purchase Date",
+              render: (w) => (
+                <span className="whitespace-nowrap font-mono text-[11px] text-slate-600">
+                  {w.purchaseDate}
+                </span>
+              ),
+            },
+            {
+              key: "expiryDate",
+              header: "Warranty & Expiry",
+              render: (w) => (
+                <div className="whitespace-nowrap">
+                  <div className="text-slate-800 font-medium">
+                    {w.warrantyDurationMonths} Mos
+                  </div>
+                  <div className="font-mono text-[10px] text-slate-500">
+                    Until {w.expiryDate}
+                  </div>
+                </div>
+              ),
+            },
+            {
+              key: "purchasePrice",
+              header: "Price",
+              render: (w) => (
+                <span className="whitespace-nowrap font-mono font-bold text-slate-900">
+                  {w.purchasePrice > 0 ? `৳${w.purchasePrice.toLocaleString()}` : "—"}
+                </span>
+              ),
+            },
+            {
+              key: "status",
+              header: "Status",
+              render: (w) => {
                 const isExpired = w.expiryDate && new Date(w.expiryDate) < new Date();
                 return (
-                  <tr key={w.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-3.5 py-2.5">
-                      <div className="font-bold text-slate-900 text-xs">{w.productName}</div>
-                      <span className="inline-block mt-0.5 rounded bg-slate-100 px-1.5 py-0.2 text-[10px] font-medium text-slate-600">
-                        {w.category}
-                      </span>
-                    </td>
-                    <td className="px-3.5 py-2.5 text-slate-700">
-                      <div className="font-medium text-slate-800">{w.seller || "—"}</div>
-                      {w.serialNumber && (
-                        <div className="font-mono text-[10px] text-slate-400 truncate max-w-[150px]">
-                          S/N: {w.serialNumber}
-                        </div>
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-3.5 py-2.5 font-mono text-[11px] text-slate-600">
-                      {w.purchaseDate}
-                    </td>
-                    <td className="whitespace-nowrap px-3.5 py-2.5">
-                      <div className="text-slate-800 font-medium">
-                        {w.warrantyDurationMonths} Mos
-                      </div>
-                      <div className="font-mono text-[10px] text-slate-500">
-                        Until {w.expiryDate}
-                      </div>
-                    </td>
-                    <td className="whitespace-nowrap px-3.5 py-2.5 font-mono font-bold text-slate-900 text-right">
-                      {w.purchasePrice > 0 ? `৳${w.purchasePrice.toLocaleString()}` : "—"}
-                    </td>
-                    <td className="whitespace-nowrap px-3.5 py-2.5 text-center">
-                      <span
-                        className={`inline-block rounded px-2 py-0.5 text-[10px] font-bold ${
-                          isExpired
-                            ? "bg-rose-50 text-rose-700 border border-rose-200/60"
-                            : "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
-                        }`}
-                      >
-                        {isExpired ? "EXPIRED" : "ACTIVE"}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-3.5 py-2.5 text-center">
-                      {w.receiptUrl ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setViewingDoc({
-                              name: `${w.productName} Warranty Receipt`,
-                              fileUrl: w.receiptUrl,
-                              fileType: "pdf",
-                              category: "Warranty",
-                              documentNumber: w.serialNumber,
-                              expiryDate: w.expiryDate,
-                            })
-                          }
-                          className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition cursor-pointer"
-                          title="View Receipt"
-                        >
-                          <FileText className="h-3 w-3" /> View
-                        </button>
-                      ) : (
-                        <span className="text-slate-300 text-[11px]">—</span>
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-3.5 py-2.5 text-right">
-                      <TableRowActions
-                        title={w.productName}
-                        subtitle={`${w.category} • ${w.warrantyDurationMonths} Mos Warranty`}
-                        actions={[
-                          ...(w.receiptUrl
-                            ? [
-                                {
-                                  label: "View Warranty Receipt",
-                                  description: "Preview scanned receipt or warranty card",
-                                  icon: FileText,
-                                  onClick: () =>
-                                    setViewingDoc({
-                                      name: `${w.productName} Warranty Receipt`,
-                                      fileUrl: w.receiptUrl,
-                                      fileType: "pdf",
-                                      category: "Warranty",
-                                      documentNumber: w.serialNumber,
-                                      expiryDate: w.expiryDate,
-                                    }),
-                                },
-                              ]
-                            : []),
-                          ...((!userAccess || userAccess.isHead || userAccess.access.canDeleteWarranties !== false)
-                            ? [
-                                {
-                                  label: "Delete Warranty Record",
-                                  description: "Permanently delete this record",
-                                  icon: Trash2,
-                                  variant: "danger" as const,
-                                  onClick: () => handleDelete(w.id),
-                                },
-                              ]
-                            : []),
-                        ]}
-                      />
-                    </td>
-                  </tr>
+                  <span
+                    className={`inline-block rounded px-2 py-0.5 text-[10px] font-bold ${
+                      isExpired
+                        ? "bg-rose-50 text-rose-700 border border-rose-200/60"
+                        : "bg-emerald-50 text-emerald-700 border border-emerald-200/60"
+                    }`}
+                  >
+                    {isExpired ? "EXPIRED" : "ACTIVE"}
+                  </span>
                 );
-              })}
-            </tbody>
-          </table>
-        </div>
+              },
+            },
+            {
+              key: "receipt",
+              header: "Receipt",
+              render: (w) =>
+                w.receiptUrl ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setViewingDoc({
+                        name: `${w.productName} Warranty Receipt`,
+                        fileUrl: w.receiptUrl,
+                        fileType: "pdf",
+                        category: "Warranty",
+                        documentNumber: w.serialNumber,
+                        expiryDate: w.expiryDate,
+                      })
+                    }
+                    className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition cursor-pointer"
+                    title="View Receipt"
+                  >
+                    <FileText className="h-3 w-3" /> View
+                  </button>
+                ) : (
+                  <span className="text-slate-300 text-[11px]">—</span>
+                ),
+            },
+          ]}
+          data={filtered}
+          keyExtractor={(w) => w.id}
+          pagination={true}
+          pageSize={10}
+          pageSizeOptions={[8, 10, 15, 25, 50]}
+          showSearch={false}
+          rowActions={(w) => (
+            <TableRowActions
+              title={w.productName}
+              subtitle={`${w.category} • ${w.warrantyDurationMonths} Mos Warranty`}
+              actions={[
+                ...(w.receiptUrl
+                  ? [
+                      {
+                        label: "View Warranty Receipt",
+                        description: "Preview scanned receipt or warranty card",
+                        icon: FileText,
+                        onClick: () =>
+                          setViewingDoc({
+                            name: `${w.productName} Warranty Receipt`,
+                            fileUrl: w.receiptUrl,
+                            fileType: "pdf",
+                            category: "Warranty",
+                            documentNumber: w.serialNumber,
+                            expiryDate: w.expiryDate,
+                          }),
+                      },
+                    ]
+                  : []),
+                ...((!userAccess || userAccess.isHead || userAccess.access.canDeleteWarranties !== false)
+                  ? [
+                      {
+                        label: "Delete Warranty Record",
+                        description: "Permanently delete this record",
+                        icon: Trash2,
+                        variant: "danger" as const,
+                        onClick: () => handleDelete(w.id),
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+          )}
+        />
       )}
 
       {/* Add Modal */}

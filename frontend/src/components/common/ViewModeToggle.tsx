@@ -25,7 +25,7 @@ export function ViewModeToggle<T extends ViewMode = "grid" | "list">({
 
   return (
     <div
-      className={`flex items-center p-1 rounded-xl border border-slate-200/90 bg-slate-100/90 shrink-0 shadow-2xs ${className}`}
+      className={`flex items-center p-0.5 rounded-xl border border-slate-200/90 bg-slate-100/90 shrink-0 shadow-2xs ${className}`}
       role="group"
       aria-label="View mode toggle"
     >
@@ -33,30 +33,30 @@ export function ViewModeToggle<T extends ViewMode = "grid" | "list">({
         type="button"
         onClick={() => onChange("grid" as T)}
         aria-pressed={isGrid}
-        className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs transition cursor-pointer select-none ${
+        className={`flex items-center justify-center rounded-lg p-1.5 transition cursor-pointer select-none ${
           isGrid
             ? "bg-white text-[#064e3b] shadow-2xs font-bold ring-1 ring-emerald-500/15"
-            : "text-slate-500 hover:text-slate-800 font-medium"
+            : "text-slate-400 hover:text-slate-700"
         }`}
         title={`${gridLabel} view`}
+        aria-label={`${gridLabel} view`}
       >
-        <LayoutGrid className={`h-3.5 w-3.5 ${isGrid ? "text-[#064e3b]" : "text-slate-400"}`} />
-        <span className="hidden sm:inline">{gridLabel}</span>
+        <LayoutGrid className="h-4 w-4" />
       </button>
 
       <button
         type="button"
         onClick={() => onChange(targetListVal)}
         aria-pressed={isList}
-        className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs transition cursor-pointer select-none ${
+        className={`flex items-center justify-center rounded-lg p-1.5 transition cursor-pointer select-none ${
           isList
             ? "bg-white text-[#064e3b] shadow-2xs font-bold ring-1 ring-emerald-500/15"
-            : "text-slate-500 hover:text-slate-800 font-medium"
+            : "text-slate-400 hover:text-slate-700"
         }`}
         title={`${listLabel} view`}
+        aria-label={`${listLabel} view`}
       >
-        <List className={`h-3.5 w-3.5 ${isList ? "text-[#064e3b]" : "text-slate-400"}`} />
-        <span className="hidden sm:inline">{listLabel}</span>
+        <List className="h-4 w-4" />
       </button>
     </div>
   );

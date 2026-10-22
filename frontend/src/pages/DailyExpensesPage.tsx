@@ -2181,9 +2181,9 @@ export function DailyExpensesPage() {
               searchValue={searchQuery}
               onSearch={setSearchQuery}
               pagination={true}
-              pageSize={15}
-              pageSizeOptions={[10, 15, 25, 50]}
-              fullHeight={true}
+              pageSize={10}
+              pageSizeOptions={[8, 10, 15, 25, 50]}
+              fullHeight={false}
               leftActions={
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* Time Range Pills */}
