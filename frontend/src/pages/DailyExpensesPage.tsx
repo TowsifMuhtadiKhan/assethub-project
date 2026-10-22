@@ -1469,22 +1469,21 @@ export function DailyExpensesPage() {
         actions={
           <div className="flex items-center gap-3">
             {activeMember && (
-              <div className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-full border border-slate-200/70 shadow-2xs">
+              <div className="inline-flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-full border border-slate-200/70 shadow-2xs">
                 <button
                   type="button"
                   onClick={() => setActiveTab("expenses")}
-                  className={`inline-flex items-center gap-1.5 py-1 px-3.5 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
+                  className={`inline-flex items-center gap-1 py-0.5 px-2.5 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
                     activeTab === "expenses"
                       ? "bg-white text-slate-900 font-bold shadow-2xs"
                       : "text-slate-600 hover:text-slate-900 font-medium"
                   }`}
+                  title="Daily Expenses"
                 >
                   <Wallet className="h-3.5 w-3.5 text-emerald-700" />
-                  <span>
-                    <span className="hidden sm:inline">Daily </span>Expenses
-                  </span>
+                  <span>Expenses</span>
                   <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                    className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full leading-none ${
                       activeTab === "expenses"
                         ? "bg-emerald-50 text-emerald-800"
                         : "bg-slate-200/70 text-slate-600"
@@ -1497,18 +1496,17 @@ export function DailyExpensesPage() {
                 <button
                   type="button"
                   onClick={() => setActiveTab("banking")}
-                  className={`inline-flex items-center gap-1.5 py-1 px-3.5 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
+                  className={`inline-flex items-center gap-1 py-0.5 px-2.5 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
                     activeTab === "banking"
                       ? "bg-white text-slate-900 font-bold shadow-2xs"
                       : "text-slate-600 hover:text-slate-900 font-medium"
                   }`}
+                  title="Banking & Financial Obligations"
                 >
                   <Landmark className="h-3.5 w-3.5 text-emerald-700" />
-                  <span>
-                    Banking<span className="hidden sm:inline"> & Obligations</span>
-                  </span>
+                  <span>Banking</span>
                   <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                    className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full leading-none ${
                       activeTab === "banking"
                         ? "bg-emerald-50 text-emerald-800"
                         : "bg-slate-200/70 text-slate-600"
@@ -1520,22 +1518,25 @@ export function DailyExpensesPage() {
               </div>
             )}
 
-            {/* Profile switcher pill */}
+            {/* Profile switcher pill (compact with short name) */}
             {activeMember ? (
-              <div className="flex items-center gap-2 bg-white border border-slate-200/80 rounded-full px-2.5 py-1 shadow-2xs">
-                <div className="h-6 w-6 rounded-full bg-emerald-50 border border-emerald-200/80 flex items-center justify-center font-bold text-[11px] uppercase text-[#064e3b]">
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200/80 rounded-full px-2 py-0.5 shadow-2xs">
+                <div className="h-5 w-5 rounded-full bg-emerald-50 border border-emerald-200/80 flex items-center justify-center font-bold text-[10px] uppercase text-[#064e3b] shrink-0">
                   {activeMember.fullName.charAt(0)}
                 </div>
-                <div className="text-left flex items-center gap-1.5">
-                  <span className="text-xs font-semibold text-slate-800 max-w-[130px] truncate">
-                    {activeMember.fullName}
+                <div className="flex items-center gap-1 min-w-0">
+                  <span
+                    className="text-xs font-semibold text-slate-800 truncate"
+                    title={activeMember.fullName}
+                  >
+                    {activeMember.fullName.trim().split(/\s+/)[0]}
                   </span>
-                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200/60">
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200/60 shrink-0">
                     <Unlock className="h-2 w-2" />
-                    <span className="hidden xl:inline">Unlocked</span>
+                    <span>Unlocked</span>
                   </span>
                 </div>
-                <div className="flex items-center gap-1 pl-1.5 border-l border-slate-200/80">
+                <div className="flex items-center gap-1 pl-1.5 border-l border-slate-200/80 shrink-0">
                   {!hasMemberPin(activeMember.id, activeMember.fullName) && (
                     <button
                       type="button"
@@ -1545,20 +1546,20 @@ export function DailyExpensesPage() {
                         setPinConfirmInput("");
                         setPinError("");
                       }}
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 px-2 py-0.5 rounded-full transition cursor-pointer"
+                      className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 px-1.5 py-0.5 rounded-full transition cursor-pointer"
                       title="Protect this ledger with a 4-digit PIN"
                     >
-                      <KeyRound className="h-3 w-3" />
-                      <span>Set PIN</span>
+                      <KeyRound className="h-2.5 w-2.5" />
+                      <span>PIN</span>
                     </button>
                   )}
                   <button
                     type="button"
                     onClick={handleLockProfile}
-                    className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 px-2 py-0.5 rounded-full transition cursor-pointer"
-                    title="Lock and switch profile"
+                    className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 px-1.5 py-0.5 rounded-full transition cursor-pointer"
+                    title={`Lock and switch profile (current: ${activeMember.fullName})`}
                   >
-                    <Lock className="h-3 w-3 text-slate-400" />
+                    <Lock className="h-2.5 w-2.5 text-slate-400" />
                     <span>Switch</span>
                   </button>
                 </div>
@@ -2014,16 +2015,14 @@ export function DailyExpensesPage() {
             <button
               type="button"
               onClick={() => setActiveTab("expenses")}
-              className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
+              className={`inline-flex items-center justify-center gap-1.5 py-1 px-3 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
                 activeTab === "expenses"
                   ? "bg-white text-slate-900 font-bold shadow-2xs"
                   : "text-slate-600 hover:text-slate-900 font-medium"
               }`}
             >
               <Wallet className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
-              <span>
-                <span className="hidden sm:inline">Daily </span>Expenses
-              </span>
+              <span>Expenses</span>
               <span
                 className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
                   activeTab === "expenses" ? "bg-emerald-50 text-emerald-800" : "bg-slate-200/70 text-slate-600"
@@ -2036,16 +2035,14 @@ export function DailyExpensesPage() {
             <button
               type="button"
               onClick={() => setActiveTab("banking")}
-              className={`inline-flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
+              className={`inline-flex items-center justify-center gap-1.5 py-1 px-3 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
                 activeTab === "banking"
                   ? "bg-white text-slate-900 font-bold shadow-2xs"
                   : "text-slate-600 hover:text-slate-900 font-medium"
               }`}
             >
               <Landmark className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
-              <span>
-                Banking<span className="hidden sm:inline"> & Obligations</span>
-              </span>
+              <span>Banking</span>
               <span
                 className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
                   activeTab === "banking"
