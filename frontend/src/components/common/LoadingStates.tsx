@@ -4,7 +4,6 @@ import {
   ShieldCheck,
   Lock,
   KeyRound,
-  CheckCircle2,
 } from "lucide-react";
 
 /**
@@ -171,22 +170,6 @@ export function SigninOverlay({
           style={{ width: `${progress}%` }}
         />
       </div>
-
-      {/* Security Checkpoints Mini-List */}
-      <div className="mt-6 rounded-2xl border border-slate-200/90 bg-white p-3.5 w-full max-w-[280px] mx-auto space-y-2 text-[11px] font-mono shadow-xs flex flex-col items-center justify-center text-center">
-        <div className={`inline-flex items-center justify-center gap-2 transition ${progress >= 30 ? "text-emerald-700 font-semibold" : "text-slate-400"}`}>
-          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-          <span>Identity Verified</span>
-        </div>
-        <div className={`inline-flex items-center justify-center gap-2 transition ${progress >= 65 ? "text-emerald-700 font-semibold" : "text-slate-400"}`}>
-          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-          <span>Vault Keys Decrypted</span>
-        </div>
-        <div className={`inline-flex items-center justify-center gap-2 transition ${progress >= 100 ? "text-emerald-700 font-semibold" : "text-slate-400"}`}>
-          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-          <span>Workspace Connected</span>
-        </div>
-      </div>
     </div>
   );
 }
@@ -273,22 +256,6 @@ export function SignoutOverlay({
           className="h-full bg-gradient-to-r from-rose-500 via-amber-400 to-emerald-500 rounded-full transition-all duration-500 ease-out"
           style={{ width: `${progress}%` }}
         />
-      </div>
-
-      {/* Security Checkpoints Mini-List */}
-      <div className="mt-6 rounded-2xl border border-slate-200/90 bg-white p-3.5 w-full max-w-[280px] mx-auto space-y-2 text-[11px] font-mono shadow-xs flex flex-col items-center justify-center text-center">
-        <div className={`inline-flex items-center justify-center gap-2 transition ${progress >= 30 ? "text-rose-600 font-semibold" : "text-slate-400"}`}>
-          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-          <span>Local Tokens Cleared</span>
-        </div>
-        <div className={`inline-flex items-center justify-center gap-2 transition ${progress >= 65 ? "text-amber-600 font-semibold" : "text-slate-400"}`}>
-          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-          <span>Sync Channels Disconnected</span>
-        </div>
-        <div className={`inline-flex items-center justify-center gap-2 transition ${progress >= 100 ? "text-emerald-600 font-semibold" : "text-slate-400"}`}>
-          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-          <span>Vault Sealed & Locked</span>
-        </div>
       </div>
     </div>
   );
