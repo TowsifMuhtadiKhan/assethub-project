@@ -209,6 +209,7 @@ export function DesignSystemShowcasePage() {
       {/* 1. EXACT REPLICATION OF USER PATTERN (Top Full-Width Header Bar)           */}
       {/* ========================================================================= */}
       <UiPageHeader
+        flush={false}
         leftSlot={
           <div
             className="pr-3.5 border-r border-slate-200/90 mr-1.5 flex items-center text-slate-400 hover:text-slate-700 cursor-pointer transition select-none"

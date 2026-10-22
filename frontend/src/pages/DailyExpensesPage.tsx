@@ -1610,7 +1610,7 @@ export function DailyExpensesPage() {
             : "Track credit card debts, bank loans, EMIs, and recurring investments."
         }
         sticky={true}
-        className="hidden lg:block mb-4 sm:mb-6"
+        className="hidden lg:block"
         actions={
           <div className="flex items-center gap-3">
             {activeMember && (

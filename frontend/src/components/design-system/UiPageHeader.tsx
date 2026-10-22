@@ -13,6 +13,7 @@ export interface UiPageHeaderProps {
   className?: string;
   tabs?: React.ReactNode;
   leftSlot?: React.ReactNode;
+  flush?: boolean;
 }
 
 export function UiPageHeader({
@@ -27,12 +28,17 @@ export function UiPageHeader({
   className = "",
   tabs,
   leftSlot,
+  flush = true,
 }: UiPageHeaderProps) {
   const [showTooltip, setShowTooltip] = useState(false);
 
+  const flushClasses = flush
+    ? "-mx-3.5 sm:-mx-5 lg:-mx-6 -mt-3.5 sm:-mt-5 lg:-mt-6 w-[calc(100%+1.75rem)] sm:w-[calc(100%+2.5rem)] lg:w-[calc(100%+3rem)] mb-4"
+    : "w-full";
+
   return (
     <div
-      className={`w-full transition-all ${
+      className={`${flushClasses} transition-all ${
         sticky
           ? `sticky top-0 z-20 ${bgClassName} border-b border-slate-200/90 shadow-2xs`
           : `${bgClassName} border-b border-slate-200/80`

@@ -41,7 +41,7 @@ import { listVehicles } from "../services/vehicleService";
 import { listProperties } from "../services/propertyService";
 import { listFamilyMembers, getCurrentUserAccess, type CurrentUserAccessResult } from "../services/familyService";
 import { BrandLogoLoader } from "../components/common/LoadingStates";
-import { UiPageHeader } from "../components/design-system";
+import { UiPageHeader, UiButton } from "../components/design-system";
 import type {
   TaskItem,
   TaskPriority,
@@ -876,23 +876,23 @@ export function TasksPage() {
           headerPortalEl
         )}
 
-      {/* Desktop Header (Enterprise Pattern B Sticky Header) */}
+      {/* Desktop Header (Enterprise Sticky Header, Zero Margin on Top/Left/Right) */}
       <UiPageHeader
         title="To-Do List & Tasks"
         helpTooltip="Write down your daily tasks, bills to pay, and automated WhatsApp reminders."
         subtitle="Write down your daily tasks, bills to pay, and reminders."
         sticky={true}
-        className="hidden lg:block mb-2"
+        className="hidden lg:block"
         actions={
           canCreate ? (
-            <button
-              type="button"
+            <UiButton
+              variant="primary"
+              size="sm"
               onClick={() => openAddWithStatus("Pending")}
-              className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] active:scale-95 transition cursor-pointer"
+              icon={<Plus className="h-3.5 w-3.5" />}
             >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Add Task</span>
-            </button>
+              Add Task
+            </UiButton>
           ) : null
         }
       />

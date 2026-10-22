@@ -276,6 +276,8 @@ export function SettingsPage() {
             className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs space-y-4"
           >
             <UiPageHeader
+              flush={false}
+              sticky={false}
               title="Company Information"
               helpTooltip="Easily update your company's basic information and ensure accurate records for effective management."
               subtitle="Easily update your company's basic information and ensure accurate records for effective management."
