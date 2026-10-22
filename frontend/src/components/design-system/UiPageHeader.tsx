@@ -12,6 +12,7 @@ export interface UiPageHeaderProps {
   bgClassName?: string;
   className?: string;
   tabs?: React.ReactNode;
+  leftSlot?: React.ReactNode;
 }
 
 export function UiPageHeader({
@@ -22,34 +23,38 @@ export function UiPageHeader({
   onBack,
   actions,
   sticky = true,
-  bgClassName = "bg-[#f6faf7]/95 backdrop-blur-md",
+  bgClassName = "bg-white",
   className = "",
   tabs,
+  leftSlot,
 }: UiPageHeaderProps) {
   const [showTooltip, setShowTooltip] = useState(false);
 
   return (
     <div
       className={`w-full transition-all ${
-        sticky ? `sticky top-0 z-20 ${bgClassName} pt-1 pb-3 -mt-1 border-b border-slate-200/90 shadow-2xs` : "pb-3 border-b border-slate-200/80"
+        sticky
+          ? `sticky top-0 z-20 ${bgClassName} border-b border-slate-200/90 shadow-2xs`
+          : `${bgClassName} border-b border-slate-200/80`
       } ${className}`}
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        {/* Left: Back button + Title + Tooltip + Subtitle */}
-        <div className="flex items-start gap-3 min-w-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-3.5">
+        {/* Left: Optional LeftSlot / Back + Title + Tooltip + Subtitle */}
+        <div className="flex items-center gap-3 min-w-0">
+          {leftSlot}
           {onBack && (
             <button
               type="button"
               onClick={onBack}
-              className="p-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer mt-0.5 shrink-0"
+              className="p-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer shrink-0"
               title="Go back"
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
           )}
           <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap relative">
-              <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-tight">
+            <div className="flex items-center gap-1.5 flex-wrap relative">
+              <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight leading-tight">
                 {title}
               </h1>
 
@@ -60,14 +65,14 @@ export function UiPageHeader({
                     onMouseEnter={() => setShowTooltip(true)}
                     onMouseLeave={() => setShowTooltip(false)}
                     onClick={() => setShowTooltip((prev) => !prev)}
-                    className="cursor-help text-slate-400 hover:text-slate-600 transition p-0.5 rounded-full hover:bg-slate-200/60"
+                    className="cursor-help text-slate-400 hover:text-slate-600 transition p-0.5 rounded-full hover:bg-slate-100"
                     aria-label="More information"
                   >
-                    <HelpCircle className="h-3.5 w-3.5" />
+                    <HelpCircle className="h-3.5 w-3.5 text-slate-400" />
                   </button>
 
                   {showTooltip && (
-                    <div className="absolute left-6 top-0 z-50 w-64 p-2.5 rounded-xl bg-slate-900 text-white text-xs shadow-xl ring-1 ring-white/10 animate-in fade-in zoom-in-95 duration-100 leading-relaxed font-normal">
+                    <div className="absolute left-6 top-0 z-50 w-72 p-2.5 rounded-xl bg-slate-900 text-white text-xs shadow-xl ring-1 ring-white/10 animate-in fade-in zoom-in-95 duration-100 leading-relaxed font-normal">
                       {helpTooltip}
                     </div>
                   )}
@@ -82,7 +87,7 @@ export function UiPageHeader({
             </div>
 
             {subtitle && (
-              <p className="text-xs text-slate-500 mt-0.5 leading-normal">
+              <p className="text-xs text-slate-500 font-normal mt-0.5 leading-normal">
                 {subtitle}
               </p>
             )}
@@ -91,14 +96,14 @@ export function UiPageHeader({
 
         {/* Right: Action Buttons */}
         {actions && (
-          <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto flex-wrap">
+          <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center flex-wrap">
             {actions}
           </div>
         )}
       </div>
 
       {/* Optional Embedded Tabs */}
-      {tabs && <div className="mt-2.5 pt-2 border-t border-slate-200/60">{tabs}</div>}
+      {tabs && <div className="px-4 sm:px-6 border-t border-slate-100">{tabs}</div>}
     </div>
   );
 }

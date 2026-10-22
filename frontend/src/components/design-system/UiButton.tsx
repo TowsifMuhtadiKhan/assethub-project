@@ -28,14 +28,14 @@ export function UiButton({
 
   const sizeStyles: Record<ButtonSize, string> = {
     xs: "px-2 py-1 text-[11px] gap-1",
-    sm: "px-2.5 py-1.5 text-xs gap-1.5",
-    md: "px-3.5 py-2 text-xs gap-2",
+    sm: "px-3.5 py-1.5 text-xs gap-1.5",
+    md: "px-4 py-2 text-xs gap-2",
     lg: "px-5 py-2.5 text-sm gap-2.5",
   };
 
   const variantStyles: Record<ButtonVariant, string> = {
     primary:
-      "bg-[#f97316] hover:bg-[#ea580c] text-white shadow-2xs focus:ring-2 focus:ring-[#f97316]/30",
+      "bg-[#ff6422] hover:bg-[#ea5518] text-white shadow-2xs focus:ring-2 focus:ring-[#ff6422]/30 active:scale-[0.99]",
     secondary:
       "bg-slate-900 hover:bg-slate-800 text-white shadow-2xs focus:ring-2 focus:ring-slate-900/30",
     outline:

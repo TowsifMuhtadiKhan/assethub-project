@@ -25,7 +25,7 @@ import {
 import type { UserSettings } from "../types";
 import { WhatsAppContactsManager } from "../components/common/WhatsAppContactsManager";
 import { FamilyPage } from "./FamilyPage";
-import { UiPageHeader } from "../components/design-system";
+import { UiPageHeader, UiButton } from "../components/design-system";
 import { AccessControlPage } from "./AccessControlPage";
 import {
   getCurrentUserAccess,
@@ -280,13 +280,13 @@ export function SettingsPage() {
               helpTooltip="Easily update your company's basic information and ensure accurate records for effective management."
               subtitle="Easily update your company's basic information and ensure accurate records for effective management."
               actions={
-                <button
+                <UiButton
                   type="submit"
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800 transition cursor-pointer"
+                  variant="primary"
+                  size="sm"
                 >
-                  <Save className="h-3.5 w-3.5" />
-                  <span>Save Profile</span>
-                </button>
+                  Save Profile
+                </UiButton>
               }
             />
 

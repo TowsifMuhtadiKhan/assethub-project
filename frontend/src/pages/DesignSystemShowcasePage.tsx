@@ -11,8 +11,10 @@ import {
   type UiTableColumn,
 } from "../components/design-system";
 import {
+  ChevronLeft,
   Edit2,
-  Download,
+  CheckCircle2,
+  Layers,
 } from "lucide-react";
 
 interface SampleUser {
@@ -202,35 +204,47 @@ export function DesignSystemShowcasePage() {
   });
 
   return (
-    <div className="max-w-6xl mx-auto p-4 sm:p-8 space-y-6 min-h-screen">
+    <div className="min-h-screen bg-slate-50/60 text-slate-800">
       {/* ========================================================================= */}
-      {/* 1. OFFICIAL PAGE HEADER (Pattern B Chosen by User) */}
+      {/* 1. EXACT REPLICATION OF USER PATTERN (Top Full-Width Header Bar)           */}
       {/* ========================================================================= */}
       <UiPageHeader
-        title="Company Information"
-        helpTooltip="Easily update company basic information and ensure accurate records for effective management."
-        subtitle="Easily update your company's basic information and ensure accurate records for effective management."
-        actions={
-          <div className="flex items-center gap-2">
-            <UiButton
-              variant="outline"
-              size="sm"
-              icon={<Download className="h-3.5 w-3.5" />}
-              onClick={() => alert("Export initiated")}
-            >
-              Export
-            </UiButton>
-            <UiButton
-              variant="primary"
-              size="sm"
-              icon={<Edit2 className="h-3.5 w-3.5" />}
-              onClick={() => alert("Edit company information")}
-            >
-              Edit
-            </UiButton>
+        leftSlot={
+          <div
+            className="pr-3.5 border-r border-slate-200/90 mr-1.5 flex items-center text-slate-400 hover:text-slate-700 cursor-pointer transition select-none"
+            title="Toggle Sidebar Collapse"
+          >
+            <ChevronLeft className="h-4 w-4" />
           </div>
         }
+        title="Company Information"
+        helpTooltip="Easily update your company's basic information and ensure accurate records for effective management."
+        subtitle="Easily update your company's basic information and ensure accurate records for effective management."
+        actions={
+          <UiButton
+            variant="primary"
+            size="sm"
+            onClick={() => setShowModal(true)}
+          >
+            Edit
+          </UiButton>
+        }
       />
+
+      <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
+        {/* Verification & Alignment Banner */}
+        <div className="rounded-xl border border-emerald-200/90 bg-emerald-50/70 p-3.5 text-xs text-emerald-900 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span>
+              <strong>Active Global Pattern:</strong> Top Header with pure white background, left sidebar chevron border, Title + circular tooltip (<code className="font-mono text-[11px] bg-white px-1 py-0.5 rounded border border-emerald-200">?</code>), subtitle, and orange Edit button (<code className="font-mono text-[11px] bg-white px-1 py-0.5 rounded border border-emerald-200">#ff6422</code>).
+            </span>
+          </div>
+          <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-800 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs">
+            <Layers className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Unified Central System</span>
+          </div>
+        </div>
 
       {/* ========================================================================= */}
       {/* 2. TAB NAVIGATION */}
@@ -362,6 +376,7 @@ export function DesignSystemShowcasePage() {
           This action applies instantly across all linked family and tenant profiles.
         </div>
       </UiModal>
+      </div>
     </div>
   );
 }
