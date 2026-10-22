@@ -34,7 +34,7 @@ export function UiPageHeader({
   return (
     <div
       className={`w-full ${
-        sticky ? "sticky top-0 z-20" : ""
+        sticky ? "sticky top-14 z-20" : ""
       } ${bgClassName} border-b border-slate-200/90 shadow-2xs ${className}`}
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-3.5">

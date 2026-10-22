@@ -156,7 +156,7 @@ export function AppLayout() {
       : "Family Admin");
 
   return (
-    <div className="h-screen h-dvh overflow-hidden bg-[#f6faf7] text-slate-900 w-full flex flex-col">
+    <div className="min-h-screen bg-[#f6faf7] text-slate-900 w-full overflow-x-clip flex flex-col">
       {/* Dedicated Native Mobile Header */}
       <MobileHeader
         onOpenQuickAdd={() => setQuickAddOpen((prev) => !prev)}
@@ -165,7 +165,7 @@ export function AppLayout() {
       />
 
       {/* Desktop Top Header Bar (Full Viewport Width) */}
-      <header className="shrink-0 h-14 z-30 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-md safe-area-top hidden lg:block">
+      <header className="sticky top-0 z-30 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-md safe-area-top hidden lg:block">
         <div className="flex h-14 items-center justify-between px-3.5 sm:px-6 w-full">
           <div className="flex items-center gap-2.5">
             {/* Desktop Sidebar Toggle Button */}
@@ -516,7 +516,7 @@ export function AppLayout() {
       </header>
 
       {/* Body Area with Left Sidebar and Main Content */}
-      <div className="flex flex-1 w-full relative min-h-0 overflow-hidden">
+      <div className="flex flex-1 w-full relative">
         {/* Sidebar Component (collapsible on desktop, starts vertically after header) */}
         <Sidebar
           isCollapsed={sidebarCollapsed}
@@ -527,12 +527,12 @@ export function AppLayout() {
 
         {/* Main Content Area (dynamic margin according to sidebar state) */}
         <div
-          className={`ml-0 flex min-w-0 flex-1 flex-col transition-all duration-300 ease-in-out w-full h-full min-h-0 ${
+          className={`ml-0 flex min-w-0 flex-1 flex-col transition-all duration-300 ease-in-out w-full ${
             sidebarCollapsed ? "lg:ml-[72px]" : "lg:ml-64"
           }`}
         >
           {/* Main Full-Width Content Container with zero padding for full-bleed headers and mobile bottom nav spacing */}
-          <main className="flex-1 min-h-0 overflow-y-auto no-scrollbar lg:scrollbar-auto bg-[#f6faf7] w-full pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] lg:pb-6 flex flex-col">
+          <main className="flex-1 bg-[#f6faf7] w-full pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] lg:pb-6 flex flex-col">
             <Outlet />
           </main>
         </div>
