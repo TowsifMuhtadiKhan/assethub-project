@@ -334,7 +334,7 @@ export function DashboardPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => navigate("/documents/vault")}
-                icon={<FileText className="h-3.5 w-3.5" />}
+                icon={<Plus className="h-3.5 w-3.5" />}
               >
                 Document
               </UiButton>
@@ -431,12 +431,11 @@ export function DashboardPage() {
           <div className="text-[11px] text-slate-500 mt-0.5">members added</div>
         </div>
       </div>
-    </div>
 
       {/* Main Dual Panels (Things to Do checklist & Deadlines Timeline - Active on both Mobile and Desktop) */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 mt-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Panel 1: Active To-Do Checklist */}
-        <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-2xs">
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-2xs flex flex-col">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
@@ -494,7 +493,7 @@ export function DashboardPage() {
         </div>
 
         {/* Panel 2: Upcoming Schedule & Deadlines Timeline */}
-        <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-2xs flex flex-col">
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-2xs flex flex-col">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-orange-500" />
@@ -610,6 +609,7 @@ export function DashboardPage() {
         </div>
         </div>
       </div>
-    </>
+    </div>
+  </>
   );
 }
