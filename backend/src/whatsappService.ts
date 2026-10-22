@@ -346,6 +346,12 @@ async function startSocket(): Promise<void> {
 
 /** Called on server boot: restores session from PostgreSQL if missing on disk, then reconnects. */
 export async function initWhatsAppGateway(): Promise<void> {
+  if (process.env.DISABLE_WHATSAPP_GATEWAY === "true") {
+    console.log("[Likhe Rakho WhatsApp] Gateway auto-start disabled via DISABLE_WHATSAPP_GATEWAY (prevents collision with cloud server).");
+    status = "idle";
+    return;
+  }
+
   if (!hasLinkedSession()) {
     console.log("[Likhe Rakho WhatsApp] Checking PostgreSQL database for saved session...");
     await restoreSessionFromDatabase();

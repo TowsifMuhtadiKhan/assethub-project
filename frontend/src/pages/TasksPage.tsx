@@ -391,7 +391,7 @@ export function TasksPage() {
       setEditCustomLeadUnit("minutes");
     }
 
-    const recMatch = task.notes?.match(/Recipients:\s*([^\s,\]\n]+)/i);
+    const recMatch = task.notes?.match(/Recipients:\s*([^\]\n]+)/i);
     if (recMatch) {
       const parsed = recMatch[1].split(",").map((s) => s.trim()).filter(Boolean);
       setEditRecipients(parsed.length > 0 ? parsed : ["Personal"]);
