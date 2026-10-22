@@ -307,87 +307,89 @@ export function WarrantiesPage() {
         </div>
       )}
 
-      {/* Search Bar, Filter & View Switcher - Single Row on Mobile */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-1.5 sm:gap-2 w-full">
-          {/* Search Input */}
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search products, sellers, serial numbers..."
-              className="w-full rounded-xl border border-slate-200/90 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none shadow-2xs"
+      {/* Search Bar, Filter & View Switcher for Grid Mode */}
+      {viewMode === "grid" && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 w-full">
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search products, sellers, serial numbers..."
+                className="w-full rounded-xl border border-slate-200/90 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none shadow-2xs"
+              />
+            </div>
+
+            {/* Filter Button */}
+            <button
+              type="button"
+              onClick={() => setMobileFiltersOpen((prev) => !prev)}
+              className={`inline-flex items-center justify-center h-8.5 w-8.5 rounded-xl border transition shrink-0 shadow-2xs cursor-pointer relative ${
+                mobileFiltersOpen || statusFilter !== "all"
+                  ? "border-emerald-600 bg-emerald-50 text-emerald-800"
+                  : "border-slate-200/90 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+              title="Filter warranties"
+              aria-label="Filter"
+            >
+              <Filter className="h-3.5 w-3.5" />
+              {statusFilter !== "all" && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 text-[9px] font-bold text-white px-1 shadow-2xs">
+                  1
+                </span>
+              )}
+            </button>
+
+            {/* View Mode Toggle (Grid vs Table) */}
+            <ViewModeToggle
+              viewMode={viewMode}
+              onChange={(mode) => {
+                const nextMode = mode as "grid" | "table";
+                setViewMode(nextMode);
+                try {
+                  localStorage.setItem("lifenest_warranties_view_mode", nextMode);
+                } catch {}
+              }}
+              gridLabel="Grid"
+              listLabel="Table"
+              listValue="table"
             />
           </div>
 
-          {/* Filter Button */}
-          <button
-            type="button"
-            onClick={() => setMobileFiltersOpen((prev) => !prev)}
-            className={`inline-flex items-center justify-center h-8.5 w-8.5 rounded-xl border transition shrink-0 shadow-2xs cursor-pointer relative ${
-              mobileFiltersOpen || statusFilter !== "all"
-                ? "border-emerald-600 bg-emerald-50 text-emerald-800"
-                : "border-slate-200/90 bg-white text-slate-700 hover:bg-slate-50"
-            }`}
-            title="Filter warranties"
-            aria-label="Filter"
-          >
-            <Filter className="h-3.5 w-3.5" />
-            {statusFilter !== "all" && (
-              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 text-[9px] font-bold text-white px-1 shadow-2xs">
-                1
-              </span>
-            )}
-          </button>
-
-          {/* View Mode Toggle (Grid vs Table) */}
-          <ViewModeToggle
-            viewMode={viewMode}
-            onChange={(mode) => {
-              const nextMode = mode as "grid" | "table";
-              setViewMode(nextMode);
-              try {
-                localStorage.setItem("lifenest_warranties_view_mode", nextMode);
-              } catch {}
-            }}
-            gridLabel="Grid"
-            listLabel="Table"
-            listValue="table"
-          />
-        </div>
-
-        {/* Expandable Status Filter Pills when Filter is active / open */}
-        {(mobileFiltersOpen || statusFilter !== "all") && (
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-            {[
-              { id: "all", label: "All Warranties", count: metrics.total },
-              { id: "active", label: "Active", count: metrics.active },
-              { id: "expired", label: "Expired", count: metrics.expired },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setStatusFilter(tab.id as "all" | "active" | "expired")}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition cursor-pointer ${
-                  statusFilter === tab.id
-                    ? "bg-[#064e3b] text-white shadow-2xs"
-                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                <span>{tab.label}</span>
-                <span
-                  className={`text-[10px] px-1 rounded-full ${
-                    statusFilter === tab.id ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+          {/* Expandable Status Filter Pills when Filter is active / open */}
+          {(mobileFiltersOpen || statusFilter !== "all") && (
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+              {[
+                { id: "all", label: "All Warranties", count: metrics.total },
+                { id: "active", label: "Active", count: metrics.active },
+                { id: "expired", label: "Expired", count: metrics.expired },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setStatusFilter(tab.id as "all" | "active" | "expired")}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition cursor-pointer ${
+                    statusFilter === tab.id
+                      ? "bg-[#064e3b] text-white shadow-2xs"
+                      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  {tab.count}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+                  <span>{tab.label}</span>
+                  <span
+                    className={`text-[10px] px-1 rounded-full ${
+                      statusFilter === tab.id ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <BrandLogoLoader
@@ -633,7 +635,52 @@ export function WarrantiesPage() {
           pagination={true}
           pageSize={10}
           pageSizeOptions={[8, 10, 15, 25, 50]}
-          showSearch={false}
+          fullHeight={false}
+          searchValue={search}
+          onSearch={setSearch}
+          searchPlaceholder="Search products, sellers, S/N..."
+          leftActions={
+            <div className="inline-flex items-center p-0.5 rounded-full border border-slate-200 bg-slate-100 text-xs">
+              {[
+                { id: "all", label: "All" },
+                { id: "active", label: "Active" },
+                { id: "expired", label: "Expired" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setStatusFilter(tab.id as "all" | "active" | "expired")}
+                  className={`px-2.5 py-1 rounded-full font-semibold transition cursor-pointer text-xs ${
+                    statusFilter === tab.id
+                      ? "bg-white text-slate-900 shadow-2xs font-bold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          }
+          rightActions={
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:inline-flex text-xs font-bold font-mono text-slate-900 bg-emerald-50 border border-emerald-200/70 px-2.5 py-1 rounded-lg">
+                Total: <span className="text-emerald-700 ml-1">{filtered.length}</span>
+              </div>
+              <ViewModeToggle
+                viewMode={viewMode}
+                onChange={(mode) => {
+                  const nextMode = mode as "grid" | "table";
+                  setViewMode(nextMode);
+                  try {
+                    localStorage.setItem("lifenest_warranties_view_mode", nextMode);
+                  } catch {}
+                }}
+                gridLabel="Grid"
+                listLabel="Table"
+                listValue="table"
+              />
+            </div>
+          }
           rowActions={(w) => (
             <TableRowActions
               title={w.productName}

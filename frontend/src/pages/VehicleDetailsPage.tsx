@@ -1564,6 +1564,57 @@ export function VehicleDetailsPage() {
           </div>
         }
         countBadge={vehicle.type}
+        actions={
+          activeTab === "fuel" ? (
+            (!userAccess || userAccess.isHead || userAccess.access.canWriteFuel !== false) && (
+              <button
+                type="button"
+                onClick={() => setFuelModalOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:from-[#053d2e] hover:to-[#0a6d4d] active:scale-95 transition cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
+                <span>+ Record Fuel</span>
+              </button>
+            )
+          ) : activeTab === "maintenance" ? (
+            (!userAccess || userAccess.isHead || userAccess.access.canWriteMaintenance !== false) && (
+              <button
+                type="button"
+                onClick={() => setMaintenanceModalOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:from-[#053d2e] hover:to-[#0a6d4d] active:scale-95 transition cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
+                <span>+ Add Record</span>
+              </button>
+            )
+          ) : activeTab === "documents" ? (
+            (!userAccess || userAccess.isHead || userAccess.access.canWriteDocuments !== false) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDocPresetSelected({ name: "", category: "Custom Document" });
+                  setExtractedSpecs(null); setSpecExtractionError(""); setSpecsConfirmed(false);
+                  setDocModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:from-[#053d2e] hover:to-[#0a6d4d] active:scale-95 transition cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
+                <span>+ Upload Document</span>
+              </button>
+            )
+          ) : activeTab === "warranties" ? (
+            (!userAccess || userAccess.isHead || userAccess.access.canCreateWarranties !== false) && (
+              <button
+                type="button"
+                onClick={() => setWarrantyModalOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:from-[#053d2e] hover:to-[#0a6d4d] active:scale-95 transition cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
+                <span>+ Add Warranty</span>
+              </button>
+            )
+          ) : null
+        }
         tabs={
           <div className="py-2 overflow-x-auto no-scrollbar">
             <div className="inline-flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-full border border-slate-200/70 shadow-2xs">
@@ -1715,51 +1766,9 @@ export function VehicleDetailsPage() {
       {/* TAB 1: FUEL CONSUMPTION                                                   */}
       {/* ========================================================================= */}
       {activeTab === "fuel" && (
-        <div className="space-y-3">
-          {/* Fuel Toolbar & Summary Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-xl border border-slate-200/90 shadow-2xs">
-            <div>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
-                <Fuel className="h-4 w-4 text-emerald-700" />
-                Fuel History
-              </h2>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Logged receipts, odometer readings, and fuel consumption trends.
-              </p>
-            </div>
-            <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-              <span className="text-xs font-bold font-mono text-emerald-900 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded-full">
-                Total: {formatMoney(totalFuelCost)}
-              </span>
-              <button
-                type="button"
-                onClick={() => setFuelTrendModalOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 px-2.5 py-1.5 text-xs font-semibold shadow-2xs transition cursor-pointer"
-                title="View Fuel Spending & Consumption Trends"
-              >
-                <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-                <span className="hidden sm:inline">Trend Graph</span>
-              </button>
-              <ViewModeToggle
-                viewMode={fuelViewMode}
-                onChange={handleFuelViewModeChange}
-                listValue="table"
-              />
-              {(!userAccess || userAccess.isHead || userAccess.access.canWriteFuel !== false) && (
-                <button
-                  type="button"
-                  onClick={() => setFuelModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#064e3b] to-[#0d825c] px-3 py-1.5 text-xs font-semibold text-white shadow-2xs hover:from-[#053d2e] hover:to-[#0a6d4d] transition cursor-pointer"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Record Fuel</span>
-                </button>
-              )}
-            </div>
-          </div>
-
+        <div className="space-y-4">
           {fuelExpenses.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-xs text-slate-500 space-y-2">
+            <div className="rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center text-xs text-slate-500 space-y-2">
               <Fuel className="h-6 w-6 text-slate-400 mx-auto" />
               <p>No fuel purchases logged yet.</p>
               {(!userAccess || userAccess.isHead || userAccess.access.canWriteFuel !== false) && (
@@ -1773,63 +1782,90 @@ export function VehicleDetailsPage() {
               )}
             </div>
           ) : fuelViewMode === "grid" ? (
-            /* Cards View */
-            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-              {fuelExpenses.map((fuel) => (
-                <div
-                  key={fuel.id}
-                  className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs space-y-2"
+            /* Cards View with Unified Header Bar */
+            <div className="space-y-4">
+              <div className="bg-white p-2 sm:p-2.5 rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFuelTrendModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
+                  title="View Fuel Spending & Consumption Trends"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <Fuel className="h-3.5 w-3.5 text-emerald-700" />
-                      <span className="font-mono text-xs font-bold text-slate-900">{fuel.date}</span>
-                    </div>
-                    <span className="font-mono text-xs font-bold text-slate-900">
-                      {formatMoney(fuel.amount)}
-                    </span>
+                  <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                  <span className="hidden sm:inline">Trend Graph</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <div className="text-xs font-bold font-mono text-slate-900 bg-emerald-50 border border-emerald-200/70 px-2.5 py-1 rounded-lg">
+                    Total: <span className="text-emerald-700 ml-1">{formatMoney(totalFuelCost)}</span>
                   </div>
-                  <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1.5 border-t border-slate-100">
-                    <div>
-                      <span className="font-mono font-medium text-slate-800">{fuel.mileage.toLocaleString()} km</span>
-                      {fuel.fuelLiters && (
-                        <span className="text-slate-400 ml-1.5 font-mono">
-                          · {fuel.fuelLiters} L
-                          {fuel.amount > 0 && fuel.fuelLiters > 0 && (
-                            <span> (৳{(fuel.amount / fuel.fuelLiters).toFixed(0)}/L)</span>
-                          )}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => openEditFuelModal(fuel)}
-                        className="p-1 text-slate-400 hover:text-emerald-600 rounded transition cursor-pointer"
-                        title="Edit fuel entry"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFuelToDelete(fuel)}
-                        className="p-1 text-slate-300 hover:text-rose-600 rounded transition cursor-pointer"
-                        title="Delete fuel entry"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                  {fuel.description && (
-                    <div className="text-[11px] text-slate-500 truncate pt-0.5">
-                      {fuel.description}
-                    </div>
-                  )}
+                  <ViewModeToggle
+                    viewMode={fuelViewMode}
+                    onChange={handleFuelViewModeChange}
+                    gridLabel="Grid"
+                    listLabel="Table"
+                    listValue="table"
+                  />
                 </div>
-              ))}
+              </div>
+
+              <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {fuelExpenses.map((fuel) => (
+                  <div
+                    key={fuel.id}
+                    className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Fuel className="h-3.5 w-3.5 text-emerald-700" />
+                        <span className="font-mono text-xs font-bold text-slate-900">{fuel.date}</span>
+                      </div>
+                      <span className="font-mono text-xs font-bold text-slate-900">
+                        {formatMoney(fuel.amount)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1.5 border-t border-slate-100">
+                      <div>
+                        <span className="font-mono font-medium text-slate-800">{fuel.mileage.toLocaleString()} km</span>
+                        {fuel.fuelLiters && (
+                          <span className="text-slate-400 ml-1.5 font-mono">
+                            · {fuel.fuelLiters} L
+                            {fuel.amount > 0 && fuel.fuelLiters > 0 && (
+                              <span> (৳{(fuel.amount / fuel.fuelLiters).toFixed(0)}/L)</span>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openEditFuelModal(fuel)}
+                          className="p-1 text-slate-400 hover:text-emerald-600 rounded transition cursor-pointer"
+                          title="Edit fuel entry"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFuelToDelete(fuel)}
+                          className="p-1 text-slate-300 hover:text-rose-600 rounded transition cursor-pointer"
+                          title="Delete fuel entry"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    {fuel.description && (
+                      <div className="text-[11px] text-slate-500 truncate pt-0.5">
+                        {fuel.description}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           ) : (
-            /* Table View with UiTable */
+            /* Table View with UiTable - EXACTLY matching DailyExpenses */
             <UiTable<VehicleExpense>
               columns={fuelColumns}
               data={fuelExpenses}
@@ -1838,7 +1874,32 @@ export function VehicleDetailsPage() {
               pageSize={10}
               pageSizeOptions={[8, 10, 15, 25, 50]}
               fullHeight={false}
-              searchPlaceholder="Search fuel records..."
+              searchPlaceholder="Search item, merchant..."
+              leftActions={
+                <button
+                  type="button"
+                  onClick={() => setFuelTrendModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
+                  title="View Fuel Spending & Consumption Trends"
+                >
+                  <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>Trend Graph</span>
+                </button>
+              }
+              rightActions={
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:inline-flex text-xs font-bold font-mono text-slate-900 bg-emerald-50 border border-emerald-200/70 px-2.5 py-1 rounded-lg">
+                    Total: <span className="text-emerald-700 ml-1">{formatMoney(totalFuelCost)}</span>
+                  </div>
+                  <ViewModeToggle
+                    viewMode={fuelViewMode}
+                    onChange={handleFuelViewModeChange}
+                    gridLabel="Grid"
+                    listLabel="Table"
+                    listValue="table"
+                  />
+                </div>
+              }
               rowActions={(fuel) => (
                 <TableRowActions
                   title="Fuel Entry Actions"
@@ -1869,40 +1930,7 @@ export function VehicleDetailsPage() {
       {/* TAB 2: MAINTENANCE & SERVICING (WITH AUTO-EXTRACT FROM RECEIPT)          */}
       {/* ========================================================================= */}
       {activeTab === "maintenance" && (
-        <div className="space-y-3">
-          {/* Maintenance Toolbar & Summary Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-xl border border-slate-200/90 shadow-2xs">
-            <div>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
-                <Wrench className="h-4 w-4 text-emerald-700" />
-                Maintenance History
-              </h2>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Track all periodic servicing, oil changes, parts replacements, and attached bills.
-              </p>
-            </div>
-            <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-              <span className="text-xs font-bold font-mono text-emerald-900 bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded-full">
-                Total: {formatMoney(totalMaintenanceCost)}
-              </span>
-              <ViewModeToggle
-                viewMode={serviceViewMode}
-                onChange={handleServiceViewModeChange}
-                listValue="table"
-              />
-              {(!userAccess || userAccess.isHead || userAccess.access.canWriteMaintenance !== false) && (
-                <button
-                  type="button"
-                  onClick={() => setMaintenanceModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#064e3b] to-[#0d825c] px-3 py-1.5 text-xs font-semibold text-white shadow-2xs hover:from-[#053d2e] hover:to-[#0a6d4d] transition cursor-pointer"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Add Record</span>
-                </button>
-              )}
-            </div>
-          </div>
-
+        <div className="space-y-4">
           {services.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center text-xs text-slate-500 space-y-2">
               <Wrench className="h-6 w-6 text-slate-400 mx-auto" />
@@ -1918,8 +1946,27 @@ export function VehicleDetailsPage() {
               )}
             </div>
           ) : serviceViewMode === "grid" ? (
-            /* Cards View */
-            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+            /* Cards View with Unified Header Bar matching DailyExpenses */
+            <div className="space-y-4">
+              <div className="bg-white p-2 sm:p-2.5 rounded-2xl border border-slate-200/90 shadow-2xs flex items-center justify-between gap-2">
+                <div className="text-xs font-bold text-slate-700">
+                  Maintenance Records ({services.length})
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="text-xs font-bold font-mono text-slate-900 bg-emerald-50 border border-emerald-200/70 px-2.5 py-1 rounded-lg">
+                    Total: <span className="text-emerald-700 ml-1">{formatMoney(totalMaintenanceCost)}</span>
+                  </div>
+                  <ViewModeToggle
+                    viewMode={serviceViewMode}
+                    onChange={handleServiceViewModeChange}
+                    gridLabel="Grid"
+                    listLabel="Table"
+                    listValue="table"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
               {services.map((item) => (
                 <div
                   key={item.id}
@@ -1998,8 +2045,9 @@ export function VehicleDetailsPage() {
                 </div>
               ))}
             </div>
+          </div>
           ) : (
-            /* Table View with UiTable */
+            /* Table View with UiTable - EXACTLY matching DailyExpenses */
             <UiTable<VehicleService>
               columns={serviceColumns}
               data={services}
@@ -2008,7 +2056,21 @@ export function VehicleDetailsPage() {
               pageSize={10}
               pageSizeOptions={[8, 10, 15, 25, 50]}
               fullHeight={false}
-              searchPlaceholder="Search maintenance records..."
+              searchPlaceholder="Search item, merchant..."
+              rightActions={
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:inline-flex text-xs font-bold font-mono text-slate-900 bg-emerald-50 border border-emerald-200/70 px-2.5 py-1 rounded-lg">
+                    Total: <span className="text-emerald-700 ml-1">{formatMoney(totalMaintenanceCost)}</span>
+                  </div>
+                  <ViewModeToggle
+                    viewMode={serviceViewMode}
+                    onChange={handleServiceViewModeChange}
+                    gridLabel="Grid"
+                    listLabel="Table"
+                    listValue="table"
+                  />
+                </div>
+              }
               rowActions={(item) => (
                 <TableRowActions
                   title="Service Entry Actions"

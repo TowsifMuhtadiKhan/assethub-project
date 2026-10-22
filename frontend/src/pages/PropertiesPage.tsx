@@ -1026,83 +1026,85 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                     </div>
                   </div>
 
-                  {/* Filter Pills, Search Bar & View Switcher */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-1.5 sm:gap-2 w-full">
-                      <div className="relative flex-1 min-w-0">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                        <input
-                          type="text"
-                          placeholder="Search property or renter…"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-900 shadow-2xs"
+                  {/* Filter Pills, Search Bar & View Switcher for Grid Mode */}
+                  {propertyView === "grid" && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1.5 sm:gap-2 w-full">
+                        <div className="relative flex-1 min-w-0">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Search property or renter…"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-900 outline-none focus:border-slate-900 shadow-2xs"
+                          />
+                        </div>
+
+                        {/* Filter Icon Button */}
+                        <button
+                          type="button"
+                          onClick={() => setMobileFiltersOpen((prev) => !prev)}
+                          className={`inline-flex items-center justify-center h-8.5 w-8.5 rounded-xl border transition shrink-0 shadow-2xs cursor-pointer relative ${
+                            mobileFiltersOpen || activeFilterCount > 0
+                              ? "border-emerald-600 bg-emerald-50 text-emerald-800"
+                              : "border-slate-200/90 bg-white text-slate-700 hover:bg-slate-50"
+                          }`}
+                          title="Filter properties"
+                          aria-label="Filter"
+                        >
+                          <Filter className="h-3.5 w-3.5" />
+                          {activeFilterCount > 0 && (
+                            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 text-[9px] font-bold text-white px-1 shadow-2xs">
+                              {activeFilterCount}
+                            </span>
+                          )}
+                        </button>
+
+                        <ViewModeToggle
+                          viewMode={propertyView}
+                          onChange={(mode) => setPropertyView(mode as "table" | "grid")}
+                          gridLabel="Grid"
+                          listLabel="Table"
+                          listValue="table"
                         />
                       </div>
 
-                      {/* Filter Icon Button */}
-                      <button
-                        type="button"
-                        onClick={() => setMobileFiltersOpen((prev) => !prev)}
-                        className={`inline-flex items-center justify-center h-8.5 w-8.5 rounded-xl border transition shrink-0 shadow-2xs cursor-pointer relative ${
-                          mobileFiltersOpen || activeFilterCount > 0
-                            ? "border-emerald-600 bg-emerald-50 text-emerald-800"
-                            : "border-slate-200/90 bg-white text-slate-700 hover:bg-slate-50"
-                        }`}
-                        title="Filter properties"
-                        aria-label="Filter"
-                      >
-                        <Filter className="h-3.5 w-3.5" />
-                        {activeFilterCount > 0 && (
-                          <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 text-[9px] font-bold text-white px-1 shadow-2xs">
-                            {activeFilterCount}
-                          </span>
-                        )}
-                      </button>
-
-                      <ViewModeToggle
-                        viewMode={propertyView}
-                        onChange={(mode) => setPropertyView(mode as "table" | "grid")}
-                        gridLabel="Grid"
-                        listLabel="Table"
-                        listValue="table"
-                      />
-                    </div>
-
-                    {/* Expandable Category Pills when Filter is active / open */}
-                    {(mobileFiltersOpen || activeFilterCount > 0) && (
-                      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-                        {[
-                          { id: "All", label: "All Properties", count: metrics.totalProperties },
-                          { id: "Residential", label: "Residential", count: metrics.residentialCount },
-                          { id: "Commercial", label: "Commercial", count: metrics.commercialCount },
-                          { id: "Mixed", label: "Mixed-use", count: metrics.mixedCount },
-                        ].map((cat) => (
-                          <button
-                            key={cat.id}
-                            type="button"
-                            onClick={() => setActiveCategory(cat.id)}
-                            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold shrink-0 transition cursor-pointer ${
-                              activeCategory === cat.id
-                                ? "bg-[#064e3b] text-white shadow-2xs"
-                                : "border border-slate-200/80 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                            }`}
-                          >
-                            <span>{cat.label}</span>
-                            <span
-                              className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono ${
+                      {/* Expandable Category Pills when Filter is active / open */}
+                      {(mobileFiltersOpen || activeFilterCount > 0) && (
+                        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                          {[
+                            { id: "All", label: "All Properties", count: metrics.totalProperties },
+                            { id: "Residential", label: "Residential", count: metrics.residentialCount },
+                            { id: "Commercial", label: "Commercial", count: metrics.commercialCount },
+                            { id: "Mixed", label: "Mixed-use", count: metrics.mixedCount },
+                          ].map((cat) => (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => setActiveCategory(cat.id)}
+                              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold shrink-0 transition cursor-pointer ${
                                 activeCategory === cat.id
-                                  ? "bg-white/20 text-white"
-                                  : "bg-slate-100 text-slate-500"
+                                  ? "bg-[#064e3b] text-white shadow-2xs"
+                                  : "border border-slate-200/80 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
                               }`}
                             >
-                              {cat.count}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                              <span>{cat.label}</span>
+                              <span
+                                className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono ${
+                                  activeCategory === cat.id
+                                    ? "bg-white/20 text-white"
+                                    : "bg-slate-100 text-slate-500"
+                                }`}
+                              >
+                                {cat.count}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Table View */}
                   {propertyView === "table" ? (
@@ -1113,8 +1115,56 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                       pagination={true}
                       pageSize={10}
                       pageSizeOptions={[8, 10, 15, 25, 50]}
-                      showSearch={false}
                       fullHeight={false}
+                      searchValue={searchQuery}
+                      onSearch={setSearchQuery}
+                      searchPlaceholder="Search property or renter…"
+                      leftActions={
+                        <div className="inline-flex items-center p-0.5 rounded-full border border-slate-200 bg-slate-100 text-xs overflow-x-auto no-scrollbar max-w-[340px] sm:max-w-none">
+                          {[
+                            { id: "All", label: "All Properties", count: metrics.totalProperties },
+                            { id: "Residential", label: "Residential", count: metrics.residentialCount },
+                            { id: "Commercial", label: "Commercial", count: metrics.commercialCount },
+                            { id: "Mixed", label: "Mixed-use", count: metrics.mixedCount },
+                          ].map((cat) => (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => setActiveCategory(cat.id)}
+                              className={`px-2.5 py-1 rounded-full font-semibold transition cursor-pointer text-xs whitespace-nowrap flex items-center gap-1.5 ${
+                                activeCategory === cat.id
+                                  ? "bg-[#064e3b] text-white shadow-2xs font-bold"
+                                  : "text-slate-600 hover:text-slate-900"
+                              }`}
+                            >
+                              <span>{cat.label}</span>
+                              <span
+                                className={`rounded-full px-1.5 py-0.2 text-[10px] font-mono ${
+                                  activeCategory === cat.id
+                                    ? "bg-white/20 text-white"
+                                    : "bg-slate-200 text-slate-600"
+                                }`}
+                              >
+                                {cat.count}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      }
+                      rightActions={
+                        <div className="flex items-center gap-2">
+                          <div className="hidden sm:inline-flex text-xs font-bold font-mono text-slate-900 bg-emerald-50 border border-emerald-200/70 px-2.5 py-1 rounded-lg">
+                            Total: <span className="text-emerald-700 ml-1">{filteredProperties.length}</span>
+                          </div>
+                          <ViewModeToggle
+                            viewMode={propertyView}
+                            onChange={(mode) => setPropertyView(mode as "table" | "grid")}
+                            gridLabel="Grid"
+                            listLabel="Table"
+                            listValue="table"
+                          />
+                        </div>
+                      }
                       onRowClick={(p) => {
                         setParams({ property: p.id });
                         setTab("Flats & Renters");

@@ -1327,102 +1327,104 @@ export function DocumentsPage() {
               )}
             </div>
 
-            {/* Search and Category Filter */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 lg:max-w-md w-full">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <div className="flex-1 min-w-0">
-                  <TextField
-                    fullWidth
-                    size="small"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search files, ID numbers, or authorities..."
-                    slotProps={{
-                      input: {
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <Search className="h-4 w-4 text-slate-400" />
-                          </InputAdornment>
-                        ),
-                        endAdornment: search ? (
-                          <InputAdornment position="end">
-                            <button
-                              type="button"
-                              onClick={() => setSearch("")}
-                              className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          </InputAdornment>
-                        ) : null,
-                        sx: {
-                          fontSize: "0.75rem",
-                          fontFamily: '"Inter", sans-serif',
-                          borderRadius: "0.75rem",
-                          backgroundColor: "#f8fafc",
+            {/* Search and Category Filter (Grid Mode) */}
+            {viewMode === "grid" && (
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 lg:max-w-md w-full">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <div className="flex-1 min-w-0">
+                    <TextField
+                      fullWidth
+                      size="small"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search files, ID numbers, or authorities..."
+                      slotProps={{
+                        input: {
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <Search className="h-4 w-4 text-slate-400" />
+                            </InputAdornment>
+                          ),
+                          endAdornment: search ? (
+                            <InputAdornment position="end">
+                              <button
+                                type="button"
+                                onClick={() => setSearch("")}
+                                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </InputAdornment>
+                          ) : null,
+                          sx: {
+                            fontSize: "0.75rem",
+                            fontFamily: '"Inter", sans-serif',
+                            borderRadius: "0.75rem",
+                            backgroundColor: "#f8fafc",
+                          },
                         },
-                      },
-                    }}
+                      }}
+                    />
+                  </div>
+
+                  {/* Filter Icon Button */}
+                  <button
+                    type="button"
+                    onClick={() => setMobileFiltersOpen((prev) => !prev)}
+                    className={`inline-flex items-center justify-center h-9 w-9 rounded-xl border transition shrink-0 shadow-2xs cursor-pointer relative ${
+                      mobileFiltersOpen || activeFilterCount > 0
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-800"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                    title="Filter by category"
+                    aria-label="Filter"
+                  >
+                    <Filter className="h-4 w-4" />
+                    {activeFilterCount > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#064e3b] px-1 text-[9px] font-bold text-white shadow-2xs">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* View Mode Toggle (Grid vs List) - to the right of filter */}
+                  <ViewModeToggle
+                    viewMode={viewMode}
+                    onChange={handleSetViewMode}
+                    gridLabel="Grid"
+                    listLabel="List"
                   />
                 </div>
 
-                {/* Filter Icon Button */}
-                <button
-                  type="button"
-                  onClick={() => setMobileFiltersOpen((prev) => !prev)}
-                  className={`inline-flex items-center justify-center h-9 w-9 rounded-xl border transition shrink-0 shadow-2xs cursor-pointer relative ${
-                    mobileFiltersOpen || activeFilterCount > 0
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-800"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                  }`}
-                  title="Filter by category"
-                  aria-label="Filter"
-                >
-                  <Filter className="h-4 w-4" />
-                  {activeFilterCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#064e3b] px-1 text-[9px] font-bold text-white shadow-2xs">
-                      {activeFilterCount}
-                    </span>
-                  )}
-                </button>
-
-                {/* View Mode Toggle (Grid vs List) - to the right of filter */}
-                <ViewModeToggle
-                  viewMode={viewMode}
-                  onChange={handleSetViewMode}
-                  gridLabel="Grid"
-                  listLabel="List"
-                />
-              </div>
-
-              <div className={`w-full sm:w-auto ${mobileFiltersOpen ? "block" : "hidden sm:block"}`}>
-                <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 130 } }}>
-                  <Select
-                    value={selectedCategoryFilter}
-                    onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-                    sx={{
-                      fontSize: "0.75rem",
-                      fontFamily: '"Inter", sans-serif',
-                      borderRadius: "0.75rem",
-                      backgroundColor: "#f8fafc",
-                      "& .MuiSelect-select": {
+                <div className={`w-full sm:w-auto ${mobileFiltersOpen ? "block" : "hidden sm:block"}`}>
+                  <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 130 } }}>
+                    <Select
+                      value={selectedCategoryFilter}
+                      onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                      sx={{
                         fontSize: "0.75rem",
-                        py: "8px",
-                      },
-                    }}
-                  >
-                    <MenuItem value="All" sx={{ fontSize: "0.75rem" }}>
-                      All Categories
-                    </MenuItem>
-                    {categories.map((c) => (
-                      <MenuItem key={c} value={c} sx={{ fontSize: "0.75rem" }}>
-                        {c}
+                        fontFamily: '"Inter", sans-serif',
+                        borderRadius: "0.75rem",
+                        backgroundColor: "#f8fafc",
+                        "& .MuiSelect-select": {
+                          fontSize: "0.75rem",
+                          py: "8px",
+                        },
+                      }}
+                    >
+                      <MenuItem value="All" sx={{ fontSize: "0.75rem" }}>
+                        All Categories
                       </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                      {categories.map((c) => (
+                        <MenuItem key={c} value={c} sx={{ fontSize: "0.75rem" }}>
+                          {c}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* FOLDERS SECTION (Google Drive Card Grid) */}
@@ -1749,8 +1751,39 @@ export function DocumentsPage() {
                 pagination={true}
                 pageSize={10}
                 pageSizeOptions={[8, 10, 15, 25, 50]}
-                showSearch={false}
                 fullHeight={false}
+                searchValue={search}
+                onSearch={setSearch}
+                searchPlaceholder="Search files, ID numbers, or authorities..."
+                leftActions={
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={selectedCategoryFilter}
+                      onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 outline-none focus:border-slate-900 shadow-2xs cursor-pointer"
+                    >
+                      <option value="All">All Categories</option>
+                      {categories.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                }
+                rightActions={
+                  <div className="flex items-center gap-2">
+                    <div className="hidden sm:inline-flex text-xs font-bold font-mono text-slate-900 bg-emerald-50 border border-emerald-200/70 px-2.5 py-1 rounded-lg">
+                      Total: <span className="text-emerald-700 ml-1">{filteredDocuments.length}</span>
+                    </div>
+                    <ViewModeToggle
+                      viewMode={viewMode}
+                      onChange={handleSetViewMode}
+                      gridLabel="Grid"
+                      listLabel="List"
+                    />
+                  </div>
+                }
                 onRowClick={(doc) => setPreviewDoc(doc)}
                 rowActions={(doc) => (
                   <TableRowActions

@@ -479,87 +479,89 @@ export function VehicleEntryPage({
         </div>
       </div>
 
-      {/* Search Bar, Filter & View Switcher - Single Row on Mobile */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-1.5 sm:gap-2 w-full">
-          {/* Search Input */}
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name, plate, model..."
-              className="w-full rounded-xl border border-slate-200/90 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none shadow-2xs"
+      {/* Search Bar, Filter & View Switcher for Grid Mode */}
+      {viewMode === "grid" && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 w-full">
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name, plate, model..."
+                className="w-full rounded-xl border border-slate-200/90 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none shadow-2xs"
+              />
+            </div>
+
+            {/* Filter Icon Button */}
+            <button
+              type="button"
+              onClick={() => setMobileFiltersOpen((prev) => !prev)}
+              className={`inline-flex items-center justify-center h-8.5 w-8.5 rounded-xl border transition shrink-0 shadow-2xs cursor-pointer relative ${
+                mobileFiltersOpen || activeTab !== "All"
+                  ? "border-emerald-600 bg-emerald-50 text-emerald-800"
+                  : "border-slate-200/90 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+              title="Filter by vehicle type"
+              aria-label="Filter"
+            >
+              <Filter className="h-3.5 w-3.5" />
+              {activeTab !== "All" && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 text-[9px] font-bold text-white px-1 shadow-2xs">
+                  1
+                </span>
+              )}
+            </button>
+
+            {/* View Mode Toggle (Grid vs Table) */}
+            <ViewModeToggle
+              viewMode={viewMode}
+              onChange={(mode) => setViewMode(mode as "table" | "grid")}
+              gridLabel="Grid"
+              listLabel="Table"
+              listValue="table"
             />
           </div>
 
-          {/* Filter Icon Button */}
-          <button
-            type="button"
-            onClick={() => setMobileFiltersOpen((prev) => !prev)}
-            className={`inline-flex items-center justify-center h-8.5 w-8.5 rounded-xl border transition shrink-0 shadow-2xs cursor-pointer relative ${
-              mobileFiltersOpen || activeTab !== "All"
-                ? "border-emerald-600 bg-emerald-50 text-emerald-800"
-                : "border-slate-200/90 bg-white text-slate-700 hover:bg-slate-50"
-            }`}
-            title="Filter by vehicle type"
-            aria-label="Filter"
-          >
-            <Filter className="h-3.5 w-3.5" />
-            {activeTab !== "All" && (
-              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 text-[9px] font-bold text-white px-1 shadow-2xs">
-                1
-              </span>
-            )}
-          </button>
-
-          {/* View Mode Toggle (Grid vs Table) */}
-          <ViewModeToggle
-            viewMode={viewMode}
-            onChange={(mode) => setViewMode(mode as "table" | "grid")}
-            gridLabel="Grid"
-            listLabel="Table"
-            listValue="table"
-          />
-        </div>
-
-        {/* Expandable Category Pills when Filter is active / open */}
-        {(mobileFiltersOpen || activeTab !== "All") && (
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-            {[
-              { id: "All", label: "All", count: counts.total },
-              { id: "Car", label: "Cars", count: counts.cars },
-              { id: "Bike", label: "Bikes", count: counts.bikes },
-              { id: "Scooter", label: "Scooters", count: counts.scooters },
-              { id: "Commercial", label: "Commercial", count: counts.commercial },
-              { id: "Van", label: "Vans", count: counts.vans },
-              { id: "Bicycle", label: "Bicycles", count: counts.bicycles },
-              { id: "Other", label: "Other", count: counts.other },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition cursor-pointer ${
-                  activeTab === tab.id
-                    ? "bg-[#064e3b] text-white shadow-2xs"
-                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                <span>{tab.label}</span>
-                <span
-                  className={`text-[10px] px-1 rounded-full ${
-                    activeTab === tab.id ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+          {/* Expandable Category Pills when Filter is active / open */}
+          {(mobileFiltersOpen || activeTab !== "All") && (
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+              {[
+                { id: "All", label: "All", count: counts.total },
+                { id: "Car", label: "Cars", count: counts.cars },
+                { id: "Bike", label: "Bikes", count: counts.bikes },
+                { id: "Scooter", label: "Scooters", count: counts.scooters },
+                { id: "Commercial", label: "Commercial", count: counts.commercial },
+                { id: "Van", label: "Vans", count: counts.vans },
+                { id: "Bicycle", label: "Bicycles", count: counts.bicycles },
+                { id: "Other", label: "Other", count: counts.other },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition cursor-pointer ${
+                    activeTab === tab.id
+                      ? "bg-[#064e3b] text-white shadow-2xs"
+                      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  {tab.count}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+                  <span>{tab.label}</span>
+                  <span
+                    className={`text-[10px] px-1 rounded-full ${
+                      activeTab === tab.id ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Setup banner if tables are missing */}
       <SqlSetupBanner error={error} />
@@ -756,7 +758,51 @@ export function VehicleEntryPage({
           pagination={true}
           pageSize={10}
           pageSizeOptions={[8, 10, 15, 25, 50]}
-          showSearch={false}
+          fullHeight={false}
+          searchValue={searchQuery}
+          onSearch={setSearchQuery}
+          searchPlaceholder="Search by name, plate, model..."
+          leftActions={
+            <div className="inline-flex items-center p-0.5 rounded-full border border-slate-200 bg-slate-100 text-xs overflow-x-auto no-scrollbar max-w-[340px] sm:max-w-none">
+              {[
+                { id: "All", label: "All" },
+                { id: "Car", label: "Cars" },
+                { id: "Bike", label: "Bikes" },
+                { id: "Scooter", label: "Scooters" },
+                { id: "Commercial", label: "Commercial" },
+                { id: "Van", label: "Vans" },
+                { id: "Bicycle", label: "Bicycles" },
+                { id: "Other", label: "Other" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-2.5 py-1 rounded-full font-semibold transition cursor-pointer text-xs whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? "bg-white text-slate-900 shadow-2xs font-bold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          }
+          rightActions={
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:inline-flex text-xs font-bold font-mono text-slate-900 bg-emerald-50 border border-emerald-200/70 px-2.5 py-1 rounded-lg">
+                Total: <span className="text-emerald-700 ml-1">{filteredVehicles.length}</span>
+              </div>
+              <ViewModeToggle
+                viewMode={viewMode}
+                onChange={(mode) => setViewMode(mode as "table" | "grid")}
+                gridLabel="Grid"
+                listLabel="Table"
+                listValue="table"
+              />
+            </div>
+          }
           rowActions={(vehicle) => (
             <TableRowActions
               title={vehicle.name}
