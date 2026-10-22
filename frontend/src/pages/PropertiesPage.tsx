@@ -1120,7 +1120,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
                       onSearch={setSearchQuery}
                       searchPlaceholder="Search property or renter…"
                       leftActions={
-                        <div className="inline-flex items-center p-0.5 rounded-full border border-slate-200 bg-slate-100 text-xs overflow-x-auto no-scrollbar max-w-[340px] sm:max-w-none">
+                        <div className="inline-flex items-center p-0.5 rounded-full border border-slate-200 bg-slate-100 text-xs shrink-0">
                           {[
                             { id: "All", label: "All Properties", count: metrics.totalProperties },
                             { id: "Residential", label: "Residential", count: metrics.residentialCount },

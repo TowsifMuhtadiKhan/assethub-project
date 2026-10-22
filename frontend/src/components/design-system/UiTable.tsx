@@ -183,81 +183,89 @@ export function UiTable<T>({
       } w-full overflow-hidden ${className}`}
     >
       {/* Table Action Toolbar (Unified Enterprise Toolbar) */}
-      <div className="shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-3 p-3.5 border-b border-slate-200/80 bg-slate-50/50">
+      <div className="shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-2.5 sm:gap-3 p-3 sm:p-3.5 border-b border-slate-200/80 bg-slate-50/50">
         {/* Left Toolbar: Columns, Filters, Density + Left Actions */}
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          {/* Columns Toggle Dropdown */}
-          <div className="relative" ref={columnsMenuRef}>
+        <div className="flex flex-col md:flex-row md:items-center gap-2 sm:gap-2.5 min-w-0 w-full md:w-auto">
+          {/* Row 1 on mobile: Columns & Density buttons */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Columns Toggle Dropdown */}
+            <div className="relative" ref={columnsMenuRef}>
+              <button
+                type="button"
+                onClick={() => setColumnsMenuOpen((prev) => !prev)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
+                title="Toggle Columns"
+              >
+                <Columns className="h-3.5 w-3.5 text-slate-500" />
+                <span>Columns</span>
+              </button>
+
+              {columnsMenuOpen && (
+                <div className="absolute left-0 top-9 z-30 w-48 rounded-xl border border-slate-200 bg-white p-2 shadow-xl animate-in fade-in zoom-in-95 duration-100">
+                  <div className="text-[11px] font-bold text-slate-500 uppercase px-2 py-1 border-b border-slate-100 mb-1">
+                    Toggle Columns
+                  </div>
+                  <div className="space-y-1 max-h-56 overflow-y-auto">
+                    {columns.map((col) => {
+                      const isVisible = !hiddenColumnKeys[col.key];
+                      return (
+                        <button
+                          key={col.key}
+                          type="button"
+                          onClick={() => toggleColumnVisibility(col.key)}
+                          className="w-full flex items-center justify-between px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50 rounded-lg transition text-left cursor-pointer"
+                        >
+                          <span className="truncate">{col.header}</span>
+                          {isVisible && <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Filters Button */}
+            {onFilterClick && (
+              <button
+                type="button"
+                onClick={onFilterClick}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
+                title="Filter Data"
+              >
+                <Filter className="h-3.5 w-3.5 text-slate-500" />
+                <span>Filters</span>
+              </button>
+            )}
+
+            {/* Density Toggle Button */}
             <button
               type="button"
-              onClick={() => setColumnsMenuOpen((prev) => !prev)}
+              onClick={() => {
+                setDensity((prev) =>
+                  prev === "normal" ? "compact" : prev === "compact" ? "relaxed" : "normal"
+                );
+              }}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
-              title="Toggle Columns"
+              title={`Toggle Row Spacing (Current: ${density})`}
             >
-              <Columns className="h-3.5 w-3.5 text-slate-500" />
-              <span>Columns</span>
+              <AlignJustify className="h-3.5 w-3.5 text-slate-500" />
+              <span>Density</span>
             </button>
-
-            {columnsMenuOpen && (
-              <div className="absolute left-0 top-9 z-30 w-48 rounded-xl border border-slate-200 bg-white p-2 shadow-xl animate-in fade-in zoom-in-95 duration-100">
-                <div className="text-[11px] font-bold text-slate-500 uppercase px-2 py-1 border-b border-slate-100 mb-1">
-                  Toggle Columns
-                </div>
-                <div className="space-y-1 max-h-56 overflow-y-auto">
-                  {columns.map((col) => {
-                    const isVisible = !hiddenColumnKeys[col.key];
-                    return (
-                      <button
-                        key={col.key}
-                        type="button"
-                        onClick={() => toggleColumnVisibility(col.key)}
-                        className="w-full flex items-center justify-between px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50 rounded-lg transition text-left cursor-pointer"
-                      >
-                        <span className="truncate">{col.header}</span>
-                        {isVisible && <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Filters Button */}
-          {onFilterClick && (
-            <button
-              type="button"
-              onClick={onFilterClick}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
-              title="Filter Data"
-            >
-              <Filter className="h-3.5 w-3.5 text-slate-500" />
-              <span>Filters</span>
-            </button>
+          {/* Row 2 on mobile, inline on desktop: Left Actions */}
+          {leftActions && (
+            <div className="w-full md:w-auto flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+              {leftActions}
+            </div>
           )}
-
-          {/* Density Toggle Button */}
-          <button
-            type="button"
-            onClick={() => {
-              setDensity((prev) =>
-                prev === "normal" ? "compact" : prev === "compact" ? "relaxed" : "normal"
-              );
-            }}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs cursor-pointer"
-            title={`Toggle Row Spacing (Current: ${density})`}
-          >
-            <AlignJustify className="h-3.5 w-3.5 text-slate-500" />
-            <span>Density</span>
-          </button>
-
-          {leftActions}
         </div>
 
         {/* Right Toolbar: Search Input + Right Actions */}
-        <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto flex-wrap">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2.5 w-full md:w-auto shrink-0">
           {showSearch && (
-            <div className="relative min-w-[200px] max-w-xs w-full sm:w-auto">
+            <div className="relative w-full sm:w-auto md:w-56 lg:w-64">
               <Search className="h-3.5 w-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
@@ -268,7 +276,11 @@ export function UiTable<T>({
               />
             </div>
           )}
-          {rightActions}
+          {rightActions && (
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              {rightActions}
+            </div>
+          )}
         </div>
       </div>
 
