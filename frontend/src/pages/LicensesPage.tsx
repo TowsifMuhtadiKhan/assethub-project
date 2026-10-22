@@ -16,6 +16,7 @@ import {
 import { listFamilyMembers } from "../services/familyService";
 import type { LicenseItem, FamilyMember } from "../types";
 import { ItemRecipientSelector } from "../components/common/ItemRecipientSelector";
+import { UiPageHeader, UiButton } from "../components/design-system";
 
 export function LicensesPage() {
   const [licenses, setLicenses] = useState<LicenseItem[]>([]);
@@ -102,25 +103,27 @@ export function LicensesPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="w-full">
       {/* Compact Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
-        <div>
-          <h1 className="text-lg font-bold tracking-tight text-slate-900">
-            Personal Licenses & Registrations
-          </h1>
-          <p className="text-xs text-slate-500">
-            Track Driving Licenses, Trade Licenses, TIN certificates, and Professional Memberships.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setIsAddOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-slate-800"
-        >
-          <Plus className="h-3.5 w-3.5" /> Add License
-        </button>
-      </div>
+      <UiPageHeader
+        title="Personal Licenses & Registrations"
+        helpTooltip="Track Driving Licenses, Trade Licenses, TIN certificates, and Professional Memberships."
+        subtitle="Track Driving Licenses, Trade Licenses, TIN certificates, and Professional Memberships."
+        sticky={true}
+        actions={
+          <UiButton
+            variant="primary"
+            size="sm"
+            onClick={() => setIsAddOpen(true)}
+            icon={<Plus className="h-3.5 w-3.5" />}
+          >
+            Add License
+          </UiButton>
+        }
+      />
+
+      {/* Main Content Area with Page Padding */}
+      <div className="p-3.5 sm:p-5 lg:p-6 space-y-6">
 
       {/* Database Setup Banner */}
       <SqlSetupBanner error={error} />
@@ -467,6 +470,7 @@ export function LicensesPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

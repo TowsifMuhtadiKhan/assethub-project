@@ -29,6 +29,7 @@ import type {
   FamilyMember,
 } from "../types";
 import { MobileHomePage } from "../components/mobile/MobileHomePage";
+import { UiPageHeader, UiButton } from "../components/design-system";
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -312,32 +313,37 @@ export function DashboardPage() {
       </div>
 
       {/* 2. Desktop Workspace Dashboard (Desktop Screens) */}
-      <div className="hidden lg:block space-y-4 w-full">
-      {/* Top Bar Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3">
-        <div>
-          <h1 className="text-lg font-bold tracking-tight text-slate-900">
-            Overview
-          </h1>
-          <p className="text-xs text-slate-500">
-            Summary of your papers, cars & bikes, houses, and pending tasks.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate("/my-life/tasks")}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-2xs"
-          >
-            <Plus className="h-3.5 w-3.5" /> Task
-          </button>
-          <button
-            onClick={() => navigate("/documents/vault")}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-2xs"
-          >
-            <FileText className="h-3.5 w-3.5" /> Document
-          </button>
-        </div>
-      </div>
+      <div className="hidden lg:block w-full">
+        {/* Top Bar Header */}
+        <UiPageHeader
+          title="Overview"
+          helpTooltip="Summary of your family papers, vehicles, properties, daily budget, and pending tasks."
+          subtitle="Summary of your papers, cars & bikes, houses, and pending tasks."
+          sticky={true}
+          actions={
+            <div className="flex items-center gap-2">
+              <UiButton
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/my-life/tasks")}
+                icon={<Plus className="h-3.5 w-3.5" />}
+              >
+                Task
+              </UiButton>
+              <UiButton
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/documents/vault")}
+                icon={<FileText className="h-3.5 w-3.5" />}
+              >
+                Document
+              </UiButton>
+            </div>
+          }
+        />
+
+        {/* Main Content Area with Page Padding */}
+        <div className="p-3.5 sm:p-5 lg:p-6 space-y-4">
 
       {/* 6 Clean Metric Boxes with unified styling and theme accents */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
@@ -601,6 +607,7 @@ export function DashboardPage() {
               })
             )}
           </div>
+        </div>
         </div>
       </div>
     </>

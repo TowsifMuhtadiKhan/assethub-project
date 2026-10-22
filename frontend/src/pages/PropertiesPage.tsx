@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
-  ArrowLeft,
   BarChart3,
   Building2,
   CheckCircle2,
@@ -12,7 +11,6 @@ import {
   Filter,
   Home,
   Mail,
-  MapPin,
   Phone,
   Plus,
   ReceiptText,
@@ -64,6 +62,7 @@ import { TableRowActions } from "../components/common/TableRowActions";
 import { ViewModeToggle } from "../components/common/ViewModeToggle";
 import { checkPlanLimit, type PlanTier } from "../services/subscriptionService";
 import { PlanUpgradeModal } from "../components/common/PlanUpgradeModal";
+import { UiPageHeader, UiButton } from "../components/design-system";
 
 export const BD_PROPERTY_DOC_PRESETS = [
   {
@@ -683,55 +682,38 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
   }
 
   return (
-    <div className="space-y-4 pb-28 sm:pb-8">
+    <div className="w-full">
       {/* Top Header */}
       {property ? (
-        <div className="rental-no-print flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <button
-              type="button"
-              onClick={() => setParams({})}
-              className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-700 shadow-2xs hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer shrink-0"
-              title="Back"
-              aria-label="Back"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
-                {property.name}
-              </h1>
-              {property.location && (
-                <p className="text-xs text-slate-500 truncate flex items-center gap-1 mt-0.5">
-                  <MapPin className="h-3 w-3 shrink-0 text-slate-400" />
-                  <span className="truncate">{property.location}</span>
-                </p>
+        <UiPageHeader
+          title={property.name}
+          subtitle={property.location || undefined}
+          helpTooltip="Manage flats, rooms, rent schedules, and maintenance records for this building."
+          onBack={() => setParams({})}
+          sticky={true}
+          actions={
+            <div className="flex items-center gap-2 shrink-0">
+              <UiButton
+                variant="primary"
+                size="sm"
+                onClick={handleOpenAddUnit}
+                icon={<Plus className="h-3.5 w-3.5" />}
+              >
+                Add flat
+              </UiButton>
+              {(!userAccess || userAccess.isHead || userAccess.access.canDeleteProperties !== false) && (
+                <UiButton
+                  variant="danger"
+                  size="sm"
+                  onClick={() => removeProperty(property.id, property.name)}
+                  icon={<Trash2 className="h-3.5 w-3.5" />}
+                >
+                  Delete
+                </UiButton>
               )}
             </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] active:scale-95 transition cursor-pointer"
-              onClick={handleOpenAddUnit}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Add flat</span>
-            </button>
-            {(!userAccess || userAccess.isHead || userAccess.access.canDeleteProperties !== false) && (
-              <button
-                type="button"
-                className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50/60 p-1.5 sm:px-3 sm:py-2 text-xs font-semibold text-rose-600 hover:bg-rose-100 hover:border-rose-300 transition shadow-2xs cursor-pointer"
-                onClick={() => removeProperty(property.id, property.name)}
-                title={`Delete property "${property.name}"`}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Delete</span>
-              </button>
-            )}
-          </div>
-        </div>
+          }
+        />
       ) : (
         <>
           {/* Mobile Top Header Integration via Portal into MobileHeader */}
@@ -752,44 +734,49 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
               headerPortalEl
             )}
 
-          <div className="rental-no-print hidden lg:flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
-                {dashboard
-                  ? "Property Dashboard"
-                  : "Properties & Rentals"}
-              </h1>
-              <p className="text-xs text-slate-500 mt-0.5 hidden sm:block">
-                {dashboard
-                  ? "Financial insights, profit/loss, occupancy rates, and collection reports."
-                  : "Whole flats, multiple rooms, renter records, rent ledgers, and maintenance."}
-              </p>
-            </div>
-
-            {/* Top-Right Action Buttons */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              <Link
-                to={dashboard ? "/rentals/properties" : "/rentals/dashboard"}
-                className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs"
-              >
-                <BarChart3 className="h-3.5 w-3.5 text-emerald-700" />
-                <span>{dashboard ? "Manage" : "Reports"}</span>
-              </Link>
-              {(!userAccess || userAccess.isHead || userAccess.access.canCreateProperties !== false) && (
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] active:scale-95 transition cursor-pointer"
-                  onClick={handleOpenAddProperty}
-                  disabled={!data}
+          {/* Desktop Top Header (Enterprise Sticky Header, Zero Margin on Top/Left/Right) */}
+          <UiPageHeader
+            title={dashboard ? "Property Dashboard" : "Properties & Rentals"}
+            helpTooltip={
+              dashboard
+                ? "Financial insights, profit/loss, occupancy rates, and collection reports."
+                : "Whole flats, multiple rooms, renter records, rent ledgers, and maintenance."
+            }
+            subtitle={
+              dashboard
+                ? "Financial insights, profit/loss, occupancy rates, and collection reports."
+                : "Whole flats, multiple rooms, renter records, rent ledgers, and maintenance."
+            }
+            sticky={true}
+            className="hidden lg:block"
+            actions={
+              <div className="flex items-center gap-2 shrink-0">
+                <Link
+                  to={dashboard ? "/rentals/properties" : "/rentals/dashboard"}
+                  className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs"
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Add property</span>
-                </button>
-              )}
-            </div>
-          </div>
+                  <BarChart3 className="h-3.5 w-3.5 text-emerald-700" />
+                  <span>{dashboard ? "Manage" : "Reports"}</span>
+                </Link>
+                {(!userAccess || userAccess.isHead || userAccess.access.canCreateProperties !== false) && (
+                  <UiButton
+                    variant="primary"
+                    size="sm"
+                    onClick={handleOpenAddProperty}
+                    disabled={!data}
+                    icon={<Plus className="h-3.5 w-3.5" />}
+                  >
+                    Add property
+                  </UiButton>
+                )}
+              </div>
+            }
+          />
         </>
       )}
+
+      {/* Main Content Area with Page Padding */}
+      <div className="p-3.5 sm:p-5 lg:p-6 space-y-4 pb-28 sm:pb-8">
 
       {error && (
         <div
@@ -2738,6 +2725,7 @@ export function PropertiesPage({ dashboard = false }: { dashboard?: boolean }) {
         maxLimit={upgradeModal.maxLimit}
         customMessage={upgradeModal.customMessage}
       />
+      </div>
     </div>
   );
 }

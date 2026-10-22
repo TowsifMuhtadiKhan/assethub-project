@@ -67,6 +67,7 @@ import type {
   DocumentFolder,
 } from "../types";
 import { ItemRecipientSelector } from "../components/common/ItemRecipientSelector";
+import { UiPageHeader, UiButton } from "../components/design-system";
 
 const categories: DocumentCategory[] = [
   "Identity",
@@ -945,7 +946,7 @@ export function DocumentsPage() {
   const breadcrumbs = getBreadcrumbs();
 
   return (
-    <div className="space-y-4 w-full">
+    <div className="w-full">
       {/* Mobile Top Header Integration via Portal into MobileHeader */}
       {headerPortalEl &&
         createPortal(
@@ -975,39 +976,39 @@ export function DocumentsPage() {
           headerPortalEl
         )}
 
-      {/* Desktop Top Header (Hidden on mobile because MobileHeader renders Document Vault and portal has Upload button) */}
-      <div className="hidden lg:flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
-        <div className="min-w-0">
-          <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 font-display truncate">
-            Important Documents
-          </h1>
-          <p className="text-xs text-slate-500 hidden sm:block">
-            Passports, National IDs, certificates, and family papers organized in folders.
-          </p>
-        </div>
+      {/* Desktop Top Header (Enterprise Sticky Header, Zero Margin on Top/Left/Right) */}
+      <UiPageHeader
+        title="Important Documents"
+        helpTooltip="Store and organize national IDs, passports, certificates, deeds, and personal records safely."
+        subtitle="Passports, National IDs, certificates, and family papers organized in folders."
+        sticky={true}
+        className="hidden lg:block"
+        actions={
+          canCreate && !isVaultLockedForUser ? (
+            <div className="flex items-center gap-2">
+              <UiButton
+                variant="outline"
+                size="sm"
+                onClick={() => setIsFolderOpen(true)}
+                icon={<FolderPlus className="h-3.5 w-3.5 text-[#064e3b]" />}
+              >
+                Folder
+              </UiButton>
+              <UiButton
+                variant="primary"
+                size="sm"
+                onClick={handleOpenUploadDocument}
+                icon={<Plus className="h-3.5 w-3.5" />}
+              >
+                Upload
+              </UiButton>
+            </div>
+          ) : null
+        }
+      />
 
-        {/* Action Buttons */}
-        {canCreate && !isVaultLockedForUser && (
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsFolderOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 transition cursor-pointer"
-            >
-              <FolderPlus className="h-3.5 w-3.5 text-[#064e3b]" />
-              <span>Folder</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleOpenUploadDocument}
-              className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] active:scale-95 transition cursor-pointer"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Upload</span>
-            </button>
-          </div>
-        )}
-      </div>
+      {/* Main Content Area with Page Padding */}
+      <div className="p-3.5 sm:p-5 lg:p-6 space-y-4">
 
       <SqlSetupBanner error={error} />
 
@@ -3001,6 +3002,7 @@ export function DocumentsPage() {
         maxLimit={upgradeModal.maxLimit}
         customMessage={upgradeModal.customMessage}
       />
+      </div>
     </div>
   );
 }

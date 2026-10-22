@@ -13,6 +13,7 @@ import { DocumentViewerModal, type ViewableDocument } from "../components/common
 import { TableRowActions } from "../components/common/TableRowActions";
 import { BrandLogoLoader } from "../components/common/LoadingStates";
 import { ViewModeToggle } from "../components/common/ViewModeToggle";
+import { UiPageHeader, UiButton } from "../components/design-system";
 
 export function WarrantiesPage() {
   const [warranties, setWarranties] = useState<WarrantyItem[]>([]);
@@ -201,7 +202,7 @@ export function WarrantiesPage() {
   }
 
   return (
-    <div className="space-y-4 pb-28 sm:pb-8">
+    <div className="w-full">
       {/* Mobile Top Header Integration via Portal into MobileHeader */}
       {headerPortalEl &&
         (!userAccess || userAccess.isHead || userAccess.access.canCreateWarranties !== false) &&
@@ -219,27 +220,29 @@ export function WarrantiesPage() {
           headerPortalEl
         )}
 
-      {/* Desktop Header (hidden on mobile since top MobileHeader has title and + Add Warranty button) */}
-      <div className="hidden lg:flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
-        <div className="min-w-0">
-          <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
-            Warranty Cards
-          </h1>
-          <p className="text-xs text-slate-500 hidden sm:block">
-            Save purchase bills, receipts, and warranty cards with expiry dates.
-          </p>
-        </div>
-        {(!userAccess || userAccess.isHead || userAccess.access.canCreateWarranties !== false) && (
-          <button
-            type="button"
-            onClick={() => setIsAddOpen(true)}
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] active:scale-95 transition cursor-pointer"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Add Warranty</span>
-          </button>
-        )}
-      </div>
+      {/* Desktop Header (Enterprise Sticky Header, Zero Margin on Top/Left/Right) */}
+      <UiPageHeader
+        title="Warranty Cards"
+        helpTooltip="Save purchase bills, receipts, and warranty cards with expiry dates."
+        subtitle="Save purchase bills, receipts, and warranty cards with expiry dates."
+        sticky={true}
+        className="hidden lg:block"
+        actions={
+          (!userAccess || userAccess.isHead || userAccess.access.canCreateWarranties !== false) ? (
+            <UiButton
+              variant="primary"
+              size="sm"
+              onClick={() => setIsAddOpen(true)}
+              icon={<Plus className="h-3.5 w-3.5" />}
+            >
+              Add Warranty
+            </UiButton>
+          ) : null
+        }
+      />
+
+      {/* Main Content Area with Page Padding */}
+      <div className="p-3.5 sm:p-5 lg:p-6 space-y-4 pb-28 sm:pb-8">
 
       {/* Metrics Row - Mobile 4-Column Compact Strip vs Desktop 4 Cards */}
       <div className="grid grid-cols-4 gap-2 lg:hidden">
@@ -837,6 +840,7 @@ export function WarrantiesPage() {
         onClose={() => setViewingDoc(null)}
         document={viewingDoc}
       />
+      </div>
     </div>
   );
 }

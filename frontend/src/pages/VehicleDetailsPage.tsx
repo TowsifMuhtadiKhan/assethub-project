@@ -37,6 +37,7 @@ import { SqlSetupBanner } from "../components/common/SqlSetupBanner";
 import { TableRowActions } from "../components/common/TableRowActions";
 import { BrandLogoLoader } from "../components/common/LoadingStates";
 import { DocumentViewerModal, type ViewableDocument } from "../components/common/DocumentViewerModal";
+import { UiPageHeader } from "../components/design-system";
 import { FuelTrendModal } from "../components/vehicles/FuelTrendModal";
 import {
   createVehicleExpense,
@@ -71,7 +72,7 @@ import type {
   WarrantyItem,
   BangladeshDocType,
 } from "../types";
-import { getVehicleIcon, getVehicleTypeBadgeClass } from "./VehicleEntryPage";
+import { getVehicleIcon } from "./VehicleEntryPage";
 import { BangladeshNumberPlate } from "../components/common/BangladeshNumberPlate";
 import { ItemRecipientSelector } from "../components/common/ItemRecipientSelector";
 import {
@@ -1346,43 +1347,24 @@ export function VehicleDetailsPage() {
   const VehicleIcon = getVehicleIcon(vehicle.type);
 
   return (
-    <div className="space-y-4 pb-28 sm:pb-8">
-      {/* Top Header & Navigation */}
-      <div className="flex items-center justify-between border-b border-slate-200/80 pb-3">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <button
-            type="button"
-            onClick={() => navigate("/assets/vehicles")}
-            className="hidden lg:inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer shrink-0"
-            title="Back"
-            aria-label="Back"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-800">
-              <VehicleBrandLogo brand={vehicle.brand} type={vehicle.type} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <h1 className="text-sm sm:text-base font-bold tracking-tight text-slate-900 truncate">
-                  {vehicle.name}
-                </h1>
-                <span
-                  className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${getVehicleTypeBadgeClass(
-                    vehicle.type,
-                  )}`}
-                >
-                  {vehicle.type}
-                </span>
-              </div>
-              <p className="text-[11px] sm:text-xs text-slate-500 font-mono font-medium mt-0.5 truncate">
-                {vehicle.registrationNumber || "Unregistered"}
-              </p>
-            </div>
+    <div className="w-full">
+      {/* Top Header & Navigation (Enterprise Sticky Header, Zero Margin on Top/Left/Right) */}
+      <UiPageHeader
+        title={vehicle.name}
+        subtitle={vehicle.registrationNumber || "Unregistered"}
+        helpTooltip="View fuel logs, BRTA tax tokens, fitness expiry, maintenance receipts, and vehicle claims."
+        onBack={() => navigate("/assets/vehicles")}
+        sticky={true}
+        leftSlot={
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-800">
+            <VehicleBrandLogo brand={vehicle.brand} type={vehicle.type} />
           </div>
-        </div>
-      </div>
+        }
+        countBadge={vehicle.type}
+      />
+
+      {/* Main Content Area with Page Padding */}
+      <div className="p-3.5 sm:p-5 lg:p-6 space-y-4 pb-28 sm:pb-8">
 
       {/* Setup banner for database */}
       <SqlSetupBanner error={error} />
@@ -4832,6 +4814,7 @@ export function VehicleDetailsPage() {
         vehicleName={vehicle.name}
         vehicleReg={vehicle.registrationNumber}
       />
+      </div>
     </div>
   );
 }

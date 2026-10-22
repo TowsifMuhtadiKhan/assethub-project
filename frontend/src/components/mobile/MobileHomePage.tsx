@@ -166,7 +166,7 @@ export function MobileHomePage() {
     : "৳ 0";
 
   return (
-    <div className="space-y-4 pb-4">
+    <div className="p-3.5 space-y-4 pb-4">
       {/* 1. TOP PROFILE & SUMMARY STATS WITH VAULT ILLUSTRATION */}
       <div className="relative rounded-3xl border border-emerald-100/90 bg-gradient-to-b from-[#eaf8f0] via-[#f4fcf7] to-white p-4 shadow-sm overflow-hidden">
         {/* Likhe Rakho Vault Illustration embedded on the right background */}

@@ -23,6 +23,7 @@ import { SqlSetupBanner } from "../components/common/SqlSetupBanner";
 import { BrandLogoLoader } from "../components/common/LoadingStates";
 import { TableRowActions } from "../components/common/TableRowActions";
 import { ViewModeToggle } from "../components/common/ViewModeToggle";
+import { UiPageHeader, UiButton } from "../components/design-system";
 import {
   createVehicle,
   deleteVehicle,
@@ -367,7 +368,7 @@ export function VehicleEntryPage({
   }
 
   return (
-    <div className="space-y-4 pb-28 sm:pb-8">
+    <div className="w-full">
       {/* Mobile Top Header Integration via Portal into MobileHeader */}
       {headerPortalEl &&
         createPortal(
@@ -384,34 +385,36 @@ export function VehicleEntryPage({
           headerPortalEl
         )}
 
-      {/* Desktop Header (hidden on mobile since top MobileHeader has page title and + Add Vehicle button) */}
-      <div className="hidden lg:flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
-        <div className="min-w-0">
-          <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
-            {pageTitle}
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5 hidden sm:block">
-            {pageSubtitle}
-          </p>
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <Link
-            to="/assets/vehicles/dashboard"
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs"
-          >
-            <BarChart3 className="h-3.5 w-3.5 text-amber-600" />
-            <span>Summary</span>
-          </Link>
-          <button
-            type="button"
-            onClick={handleOpenAddVehicle}
-            className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-tr from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold text-white shadow-sm shadow-emerald-950/20 hover:from-[#073f30] hover:to-[#0b6e4e] active:scale-95 transition cursor-pointer"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Add {activeTab !== "All" ? activeTab : "Vehicle"}</span>
-          </button>
-        </div>
-      </div>
+      {/* Desktop Header (Enterprise Sticky Header, Zero Margin on Top/Left/Right) */}
+      <UiPageHeader
+        title={pageTitle}
+        helpTooltip="Manage cars, bikes, fitness papers, insurance, fuel logs, and maintenance."
+        subtitle={pageSubtitle}
+        sticky={true}
+        className="hidden lg:block"
+        actions={
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              to="/assets/vehicles/dashboard"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition shadow-2xs"
+            >
+              <BarChart3 className="h-3.5 w-3.5 text-amber-600" />
+              <span>Summary</span>
+            </Link>
+            <UiButton
+              variant="primary"
+              size="sm"
+              onClick={handleOpenAddVehicle}
+              icon={<Plus className="h-3.5 w-3.5" />}
+            >
+              Add {activeTab !== "All" ? activeTab : "Vehicle"}
+            </UiButton>
+          </div>
+        }
+      />
+
+      {/* Main Content Area with Page Padding */}
+      <div className="p-3.5 sm:p-5 lg:p-6 space-y-4 pb-28 sm:pb-8">
 
       {/* Mobile 4-Column Metric Strip (lg:hidden) */}
       <div className="grid grid-cols-4 gap-2 lg:hidden">
@@ -835,6 +838,7 @@ export function VehicleEntryPage({
         maxLimit={upgradeModal.maxLimit}
         customMessage={upgradeModal.customMessage}
       />
+      </div>
     </div>
   );
 }

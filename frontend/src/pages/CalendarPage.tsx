@@ -16,6 +16,7 @@ import { listVehicles } from "../services/vehicleService";
 import { getCurrentUserAccess, type CurrentUserAccessResult } from "../services/familyService";
 import { BrandLogoLoader } from "../components/common/LoadingStates";
 import { Tabs, FilterChips } from "../components/common";
+import { UiPageHeader, UiButton } from "../components/design-system";
 import type { CalendarEvent } from "../types";
 
 export type ScheduleCategory =
@@ -231,28 +232,27 @@ export function CalendarPage() {
   }
 
   return (
-    <div className="space-y-4 w-full">
+    <div className="w-full">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3.5">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">
-            Schedule & Deadlines
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Unified chronological schedule for vehicle renewals, task deadlines, and warranty expirations.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
+      <UiPageHeader
+        title="Schedule & Deadlines"
+        helpTooltip="Unified chronological schedule for vehicle renewals, task deadlines, and warranty expirations."
+        subtitle="Unified chronological schedule for vehicle renewals, task deadlines, and warranty expirations."
+        sticky={true}
+        actions={
+          <UiButton
+            variant="outline"
+            size="sm"
             onClick={() => navigate("/my-life/tasks")}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 cursor-pointer"
+            icon={<CheckSquare className="h-3.5 w-3.5" />}
           >
-            <CheckSquare className="h-3.5 w-3.5" /> View Tasks Board
-          </button>
-        </div>
-      </div>
+            View Tasks Board
+          </UiButton>
+        }
+      />
+
+      {/* Main Content Area with Page Padding */}
+      <div className="p-3.5 sm:p-5 lg:p-6 space-y-4">
 
       {/* Filter Toolbar */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between rounded-xl border border-slate-200/90 bg-white p-3 shadow-2xs">
@@ -383,6 +383,7 @@ export function CalendarPage() {
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }

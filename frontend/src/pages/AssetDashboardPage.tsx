@@ -146,7 +146,7 @@ export function AssetDashboardPage({ kind }: { kind: "vehicle" | "property" }) {
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${kind}-report-${start || "all"}-${end || "present"}.csv`; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
-  return <section className="asset-report space-y-5">
+  return <section className="asset-report p-3.5 sm:p-5 lg:p-6 space-y-5">
     <style>{`@media print {
       body:has(.asset-report) aside, body:has(.asset-report) header, body:has(.asset-report) nav { display: none !important; }
       body:has(.asset-report) main { padding: 0 !important; overflow: visible !important; }
