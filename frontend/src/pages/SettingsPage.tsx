@@ -204,13 +204,17 @@ export function SettingsPage() {
     : true;
 
   return (
-    <div className="space-y-4 w-full">
+    <div className="w-full">
       {/* Header */}
       <UiPageHeader
         title="Settings"
         helpTooltip="Configure account preferences, notifications, and WhatsApp gateway"
         subtitle="Configure notifications, WhatsApp automated alerts, and preferences."
+        sticky={true}
       />
+
+      {/* Main Content Area with Page Padding */}
+      <div className="p-3.5 sm:p-5 lg:p-6 space-y-4">
 
       {/* Tabs */}
       <div className="border-b border-slate-200/80">
@@ -637,6 +641,7 @@ export function SettingsPage() {
           <span>Admin Command Console</span>
           <ExternalLink className="h-3.5 w-3.5" />
         </Link>
+      </div>
       </div>
     </div>
   );

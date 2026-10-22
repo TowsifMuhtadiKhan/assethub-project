@@ -1451,9 +1451,144 @@ export function DailyExpensesPage() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* 1. TOP HEADER & ACTIVE MEMBER STATUS                                     */}
-      {/* ========================================================================= */}
+      {/* Desktop Fixed Header (Enterprise Sticky Header, Zero Margin on Top/Left/Right) */}
+      <UiPageHeader
+        title={activeTab === "expenses" ? "Daily Expenses" : "Banking & Financial Obligations"}
+        helpTooltip={
+          activeTab === "expenses"
+            ? "Track daily family expenditures, categorize costs, and view spending patterns."
+            : "Track credit card debts, bank loans, EMIs, and recurring investments."
+        }
+        subtitle={
+          activeTab === "expenses"
+            ? "Track daily family expenditures, categorize costs, and view spending patterns."
+            : "Track credit card debts, bank loans, EMIs, and recurring investments."
+        }
+        sticky={true}
+        className="hidden lg:block"
+        actions={
+          <div className="flex items-center gap-3">
+            {activeMember && (
+              <div className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-full border border-slate-200/70 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("expenses")}
+                  className={`inline-flex items-center gap-1.5 py-1 px-3.5 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
+                    activeTab === "expenses"
+                      ? "bg-white text-slate-900 font-bold shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900 font-medium"
+                  }`}
+                >
+                  <Wallet className="h-3.5 w-3.5 text-emerald-700" />
+                  <span>
+                    <span className="hidden sm:inline">Daily </span>Expenses
+                  </span>
+                  <span
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                      activeTab === "expenses"
+                        ? "bg-emerald-50 text-emerald-800"
+                        : "bg-slate-200/70 text-slate-600"
+                    }`}
+                  >
+                    {memberExpenses.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("banking")}
+                  className={`inline-flex items-center gap-1.5 py-1 px-3.5 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
+                    activeTab === "banking"
+                      ? "bg-white text-slate-900 font-bold shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900 font-medium"
+                  }`}
+                >
+                  <Landmark className="h-3.5 w-3.5 text-emerald-700" />
+                  <span>
+                    Banking<span className="hidden sm:inline"> & Obligations</span>
+                  </span>
+                  <span
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                      activeTab === "banking"
+                        ? "bg-emerald-50 text-emerald-800"
+                        : "bg-slate-200/70 text-slate-600"
+                    }`}
+                  >
+                    {unifiedObligations.length}
+                  </span>
+                </button>
+              </div>
+            )}
+
+            {/* Profile switcher pill */}
+            {activeMember ? (
+              <div className="flex items-center gap-2 bg-white border border-slate-200/80 rounded-full px-2.5 py-1 shadow-2xs">
+                <div className="h-6 w-6 rounded-full bg-emerald-50 border border-emerald-200/80 flex items-center justify-center font-bold text-[11px] uppercase text-[#064e3b]">
+                  {activeMember.fullName.charAt(0)}
+                </div>
+                <div className="text-left flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-slate-800 max-w-[130px] truncate">
+                    {activeMember.fullName}
+                  </span>
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200/60">
+                    <Unlock className="h-2 w-2" />
+                    <span className="hidden xl:inline">Unlocked</span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 pl-1.5 border-l border-slate-200/80">
+                  {!hasMemberPin(activeMember.id, activeMember.fullName) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPinTargetMember(activeMember);
+                        setPinInput("");
+                        setPinConfirmInput("");
+                        setPinError("");
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 px-2 py-0.5 rounded-full transition cursor-pointer"
+                      title="Protect this ledger with a 4-digit PIN"
+                    >
+                      <KeyRound className="h-3 w-3" />
+                      <span>Set PIN</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleLockProfile}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 px-2 py-0.5 rounded-full transition cursor-pointer"
+                    title="Lock and switch profile"
+                  >
+                    <Lock className="h-3 w-3 text-slate-400" />
+                    <span>Switch</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="rounded-full bg-emerald-50 border border-emerald-200/90 px-3 py-1 text-xs text-[#064e3b] font-medium flex items-center gap-1.5 shadow-2xs">
+                  <Lock className="h-3 w-3 text-emerald-600" />
+                  <span>Select profile below to unlock</span>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Action Button */}
+            {activeMember && (
+              <button
+                type="button"
+                onClick={activeTab === "expenses" ? openCreateModal : openAddLoanModal}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:from-[#053d2e] hover:to-[#0a6d4d] active:scale-95 transition cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
+                <span>{activeTab === "expenses" ? "+ Log Expense" : "+ Add Obligation"}</span>
+              </button>
+            )}
+          </div>
+        }
+      />
+
+      {/* Main Content Area with Page Padding */}
+      <div className="p-3.5 sm:p-5 lg:p-6 space-y-4">
       {/* Mobile Top Header Integration via Portal into MobileHeader */}
       {headerPortalEl &&
         activeMember &&
@@ -1596,141 +1731,7 @@ export function DailyExpensesPage() {
           headerPortalEl
         )}
 
-      {/* Desktop Fixed Header (Enterprise Pattern B Chosen by User) */}
-      <UiPageHeader
-        title={activeTab === "expenses" ? "Daily Expenses" : "Banking & Financial Obligations"}
-        helpTooltip={
-          activeTab === "expenses"
-            ? "Track daily family expenditures, categorize costs, and view spending patterns."
-            : "Track credit card debts, bank loans, EMIs, and recurring investments."
-        }
-        subtitle={
-          activeTab === "expenses"
-            ? "Track daily family expenditures, categorize costs, and view spending patterns."
-            : "Track credit card debts, bank loans, EMIs, and recurring investments."
-        }
-        sticky={true}
-        className="hidden lg:block"
-        actions={
-          <div className="flex items-center gap-3">
-            {activeMember && (
-              <div className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-full border border-slate-200/70 shadow-2xs">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("expenses")}
-                  className={`inline-flex items-center gap-1.5 py-1 px-3.5 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
-                    activeTab === "expenses"
-                      ? "bg-white text-slate-900 font-bold shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900 font-medium"
-                  }`}
-                >
-                  <Wallet className="h-3.5 w-3.5 text-emerald-700" />
-                  <span>
-                    <span className="hidden sm:inline">Daily </span>Expenses
-                  </span>
-                  <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
-                      activeTab === "expenses"
-                        ? "bg-emerald-50 text-emerald-800"
-                        : "bg-slate-200/70 text-slate-600"
-                    }`}
-                  >
-                    {memberExpenses.length}
-                  </span>
-                </button>
 
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("banking")}
-                  className={`inline-flex items-center gap-1.5 py-1 px-3.5 rounded-full text-xs transition cursor-pointer whitespace-nowrap ${
-                    activeTab === "banking"
-                      ? "bg-white text-slate-900 font-bold shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900 font-medium"
-                  }`}
-                >
-                  <Landmark className="h-3.5 w-3.5 text-emerald-700" />
-                  <span>
-                    Banking<span className="hidden sm:inline"> & Obligations</span>
-                  </span>
-                  <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
-                      activeTab === "banking"
-                        ? "bg-emerald-50 text-emerald-800"
-                        : "bg-slate-200/70 text-slate-600"
-                    }`}
-                  >
-                    {unifiedObligations.length}
-                  </span>
-                </button>
-              </div>
-            )}
-
-            {/* Profile switcher pill */}
-            {activeMember ? (
-              <div className="flex items-center gap-2 bg-white border border-slate-200/80 rounded-full px-2.5 py-1 shadow-2xs">
-                <div className="h-6 w-6 rounded-full bg-emerald-50 border border-emerald-200/80 flex items-center justify-center font-bold text-[11px] uppercase text-[#064e3b]">
-                  {activeMember.fullName.charAt(0)}
-                </div>
-                <div className="text-left flex items-center gap-1.5">
-                  <span className="text-xs font-semibold text-slate-800 max-w-[130px] truncate">
-                    {activeMember.fullName}
-                  </span>
-                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200/60">
-                    <Unlock className="h-2 w-2" />
-                    <span className="hidden xl:inline">Unlocked</span>
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 pl-1.5 border-l border-slate-200/80">
-                  {!hasMemberPin(activeMember.id, activeMember.fullName) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPinTargetMember(activeMember);
-                        setPinInput("");
-                        setPinConfirmInput("");
-                        setPinError("");
-                      }}
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 px-2 py-0.5 rounded-full transition cursor-pointer"
-                      title="Protect this ledger with a 4-digit PIN"
-                    >
-                      <KeyRound className="h-3 w-3" />
-                      <span>Set PIN</span>
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleLockProfile}
-                    className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 px-2 py-0.5 rounded-full transition cursor-pointer"
-                    title="Lock and switch profile"
-                  >
-                    <Lock className="h-3 w-3 text-slate-400" />
-                    <span>Switch</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="rounded-full bg-emerald-50 border border-emerald-200/90 px-3 py-1 text-xs text-[#064e3b] font-medium flex items-center gap-1.5 shadow-2xs">
-                  <Lock className="h-3 w-3 text-emerald-600" />
-                  <span>Select profile below to unlock</span>
-                </div>
-              </div>
-            )}
-
-            {/* Quick Action Button */}
-            {activeMember && (
-              <button
-                type="button"
-                onClick={activeTab === "expenses" ? openCreateModal : openAddLoanModal}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#064e3b] to-[#0d825c] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:from-[#053d2e] hover:to-[#0a6d4d] active:scale-95 transition cursor-pointer"
-              >
-                <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
-                <span>{activeTab === "expenses" ? "+ Log Expense" : "+ Add Obligation"}</span>
-              </button>
-            )}
-          </div>
-        }
-      />
 
       {/* Mobile Add Obligation Bottom Sheet Popup (rendered at top level so it is visible on mobile) */}
       {showAddObligationDropdown && (
@@ -4992,6 +4993,7 @@ export function DailyExpensesPage() {
           }
         />
       )}
+      </div>
     </div>
   );
 }

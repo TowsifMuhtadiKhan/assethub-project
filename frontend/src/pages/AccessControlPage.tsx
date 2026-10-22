@@ -1123,7 +1123,7 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
   }
 
   return (
-    <div className="space-y-6 w-full text-slate-800">
+    <div className="w-full text-slate-800">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-24 sm:bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold animate-in fade-in slide-in-from-bottom-2 duration-200">
@@ -1168,6 +1168,9 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
           }
         />
       )}
+
+      {/* Main Content Area with Page Padding */}
+      <div className="p-3.5 sm:p-5 lg:p-6 space-y-6">
 
       {/* Tabs & Search Bar */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
@@ -4130,6 +4133,7 @@ export function AccessControlPage({ embedMode = false }: AccessControlPageProps 
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

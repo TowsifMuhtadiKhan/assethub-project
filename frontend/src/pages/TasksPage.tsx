@@ -858,7 +858,7 @@ export function TasksPage() {
   }
 
   return (
-    <div className="space-y-4 w-full">
+    <div className="w-full">
       {/* Mobile Top Header Integration via Portal into MobileHeader */}
       {headerPortalEl &&
         canCreate &&
@@ -896,6 +896,9 @@ export function TasksPage() {
           ) : null
         }
       />
+
+      {/* Main Content Area with Page Padding */}
+      <div className="p-3.5 sm:p-5 lg:p-6 space-y-4">
 
       {error && !error.toLowerCase().includes("could not find the table") && !error.includes("PGRST205") && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
@@ -2516,6 +2519,7 @@ export function TasksPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
