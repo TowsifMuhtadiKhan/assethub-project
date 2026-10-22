@@ -161,8 +161,8 @@ export function AppLayout() {
       />
 
       {/* Body Area with Left Sidebar and Main Content */}
-      <div className="flex flex-1 w-full relative">
-        {/* Sidebar Component (collapsible on desktop, full viewport height) */}
+      <div className="flex flex-1 w-full min-h-screen">
+        {/* Sidebar Component (collapsible on desktop, full viewport height, sticky in-flow) */}
         <Sidebar
           isCollapsed={sidebarCollapsed}
           onToggleCollapse={toggleSidebarCollapse}
@@ -175,12 +175,8 @@ export function AppLayout() {
           isSigningOut={isSigningOut}
         />
 
-        {/* Main Content Area (dynamic margin according to sidebar state) */}
-        <div
-          className={`ml-0 flex min-w-0 flex-1 flex-col transition-all duration-300 ease-in-out w-full ${
-            sidebarCollapsed ? "lg:ml-[72px]" : "lg:ml-64"
-          }`}
-        >
+        {/* Main Content Area (natural in-flow flex-1, zero margin-left hacks, zero overflow) */}
+        <div className="flex-1 min-w-0 flex flex-col transition-all duration-300 ease-in-out">
           {/* Main Full-Width Content Container with zero padding for full-bleed headers and mobile bottom nav spacing */}
           <main className="flex-1 bg-[#f6faf7] w-full pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] lg:pb-6 flex flex-col">
             <Outlet />

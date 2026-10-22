@@ -509,9 +509,9 @@ export function Sidebar({
 
   return (
     <>
-      {/* DESKTOP SIDEBAR (>= lg screens only) - Pinned from top:0 to bottom */}
+      {/* DESKTOP SIDEBAR (>= lg screens only) - Sticky in-flow from top:0 to bottom */}
       <aside
-        className={`hidden lg:fixed lg:left-0 lg:top-0 lg:flex lg:flex-col lg:h-screen lg:h-dvh transition-all duration-300 ease-in-out border-r border-[#043e30] bg-[#064e3b] text-emerald-100 z-30 select-none ${
+        className={`hidden lg:sticky lg:top-0 lg:flex lg:flex-col lg:h-screen lg:h-dvh shrink-0 transition-all duration-300 ease-in-out border-r border-[#043e30] bg-[#064e3b] text-emerald-100 z-30 select-none ${
           isCollapsed ? "w-[72px]" : "w-64"
         }`}
         aria-label="Desktop Navigation"
