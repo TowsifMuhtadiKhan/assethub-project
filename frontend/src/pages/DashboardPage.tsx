@@ -152,7 +152,7 @@ export function DashboardPage() {
     }
   };
 
-  const pendingTasks = tasks.filter((t) => t.status !== "Completed");
+  const pendingTasks = tasks.filter((t) => t.status !== "Completed" && t.status !== "Cancelled");
   const expiringDocs = documents.filter((d) => {
     if (!d.expiryDate) return false;
     const days = (new Date(d.expiryDate).getTime() - Date.now()) / (1000 * 3600 * 24);
@@ -180,7 +180,7 @@ export function DashboardPage() {
 
     // 1. Pending Tasks with due dates
     tasks.forEach((t) => {
-      if (t.dueDate && t.status !== "Completed") {
+      if (t.dueDate && t.status !== "Completed" && t.status !== "Cancelled") {
         evs.push({
           id: `task-${t.id}`,
           title: t.title,

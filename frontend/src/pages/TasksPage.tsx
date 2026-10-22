@@ -139,8 +139,15 @@ function getPriorityBadgeStyle(priority: TaskPriority) {
 }
 
 // Due date urgency helper
-function getDueDateStyle(dueDateStr?: string) {
+function getDueDateStyle(dueDateStr?: string, isDoneOrCancelled?: boolean) {
   if (!dueDateStr) return null;
+  if (isDoneOrCancelled) {
+    return {
+      label: dueDateStr,
+      className: "text-slate-400 font-mono text-[11px]",
+      isUrgent: false,
+    };
+  }
   const target = new Date(dueDateStr);
   const now = new Date();
   const targetMidnight = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
@@ -2554,9 +2561,9 @@ function TaskCard({
   onDragEnd,
   isDragging,
 }: TaskCardProps) {
-  const dueMeta = getDueDateStyle(task.dueDate);
   const isDone = task.status === "Completed";
   const isCancelled = task.status === "Cancelled";
+  const dueMeta = getDueDateStyle(task.dueDate, isDone || isCancelled);
   const cancelledCountdown = isCancelled ? getCancelledCountdown(task) : null;
 
   return (
@@ -2570,6 +2577,8 @@ function TaskCard({
           ? "opacity-40 border-dashed border-blue-400 scale-[0.98]"
           : isCancelled
           ? "border-rose-200/90 bg-rose-50/20 border-l-4 border-l-rose-400"
+          : isDone
+          ? "border-emerald-200/80 bg-emerald-50/10 border-l-4 border-l-emerald-400"
           : `border-slate-200/90 hover:border-slate-300 ${getPriorityCardBorder(task.priority)}`
       }`}
     >
@@ -2658,7 +2667,13 @@ function TaskCard({
           {dueMeta ? (
             <span className={`inline-flex items-center gap-1.5 text-[11px] ${dueMeta.className}`}>
               <span className="inline-flex items-center gap-1">
-                <Calendar className="h-3 w-3 shrink-0" />
+                {isDone ? (
+                  <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                ) : isCancelled ? (
+                  <XCircle className="h-3 w-3 text-rose-400 shrink-0" />
+                ) : (
+                  <Calendar className="h-3 w-3 shrink-0" />
+                )}
                 <span>{dueMeta.label}</span>
               </span>
               {task.dueTime && (

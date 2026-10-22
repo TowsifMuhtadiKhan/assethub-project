@@ -69,9 +69,9 @@ export function CalendarPage() {
 
       const evs: CalendarEvent[] = [];
 
-      // 1. Issues & Tasks
+      // 1. Issues & Tasks (Only active / pending)
       tasks.forEach((t) => {
-        if (t.dueDate) {
+        if (t.dueDate && t.status !== "Completed" && t.status !== "Cancelled") {
           evs.push({
             id: `task-${t.id}`,
             title: t.title,
