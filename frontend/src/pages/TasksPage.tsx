@@ -2569,57 +2569,56 @@ function TaskCard({
           : `border-slate-200/90 hover:border-slate-300 ${getPriorityCardBorder(task.priority)}`
       }`}
     >
-      {/* Top Row: Countdown (if cancelled) + Edit/Delete hover buttons */}
-      <div className="flex items-center justify-between gap-1">
-        <div>
-          {cancelledCountdown && (
+      {/* Top Header: Title on the left, Hover Actions on the right (Zero empty space) */}
+      <div>
+        {cancelledCountdown && (
+          <div className="mb-1.5">
             <span
-              className="rounded-full bg-rose-100 text-rose-700 px-2 py-0.5 text-[10px] font-bold border border-rose-200 flex items-center gap-1"
+              className="inline-flex rounded-full bg-rose-100 text-rose-700 px-2 py-0.5 text-[10px] font-bold border border-rose-200 items-center gap-1"
               title="This task will be automatically deleted when timer expires"
             >
               <Clock className="h-2.5 w-2.5 text-rose-600" />
               {cancelledCountdown}
             </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1 ml-auto">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect?.(task);
-            }}
-            className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-emerald-700 p-0.5 rounded transition cursor-pointer"
-            title="Edit task details"
+          </div>
+        )}
+        <div className="flex items-start justify-between gap-2">
+          <h3
+            className={`text-xs font-bold leading-snug flex-1 ${
+              isDone || isCancelled ? "text-slate-400 line-through" : "text-slate-900"
+            }`}
           >
-            <Edit2 className="h-3 w-3" />
-          </button>
-          {onDelete && (
+            {task.title}
+          </h3>
+
+          <div className="flex items-center gap-1 shrink-0 -mt-0.5">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onDelete(task.id);
+                onSelect?.(task);
               }}
-              className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-600 p-0.5 rounded transition cursor-pointer"
-              title="Delete task immediately"
+              className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-emerald-700 p-0.5 rounded transition cursor-pointer"
+              title="Edit task details"
             >
-              <Trash2 className="h-3 w-3" />
+              <Edit2 className="h-3 w-3" />
             </button>
-          )}
+            {onDelete && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(task.id);
+                }}
+                className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-600 p-0.5 rounded transition cursor-pointer"
+                title="Delete task immediately"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Title & Description */}
-      <div>
-        <h3
-          className={`text-xs font-bold leading-snug ${
-            isDone || isCancelled ? "text-slate-400 line-through" : "text-slate-900"
-          }`}
-        >
-          {task.title}
-        </h3>
         {task.description && (
           <p className="mt-1 text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
             {task.description}
