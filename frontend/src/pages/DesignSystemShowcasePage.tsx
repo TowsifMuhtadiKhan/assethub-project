@@ -238,7 +238,7 @@ export function DesignSystemShowcasePage() {
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
             <span>
-              <strong>Active Global Pattern:</strong> Top Header with pure white background, left sidebar chevron border, Title + circular tooltip (<code className="font-mono text-[11px] bg-white px-1 py-0.5 rounded border border-emerald-200">?</code>), subtitle, and orange Edit button (<code className="font-mono text-[11px] bg-white px-1 py-0.5 rounded border border-emerald-200">#ff6422</code>).
+              <strong>Active Global Pattern:</strong> Top Header with pure white background, left sidebar chevron border, Title + circular tooltip (<code className="font-mono text-[11px] bg-white px-1 py-0.5 rounded border border-emerald-200">?</code>), subtitle, and brand emerald action button (<code className="font-mono text-[11px] bg-white px-1 py-0.5 rounded border border-emerald-200">#064e3b</code>).
             </span>
           </div>
           <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-800 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs">

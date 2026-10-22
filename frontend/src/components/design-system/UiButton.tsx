@@ -35,7 +35,7 @@ export function UiButton({
 
   const variantStyles: Record<ButtonVariant, string> = {
     primary:
-      "bg-[#ff6422] hover:bg-[#ea5518] text-white shadow-2xs focus:ring-2 focus:ring-[#ff6422]/30 active:scale-[0.99]",
+      "bg-gradient-to-r from-[#064e3b] to-[#0d825c] hover:from-[#053d2e] hover:to-[#0a6d4d] text-white shadow-2xs focus:ring-2 focus:ring-emerald-700/30 active:scale-[0.99]",
     secondary:
       "bg-slate-900 hover:bg-slate-800 text-white shadow-2xs focus:ring-2 focus:ring-slate-900/30",
     outline:
